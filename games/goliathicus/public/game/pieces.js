@@ -10,7 +10,7 @@
   const PIECES = {
     oeuf: { id: "oeuf", name: "Œuf de Dragon", short: "Œuf", icon: "🥚", rank: 0, cost: 0, mobile: false, max: 1, desc: "Ta cible à protéger. Si un ennemi le croque, tu es éliminé." },
     tarte: { id: "tarte", name: "Tarte Piégée", short: "Tarte", icon: "🥧", rank: 99, cost: 3, mobile: false, bomb: true, max: 6, desc: "Immobile. Fait exploser tout ce qui l'attaque, sauf le Nain Démineur." },
-    rat: { id: "rat", name: "Rat Espion", short: "Rat", icon: "🐀", rank: 1, cost: 4, mobile: true, max: 2, desc: "Le plus faible. Mais s'il ATTAQUE le Roi, il le terrasse par surprise." },
+    rat: { id: "rat", name: "Rat Espion", short: "Rat", icon: "🐀", rank: 1, cost: 4, mobile: true, max: 2, desc: "Le plus faible. Mais il terrasse le Roi, qu'il l'attaque ou qu'il se fasse attaquer par lui." },
     lutin: { id: "lutin", name: "Lutin Éclaireur", short: "Lutin", icon: "🧚", rank: 2, cost: 3, mobile: true, long: true, max: 8, desc: "Se déplace d'autant de cases libres qu'il veut en ligne droite, et peut attaquer au bout." },
     nain: { id: "nain", name: "Nain Démineur", short: "Nain", icon: "⛏️", rank: 3, cost: 4, mobile: true, miner: true, max: 6, desc: "Désamorce les tartes piégées sans dégâts." },
     garde: { id: "garde", name: "Garde Royal", short: "Garde", icon: "💂", rank: 4, cost: 4, mobile: true, max: 6, desc: "Le soldat de base, solide et fiable." },
@@ -19,7 +19,7 @@
     troll: { id: "troll", name: "Troll", short: "Troll", icon: "👹", rank: 7, cost: 8, mobile: true, max: 4, desc: "Énorme, brutal, difficile à arrêter." },
     sorcier: { id: "sorcier", name: "Sorcier", short: "Sorcier", icon: "🧙", rank: 8, cost: 10, mobile: true, max: 3, desc: "Ses sorts écrasent presque tout le monde." },
     dragon: { id: "dragon", name: "Dragon", short: "Dragon", icon: "🐲", rank: 9, cost: 14, mobile: true, max: 2, desc: "Seul le Roi le dépasse." },
-    roi: { id: "roi", name: "Roi", short: "Roi", icon: "👑", rank: 10, cost: 18, mobile: true, max: 1, desc: "Le plus fort de tous. Attention au Rat Espion qui l'attaque." },
+    roi: { id: "roi", name: "Roi", short: "Roi", icon: "👑", rank: 10, cost: 18, mobile: true, max: 1, desc: "Le plus fort de tous. Seul le Rat Espion peut le terrasser, même quand c'est le Roi qui attaque." },
     fantome: { id: "fantome", name: "Fantôme", short: "Fantôme", icon: "👻", rank: 5, cost: 6, mobile: true, ghost: true, special: true, max: 3, desc: "Peut sauter par-dessus un obstacle (lac, ruine) juste devant lui." },
   };
 
@@ -90,13 +90,17 @@
     const size = armySizeFor(settings.boardSize);
     let counts;
     const presets = ARMIES[size];
-    if (settings.armyPreset === "custom" && settings.customArmy) {
-      counts = sanitizeCustom(settings.customArmy, settings, size);
-    } else {
+    {
       let p = presets[settings.armyPreset] || presets.standard;
       if (p.special && !settings.specialPieces) p = presets.standard;
       counts = cloneCounts(p.counts);
     }
+    return finalizeCounts(counts, settings);
+  }
+
+  // Adapte une composition au mode de jeu (pas d'œuf en chasse au roi).
+  function finalizeCounts(counts, settings) {
+    counts = cloneCounts(counts);
     if (settings.mode === "kinghunt") {
       // Pas d'œuf : le roi est la cible. On le remplace par un garde.
       if (counts.oeuf) { counts.garde = (counts.garde || 0) + counts.oeuf; delete counts.oeuf; }
@@ -147,5 +151,5 @@
     return out;
   }
 
-  return { PIECES, ORDER, HOUSES, ARMIES, CHAOS_EVENTS, armySizeFor, countsCost, countsTotal, resolveArmy, sanitizeCustom };
+  return { PIECES, ORDER, HOUSES, ARMIES, CHAOS_EVENTS, armySizeFor, countsCost, countsTotal, resolveArmy, finalizeCounts, sanitizeCustom };
 });

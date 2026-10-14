@@ -29,6 +29,7 @@
     isHostFn = hostFn || isHostFn;
     Board.init({ onCell: onCell, onHover: onHover });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") { cancelAll(); renderAll(); } });
+    $("#duel-banner").addEventListener("click", () => $("#duel-banner").classList.add("hidden"));
     $("#btn-end-view").addEventListener("click", () => { endDismissed = true; $("#end-overlay").classList.add("hidden"); renderAll(); });
     $("#btn-end-lobby").addEventListener("click", () => socket.emit("room:backToLobby"));
     $("#btn-end-quit").addEventListener("click", () => window.App.leaveRoom());
@@ -42,6 +43,8 @@
     $("#end-overlay").classList.add("hidden");
     $("#duel-banner").classList.add("hidden");
     $("#chaos-banner").classList.add("hidden");
+    $("#compose-overlay").classList.add("hidden");
+    clearTimeout(bannerTimer);
   }
 
   const me = () => (st ? st.players[st.you] : null);
@@ -123,7 +126,9 @@
     const dName = d.type ? PIECES[d.type].name : "Pièce cachée";
     const aName = PIECES[a.type].name;
     const slow = st.settings.slowMode ? 1.7 : 1;
+    const keep = Number(st.settings.duelTime);
     b.innerHTML = `
+      <div class="duel__kicker">⚔️ Dernier combat</div>
       <div class="duel__side">${tokenHtml(a.owner, a.type)}<b>${esc(aName)}</b><small>${esc(nameA)}</small></div>
       <div class="duel__vs">⚔️</div>
       <div class="duel__side">${tokenHtml(d.owner, d.type, !d.type)}<b>${esc(dName)}</b><small>${esc(nameD)}</small></div>
@@ -132,7 +137,8 @@
     void b.offsetWidth;
     b.classList.add("duel--show");
     clearTimeout(bannerTimer);
-    bannerTimer = setTimeout(() => b.classList.add("hidden"), 2600 * slow);
+    // 0 = le cadre reste jusqu'au prochain combat
+    if (keep > 0) bannerTimer = setTimeout(() => b.classList.add("hidden"), keep * 1000 * (slow > 1 ? 1.4 : 1));
   }
 
   function showChaos(ev) {
@@ -178,7 +184,7 @@
   function onSetupClick(r, c) {
     const cells = st.mySetupCells || [];
     const inArm = cells.some(([a, b]) => a === r && b === c);
-    if (me().ready) { UI.toast("Tu es prêt : clique sur « Pas prêt » pour modifier.", "info"); return; }
+    if (me().ready) { UI.toast("Tu es prêt. Clique sur « Pas prêt » pour modifier.", "info"); return; }
     if (!inArm) { setupSelected = null; renderAll(); return; }
     if (setupSelected) {
       if (setupSelected[0] === r && setupSelected[1] === c) { setupSelected = null; }
@@ -229,6 +235,19 @@
     renderInfo();
     renderGrave();
     renderLog();
+    renderCompose();
+  }
+
+  // Dernier déplacement ou combat de chaque joueur (affiché dans la couleur de sa maison)
+  function computeLastMoves() {
+    const by = {};
+    st.events.forEach((ev) => {
+      if (ev.kind === "move") by[ev.owner] = { seat: ev.owner, from: ev.from, to: ev.to, seq: ev.seq };
+      else if (ev.kind === "combat" && ev.attacker && ev.defender) by[ev.attacker.owner] = { seat: ev.attacker.owner, from: ev.attacker.from, to: ev.defender.at, seq: ev.seq };
+    });
+    const arr = Object.keys(by).map((k) => by[k]).sort((a, b) => a.seq - b.seq);
+    if (arr.length) arr[arr.length - 1].latest = true;
+    return arr;
   }
 
   function renderBoard() {
@@ -250,7 +269,7 @@
       });
       power.picks.forEach((id) => pickedIds.add(id));
     }
-    Board.render({ state: st, selectedId, marks, lastCells, setupSelected, targetIds, pickedIds });
+    Board.render({ state: st, selectedId, marks, lastMoves: computeLastMoves(), setupSelected, targetIds, pickedIds });
   }
 
   function renderTop() {
@@ -259,14 +278,16 @@
     const h = HOUSES[cur.house % HOUSES.length];
     banner.style.setProperty("--hc", h.color); banner.style.setProperty("--hd", h.dark);
     banner.classList.toggle("is-me", isMyTurn());
-    if (st.phase === "setup") banner.innerHTML = `📐 <b>Placement des armées</b>`;
+    if (st.phase === "compose") banner.innerHTML = `🛠️ <b>Composition des armées</b>`;
+    else if (st.phase === "setup") banner.innerHTML = `📐 <b>Placement des armées</b>`;
     else if (st.phase === "finished") banner.innerHTML = `🏁 <b>Partie terminée</b>`;
     else if (isMyTurn()) banner.innerHTML = `${h.icon} <b>À toi de jouer !</b>${st.players[st.you].bonus ? " (+1 coup bonus)" : ""}`;
     else banner.innerHTML = `${h.icon} Tour de <b>${esc(cur.name)}</b>${cur.isAI ? " 🤖" : ""}`;
     $("#round-num").textContent = st.round;
     $("#btn-sound").textContent = UI.Sound.enabled ? "🔊" : "🔇";
     let hint = "";
-    if (st.phase === "setup") hint = me().ready ? "Tu es prêt. En attente des autres joueurs…" : "Clique sur une pièce de ton camp, puis sur une autre case de ton camp pour les échanger.";
+    if (st.phase === "compose") hint = me().ready ? "Armée validée. En attente des autres joueurs…" : "Compose ton armée avec le budget indiqué, sans limite de temps.";
+    else if (st.phase === "setup") hint = me().ready ? "Tu es prêt. En attente des autres joueurs…" : "Clique sur une pièce de ton camp, puis sur une autre case de ton camp pour les échanger.";
     else if (st.phase === "playing") {
       if (power) hint = houseOf(st.you).power.targets === "ownPair" ? `Pouvoir ${houseOf(st.you).power.name} — choisis deux de tes pièces (${power.picks.length}/2). Échap pour annuler.` : `Pouvoir ${houseOf(st.you).power.name} — clique sur une pièce ennemie. Échap pour annuler.`;
       else if (isMyTurn()) hint = selectedId ? "Clique sur une case éclairée pour jouer." : "Choisis une de tes pièces pour la déplacer.";
@@ -309,6 +330,11 @@
     panel.innerHTML = "";
     const m = me();
     const h = houseOf(st.you);
+    if (st.phase === "compose") {
+      panel.appendChild(el("h3", { class: "h-sub", text: "🛠️ Composition en cours" }));
+      panel.appendChild(el("p", { class: "muted small", text: m.ready ? "Ton armée est validée. Tu peux encore la modifier tant que les autres n'ont pas fini." : "Choisis les pièces de ton armée dans la fenêtre qui s'affiche." }));
+      return;
+    }
     if (st.phase === "setup") {
       panel.appendChild(el("h3", { class: "h-sub", text: "📐 Place ton armée" }));
       panel.appendChild(el("p", { class: "muted small", text: "Cache ton Œuf de Dragon dans le fond de ton camp, entoure-le de tartes piégées, et garde tes grosses pièces à l'abri... ou pas !" }));
@@ -386,7 +412,7 @@
       const d = PIECES[p.type];
       box.innerHTML = `<div class="pinfo"><div class="pinfo__tok">${tokenHtml(p.owner, p.type)}</div><div><b>${esc(d.name)}</b>
         <div class="muted small">${d.bomb ? "Piège immobile" : d.id === "oeuf" ? "Cible à protéger" : "Force " + d.rank}${d.mobile ? "" : " · immobile"} · ${esc(st.players[p.owner].name)}</div>
-        <p class="small">${esc(d.desc)}</p>${p.frozen > 0 ? '<p class="small">💤 Endormie (' + p.frozen + ' tour' + (p.frozen > 1 ? "s" : "") + ')</p>' : ""}${p.secret ? '<p class="small">👁️ Dévoilée par ta Longue-vue.</p>' : ""}</div></div>`;
+        <p class="small">${esc(d.desc)}</p>${p.frozen > 0 ? '<p class="small">💤 Endormie (' + p.frozen + ' tour' + (p.frozen > 1 ? "s" : "") + ')</p>' : ""}${p.secret ? '<p class="small">👁️ Dévoilée par ton Œil d&#39;aigle.</p>' : ""}</div></div>`;
     } else {
       box.innerHTML = `<div class="pinfo"><div class="pinfo__tok">${tokenHtml(p.owner, null, true)}</div><div><b>Pièce mystère</b>
         <div class="muted small">${esc(h.short)} · ${esc(st.players[p.owner].name)}</div>
@@ -403,16 +429,76 @@
       if (!dead.length) return;
       const h = HOUSES[pl.house % HOUSES.length];
       const row = el("div", { class: "grave-row", style: { "--hc": h.color } }, [el("span", { class: "grave-row__who", text: h.icon })]);
-      dead.sort((a, b) => PIECES[b.type].rank - PIECES[a.type].rank).forEach((g) => row.appendChild(el("span", { class: "grave", title: PIECES[g.type].name, text: PIECES[g.type].icon })));
+      dead.sort((a, b) => (b.type ? PIECES[b.type].rank : -1) - (a.type ? PIECES[a.type].rank : -1)).forEach((g) => row.appendChild(el("span", { class: "grave", title: g.type ? PIECES[g.type].name : "Pièce cachée", text: g.type ? PIECES[g.type].icon : "❔" })));
       box.appendChild(row);
     });
   }
 
   function renderLog() {
+    const card = $("#log-card");
+    if (card) card.classList.toggle("hidden", !st.settings.showLog);
+    if (!st.settings.showLog) return;
     const ol = $("#log-list");
     const keep = st.events.filter((e) => e.text && !["move", "turn"].includes(e.kind)).slice(-40).reverse();
     ol.innerHTML = "";
     keep.forEach((e) => ol.appendChild(el("li", { class: "log__item log__item--" + e.kind, text: e.text })));
+  }
+
+  // ---------- composition sur mesure ----------
+  function renderCompose() {
+    const ov = $("#compose-overlay");
+    const show = st.phase === "compose" && !me().eliminated && !!st.compose;
+    ov.classList.toggle("hidden", !show);
+    if (!show) return;
+    const c = st.compose;
+    const ready = me().ready;
+    const counts = c.mine || {};
+    const room = c.size - 1;
+    let total = 0, cost = 0;
+    ORDER.forEach((id) => { if (id !== "oeuf") { total += counts[id] || 0; cost += (counts[id] || 0) * PIECES[id].cost; } });
+    $("#compose-sub").textContent = "Tout le monde a le même budget. Il n'y a pas de limite de temps. L'Œuf de Dragon est ajouté automatiquement et le Roi est toujours présent.";
+    const meters = $("#compose-meters"); meters.innerHTML = "";
+    meters.appendChild(el("div", { class: "meter" + (total > room ? " meter--bad" : "") }, [el("span", { text: "Pièces " + total + " sur " + room }), el("div", { class: "meter__bar" }, [el("i", { style: { width: Math.min(100, (total / room) * 100) + "%" } })])]));
+    meters.appendChild(el("div", { class: "meter" + (cost > c.budget ? " meter--bad" : "") }, [el("span", { text: "Budget " + cost + " sur " + c.budget }), el("div", { class: "meter__bar" }, [el("i", { style: { width: Math.min(100, (cost / c.budget) * 100) + "%" } })])]));
+    const presets = $("#compose-presets"); presets.innerHTML = "";
+    if (!ready) {
+      presets.appendChild(el("span", { class: "muted small", text: "Partir d'un modèle" }));
+      const list = GoliathPieces.ARMIES[c.size] || {};
+      Object.keys(list).forEach((k) => {
+        if (list[k].special && !st.settings.specialPieces) return;
+        presets.appendChild(el("button", { class: "btn btn--small btn--plum", title: list[k].desc, onclick: () => socket.emit("game:composePreset", { preset: k }), text: list[k].icon + " " + list[k].name }));
+      });
+    }
+    const grid = $("#compose-grid"); grid.innerHTML = "";
+    ORDER.forEach((id) => {
+      if (id === "oeuf") return;
+      const d = PIECES[id];
+      if (d.special && !st.settings.specialPieces) return;
+      const n = counts[id] || 0;
+      const canPlus = !ready && n < d.max && total < room && cost + d.cost <= c.budget && id !== "roi";
+      const canMinus = !ready && n > 0 && id !== "roi";
+      const set = (delta) => { const next = Object.assign({}, counts); delete next.oeuf; next[id] = n + delta; socket.emit("game:compose", { counts: next }); };
+      grid.appendChild(el("div", { class: "army-row", title: d.desc }, [
+        el("span", { class: "army-row__ico", text: d.icon }),
+        el("span", { class: "army-row__name", text: d.short }),
+        el("small", { class: "army-row__cost", text: (d.mobile ? "Force " + d.rank + " · " : "") + d.cost + " pts" }),
+        el("div", { class: "stepper" }, [
+          el("button", { class: "mini-btn", text: "−", disabled: canMinus ? null : "", onclick: () => set(-1) }),
+          el("b", { text: String(n) }),
+          el("button", { class: "mini-btn", text: "+", disabled: canPlus ? null : "", onclick: () => set(1) }),
+        ]),
+      ]));
+    });
+    const status = $("#compose-status");
+    status.innerHTML = "";
+    st.players.forEach((p) => {
+      const h = HOUSES[p.house % HOUSES.length];
+      status.appendChild(el("span", { class: "comp-chip", text: h.icon + " " + p.name + (p.ready ? " ✅" : " ⏳") }));
+    });
+    const btn = $("#btn-compose-ready");
+    btn.textContent = ready ? "↩ Modifier mon armée" : "✅ Valider mon armée";
+    btn.className = "btn btn--big " + (ready ? "btn--plum" : "btn--gold");
+    btn.onclick = () => socket.emit("game:composeReady", { ready: !ready });
   }
 
   // ---------- minuteur ----------

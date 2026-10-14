@@ -149,7 +149,7 @@
             <h3 class="h-sub">⚰️ Cimetière</h3>
             <div id="graveyard" class="graveyard__list"></div>
           </div>
-          <div class="log card">
+          <div id="log-card" class="log card hidden">
             <h3 class="h-sub">📜 Chronique</h3>
             <ol id="log-list" class="log__list"></ol>
           </div>
@@ -179,6 +179,21 @@
         <button id="btn-end-quit" class="btn btn--plum">🚪 Quitter</button>
       </div>
       <p id="end-wait" class="muted small hidden">En attente de l'hôte pour rejouer…</p>
+    </div>
+  </div>
+
+  <!-- ===================== COMPOSITION SUR MESURE ===================== -->
+  <div id="compose-overlay" class="overlay hidden">
+    <div class="compose card">
+      <h2 class="compose__title">🛠️ Compose ton armée</h2>
+      <p id="compose-sub" class="muted small"></p>
+      <div id="compose-meters" class="army-editor__meters"></div>
+      <div id="compose-presets" class="btn-row"></div>
+      <div id="compose-grid" class="army-editor__grid"></div>
+      <div id="compose-status" class="compose__status"></div>
+      <div class="compose__btns">
+        <button id="btn-compose-ready" class="btn btn--gold btn--big">✅ Valider mon armée</button>
+      </div>
     </div>
   </div>
 

@@ -336,7 +336,7 @@
       return FAMILY_LIB.tollAmount(value, this.salary);
     }
 
-    // Banque centrale : 15 % des salaires des autres joueurs vont à son propriétaire.
+    // Banque centrale : 10 % des salaires des autres joueurs vont à son propriétaire.
     _applyCentralBankCut(recipient, salaryAmount) {
       const idx = this.board.findIndex((t) => t.family === "centralbank" && t.owner !== null && t.owner !== undefined && !t.mortgaged);
       if (idx < 0) return;
@@ -900,19 +900,19 @@
       player.stats.housesBuilt += 1;
       const label = tile.houses === 5 ? "un hôtel" : `${tile.houses} maison(s)`;
       this.addLog(`${player.name} construit sur ${tile.name} (${label}) pour ${check.cost}.`);
-      this._payUniversityBonuses();
+      this._payUniversityBonuses(playerId);
       return { ok: true };
     }
 
     // Les universités rapportent un bonus de la banque à leur propriétaire
     // chaque fois que quelqu'un construit une maison ou un hôtel.
-    _payUniversityBonuses() {
+    _payUniversityBonuses(builderId) {
       const bonus = (FAMILY_LIB.FAMILIES.university || {}).builderBonus || 0;
       if (!bonus) return;
       this.board.forEach((t) => {
         if (t.family !== "university" || t.owner === null || t.owner === undefined || t.mortgaged) return;
         const owner = this.players[t.owner];
-        if (!owner || owner.bankrupt) return;
+        if (!owner || owner.bankrupt || owner.id === builderId) return;
         this.pay(null, owner, bonus);
         this.addLog(`🎓 ${t.name} rapporte ${bonus} à ${owner.name} (une construction vient d'avoir lieu).`);
       });

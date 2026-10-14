@@ -132,7 +132,6 @@
     if (rule.type === "legend") {
       return el("div", { class: "rule-legend", text: rule.info });
     }
-    if (rule.type === "armyEditor") return renderArmyEditor(s, host);
     if (rule.type === "bool") {
       const why = unmet(rule, s, n);
       const on = !!s[rule.id] && !why;
@@ -177,49 +176,6 @@
     }
     if (rule.info) wrap.appendChild(el("p", { class: "rule__info", text: rule.info }));
     return wrap;
-  }
-
-  function renderArmyEditor(s, host) {
-    const size = GoliathPieces.armySizeFor(s.boardSize);
-    const base = s.customArmy || ARMIES[size].standard.counts;
-    const counts = {};
-    ORDER.forEach((id) => { counts[id] = id === "oeuf" ? 1 : (base[id] || 0); });
-    const total = ORDER.reduce((t, id) => t + (id === "oeuf" ? 0 : counts[id]), 0);
-    const cost = ORDER.reduce((t, id) => t + (id === "oeuf" ? 0 : counts[id] * PIECES[id].cost), 0);
-    const room1 = size - 1;
-    const budget = s.armyBudget;
-    const box = el("div", { class: "army-editor" });
-    box.appendChild(el("div", { class: "army-editor__meters" }, [
-      el("div", { class: "meter" + (total > room1 ? " meter--bad" : "") }, [el("span", { text: "Pièces " + total + " / " + room1 + " (+ l'Œuf)" }), el("div", { class: "meter__bar" }, [el("i", { style: { width: Math.min(100, (total / room1) * 100) + "%" } })])]),
-      el("div", { class: "meter" + (cost > budget ? " meter--bad" : "") }, [el("span", { text: "Budget " + cost + " / " + budget }), el("div", { class: "meter__bar" }, [el("i", { style: { width: Math.min(100, (cost / budget) * 100) + "%" } })])]),
-    ]));
-    const grid = el("div", { class: "army-editor__grid" });
-    ORDER.forEach((id) => {
-      if (id === "oeuf") return;
-      const d = PIECES[id];
-      if (d.special && !s.specialPieces) return;
-      const n = counts[id];
-      const canPlus = !!host && n < d.max && total < room1 && cost + d.cost <= budget && id !== "roi";
-      const canMinus = !!host && n > 0 && id !== "roi";
-      const set = (delta) => {
-        const next = Object.assign({}, counts); delete next.oeuf;
-        next[id] = n + delta;
-        changeSetting("customArmy", next);
-      };
-      grid.appendChild(el("div", { class: "army-row", title: d.desc }, [
-        el("span", { class: "army-row__ico", text: d.icon }),
-        el("span", { class: "army-row__name", text: d.short }),
-        el("small", { class: "army-row__cost", text: (d.mobile ? "F" + d.rank + " · " : "") + d.cost + " pts" }),
-        el("div", { class: "stepper" }, [
-          el("button", { class: "mini-btn", text: "−", disabled: canMinus ? null : "", onclick: () => set(-1) }),
-          el("b", { text: String(n) }),
-          el("button", { class: "mini-btn", text: "+", disabled: canPlus ? null : "", onclick: () => set(1) }),
-        ]),
-      ]));
-    });
-    box.appendChild(grid);
-    box.appendChild(el("p", { class: "rule__info", text: "Le Roi est toujours présent en un exemplaire, et l'Œuf de Dragon est ajouté automatiquement. Si la composition dépasse le budget, elle est réduite au lancement." }));
-    return box;
   }
 
   function renderSettings() {

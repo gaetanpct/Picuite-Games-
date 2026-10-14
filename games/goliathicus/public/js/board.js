@@ -255,7 +255,15 @@
       }
     }
     // dernier coup
-    if (view.lastCells) view.lastCells.forEach((x, i) => { const v = vt.map(x.r, x.c); mark(layer, v.r, v.c, i === 0 ? "mark--last-from" : "mark--last-to"); });
+    (view.lastMoves || []).forEach((m) => {
+      const h = HOUSES[state.players[m.seat].house % HOUSES.length];
+      [m.from, m.to].forEach((x, i) => {
+        const v = vt.map(x.r, x.c);
+        const mk = mark(layer, v.r, v.c, "mark--lm " + (i === 0 ? "mark--lm-from" : "mark--lm-to") + (m.latest ? " mark--lm-latest" : ""), i === 0 ? "" : "");
+        mk.style.setProperty("--lc", h.color);
+        mk.style.setProperty("--ld", h.dark);
+      });
+    });
     // placement : mon camp
     if (state.phase === "setup" && state.mySetupCells) {
       set(state.mySetupCells, "mark--setup");
@@ -314,7 +322,7 @@
       puff(d.at.r, d.at.c, ev.result === "exploded" ? "💥" : "✨", "puff--hit");
     });
     T(1050, () => {
-      const loseA = ["exploded", "defWins", "tie"].includes(ev.result);
+      const loseA = ["exploded", "defWins", "ratGuard", "tie"].includes(ev.result);
       const loseD = ["defused", "flag", "ratKing", "attWins", "tie"].includes(ev.result);
       if (loseA) ga.classList.add("piece--dying");
       if (loseD) gd.classList.add("piece--dying");

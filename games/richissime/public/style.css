@@ -330,3 +330,6 @@ svg.chart text { font-family: var(--body); font-size: 11px; fill: #3b3b48; }
 .rvres-h { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
 .rvscores { display: flex; gap: 5px; flex-wrap: wrap; }
 @media (max-width: 560px) { .rvscale button { width: 36px; height: 40px; } }
+
+/* place pour le bouton de retour Picuite Games en haut à gauche */
+.topbar .logo { margin-left: 40px; }

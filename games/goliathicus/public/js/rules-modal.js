@@ -19,8 +19,8 @@
     ]));
     body.appendChild(section("🎮 Comment se déroule une partie", [
       p("<b>1. Placement.</b> Clique sur une de tes pièces puis sur une autre case de ton camp pour les échanger. Tu peux aussi laisser le hasard faire, ou choisir une disposition défensive ou offensive. Quand tu es content, clique sur « Prêt »."),
-      p("<b>2. Ton tour.</b> Clique sur une de tes pièces : les cases où elle peut aller s'allument. Un point vert = déplacement, un anneau rouge = attaque. Chaque tour, tu déplaces <b>une seule pièce</b> d'une case, dans les quatre directions."),
-      p("<b>3. Combat.</b> Si tu avances sur une pièce ennemie, les deux se dévoilent : la plus haute valeur gagne et l'autre est éliminée. À égalité, les deux disparaissent."),
+      p("<b>2. Ton tour.</b> Clique sur une de tes pièces et les cases où elle peut aller s'allument. Un point vert = déplacement, un anneau rouge = attaque. Chaque tour, tu déplaces <b>une seule pièce</b> d'une case, dans les quatre directions."),
+      p("<b>3. Combat.</b> Si tu avances sur une pièce ennemie, les deux se dévoilent. La plus haute valeur gagne et l'autre est éliminée. À égalité, les deux disparaissent."),
     ]));
 
     const grid = el("div", { class: "rules__pieces" });
@@ -44,12 +44,13 @@
     body.appendChild(section("🧩 Les pièces", [p("Plus la force est grande, plus la pièce est puissante. Le 10 est le meilleur. Le chiffre est écrit sur chaque pièce quand tu la vois."), ladder, grid]));
 
     body.appendChild(section("🌍 Le terrain", [
-      p("💧 <b>Lac</b> : infranchissable. 🌲 <b>Forêt</b> : si le défenseur y gagne un combat, il reste caché. 🟤 <b>Marais</b> : une pièce qui s'y arrête s'endort un tour. 🪨 <b>Ruines</b> : infranchissables, ce sont les restes d'un camp éliminé. 🏆 <b>Reliques</b> : en mode Conquête, chaque relique tenue au début de ton tour rapporte un point."),
+      p("💧 <b>Lac</b>, infranchissable. 🌲 <b>Forêt</b>, si le défenseur y gagne un combat, il reste caché. 🟤 <b>Marais</b>, une pièce qui s'y arrête s'endort un tour. 🪨 <b>Ruines</b>, infranchissables, ce sont les restes d'un camp éliminé. 🏆 <b>Reliques</b>, en mode Conquête, chaque relique tenue au début de ton tour rapporte un point."),
     ]));
 
     body.appendChild(section("🛡️ Les modes de jeu", [
-      p("<b>Classique</b> : croque l'Œuf. <b>Conquête</b> : tiens les reliques et atteins l'objectif de points. <b>Chasse au roi</b> : pas d'œuf, la partie est perdue quand ton Roi tombe (un duel de deux rois est gagné par l'attaquant)."),
-      p("En plus : <b>Équipes</b> 2 contre 2, <b>Brouillard</b> (tu ne vois que près de tes pièces), <b>Chaos</b> (événements surprise), et <b>Express</b> (petit plateau, 10 minutes)."),
+      p("<b>Classique</b>, croque l'Œuf. <b>Conquête</b>, tiens les reliques et atteins l'objectif de points. <b>Chasse au roi</b>, pas d'œuf, la partie est perdue quand ton Roi tombe (un duel de deux rois est gagné par l'attaquant)."),
+      p("En plus, il y a les <b>Équipes</b> 2 contre 2, le <b>Brouillard</b> (tu ne vois que près de tes pièces), <b>Chaos</b> (événements surprise), et <b>Express</b> (petit plateau, 10 minutes)."),
+      p("<b>Composition sur mesure</b>, chaque joueur fabrique sa propre armée avec le même budget, sans limite de temps, avant le placement. La composition adverse reste secrète sauf si l'hôte choisit de la dévoiler."),
     ]));
 
     const houses = el("div", { class: "rules__houses" });
@@ -69,7 +70,7 @@
       el("ul", { class: "rules__list" }, [
         el("li", { text: "Un Lutin Éclaireur lancé sur une pièce inconnue coûte peu et t'apprend beaucoup." }),
         el("li", { text: "Une pièce qui n'a jamais bougé est peut-être une tarte piégée ou l'Œuf. Garde un Nain Démineur pour elles." }),
-        el("li", { text: "Ton Roi est imbattable... sauf par un Rat Espion qui l'attaque. Méfie-toi des rats !" }),
+        el("li", { text: "Ton Roi est imbattable... sauf par un Rat Espion, même quand c'est ton Roi qui attaque. Méfie-toi des rats !" }),
         el("li", { text: "Une même pièce ne peut pas faire plus de 3 déplacements d'affilée entre deux mêmes cases." }),
       ]),
     ]));

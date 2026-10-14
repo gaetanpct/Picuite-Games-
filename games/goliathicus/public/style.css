@@ -485,3 +485,33 @@ input[type="text"]:focus { border-color: var(--plum-3); box-shadow: 0 0 0 4px rg
 .ladder__step b { font-size: 0.78rem; color: var(--ink-soft); }
 .ladder__sep { color: var(--ink-soft); font-weight: 700; }
 .ladder__note{flex-basis:100%;margin:.3rem 0 0}
+
+/* ---- derniers mouvements, dans la couleur de chaque maison ---- */
+.mark--lm { border-radius: 6px; }
+.mark--lm-from { box-shadow: inset 0 0 0 3px var(--lc); background: repeating-linear-gradient(45deg, transparent 0 6px, rgba(255, 255, 255, 0.22) 6px 12px); opacity: 0.85; }
+.mark--lm-to { background: color-mix(in srgb, var(--lc) 38%, transparent); box-shadow: inset 0 0 0 4px var(--lc), 0 0 0 1px var(--ld); }
+.mark--lm-latest.mark--lm-to { background: color-mix(in srgb, var(--lc) 55%, transparent); box-shadow: inset 0 0 0 5px var(--lc), 0 0 14px 3px var(--lc); animation: lmPulse 1.4s ease-in-out infinite; }
+.mark--lm-latest.mark--lm-from { box-shadow: inset 0 0 0 4px var(--lc); opacity: 1; }
+@keyframes lmPulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.25); } }
+.duel__kicker { grid-column: 1 / -1; text-align: center; font-weight: 800; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--plum); }
+/* ---- composition sur mesure ---- */
+.compose { width: min(96vw, 760px); max-height: 92vh; overflow-y: auto; }
+.compose__title { margin: 0 0 0.2rem; }
+.compose__status { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.7rem 0 0.4rem; }
+.compose__btns { display: flex; justify-content: center; margin-top: 0.6rem; }
+#compose-presets { align-items: center; margin: 0.4rem 0; }
+/* ---- ajustements avec le bouton Picuite Games en haut à gauche ---- */
+.topbar__left { padding-left: 38px; }
+.compose { margin-top: 28px; }
+@media (min-width: 900px) { .duel-banner { width: min(236px, 34%); padding: 0.45rem 0.6rem 0.6rem; } }
+/* ---- cadre du dernier combat, compact sur téléphone et on peut le fermer d'un toucher ---- */
+@media (max-width: 960px) {
+  .duel-banner { pointer-events: auto; cursor: pointer; padding: 0.3rem 0.5rem 0.4rem; gap: 0.15rem 0.4rem; width: min(94vw, 420px); }
+  .duel-banner .mini-token { width: 34px; height: 34px; font-size: 1.1rem; }
+  .duel-banner .duel__side { flex-direction: row; gap: 0.35rem; text-align: left; font-size: 0.78rem; justify-content: center; }
+  .duel-banner .duel__side small { display: none; }
+  .duel-banner .duel__side b { max-width: 5.6em; }
+  .duel-banner .duel__vs { font-size: 1.1rem; }
+  .duel-banner .duel__text { font-size: 0.74rem; padding-top: 0.2rem; }
+  .duel-banner .duel__kicker { font-size: 0.62rem; }
+}

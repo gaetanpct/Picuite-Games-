@@ -28,7 +28,6 @@ const MAX_PLAYERS = 4;
 const TS = Math.max(0.001, Number(process.env.GOLIATH_TIME_SCALE) || 1); // pour les tests
 const GRACE_LOBBY_MS = 60 * 1000 * TS;
 const AFK_AUTOPLAY_MS = 40 * 1000 * TS; // joueur déconnecté : l'IA joue à sa place
-const SETUP_MS = 150 * 1000 * TS;
 const rng = Math.random;
 
 function makeCode() {
@@ -121,20 +120,33 @@ function startGame(room) {
   room.mem = players.map(() => AI.newMemory());
   room.status = "game";
   room.players.forEach((p) => { p.left = false; p.auto = false; p.ready = p.isAI; });
-  room.deadline = Date.now() + SETUP_MS;
+  room.deadline = null;
+  room.setupArmed = false;
+  sysChat(room, room.engine.phase === "compose" ? "🛠️ Composez vos armées, sans limite de temps." : "⚔️ La partie commence ! Disposez vos armées.");
+  broadcastRoom(room);
+  afterEngineChange(room);
+}
+
+// Le minuteur de placement n'existe que si l'hôte l'a demandé.
+function armSetupTimer(room) {
+  const eng = room.engine;
+  room.setupArmed = true;
+  const secs = Number(eng.settings.setupTimer) || 0;
+  if (room.setupTimer) { clearTimeout(room.setupTimer); room.setupTimer = null; }
+  if (secs <= 0) { room.deadline = null; return; }
+  room.deadline = Date.now() + secs * 1000 * TS;
   room.setupTimer = setTimeout(() => {
+    room.setupTimer = null;
     if (!room.engine || room.engine.phase !== "setup") return;
     room.engine.players.forEach((_, i) => { if (!room.engine.players[i].ready) room.engine.setupReady(i); });
     afterEngineChange(room);
-  }, SETUP_MS);
-  sysChat(room, "⚔️ La partie commence ! Disposez vos armées.");
-  broadcastRoom(room);
-  afterEngineChange(room);
+  }, secs * 1000 * TS);
 }
 
 function afterEngineChange(room) {
   const eng = room.engine;
   if (!eng) return;
+  if (eng.phase === "setup" && !room.setupArmed) armSetupTimer(room);
   if (eng.phase === "playing") {
     if (room.setupTimer) { clearTimeout(room.setupTimer); room.setupTimer = null; }
     // nouveau tour ? recalcule la limite de temps
@@ -195,6 +207,25 @@ function seatIsAutomatic(room, seat) {
 function scheduleAi(room) {
   const eng = room.engine;
   if (!eng || room.aiTimer) return;
+  if (eng.phase === "compose") {
+    const pending = [];
+    room.players.forEach((p, seat) => { if (seatIsAutomatic(room, seat) && !eng.players[seat].ready && !eng.players[seat].eliminated) pending.push(seat); });
+    if (!pending.length) return;
+    room.aiTimer = setTimeout(() => {
+      room.aiTimer = null;
+      if (!room.engine || room.engine.phase !== "compose") return;
+      pending.forEach((seat) => {
+        try {
+          const lvl = room.players[seat].level || "normal";
+          const act = AI.act(eng.getStateFor(seat), room.mem[seat], lvl, rng);
+          if (act && act.kind === "compose") eng.composeSet(seat, act.counts);
+        } catch (e) { console.error("ai compose", e); }
+        eng.composeReady(seat);
+      });
+      afterEngineChange(room);
+    }, 900 + rng() * 900);
+    return;
+  }
   if (eng.phase === "setup") {
     const pending = [];
     room.players.forEach((p, seat) => { if (seatIsAutomatic(room, seat) && !eng.players[seat].ready && !eng.players[seat].eliminated) pending.push(seat); });
@@ -372,7 +403,7 @@ io.on("connection", (socket) => {
       setTimeout(() => {
         if (!rooms.has(room.code)) return;
         const still = room.players.find((x) => x === p);
-        if (still && !still.connected && room.engine && room.engine.phase === "playing") {
+        if (still && !still.connected && room.engine && room.engine.phase !== "finished") {
           still.auto = true; broadcastRoom(room); sendGame(room); scheduleAi(room);
         }
         deleteRoomIfEmpty(room);
@@ -481,7 +512,7 @@ io.on("connection", (socket) => {
     const room = ctx.room; if (!room || !isHost()) return;
     if (!room.engine || room.engine.phase !== "finished") return;
     clearTimers(room);
-    room.engine = null; room.mem = null; room.status = "lobby"; room.turnKey = null; room.deadline = null;
+    room.engine = null; room.mem = null; room.status = "lobby"; room.turnKey = null; room.deadline = null; room.setupArmed = false;
     room.players = room.players.filter((p) => !p.left && (p.isAI || p.connected));
     room.players.forEach((p) => { p.ready = p.isAI || p.token === room.hostToken; p.auto = false; });
     ensureHost(room);
@@ -493,6 +524,26 @@ io.on("connection", (socket) => {
   // ----- partie -----
   const inGame = () => ctx.room && ctx.room.engine && ctx.room.status === "game";
 
+  socket.on("game:compose", safe(({ counts }) => {
+    if (!inGame()) return;
+    const r = ctx.room.engine.composeSet(seatOf(), counts && typeof counts === "object" ? counts : {});
+    if (!r.ok) return toast(r.error);
+    sendGame(ctx.room);
+  }));
+  socket.on("game:composePreset", safe(({ preset }) => {
+    if (!inGame()) return;
+    const r = ctx.room.engine.composePreset(seatOf(), String(preset || ""));
+    if (!r.ok) return toast(r.error);
+    sendGame(ctx.room);
+  }));
+  socket.on("game:composeReady", safe(({ ready }) => {
+    if (!inGame()) return;
+    const room = ctx.room;
+    const r = room.engine.composeReady(seatOf(), ready !== false);
+    if (!r.ok) return toast(r.error);
+    afterEngineChange(room);
+    broadcastRoom(room);
+  }));
   socket.on("game:setupSwap", safe(({ a, b }) => {
     if (!inGame()) return;
     const r = ctx.room.engine.setupSwap(seatOf(), a, b);

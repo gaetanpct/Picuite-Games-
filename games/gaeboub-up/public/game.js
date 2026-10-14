@@ -1925,7 +1925,7 @@ function renderTileDetailModal(tileIndex) {
       content.innerHTML = `
         <p>${icon} Prix d'achat : <strong>${tile.price}</strong></p>
         ${ownerLine()}
-        <p>Son propriétaire touche <strong>15 %</strong> de chaque salaire que les autres joueurs perçoivent en passant par Départ. Aucun loyer en s'y arrêtant.</p>
+        <p>Son propriétaire touche <strong>10 %</strong> de chaque salaire que les autres joueurs perçoivent en passant par Départ. Aucun loyer en s'y arrêtant.</p>
       `;
     } else if (famId === "adagency") {
       content.innerHTML = `
@@ -1951,7 +1951,7 @@ function renderTileDetailModal(tileIndex) {
           <thead><tr><th>Situation</th><th>Loyer</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
-        ${famId === "university" ? `<p class="properties-empty">Bonus : ${def.builderBonus} de la banque à chaque construction de maison ou d'hôtel, par n'importe quel joueur.</p>` : ""}
+        ${famId === "university" ? `<p class="properties-empty">Bonus : ${def.builderBonus} de la banque à chaque construction de maison ou d'hôtel par un autre joueur. Rien si le propriétaire construit lui-même.</p>` : ""}
       `;
     }
   } else if (tile.type === "mystery") {

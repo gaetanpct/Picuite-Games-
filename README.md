@@ -27,6 +27,10 @@ Une seule adresse sert tout le site. Les jeux sont sur /gaeboub-up, /goliathicus
 - public/, la page d'accueil (index.html, style.css, app.js), les logos dans public/logos et le petit bouton de retour pg-back.js.
 - games/, un dossier par jeu. Chaque dossier contient son server.js, son dossier public, ses éventuels dossiers lib, et un fichier game.json qui sert à la présentation sur l'accueil.
 
+## Une seule base de code
+
+Ce dépôt est la seule source de vérité. Une modification faite dans games/gaeboub-up, games/goliathicus ou games/richissime s'applique directement au site Picuite Games, il n'y a pas de deuxième script à tenir à jour. Les anciens dépôts séparés de chaque jeu ne servent plus.
+
 ## Ajouter un nouveau jeu plus tard
 
 1. Créer un dossier dans games/ au nom du jeu, par exemple games/mon-jeu.

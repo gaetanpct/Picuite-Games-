@@ -167,7 +167,7 @@
           type: "select",
           default: 0,
           info:
-            "Des universités à 160 au loyer modeste (14 à 170), mais dont le propriétaire reçoit en plus 20 de la banque CHAQUE FOIS qu'un joueur, lui compris, construit une maison ou un hôtel. Plus la partie avance et plus on construit, plus elles rapportent.",
+            "Des universités à 160 au loyer modeste (14 à 170), mais dont le propriétaire reçoit en plus 10 de la banque CHAQUE FOIS qu'un AUTRE joueur construit une maison ou un hôtel (rien quand il construit lui-même). Plus la partie avance et plus on construit, plus elles rapportent.",
           options: [
             { value: 0, label: "0 (aucune)" },
             { value: 1, label: "1" },
@@ -196,7 +196,7 @@
           type: "select",
           default: 0,
           info:
-            "Une seule par plateau, à 300. Son propriétaire touche 15 % de chaque salaire que les autres joueurs perçoivent en passant par Départ (prélevés sur leur salaire). Elle rapporte de plus en plus au fil de la partie, mais reste un bonus modéré.",
+            "Une seule par plateau, à 300. Son propriétaire touche 10 % de chaque salaire que les autres joueurs perçoivent en passant par Départ (prélevés sur leur salaire). Elle rapporte de plus en plus au fil de la partie, mais reste un bonus modéré.",
           options: [
             { value: 0, label: "0 (aucun)" },
             { value: 1, label: "1" },

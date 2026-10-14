@@ -10,7 +10,7 @@
 //  - Péage       : quiconque PASSE devant (pas seulement s'y arrête) paie
 //                  un petit péage au propriétaire. 2 au maximum, toujours
 //                  aux deux extrémités du plateau.
-//  - Banque centrale : le propriétaire touche 15 % des salaires des
+//  - Banque centrale : le propriétaire touche 10 % des salaires des
 //                  autres joueurs. 1 seule par plateau.
 //  - Régie publicitaire : +10 % sur tous tes loyers (+20 % avec la
 //                  seconde). 2 au maximum.
@@ -31,7 +31,7 @@
   const TOLL_SHARE_OF_BOARD_VALUE = 0.003; // fraction de la valeur du plateau
   const TOLL_MIN = 10;
   const TOLL_CAP_SHARE_OF_SALARY = 0.15; // le péage ne dépasse jamais 15 % d'un salaire
-  const BANK_SALARY_SHARE = 0.15;
+  const BANK_SALARY_SHARE = 0.10;
   const AD_BONUS = [0, 0.1, 0.2];
   const GARDEN_SHARE = 0.1;
 
@@ -40,11 +40,11 @@
     utility: { id: "utility", base: "utility", label: "Compagnie", plural: "compagnies", icon: "⚡", price: 150, table: null },
     university: {
       id: "university", base: "utility", label: "Université", plural: "universités", icon: "🎓", price: 160, setting: "boardUniversities", max: 3,
-      table: [14, 30, 60, 110, 170], builderBonus: 20,
+      table: [14, 30, 60, 110, 170], builderBonus: 10,
       names: ["Université Centrale", "Grande École", "Faculté des Arts", "Institut Supérieur"],
       shorts: ["Univ.", "Grande École", "Faculté", "Institut"],
       title: "🎓 Universités",
-      info: "Des universités à 160 au loyer modeste (14 à 170 selon le nombre possédé), mais dont le propriétaire reçoit en plus 20 de la banque CHAQUE FOIS qu'un joueur, lui compris, construit une maison ou un hôtel. Plus la partie avance et plus on construit, plus elles rapportent.",
+      info: "Des universités à 160 au loyer modeste (14 à 170 selon le nombre possédé), mais dont le propriétaire reçoit en plus 10 de la banque CHAQUE FOIS qu'un AUTRE joueur construit une maison ou un hôtel (rien quand il construit lui-même). Plus la partie avance et plus on construit, plus elles rapportent.",
     },
     toll: {
       id: "toll", base: "utility", label: "Péage", plural: "péages", icon: "🛣️", price: 160, setting: "boardTolls", max: 2, rentless: true,
@@ -58,7 +58,7 @@
       names: ["Banque Centrale"],
       shorts: ["Banque C."],
       title: "🏛️ Banque centrale",
-      info: "Une seule par plateau, à 300. Son propriétaire touche 15 % de chaque salaire que les autres joueurs perçoivent en passant par Départ (prélevés sur leur salaire). Elle rapporte de plus en plus au fil de la partie, mais reste un bonus modéré.",
+      info: "Une seule par plateau, à 300. Son propriétaire touche 10 % de chaque salaire que les autres joueurs perçoivent en passant par Départ (prélevés sur leur salaire). Elle rapporte de plus en plus au fil de la partie, mais reste un bonus modéré.",
     },
     adagency: {
       id: "adagency", base: "utility", label: "Régie publicitaire", plural: "régies publicitaires", icon: "📺", price: 220, setting: "boardAdAgencies", max: 2, rentless: true,

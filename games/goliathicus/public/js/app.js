@@ -14,7 +14,7 @@
       box.appendChild(el("span", { class: "ladder__step", title: d.name + " (force " + d.rank + ")" }, [el("i", { text: d.icon }), el("b", { text: String(d.rank) })]));
       if (k < ids.length - 1) box.appendChild(el("span", { class: "ladder__sep", text: "›" }));
     });
-    box.appendChild(el("p", { class: "muted small ladder__note", text: "Plus le chiffre est grand, plus la pièce est forte. Exception, le Rat (1) bat le Roi (10) s'il l'attaque." }));
+    box.appendChild(el("p", { class: "muted small ladder__note", text: "Plus le chiffre est grand, plus la pièce est forte. Exception, le Rat (1) bat toujours le Roi (10), qu'il attaque ou qu'il se défende." }));
   })();
 
   const socket = io({ path: location.pathname.replace(/[^\/]*$/, "") + "socket.io", transports: ["websocket", "polling"] });
