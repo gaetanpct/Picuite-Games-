@@ -40,3 +40,6 @@ Ce dépôt est la seule source de vérité. Une modification faite dans games/ga
 5. Ajouter dans la page index.html du jeu le script /pg-back.js pour avoir le bouton de retour vers l'accueil.
 
 La carte du jeu apparaît toute seule sur l'accueil, à la place réservée.
+
+## Richissime Destiny, mise à jour
+Les choix de vie sont moins nombreux chaque année, ils tournent et restent cohérents avec le personnage (un salarié ne cherche pas d'emploi, un sportif reçoit des offres de sportif). Ils s'enchaînent sans jamais bloquer (rendez-vous, demande en mariage, enfants, bac, démission, offres d'emploi qui arrivent vraiment). Les actions entre joueurs sont environ cinq par année, elles changent avec l'âge et les liens entre joueurs. Les placements affichent un niveau de risque, du livret sans danger au levier ou à la crypto qui peut tout rafler ou tout perdre. Deux réglages adaptent le rythme, le nombre de choix de vie et le nombre d'actions entre joueurs par année.
