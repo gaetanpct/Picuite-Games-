@@ -1,0 +1,25 @@
+{
+ "name": "Richissime Destiny",
+ "order": 3,
+ "tagline": "Vis une vie entière, du CP jusqu'à la tombe.",
+ "pitch": "Un jeu de vie à la BitLife, à jouer entre amis. Chaque année tu choisis un projet cohérent avec ta vie, tu vis des événements absurdes, tu tends la main (ou le croc) aux autres joueurs et tu fais des choix qui s'enchaînent vraiment. À la fin, tout le monde note la vie des autres.",
+ "tags": [
+  "1 à 6 joueurs",
+  "Humour noir",
+  "Aucune partie identique"
+ ],
+ "steps": [
+  "Tu nais, tu grandis, tu vas à l'école. Famille et don de naissance peuvent être tirés au sort.",
+  "Chaque année, quelques idées adaptées à ton âge et à ta situation. Rendez-vous, mariage, enfants, bac, démission, placements risqués, métiers fous.",
+  "À ta mort, ta vie défile. Les autres la notent, la meilleure moyenne gagne."
+ ],
+ "for": "Pour celles et ceux qui aiment rire, raconter des histoires folles et se faire des coups du sort.",
+ "note": "Humour noir pour public averti. Les thèmes adultes se désactivent dans les réglages.",
+ "colors": [
+  "#1b2a4e",
+  "#14213d"
+ ],
+ "cta": "Jouer à Richissime Destiny",
+ "id": "richissime",
+ "logo": "logos/richissime.svg"
+}
