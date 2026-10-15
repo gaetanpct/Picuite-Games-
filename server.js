@@ -16,9 +16,10 @@ const app = express();
 const server = http.createServer(app);
 
 // ---------- découverte des jeux ----------
-const GAMES_DIR = path.join(__dirname, "games");
+const GAMES_DIR = __dirname;
+const NOT_GAMES = new Set(["node_modules", "public"]);
 const games = [];
-fs.readdirSync(GAMES_DIR, { withFileTypes: true }).filter((d) => d.isDirectory()).forEach((d) => {
+fs.readdirSync(GAMES_DIR, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith(".") && !NOT_GAMES.has(d.name)).forEach((d) => {
   const dir = path.join(GAMES_DIR, d.name);
   const metaFile = path.join(dir, "game.json");
   const serverFile = path.join(dir, "server.js");
