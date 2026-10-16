@@ -93,6 +93,7 @@ function sendGame(room, force) {
       p.lastKey = key;
       st.serverTime = Date.now();
       st.autoSeats = room.players.map((q) => !!q.auto);
+      st.turbo = room.turbo ? (room.turbo === "stop" ? "stop" : "on") : "off";
       io.to(p.socketId).emit("game:state", st);
     } catch (e) { console.error("sendGame", e); }
   });
@@ -122,7 +123,7 @@ function startGame(room) {
   room.settings = Settings.normalize(room.settings);
   room.engine = new Game({ settings: room.settings, rng: Math.random, timeScale: TS, players });
   room.status = "game";
-  room.players.forEach((p) => { p.left = false; p.auto = false; p.lastKey = null; });
+  room.turbo = false; room.players.forEach((p) => { p.left = false; p.auto = false; p.lastKey = null; });
   room.engine.start();
   sysChat(room, "🎓 La partie commence ! Bonne vie à tous.");
   broadcastRoom(room);
@@ -142,10 +143,24 @@ function syncAuto(room) {
   });
 }
 
+// Force l'étape en cours à se terminer tout de suite (accélération)
+function forceStep(room) {
+  const eng = room.engine; const now = Date.now();
+  if (["agenda", "respond", "recap"].includes(eng.phase)) eng.deadline = now - 1;
+  else if (eng.phase === "review" && eng.review) eng.review.deadline = now - 1;
+  else if (eng.phase === "group" && eng.group) eng.group.deadline = now - 1;
+  else if (eng.phase === "event") eng.players.forEach((p) => { if (p.alive && p.scene) p.scene.deadline = now - 1; });
+}
 function stepRoom(room) {
   const eng = room.engine;
   if (!eng) return;
   try {
+    // mode accéléré : jamais pendant le vote, et il s'arrête de lui-même à la fin de la vie
+    if (room.turbo) {
+      if (eng.phase === "review" || eng.phase === "over") room.turbo = false;
+      else if (room.turbo === "stop" && eng.round !== room.turboStopRound) room.turbo = false;
+      else forceStep(room);
+    }
     syncAuto(room);
     eng.tick();
     if (eng.phase === "over" && room.status === "game") {
@@ -333,18 +348,28 @@ io.on("connection", (socket) => {
     clearTimers(room);
     room.engine = null; room.status = "lobby";
     room.players = room.players.filter((p) => !p.left && (p.isBot || p.connected));
-    room.players.forEach((p) => { p.ready = p.isBot || p.token === room.hostToken; p.auto = false; p.lastKey = null; });
+    room.turbo = false; room.players.forEach((p) => { p.ready = p.isBot || p.token === room.hostToken; p.auto = false; p.lastKey = null; });
     ensureHost(room);
     io.to(room.code).emit("room:lobbyAgain");
     broadcastRoom(room);
   }));
+  socket.on("host:turbo", safe(({ on }) => {
+    const room = ctx.room; if (!room || !isHost() || !room.engine) return;
+    const eng = room.engine;
+    if (eng.phase === "review" || eng.phase === "over") { room.turbo = false; sendGame(room, true); return; }
+    if (on) { if (!room.turbo) room.turbo = true; else if (room.turbo === "stop") room.turbo = true; }
+    else if (room.turbo) { room.turbo = "stop"; room.turboStopRound = eng.round; }
+    stepRoom(room);
+    sendGame(room, true);
+  }));
+  // passe à la vie suivante pendant le vote, avec un délai de sécurité contre les clics répétés
   socket.on("host:force", safe(() => {
     const room = ctx.room; if (!room || !isHost() || !room.engine) return;
     const eng = room.engine; const now = Date.now();
-    if (["agenda", "respond", "recap"].includes(eng.phase)) eng.deadline = now - 1;
-    else if (eng.phase === "review" && eng.review) eng.review.deadline = now - 1;
-    else if (eng.phase === "group" && eng.group) eng.group.deadline = now - 1;
-    else if (eng.phase === "event") eng.players.forEach((p) => { if (p.alive && p.scene) p.scene.deadline = now - 1; });
+    if (eng.phase !== "review") return;
+    if (room.lastForce && now - room.lastForce < 4000) return;
+    room.lastForce = now;
+    forceStep(room);
     stepRoom(room);
   }));
 

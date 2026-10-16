@@ -516,8 +516,9 @@ function yearEnd(g) {
 }
 function breakUp(g, p, q, married) {
   p.partner = null; q.partner = null;
-  delete SK.bond(g, p.seat, q.seat).tags.couple; SK.touch(g, p.seat, q.seat, { aff: -12, riv: 10 });
+  { const bb = SK.bond(g, p.seat, q.seat); delete bb.tags.couple; bb.tags.ex = g.round; } SK.touch(g, p.seat, q.seat, { aff: -12, riv: married ? 22 : 14 });
   [p, q].forEach((x) => { x.stats.bonheur = C.clamp(x.stats.bonheur - (married ? 12 : 7), 0, 100); });
+  if (married) { p.mem.divorces++; q.mem.divorces++; }
   if (married) {
     const rich = p.cash >= q.cash ? p : q, poor = rich === p ? q : p;
     const alim = Math.floor(rich.cash * 0.25);

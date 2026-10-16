@@ -99,7 +99,7 @@ const ASSET_KINDS = {
   or: { l: "Or et bijoux", ic: "🥇", g: 0.03, v: 0.1, liquid: true, risk: 2, d: "Valeur refuge. Il brille, il bouge peu." },
   pierre: { l: "Pierre-papier (immobilier de bureaux)", ic: "🏢", g: 0.047, v: 0.06, liquid: true, risk: 2, d: "Des loyers sans se salir les mains, avec de petites crises de temps en temps." },
   etf: { l: "Indice mondial", ic: "🌍", g: 0.052, v: 0.12, liquid: true, risk: 2, d: "Tout le marché dans un seul panier. Solide sur la durée." },
-  actions: { l: "Actions", ic: "📊", g: 0.06, v: 0.2, liquid: true, risk: 3, floor: -0.5, d: "Des entreprises triées sur le volet, avec des années folles et des années moches." },
+  actions: { l: "Actions", ic: "📊", g: 0.05, v: 0.22, liquid: true, risk: 3, floor: -0.5, d: "Des entreprises triées sur le volet, avec des années folles et des années moches." },
   matieres: { l: "Matières premières", ic: "🛢️", g: 0.045, v: 0.3, liquid: true, risk: 3, floor: -0.6, d: "Pétrole, blé, cuivre. Ça monte, ça plonge, ça surprend." },
   crypto: { l: "Cryptos", ic: "🪙", g: 0.07, v: 0.75, liquid: true, risk: 4, floor: -0.92, d: "Des montagnes russes. Fortune possible, ruine aussi." },
   startup: { l: "Start-ups (capital-risque)", ic: "🦄", g: -0.02, v: 0.06, liquid: false, risk: 5, jackpot: [0.03, 9], crash: [0.3, 0.55], floor: -0.9, d: "Presque tout s'effondre, mais une fois sur trente la part est multipliée par neuf." },

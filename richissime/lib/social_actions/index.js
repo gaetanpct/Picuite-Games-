@@ -44,6 +44,7 @@ const ASK = {
   derniere_reconciliation: "$A veut se réconcilier avec toi, avant qu'il soit trop tard.",
   pot_retraite: "$A organise ton pot de départ en retraite.",
   course_deambulateurs: "$A te défie à une course de déambulateurs.",
+  amis_apres_rupture: "$A te propose un café, pour voir si vous pouvez rester amis.",
   pari_absurde: "$A te propose un pari absurde.",
   chasse_tresor: "$A te propose de partir à la chasse au trésor.",
   echange_vies: "$A te propose d'échanger vos vies pendant une journée.",

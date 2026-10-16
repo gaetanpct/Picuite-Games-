@@ -13,6 +13,7 @@ const social = require("./social");
 const sys = require("./sys");
 const life = require("./life");
 
+const MARKET_BETA = { etf: 1, actions: 1.3, matieres: 0.6, crypto: 1.8, levier: 2, startup: 0.5, pierre: 0.25, art: 0.5 };
 const SHADY = ["magouille", "contrebande", "faux_diplome", "detournement", "sabotage_collegue", "incendie_assurance", "casse_bande", "evasion", "fausse_maladie", "fausses_montres", "pari_clandestin", "soiree_clandestine"];
 const PROJECT_FLAGS = ["cherche_amour", "en_voyage", "fete_annee", "magouille_annee", "side_annee", "travail_acharne", "famille_annee", "formation_annee", "epargne_annee", "sport_annee", "soin_annee"];
 
@@ -85,7 +86,7 @@ class Game {
       wealthHistory: [], journal: [], yearLog: [],
       plan: null, ready: false, scene: null, eventsLeft: 0, eventsDone: false, report: null,
       botAt: 0, missed: 0, pendingEvents: [],
-      arcs: {}, forced: [], lifeSeen: {}, lifeDone: {}, lifeOffer: [], socialOffer: [], project: null,
+      mem: { peakNet: 0, richYears: 0, poorYears: 0, bigLossAt: null, ruinedAt: null, divorces: 0, kidsLost: 0, jailYears: 0, fired: 0, tracksTried: {} }, arcs: {}, forced: [], lifeSeen: {}, lifeDone: {}, lifeOffer: [], socialOffer: [], project: null,
     };
     const G = R.GIFTS[gift];
     if (G.stats) Object.keys(G.stats).forEach((k) => { p.stats[k] += G.stats[k]; });
@@ -131,6 +132,9 @@ class Game {
 
   _beginRound() {
     this.age = this.startAge + this.round;
+    // le marché de l'année, commun à tous les joueurs (krach ou année faste)
+    const mr = this.rng();
+    this.market = mr < 0.07 ? -(0.22 + this.rng() * 0.25) : mr < 0.18 ? 0.08 + this.rng() * 0.1 : 0;
     if (!this.alivePlayers().length) return this._finishGame("allDead");
     const cap = this.settings.ageCap;
     const capAge = cap === "none" ? 9999 : Number(cap);
@@ -140,6 +144,7 @@ class Game {
       p.plan = null; p.ready = false; p.scene = null; p.eventsDone = false; p.report = null;
       p.yearLog = [];
       p.botAt = this.now() + 300 + Math.floor(this.rng() * 900) * this.timeScale;
+      this._rollFate(p);
       p.lifeOffer = life.offer(this, p);
       p.socialOffer = this.alivePlayers().length > 1 && social.offerActions ? social.offerActions(this, p) : [];
     });
@@ -151,6 +156,43 @@ class Game {
     this.alivePlayers().forEach((p) => {
       if (p.prison) { /* peut quand même choisir un projet de prison */ }
     });
+  }
+
+  // La mémoire de la vie, pour que les choix d'aujourd'hui tiennent compte de ce qui s'est passé il y a des années
+  _remember(p, rep) {
+    const m = p.mem; const nw = rep.netAfter;
+    m.peakNet = Math.max(m.peakNet, nw);
+    if (nw > 1000000) m.richYears++;
+    if (nw < 2000) m.poorYears++;
+    if (rep.netBefore > 60000 && nw < rep.netBefore * 0.6) m.bigLossAt = p.age;
+    if (nw < 0 && !m.inRuin) { m.ruinedAt = p.age; m.inRuin = true; }
+    if (nw >= 0) m.inRuin = false;
+    if (p.prison) m.jailYears++;
+    if (p.job) m.tracksTried[p.job.track] = (m.tracksTried[p.job.track] || 0) + 1;
+    const kids = p.npcs.filter((n) => n.kind === "child" && !n.alive).length;
+    m.kidsLost = Math.max(m.kidsLost, kids);
+  }
+
+  // Le destin frappe parfois (perte d'argent, coup dur familial, bonne surprise). Plus on a à perdre, plus il y a de prises.
+  _rollFate(p) {
+    if (p.age < 16 || p.prison || p.retired && p.age > 90) return;
+    if (p.lastFate !== undefined && this.round - p.lastFate < 3) return;
+    const nw = C.netWorth(p);
+    let prob = 0.07;
+    if (nw > 80000) prob += 0.02;
+    if (nw > 300000) prob += 0.03;
+    if (nw > 1000000) prob += 0.04;
+    if (nw > 4000000) prob += 0.04;
+    if (nw < 3000) prob += 0.02;
+    if (this.rng() >= prob) return;
+    const pool = kit.EVENTS.filter((e) => e.shock && this._eligible(p, e));
+    if (!pool.length) return;
+    // plus on est riche, moins les bonnes surprises dépendent d'un hasard pur (elles ciblent les petits patrimoines via leurs conditions)
+    const ws = pool.map((e) => (e.w === undefined ? 5 : e.w));
+    let r = this.rng() * ws.reduce((a, b) => a + b, 0), pick = pool[pool.length - 1];
+    for (let i = 0; i < pool.length; i++) { r -= ws[i]; if (r <= 0) { pick = pool[i]; break; } }
+    p.forced.push({ id: pick.id });
+    p.lastFate = this.round;
   }
 
   // ---------- boucle ----------
@@ -448,6 +490,8 @@ class Game {
           const name = f.id.slice(4);
           if (!sys[name]) throw new Error("scène système inconnue " + f.id);
           if (name === "jobhunt" && (p.job || p.retired || p.prison)) continue;
+          if (name === "jobswitch" && (!p.job || p.prison)) continue;
+          if (name === "startup" && (p.prison || p.cash < 1000)) continue;
           picked = { e: sys[name](this, p, f.vals || {}) };
         } else {
           const e0 = kit.byId[f.id];
@@ -605,6 +649,7 @@ class Game {
       else this.die(p, p.dying.cause);
     }
     rep.netAfter = C.netWorth(p);
+    this._remember(p, rep);
     rep.cash = Math.round(p.cash); rep.debt = Math.round(p.debt);
     rep.stats = {};
     Object.keys(p.stats).forEach((k) => { rep.stats[k] = { v: Math.round(p.stats[k]), d: Math.round(p.stats[k]) - Math.round(st0[k]) }; });
@@ -707,11 +752,13 @@ class Game {
     }
     // revenus et coûts des actifs
     let assetDelta = 0;
+    if (this.market && p.assets.some((a) => MARKET_BETA[a.kind] && !a.partnerCompany)) rep.lines.push(this.market < 0 ? "📉 Krach sur les marchés cette année. Les placements en bourse prennent cher." : "📈 Belle année sur les marchés, les placements en bourse en profitent.");
     p.assets.forEach((a) => {
       if (a.partnerCompany) return;
       const K = R.ASSET_KINDS[a.kind];
       let rate = K.g + K.v * gauss(rng);
       if (a.rate !== undefined) rate = a.rate + K.v * gauss(rng);
+      if (this.market && MARKET_BETA[a.kind]) rate += this.market * MARKET_BETA[a.kind];
       if (a.kind === "voiture" && a.rate === undefined) rate = -0.12;
       if (a.kind === "loufoque") rate = K.g + 0.25 * gauss(rng);
       if (a.pool) {
@@ -733,7 +780,8 @@ class Game {
     let cost = 0;
     if (!p.prison && p.age >= 18) {
       const L = R.LIFESTYLES[p.lifestyle];
-      const creep = Math.max(0, (p.lastNetSalary || 0) - 22000) * 0.3;
+      const ns = p.lastNetSalary || 0;
+      const creep = Math.max(0, Math.min(ns, 80000) - 22000) * 0.45 + Math.max(0, ns - 80000) * 0.65;
       let base = (14000 + creep) * L.cost;
       const homeF = p.home === "parents" ? (p.age < 25 ? 0.35 : p.age < 30 ? 0.6 : 0.9) : p.home === "own" ? 0.85 : p.home === "street" ? 0.4 : 1;
       base *= homeF;
@@ -757,7 +805,7 @@ class Game {
     // inflation sur l'argent qui dort, et charges des grandes fortunes
     if (p.cash > 5000) { const infl = Math.round(p.cash * 0.015); p.cash -= infl; rep.expenses += infl; }
     const nw = C.netWorth(p);
-    if (nw > 400000) { const wt = Math.round((nw - 400000) * 0.006); p.cash -= wt; rep.expenses += wt; }
+    if (nw > 150000) { const wt = Math.round((nw - 150000) * 0.012 + Math.max(0, nw - 1000000) * 0.02 + Math.max(0, nw - 4000000) * 0.02); p.cash -= wt; rep.expenses += wt; }
     // bonheur selon le niveau de vie
     p.stats.bonheur = C.clamp(p.stats.bonheur + R.LIFESTYLES[p.lifestyle].bonheur, 0, 100);
     if (p.lifestyle === "luxe" || p.lifestyle === "folie") p.stats.repute = C.clamp(p.stats.repute + 1, 0, 100);

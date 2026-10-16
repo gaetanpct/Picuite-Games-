@@ -28,7 +28,7 @@ reg({ id: "rumor", legacy: true, grp: "coup_bas", ic: "🗣️", l: "Répandre u
   ages: [12, 100], w: 5, cool: 2, coolPair: 2, ok: (g, A, B, b) => b.aff < 70 });
 
 reg({ id: "denounce", legacy: true, grp: "coup_bas", ic: "📢", l: "Dénoncer", d: "Tu signales ses casseroles à la police. Si c'est faux, ça te coûte cher.", hostile: true, mode: "direct",
-  ages: [18, 100], w: 3, cool: 3, coolPair: 3, ok: (g, A, B, b) => b.riv >= 15 });
+  ages: [18, 100], w: 3, cool: 3, coolPair: 3, ok: (g, A, B, b) => b.riv >= 10 || !!b.tags.ex });
 
 reg({ id: "duel", legacy: true, grp: "jeu", ic: "⚔️", l: "Lancer un défi", d: "Un pari d'argent sur une épreuve adaptée à votre âge à tous les deux.", ui: "game",
   ages: [8, 110], w: 6, cool: 1, coolPair: 2,

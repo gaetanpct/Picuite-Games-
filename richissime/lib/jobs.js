@@ -15,7 +15,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 function salaryFloor(p) {
   const n = C.netWorth(p);
   if (n < 150000) return 0;
-  return Math.min(60000, n * 0.035);
+  return Math.min(450000, n * 0.045);
 }
 
 function statOf(p, key) { return key in p.traits ? p.traits[key] : p.stats[key]; }
@@ -48,7 +48,7 @@ function affinity(g, p, k, T, ctx) {
   const lvl = ctx.level(k);
   const start = T.levels[lvl][1];
   const floor = ctx.floor;
-  if (floor && start < floor && !T.minNet) a *= T.passion ? (exp > 0 || p.jobHistory.some((j) => j.track === k) ? 0.3 : 0.07) : 0;
+  if (floor && start < floor) a *= T.passion ? (exp > 0 || p.jobHistory.some((j) => j.track === k) ? 0.3 : 0.07) : 0;
   // un diplômé du supérieur ne postule pas comme plongeur sauf nécessité
   if (p.school.edu >= 4 && T.levels[0][1] < 20000 && !T.passion && !T.lunar && C.netWorth(p) > 8000) a *= 0.3;
   return a;
@@ -80,6 +80,11 @@ function offers(g, p, opts) {
       const T = R.TRACKS[k];
       let lv = FX.trackLevelFor(p, k);
       if (bonusLevel && lv < T.levels.length - 1 && (!T.gate || T.gate[lv + 1] <= p.school.edu)) lv++;
+      // un riche n'est pas recruté au bas de l'échelle, on lui propose directement un poste de haut niveau
+      const fl = ctxBase.floor;
+      if (fl && T.levels[lv][1] < fl) {
+        for (let j = lv + 1; j < T.levels.length; j++) { if (T.gate && T.gate[j] > p.school.edu && !T.minNet) break; if (T.levels[j][1] >= fl) { lv = j; break; } }
+      }
       return lv;
     },
   };

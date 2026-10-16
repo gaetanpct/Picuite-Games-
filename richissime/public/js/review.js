@@ -66,7 +66,7 @@
     const prog = h("div.rvprog", rv.order.map((o, i) => h("div.rvstep" + (i === rv.idx ? ".cur" : i < rv.idx ? ".done" : ""), RD.avatar(o.avatar, 28), h("span", i < rv.idx ? "✓" : String(i + 1)))));
     root.appendChild(h("div.screen",
       h("div.topbar", h("div.in", h("div.logo", "RICHISSIME", h("small", "DESTINY")), h("div.phasebadge", "Le vote, vie " + (rv.idx + 1) + " sur " + rv.total), h("div.grow"),
-        isHost ? h("button.btn.small.light", { title: "Passe à la vie suivante", on: { click: () => emit("host:force") } }, "⏩ Accélérer") : null,
+        isHost ? h("button.btn.small.light", { title: "Passe à la vie suivante. Les joueurs qui n'ont pas voté recevront une note au hasard.", on: { click: () => emit("host:force") } }, "⏭ Passer cette vie") : null,
         h("button.iconbtn", { "aria-label": "son", on: { click: () => { RD.setSound(!RD.sound.on); RD.render(); } } }, RD.sound.on ? "🔊" : "🔇"))),
       h("div.wrap",
         h("div.center", h("div.ribbon", "Tout le monde est mort"), h("h1", { style: { fontSize: "clamp(1.8rem,5vw,3rem)" } }, "Le jury de la vie"),

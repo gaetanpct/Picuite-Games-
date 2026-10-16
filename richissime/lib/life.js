@@ -12,6 +12,16 @@ require("./choices");
 const LIST = kit.LIST;
 const byId = kit.byId;
 
+// Bandes de fortune cohérentes pour des choix existants (paliers de 0 sans le sou à 5 richissime, voir tier dans lifekit).
+// Hors de la bande, le choix n'est plus proposé. Un millionnaire ne vend pas de fausses montres au coin de la rue.
+const BANDS = {
+  fausses_montres: [0, 3], brocante: [0, 3], magouille: [0, 3], contrebande: [0, 4], pari_clandestin: [0, 3], side: [0, 3], heures_sup: [0, 4],
+  emploi_candidater: [0, 3], emploi_reseau: [0, 4], emploi_freelance: [0, 4], emploi_interim: [0, 2], emploi_concours: [0, 3], emploi_bilan: [0, 4],
+  petit_boulot: [0, 2], baby_sitting: [0, 1], voyage_camping: [0, 3], fausse_maladie: [0, 4], sabotage_collegue: [0, 4], syndicat: [0, 3], loto: [0, 3],
+  creer: [0, 3], vide_grenier: [0, 2], epargne: [0, 3], detournement: [0, 4], casse_bande: [0, 3], incendie_assurance: [0, 3], faux_diplome: [0, 4],
+};
+function inBand(p, pr) { const b = BANDS[pr.id]; if (!b) return true; const t = kit.tier(p); return t >= b[0] && t <= b[1]; }
+
 function ev(spec, key, p, g) { const v = spec[key]; return typeof v === "function" ? v(p, g) : v; }
 
 function isEligible(g, p, pr) {
@@ -24,6 +34,7 @@ function isEligible(g, p, pr) {
   const cost = ev(pr, "cost", p, g) || 0;
   if (cost && p.cash < cost && pr.id !== "routine") return false;
   if (pr.fit && !(pr.fit(p, g) > 0)) return false;
+  if (!inBand(p, pr)) return false;
   return true;
 }
 
