@@ -7,6 +7,7 @@
 const R = require("./rules");
 const C = require("./core");
 const FX = require("./fx");
+const IN = require("./interests");
 const { pick, POOLS } = require("./pools");
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -28,6 +29,8 @@ function affinity(g, p, k, T, ctx) {
   if (!FX.canWork(p, k)) return 0;
   if (p.job && p.job.track === k && !ctx.sameOk) return 0;
   let a = 1;
+  a *= IN.trackFactor(p, k);
+  { const FB = { sportpro: "par_sport_2", cinema: "par_cine_2", chanteur: "par_music_2" }; if (FB[k] && p.flags[FB[k]]) a *= 5; }
   const s = statOf(p, T.stat);
   a *= clamp(0.4 + s / 52, 0.35, 2.6);
   const exp = (p.exp && p.exp[k]) || 0;
@@ -99,7 +102,11 @@ function offers(g, p, opts) {
   chosen.forEach((k) => {
     const T = R.TRACKS[k];
     const level = ctx.level(k);
-    const mul = 0.92 + rng() * 0.26 + (p.job ? 0.14 : 0) + (p.flags.piston ? 0.08 : 0);
+    // les qualités se paient : intelligence et compétence du métier, charme pour les postes de contact, formation récente
+    const skill = clamp((statOf(p, T.stat) - 50) / 300, -0.1, 0.18);
+    const brain = clamp((p.stats.intel - 50) / 380, -0.07, 0.1);
+    const gloss = clamp((p.stats.charme - 55) / 500, 0, 0.08);
+    const mul = 0.92 + rng() * 0.26 + (p.job ? 0.14 : 0) + (p.flags.piston ? 0.08 : 0) + skill + brain + gloss + (p.flags.formation_recente ? 0.07 : 0);
     const salary = Math.round(T.levels[level][1] * mul / 100) * 100;
     const exp = (p.exp && p.exp[k]) || 0;
     const hist = p.jobHistory.some((j) => j.track === k);

@@ -56,7 +56,7 @@
             h("label.field", "Code du salon"), codeIn,
             h("div", { style: { marginTop: "14px" } }, h("button.btn.navy.big", { on: { click: () => go("room:join") } }, "Rejoindre")))),
         h("div.howto",
-          [["1", "Une classe, des destins", "Tout le monde entre dans la même classe à 6, 7 ou 8 ans. Famille et don de naissance peuvent être tirés au sort."],
+          [["1", "Une classe, des destins", "Tout le monde entre dans la même classe à 8 ans. Famille et don de naissance peuvent être tirés au sort."],
            ["2", "Une année par tour", "Chaque année, tu choisis un projet de vie, tu gères ton argent, puis tu vis tes événements."],
            ["3", "Des choix qui comptent", "Études, métier, amour, famille, magouilles. Chaque décision laisse des traces."],
            ["4", "Entre joueurs", "Prêts, mariages, sociétés, coups bas, enchères, braquages. Qui coopère, qui trahit ?"],

@@ -273,6 +273,7 @@ function getStateFor(g, seat, now) {
     st.myOffers = g.offers.filter((o) => o.from === seat).map((o) => ({ id: o.id, toName: g.players[o.to].name, kind: o.a.kind, status: o.status }));
   }
   if (g.phase === "group") st.group = groupView(g, seat);
+  if (g.phase === "mini") st.minis = g.minigames.viewFor(g, seat);
   if (g.phase === "recap" || g.phase === "event") {
     if (p.report && g.phase === "recap") st.report = p.report;
   }

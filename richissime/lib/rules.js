@@ -101,7 +101,7 @@ const ASSET_KINDS = {
   etf: { l: "Indice mondial", ic: "🌍", g: 0.052, v: 0.12, liquid: true, risk: 2, d: "Tout le marché dans un seul panier. Solide sur la durée." },
   actions: { l: "Actions", ic: "📊", g: 0.05, v: 0.22, liquid: true, risk: 3, floor: -0.5, d: "Des entreprises triées sur le volet, avec des années folles et des années moches." },
   matieres: { l: "Matières premières", ic: "🛢️", g: 0.045, v: 0.3, liquid: true, risk: 3, floor: -0.6, d: "Pétrole, blé, cuivre. Ça monte, ça plonge, ça surprend." },
-  crypto: { l: "Cryptos", ic: "🪙", g: 0.07, v: 0.75, liquid: true, risk: 4, floor: -0.92, d: "Des montagnes russes. Fortune possible, ruine aussi." },
+  crypto: { l: "Cryptos", ic: "🪙", g: 0.07, v: 0.75, liquid: true, risk: 4, jackpot: [0.04, 14], floor: -0.92, d: "Des montagnes russes. Le plus souvent tu perds, mais une fois de temps en temps ta position est multipliée par plus de dix." },
   startup: { l: "Start-ups (capital-risque)", ic: "🦄", g: -0.02, v: 0.06, liquid: false, risk: 5, jackpot: [0.03, 9], crash: [0.3, 0.55], floor: -0.9, d: "Presque tout s'effondre, mais une fois sur trente la part est multipliée par neuf." },
   levier: { l: "Produits à effet de levier", ic: "🎲", g: -0.06, v: 0.9, liquid: true, risk: 5, jackpot: [0.06, 4], floor: -0.9, d: "Le casino en costume. Un coup de génie rapporte beaucoup, un mauvais coup te rase." },
   // ---- biens et objets ----

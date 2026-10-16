@@ -22,8 +22,8 @@ const POOLS = {
 
 // Prénoms de la bande d'amis (liste fournie par Ines). Ils tombent au hasard comme personnages secondaires.
 const BANDE = {
-  f: ["Oceane", "Clara", "Mathilde", "Lou", "Lisa", "Celia", "Philippine", "Ninon", "Dilek", "Niousha", "Houda", "Mae", "Marine", "Elsa", "Amandine", "Apolline", "Lina", "Adèle", "Louise", "Jade", "Camille", "Eva", "Lison", "Paloma", "Hortense", "Justine", "Léa", "Isaure", "Marie"],
-  m: ["Tom", "Léopold", "Martin", "Teddy", "Romain", "Emilien", "Arthur", "Pacome", "Léon", "Gaétan", "Alban", "Enzo", "Sebastian", "Thomas", "Maxime", "Loic", "Edouard", "Nathan", "Auguste", "Adrien", "Aymeric", "Ayoub"],
+  f: ["Celia", "Philippine", "Ninon", "Dilek", "Niousha", "Houda", "Mae", "Apolline", "Eva", "Paloma", "Justine", "Léa", "Isaure", "Marie", "Inès", "Fernanda", "Angii", "Angelina", "Maxine", "Maud", "Camille", "Albane", "Maëlys", "Aliénor", "Melissa"],
+  m: ["Tom", "Teddy", "Léon", "Gaétan", "Alban", "Enzo", "Sebastian", "Thomas", "Nathan", "Auguste", "Adrien", "Aymeric", "Ayoub", "Eliot", "Xavier", "Jules", "Stanel", "Luan", "Armand", "Push", "Geff", "Djily", "Florian", "Baptistin"],
 };
 POOLS.bande = BANDE;
 // Stars et célébrités entièrement inventées

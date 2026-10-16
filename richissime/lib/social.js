@@ -21,6 +21,7 @@ const DUELS = {
   course: { l: "Course", ic: "🏃", ages: [8, 45], score: (p) => p.stats.sport },
   quiz: { l: "Quiz", ic: "🧠", ages: [8, 120], score: (p) => p.stats.intel },
   charme: { l: "Concours de charme", ic: "✨", ages: [14, 60], score: (p) => p.stats.charme },
+  blackjack: { l: "Blackjack", ic: "🂡", ages: [18, 120], score: (p) => (p.stats.intel + p.traits.courage) / 2 },
   poker: { l: "Poker", ic: "🃏", ages: [18, 120], score: (p) => (p.stats.intel + p.traits.courage + p.stats.charme) / 3 },
   echecs: { l: "Parties d'échecs", ic: "♟️", ages: [8, 120], score: (p) => p.stats.intel * 0.8 + p.traits.prudent * 0.2 },
   petanque: { l: "Pétanque", ic: "🎯", ages: [45, 120], score: (p) => p.stats.sport * 0.4 + p.stats.charme * 0.3 + p.stats.intel * 0.3 },
@@ -169,8 +170,32 @@ function special(g, name, A, B, out, lines) {
       try { FXLIB.applyFx(g, B, { job: { track: tr, level: 0 } }, null); lines.b.push("💼 Tu travailles maintenant comme " + B.job.title.toLowerCase() + "."); lines.a.push("💼 " + B.name + " travaille désormais comme " + B.job.title.toLowerCase() + "."); } catch (e) { /* le métier n'est pas accessible */ }
       return;
     }
-    case "blackmail": { const m = money(B, A, 0.08, 15000); if (m) { lines.a.push("💶 Tu as encaissé " + C.fmt(m) + "."); lines.b.push("💸 Tu as payé " + C.fmt(m) + " pour acheter le silence."); } return; }
-    case "scam": { const m = money(B, A, 0.09, 20000); if (m) { lines.a.push("💶 L'affaire t'a rapporté " + C.fmt(m) + "."); lines.b.push("💸 L'affaire douteuse t'a coûté " + C.fmt(m) + "."); } return; }
+    case "blackmail": { const m = money(B, A, 0.08, 15000); if (m) { g._loot = m; lines.a.push("💶 Tu as encaissé " + C.fmt(m) + "."); lines.b.push("💸 Tu as payé " + C.fmt(m) + " pour acheter le silence."); } return; }
+    case "scam": { const m = money(B, A, 0.09, 20000); if (m) { g._loot = m; lines.a.push("💶 L'affaire t'a rapporté " + C.fmt(m) + "."); lines.b.push("💸 L'affaire douteuse t'a coûté " + C.fmt(m) + "."); } return; }
+    case "plainte_ok": {
+      const gr = freshGrievance(g, A, B); if (gr) gr.used = true;
+      const back = Math.min(B.cash, (gr && gr.loot) || 0) ; if (back > 0) { B.cash -= back; A.cash += back; }
+      const dam = money(B, A, 0.05, 6000);
+      lines.a.push("⚖️ Le tribunal te donne raison" + (back + dam > 0 ? ". Tu récupères " + C.fmt(back + dam) + "." : "."));
+      lines.b.push("⚖️ Le tribunal te condamne" + (back + dam > 0 ? ", tu dois " + C.fmt(back + dam) + "." : "."));
+      if (g.settings.mature && gr && (gr.kind === "steal" || gr.kind === "arnaque" || gr.kind === "chantage") && g.rng() < 0.3) { FXLIB.applyFx(g, B, { prison: C.rint(g.rng, 1, 3) }, null); lines.b.push("⛓️ Tu es condamné(e) à de la prison ferme."); }
+      return;
+    }
+    case "mini_blackjack":
+    case "mini_poker": {
+      const low = Math.min(A.cash, B.cash);
+      let stake = Math.round(Math.min(low * (0.04 + g.rng() * 0.08), 2000000));
+      stake = stake >= 10000 ? Math.round(stake / 1000) * 1000 : stake >= 1000 ? Math.round(stake / 100) * 100 : Math.round(stake / 10) * 10;
+      startDuel(g, A, B, name === "mini_blackjack" ? "blackjack" : "poker", stake);
+      return;
+    }
+    case "plainte_ko": { const gr = freshGrievance(g, A, B); if (gr) gr.used = true; return; }
+    case "revanche": {
+      const ls = freshLoss(g, A, B); if (!ls) return;
+      ls.used = true;
+      startDuel(g, A, B, ls.game, Math.min(Math.floor(A.cash), Math.floor(B.cash), ls.amount ? ls.amount * 2 : 0));
+      return;
+    }
     default: return;
   }
 }
@@ -223,6 +248,17 @@ function runGeneric(g, spec, A, B, yes, direct) {
   runOut(g, spec, A, B, pickOut(g, spec.yes, A, B, bd));
 }
 
+// ---------- rancunes et revanches ----------
+const GRIEF = { steal: 1, rumor: 1, sabotage: 1, chantage: 1, arnaque: 1, denounce: 1 };
+function recordGrievance(g, victim, culprit, kind, loot) {
+  g.grievances = (g.grievances || []).filter((x) => x.round >= g.round - 2);
+  g.grievances.push({ v: victim.seat, c: culprit.seat, kind, round: g.round, loot: loot || 0 });
+}
+// une plainte ou une revanche n'est pas proposée à tous les coups, mais de façon stable pour un même couple et une même année
+const gate = (g, A, B, pct) => ((g.round * 7 + A.seat * 3 + B.seat * 5) % 10) < pct;
+function freshGrievance(g, A, B) { return (g.grievances || []).find((x) => x.v === A.seat && x.c === B.seat && x.round === g.round - 1 && !x.used); }
+function freshLoss(g, A, B) { return (g.lostGames || []).find((x) => x.loser === A.seat && x.winner === B.seat && x.round === g.round - 1 && !x.used); }
+
 // ---------- résolution des actions choisies ----------
 function resolveActions(g) {
   g.offers = []; let seq = 1;
@@ -236,7 +272,7 @@ function resolveActions(g) {
     if (!spec) continue;
     SK.bond(g, p.seat, t.seat).last[spec.id] = g.round;
     if (!spec.legacy) {
-      if (spec.mode === "direct") runGeneric(g, spec, p, t, true, true);
+      if (spec.mode === "direct") { g._loot = 0; runGeneric(g, spec, p, t, true, true); if (GRIEF[spec.id]) recordGrievance(g, t, p, spec.id, g._loot); }
       else g.offers.push({ id: seq++, from: p.seat, to: t.seat, a, status: "pending" });
       continue;
     }
@@ -252,9 +288,9 @@ function resolveActions(g) {
         g.news(p, "🎁 " + p.name + " a fait un cadeau à " + t.name + wealthWord(g, amt) + ".");
         break;
       }
-      case "steal": doSteal(g, p, t, a); SK.touch(g, p.seat, t.seat, { riv: 18, aff: -10 }); break;
-      case "rumor": doRumor(g, p, t); SK.touch(g, p.seat, t.seat, { riv: 16, aff: -10 }); break;
-      case "denounce": doDenounce(g, p, t); SK.touch(g, p.seat, t.seat, { riv: 20, aff: -12 }); break;
+      case "steal": g._loot = 0; doSteal(g, p, t, a); recordGrievance(g, t, p, "steal", g._loot); SK.touch(g, p.seat, t.seat, { riv: 18, aff: -10 }); break;
+      case "rumor": doRumor(g, p, t); recordGrievance(g, t, p, "rumor", 0); SK.touch(g, p.seat, t.seat, { riv: 16, aff: -10 }); break;
+      case "denounce": doDenounce(g, p, t); recordGrievance(g, t, p, "denounce", 0); SK.touch(g, p.seat, t.seat, { riv: 20, aff: -12 }); break;
       default: g.offers.push({ id: seq++, from: p.seat, to: t.seat, a, status: "pending" });
     }
   }
@@ -358,7 +394,7 @@ function applyOffer(g, o, yes, answer) {
       g.news(f, "🤝 " + f.name + " et " + t.name + " fondent l'entreprise " + co.name + ".", "money");
       break;
     }
-    case "duel": doDuel(g, f, t, a); SK.touch(g, f.seat, t.seat, { aff: 4, riv: 2 }); break;
+    case "duel": startDuel(g, f, t, a.game, a.amount); SK.touch(g, f.seat, t.seat, { aff: 4, riv: 2 }); break;
   }
 }
 
@@ -371,7 +407,7 @@ function doSteal(g, p, t, a) {
   if (p.flags.bagout) pr += 0.05;
   pr = C.clamp(pr, 0.12, 0.88);
   if (g.rng() < pr) {
-    t.cash -= loot; p.cash += loot;
+    t.cash -= loot; p.cash += loot; g._loot = loot;
     p.traits.honnete = C.clamp(p.traits.honnete - 4, 0, 100); p.stats.bonheur = C.clamp(p.stats.bonheur + 2, 0, 100);
     p.yearLog.push("🦹 Tu as volé " + C.fmt(loot) + " à " + t.name + " sans te faire prendre.");
     const known = g.rng() < 0.3;
@@ -419,6 +455,15 @@ function doDenounce(g, p, t) {
     g.news(p, "📢 " + p.name + " a dénoncé " + t.name + " sans preuves.", "gossip");
   }
 }
+// lance une épreuve entre deux joueurs (les jeux de cartes se jouent en vrai quand la partie le prévoit)
+function startDuel(g, f, t, game, amount) {
+  if (g.minigames && g.minigames.wants && g.minigames.wants(g, f, t, game)) return g.minigames.queue(g, f, t, game, amount);
+  return doDuel(g, f, t, { game, amount });
+}
+function recordLoss(g, loser, winner, game, amt) {
+  g.lostGames = (g.lostGames || []).filter((x) => x.round >= g.round - 2);
+  g.lostGames.push({ loser: loser.seat, winner: winner.seat, game, amount: amt, round: g.round });
+}
 function doDuel(g, f, t, a) {
   const D = DUELS[a.game];
   const score = (p) => D.score(p) + g.rng() * 55;
@@ -426,6 +471,7 @@ function doDuel(g, f, t, a) {
   const winner = sf >= st ? f : t, loser = winner === f ? t : f;
   const amt = Math.min(a.amount, Math.floor(loser.cash));
   if (amt > 0) { loser.cash -= amt; winner.cash += amt; }
+  recordLoss(g, loser, winner, a.game, amt);
   winner.stats.bonheur = C.clamp(winner.stats.bonheur + 4, 0, 100); loser.stats.bonheur = C.clamp(loser.stats.bonheur - 3, 0, 100);
   winner.stats.repute = C.clamp(winner.stats.repute + 3, 0, 100);
   winner.yearLog.push(D.ic + " Tu as battu " + loser.name + " à l'épreuve de " + D.l.toLowerCase() + (amt ? " et gagné " + C.fmt(amt) + "." : "."));
@@ -447,7 +493,7 @@ function botRespond(g, o) {
 function botAction(g, p) {
   const offer = p.socialOffer || [];
   if (!offer.length) return null;
-  const ws = offer.map((o) => (SK.byId[o.id].hostile ? 0.35 : 1) * (SK.byId[o.id].prio > 0 ? 2 : 1));
+  const ws = offer.map((o) => (SK.byId[o.id].hostile ? 0.35 : 1) * (SK.byId[o.id].prio > 0 ? 2 : 1) * (SK.byId[o.id].grp === "reaction" ? 3 : 1));
   const tot = ws.reduce((x, y) => x + y, 0);
   let r = g.rng() * tot, o = offer[offer.length - 1];
   for (let i = 0; i < offer.length; i++) { r -= ws[i]; if (r <= 0) { o = offer[i]; break; } }
@@ -678,8 +724,18 @@ fame: {
 function planGroup(g) {
   const alive = g.alivePlayers();
   if (alive.length < 2) return false;
-  const freq = { rare: 0.125, normal: 0.25, frequent: 0.34 }[g.settings.social];
+  // fréquence des scènes collectives. C'est aléatoire, parfois deux années de suite puis plusieurs années de calme.
+  // Chaque année sans scène augmente la chance d'en avoir une, et jamais plus de sept années de suite sans scène.
+  const gap = g.lastGroup === undefined ? g.round : g.round - g.lastGroup - 1;
+  const H = {
+    frequent: [0.42, 0.34, 0.36, 0.5, 0.7, 0.9, 1],
+    normal: [0.28, 0.24, 0.3, 0.42, 0.62, 0.85, 1],
+    peu: [0.16, 0.12, 0.15, 0.22, 0.35, 0.6, 0.85],
+    rare: [0.08, 0.07, 0.09, 0.13, 0.2, 0.4, 0.7],
+  }[g.settings.social] || [0.28, 0.24, 0.3, 0.42, 0.62, 0.85, 1];
+  const freq = gap >= 7 ? 1 : H[gap];
   if (g.rng() >= freq) return false;
+  g.lastGroup = g.round;
   const age = g.age;
   const kinds = Object.keys(GROUPS).filter((k) => {
     const d = GROUPS[k];
@@ -695,9 +751,16 @@ function planGroup(g) {
   let seats = alive.map((p) => p.seat);
   if (kind === "dilemma") seats = seats.sort(() => g.rng() - 0.5).slice(0, 2);
   else if (seats.length > d.max) seats = seats.sort(() => g.rng() - 0.5).slice(0, d.max);
-  const stake = STAKE[R.stageOf(age)];
+  // l'enjeu suit la fortune des joueurs présents, et parfois un coup exceptionnel change vraiment une vie
+  const base = STAKE[R.stageOf(age)];
+  const avgNet = seats.reduce((x, st) => x + Math.max(0, C.netWorth(g.players[st])), 0) / Math.max(1, seats.length);
+  const big = g.rng() < 0.2 && avgNet > base * 8;
+  let stake = Math.max(base, avgNet * (0.03 + g.rng() * 0.07) * (big ? 3 + g.rng() * 4 : 1));
+  stake = Math.min(stake, 60000000);
+  const mag = Math.pow(10, Math.max(0, Math.floor(Math.log10(stake)) - 1)); stake = Math.round(stake / mag) * mag;
   const names = seats.map((s) => g.players[s].name);
   let text = skin.t;
+  if (big) text += " L'enjeu est exceptionnel cette fois.";
   if (kind === "dilemma") text = text.replace(/\$A/g, names[0]).replace(/\$B/g, names[1]).replace("$lieu", pick(g.rng, POOLS.lieux));
   let target = null;
   if (kind === "rivalcrush") { seats = seats.sort(() => g.rng() - 0.5).slice(0, 2); text = text.replace(/\$A/g, g.players[seats[0]].name).replace(/\$B/g, g.players[seats[1]].name); }
@@ -706,7 +769,7 @@ function planGroup(g) {
     const tp = g.players[target];
     text = text.replace(/\$A/g, tp.name).replace(/\{\|e\}/g, tp.gender === "f" ? "e" : "");
   }
-  const grp = { kind, skin, seats, stake, choices: {}, state: "choose", text, ic: skin.ic, result: null, deadline: 0, extra: {} };
+  const grp = { kind, skin, seats, stake, big, choices: {}, state: "choose", text, ic: skin.ic, result: null, deadline: 0, extra: {} };
   if (target !== null) grp.extra.target = target;
   if (kind === "auction") grp.extra.est = Math.round(stake * 2 * (0.8 + g.rng() * 0.6));
   if (kind === "split") grp.extra.pot = stake * seats.length * 1.3;
@@ -824,6 +887,7 @@ function resolveGroup(g) {
       add(traitor, "🔪 Tu as trahi " + nm(victim) + " et empoché " + C.fmt(S * 2) + ".");
       add(victim, "😡 " + nm(traitor) + " t'a trahi ! Tu perds " + C.fmt(S) + ".");
       res.public = "🔪 " + nm(traitor) + " a trahi " + nm(victim) + ".";
+      recordGrievance(g, P(victim), P(traitor), "arnaque", S);
     }
   } else if (grp.kind === "public") {
     const amounts = { "0": 0, "1": S, "2": S * 2.5 };
@@ -989,4 +1053,4 @@ function resolveGroup(g) {
   g.news(null, res.public, "group");
 }
 
-module.exports = { KINDS, DUELS, GROUPS, duelsFor, offerActions, describeAction, validate, resolveActions, respond, expireOffers, offerText, botRespond, botAction, botFinance, loanTick, yearEnd, onDeath, planGroup, groupOptions, groupChoose, groupTick, groupReady, applyOffer };
+module.exports = { recordLoss, startDuel, KINDS, DUELS, GROUPS, duelsFor, offerActions, describeAction, validate, resolveActions, respond, expireOffers, offerText, botRespond, botAction, botFinance, loanTick, yearEnd, onDeath, planGroup, groupOptions, groupChoose, groupTick, groupReady, applyOffer };

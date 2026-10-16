@@ -159,6 +159,22 @@ function applyFx(g, p, fx, x) {
       case "sell": p.assets.filter((a) => a.kind === v || a.id === v).forEach((a) => { p.cash += Math.round(a.value); }); p.assets = p.assets.filter((a) => !(a.kind === v || a.id === v)); break;
       case "loseItem": { const i = p.assets.findIndex((a) => a.kind === v); if (i >= 0) p.assets.splice(i, 1); break; }
       case "scaleAssets": { p.assets.forEach((a) => { if (!v.kind || a.kind === v.kind) a.value = Math.round(a.value * v.mul); }); break; }
+      case "empire": {
+        // v = { to: niveau } pour monter, ou { fall: part perdue } pour chuter
+        const TAB = [0, 3000000, 30000000, 300000000, 3000000000, 20000000000];
+        let a = p.assets.find((x) => x.empire);
+        if (v.fall !== undefined) {
+          if (a) { a.value = Math.round(a.value * (1 - v.fall)); a.level = Math.max(1, a.level - 1); }
+          if (v.debt) p.debt += Math.round(v.debt);
+          break;
+        }
+        const lvl = Math.max(1, Math.min(5, v.to));
+        const value = Math.round(TAB[lvl] * (0.55 + g.rng() * 0.9));
+        if (!a) { a = { id: "a" + (p.assetSeq = (p.assetSeq || 0) + 1), kind: "entreprise", name: "Ton empire", value: 0, cost: 0, upkeep: 0, income: 0, empire: true, level: 0 }; p.assets.push(a); }
+        a.value = Math.max(a.value, value); a.level = lvl; a.name = ["", "Ta scale-up", "Ton groupe en pleine expansion", "Ton géant national", "Ton empire international", "Ta multinationale"][lvl];
+        p.flags["empire_" + lvl] = 1;
+        break;
+      }
       case "die": p.dying = { cause: C.render(typeof v === "string" ? v : v.cause, p, x), final: !!(v && v.final) }; break;
       case "prison": { const yrs = Math.max(1, Math.round(v)); p.prison = { left: yrs, total: yrs }; p.record += 1; p.flags.ex_detenu = 1; if (p.job) { p.jobHistory.push({ title: p.job.title, track: p.job.track, from: p.job.since, to: p.age, why: "prison" }); p.job = null; } break; }
       case "free": if (p.prison) { p.prison = null; } break;

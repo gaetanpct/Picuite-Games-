@@ -5,7 +5,7 @@
   const S = () => RD.S;
   const emit = (ev, d) => RD.emit(ev, d);
 
-  const PHASE_LABEL = { agenda: "Prépare ton année", respond: "Réponds aux propositions", group: "Scène collective", event: "Les événements de l'année", recap: "Bilan de l'année", over: "Fin de partie" };
+  const PHASE_LABEL = { agenda: "Prépare ton année", respond: "Réponds aux propositions", group: "Scène collective", mini: "Parties de cartes", event: "Les événements de l'année", recap: "Bilan de l'année", over: "Fin de partie" };
   const TAG_LABEL = { ecole: "École", famille: "Famille", amour: "Amour", travail: "Travail", argent: "Argent", sante: "Santé", social: "Vie sociale", loufoque: "Aventure", voyage: "Voyage", sport: "Sport", mature: "Vie d'adulte", jalon: "Grand moment", saga: "Grande histoire", logement: "Logement", calme: "Année calme" };
   const RISK = ["", "⚠️", "⚠️⚠️", "☠️"];
 
@@ -359,6 +359,7 @@
       case "agenda": return agendaView(st);
       case "respond": return respondView(st);
       case "group": return groupView(st);
+      case "mini": return RD.miniView(st);
       case "event": {
         const others = st.players.filter((p) => p.alive && !p.ready && !p.you).map((p) => p.name);
         return waitCard("Tu as vécu ta part de l'année", others.length ? "On attend " + others.join(", ") + "." : "Le bilan arrive.");

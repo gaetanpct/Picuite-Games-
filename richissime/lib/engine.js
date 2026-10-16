@@ -13,6 +13,18 @@ const social = require("./social");
 const sys = require("./sys");
 const life = require("./life");
 
+const HABITS = {
+  sport: { key: "sport", stat: "sport", spill: { charme: 1, sante: 1, courage: 0.4 }, ic: "💪", flag: "athletique", milestone: ["Trois ans de régularité. Ton corps change, ton allure aussi, et les regards avec.", "Six ans à t'entretenir. Ta silhouette et ta confiance te précèdent dans toutes les pièces.", "Dix ans de discipline. Tu es devenu(e) quelqu'un qu'on remarque dès l'entrée."], click: "Un déclic à la salle. Tu repousses tes limites, et ton charme grimpe avec ta forme." },
+  sport_prison: { key: "sport", stat: "sport", spill: { courage: 0.6, charme: 0.4 }, ic: "💪", milestone: ["Trois ans de fonte en cellule. Les autres te regardent différemment.", "Six ans de pompes. Tu as un physique redoutable.", "Dix ans d'entraînement. Tu es une légende de la cour."], click: "Tu soulèves plus lourd que jamais, la cour s'en rend compte." },
+  formation: { key: "intel", stat: "intel", spill: { ambition: 0.6, repute: 0.3 }, ic: "🎓", flag: "formation_recente", milestone: ["Trois formations de suite. Tu deviens la personne qu'on consulte pour les sujets difficiles.", "Six ans de formation continue. On te confie les dossiers que personne d'autre ne comprend.", "Dix ans d'apprentissage. On t'appelle pour ton avis dans les grandes décisions."], click: "Un cours te fait tout comprendre d'un coup. Ton cerveau passe à la vitesse supérieure." },
+  formation_metier: { key: "intel", stat: "intel", spill: { ambition: 0.5 }, ic: "🎓", flag: "formation_recente", milestone: ["Trois ans de formations. Ton métier n'a plus de secrets.", "Six ans à te perfectionner. Tu formes les autres.", "Dix ans de savoir-faire accumulé. Tu es une référence."], click: "Tu comprends enfin un point technique qui bloquait tout. Tu progresses d'un coup." },
+  lecture: { key: "intel", stat: "intel", spill: { creatif: 0.5 }, ic: "📖", milestone: ["Trois ans de lecture. Tu cites des auteurs sans y penser.", "Six ans de bibliothèque. Tu as une culture qui impressionne.", "Dix ans de livres. Tu es un puits de références."], click: "Un livre te bouleverse et change ta façon de penser." },
+  langue: { key: "intel", stat: "intel", spill: { sociable: 0.5, charme: 0.3 }, ic: "🗣️", flag: "formation_recente", milestone: ["Trois ans de pratique. Tu rêves déjà dans une autre langue.", "Six ans de cours. Tu parles couramment et tu t'ouvres des portes.", "Dix ans de langues. Tu passes d'un pays à l'autre sans effort."], click: "Tu te mets à penser dans la langue étrangère. Tout devient plus simple." },
+  theatre: { key: "charme", stat: "charme", spill: { sociable: 0.8, creatif: 0.6, courage: 0.4 }, ic: "🎭", milestone: ["Trois ans de scène. Tu captes une salle sans effort.", "Six ans de théâtre. Ta voix et ta présence marquent les esprits.", "Dix ans de planches. Tu as une présence incroyable."], click: "Un soir, la salle est suspendue à ta voix. Tu comprends ce que tu peux faire." },
+  soiree_mondaine: { key: "charme", stat: "charme", spill: { sociable: 0.8, repute: 0.5 }, ic: "🍾", milestone: ["Trois ans de soirées. Ton carnet d'adresses est impressionnant.", "Six ans de mondanités. Tout le monde veut t'inviter.", "Dix ans de cocktails. Tu es un habitué de la haute société."], click: "Une conversation lors d'une soirée ouvre toutes les portes. Ton aura grandit." },
+  arts: { key: "creatif", stat: "creatif", spill: { charme: 0.5, bonheur: 0.5 }, ic: "🎨", milestone: ["Trois ans de pratique. Ton style se dessine.", "Six ans d'art. Tu as un style reconnaissable.", "Dix ans de création. On parle de toi dans le milieu."], click: "Une idée géniale te traverse. Ta créativité bondit." },
+};
+const GRAND_BETA = { immo: 0.3, entreprise: 0.45, art: 0.55, or: -0.5, voiture: 0 };
 const MARKET_BETA = { etf: 1, actions: 1.3, matieres: 0.6, crypto: 1.8, levier: 2, startup: 0.5, pierre: 0.25, art: 0.5 };
 const SHADY = ["magouille", "contrebande", "faux_diplome", "detournement", "sabotage_collegue", "incendie_assurance", "casse_bande", "evasion", "fausse_maladie", "fausses_montres", "pari_clandestin", "soiree_clandestine"];
 const PROJECT_FLAGS = ["cherche_amour", "en_voyage", "fete_annee", "magouille_annee", "side_annee", "travail_acharne", "famille_annee", "formation_annee", "epargne_annee", "sport_annee", "soin_annee"];
@@ -45,13 +57,14 @@ class Game {
     this.companies = [];
     this.bonds = {};
     this.group = null;
+    this.minigames = require("./minigames");
+    this.minis = [];
     this.round = 0;
     this.phase = "lobby";
     this.deadline = 0;
     this.chat = [];
     this.history = [];
-    const sa = this.settings.startAge;
-    this.startAge = sa === "random" ? 6 + Math.floor(this.rng() * 3) : Number(sa);
+    this.startAge = 8;
     this.age = this.startAge;
     this.endedReason = null;
     (opts.players || []).forEach((info, seat) => this.players.push(this._newChar(info, seat)));
@@ -80,7 +93,7 @@ class Game {
       cash: 0, debt: 0, assets: [], assetSeq: 0,
       job: null, jobHistory: [], exp: {}, yearsWorked: 0, retired: false, pension: 0,
       school: { phase: "primaire", grade: 55, diplomas: ["aucun"], edu: 0, endAge: null, track: null },
-      npcs: [], flags: {}, flagTtl: {}, queue: [], seen: {}, lastTag: null, badges: {}, bande: ({ off: 0, parfois: 0.25, souvent: 0.5, partout: 0.9 })[this.settings.bande] || 0,
+      npcs: [], flags: {}, flagTtl: {}, queue: [], seen: {}, lastTag: null, badges: {}, bande: ({ off: 0, parfois: 0.4, souvent: 0.8, partout: 0.95 })[this.settings.bande] || 0,
       lifestyle: "normal", home: "parents", city: pick(rng, POOLS.villes),
       partner: null, prison: null, record: 0, heir: null,
       wealthHistory: [], journal: [], yearLog: [],
@@ -132,9 +145,7 @@ class Game {
 
   _beginRound() {
     this.age = this.startAge + this.round;
-    // le marché de l'année, commun à tous les joueurs (krach ou année faste)
-    const mr = this.rng();
-    this.market = mr < 0.07 ? -(0.22 + this.rng() * 0.25) : mr < 0.18 ? 0.08 + this.rng() * 0.1 : 0;
+    this._economy();
     if (!this.alivePlayers().length) return this._finishGame("allDead");
     const cap = this.settings.ageCap;
     const capAge = cap === "none" ? 9999 : Number(cap);
@@ -150,12 +161,57 @@ class Game {
     });
     this.offers = [];
     this.group = null;
+    this.minis = []; this.miniHold = 0;
     this.phase = "agenda";
     const ms = this.timerMs(0.9);
     this.deadline = ms ? this.now() + ms + 8000 * this.timeScale : 0;
     this.alivePlayers().forEach((p) => {
       if (p.prison) { /* peut quand même choisir un projet de prison */ }
     });
+  }
+
+  // L'économie de l'année. Chacun place son argent de son côté. Seuls de rares krachs touchent tout le monde d'un coup.
+  _economy() {
+    const e = this.eco = this.eco || { zero: 0, recession: 0 };
+    const rng = this.rng;
+    this.bigCrash = false; this.bubblePop = false; this.cryptoShift = 0;
+    const mr = rng();
+    this.market = mr < 0.05 ? -(0.22 + rng() * 0.25) : 0;
+    if (this.market < 0) this.news(null, "📉 Krach boursier. Les marchés plongent pour tout le monde.", "eco");
+    // grand krach, très rare, puis récession
+    if (e.recession > 0) { e.recession--; this.market = Math.min(this.market, -0.06 - rng() * 0.08); }
+    else if (rng() < 0.015) {
+      this.bigCrash = true; this.market = -(0.38 + rng() * 0.27); e.recession = 1 + Math.floor(rng() * 2);
+      this.news(null, "💥 GRAND KRACH. Les places financières s'effondrent, l'immobilier et les entreprises trinquent, seul l'or brille.", "eco");
+    }
+  }
+
+  // Les habitudes installent des qualités. Plus on répète le même choix d'année en année, plus ça se voit, avec des paliers et parfois un déclic.
+  _habit(p, pr, rep) {
+    const H = HABITS[pr.id];
+    p.habits = p.habits || {};
+    if (!H) return;
+    const e = p.habits[H.key] = p.habits[H.key] || { streak: 0, last: -9, total: 0 };
+    e.streak = this.round - e.last <= 2 ? e.streak + 1 : 1;
+    e.last = this.round; e.total++;
+    const rng = this.rng;
+    const bump = (k, d) => { if (!d) return; if (k in p.stats) p.stats[k] = C.clamp(p.stats[k] + d, 0, 100); else if (k in p.traits) p.traits[k] = C.clamp(p.traits[k] + d, 0, 100); };
+    // effet de la régularité, un peu plus fort chaque année de suite
+    if (e.streak >= 2) { Object.keys(H.spill).forEach((k) => bump(k, Math.round(H.spill[k] * Math.min(e.streak, 4) / 2))); }
+    // paliers
+    if ([3, 6, 10].includes(e.streak)) {
+      const big = e.streak === 3 ? 3 : e.streak === 6 ? 5 : 7;
+      bump(H.stat, big); Object.keys(H.spill).forEach((k) => bump(k, Math.ceil(big * 0.7 * H.spill[k])));
+      rep.lines.push(H.ic + " " + H.milestone[e.streak === 3 ? 0 : e.streak === 6 ? 1 : 2]);
+      p.journal.push({ age: p.age, text: H.milestone[e.streak === 3 ? 0 : e.streak === 6 ? 1 : 2], ic: H.ic, tag: "habitude" });
+      if (H.flag) { p.flags[H.flag] = 1; p.flagTtl[H.flag] = 6; }
+    } else if (rng() < Math.min(0.5, 0.08 + 0.06 * (e.streak - 1))) {
+      // déclic : un progrès soudain bien plus grand que d'habitude
+      const gain = C.rint(rng, 5, 10);
+      bump(H.stat, gain); Object.keys(H.spill).forEach((k) => bump(k, Math.round(gain * 0.6 * H.spill[k])));
+      rep.lines.push("💥 " + H.click);
+      if (H.flag) { p.flags[H.flag] = 1; p.flagTtl[H.flag] = 6; }
+    }
   }
 
   // La mémoire de la vie, pour que les choix d'aujourd'hui tiennent compte de ce qui s'est passé il y a des années
@@ -178,7 +234,7 @@ class Game {
     if (p.age < 16 || p.prison || p.retired && p.age > 90) return;
     if (p.lastFate !== undefined && this.round - p.lastFate < 3) return;
     const nw = C.netWorth(p);
-    let prob = 0.07;
+    let prob = 0.12;
     if (nw > 80000) prob += 0.02;
     if (nw > 300000) prob += 0.03;
     if (nw > 1000000) prob += 0.04;
@@ -212,6 +268,9 @@ class Game {
       }
       const pend = this.offers.some((o) => o.status === "pending");
       if (!pend || (this.deadline && t >= this.deadline)) { this._closeRespond(); changed = true; }
+    } else if (this.phase === "mini") {
+      if (this.minigames.tick(this, t)) changed = true;
+      if (!this.minigames.pending(this)) { this._afterMini(); changed = true; }
     } else if (this.phase === "group") {
       if (social.groupTick(this, t)) changed = true;
     } else if (this.phase === "event") {
@@ -309,6 +368,12 @@ class Game {
   }
 
   _afterRespond() {
+    this.deadline = 0;
+    if (this.minigames.pending(this)) { this.minigames.open(this); return; }
+    this._afterMini();
+  }
+
+  _afterMini() {
     this.deadline = 0;
     if (social.planGroup(this)) { this.phase = "group"; return; }
     this._startEvents();
@@ -626,6 +691,9 @@ class Game {
     const pr = life.byId[p.project] || life.ROUTINE;
     // projet de l'année
     if (pr.fx && Object.keys(pr.fx).length) FX.applyFx(this, p, pr.fx, null);
+    this._habit(p, pr, rep);
+    require("./interests").update(p, pr);
+    if (pr.id.startsWith("par_")) { p.parTry = p.parTry || {}; p.parTry[pr.id] = (p.parTry[pr.id] || 0) + 1; }
     this._lifeOutcome(p, pr, rep);
     this._projectHook(p, pr, rep);
     // école
@@ -750,21 +818,60 @@ class Game {
       // aides minimales
       const aide = 6000; p.cash += aide; rep.income += aide;
     }
+    // la mafia paie bien, jusqu'au jour de la chute
+    if (!p.prison && (C.hasFlag(p, "mafia") || C.hasFlag(p, "parrain"))) {
+      const boss = C.hasFlag(p, "parrain");
+      const cl = [1, 2, 3].filter((i) => C.hasFlag(p, "cartel_" + i)).length;
+      const gain = boss ? Math.round(Math.min(2000000000, Math.max(150000, Math.max(0, C.netWorth(p)) * (0.07 + cl * 0.06)))) : C.rint(rng, 25000, 110000);
+      p.cash += gain; rep.income += gain;
+      rep.lines.push("🕴️ La famille t'a rapporté " + C.fmt(gain) + " en liquide cette année.");
+      if (rng() < (boss ? 0.075 + cl * 0.03 : 0.075) - (p.stats.intel - 50) / 900) {
+        const yrs = boss ? C.rint(rng, 12 + cl * 3, 30 + cl * 5) : C.rint(rng, 5, 14);
+        FX.applyFx(this, p, { prison: yrs, repute: -20, bonheur: -12, unflag: ["mafia", "parrain", "cartel_1", "cartel_2", "cartel_3"] }, null);
+        p.cash = Math.round(p.cash * (cl ? 0.15 : 0.4)); p.assets.forEach((a) => { a.value = Math.round(a.value * (cl ? 0.3 : 0.65)); });
+        rep.lines.push("🚔 Le coup de filet a eu lieu. Tu es condamné(e) à " + yrs + " ans de prison, et la justice saisit une grande partie de tes biens.");
+        this.news(p, "🚔 " + p.name + " tombe pour " + yrs + " ans après le démantèlement de son organisation.", "crime");
+        p.journal.push({ age: p.age, text: "Condamné(e) à " + yrs + " ans de prison pour appartenance à la mafia.", ic: "🚔", tag: "justice" });
+      } else if (rng() < 0.014) {
+        p.dying = { cause: "un règlement de comptes entre familles", final: false };
+        this.news(p, "🔫 " + p.name + " est retrouvé(e) sans vie, règlement de comptes.", "crime");
+      }
+    }
     // revenus et coûts des actifs
     let assetDelta = 0;
-    if (this.market && p.assets.some((a) => MARKET_BETA[a.kind] && !a.partnerCompany)) rep.lines.push(this.market < 0 ? "📉 Krach sur les marchés cette année. Les placements en bourse prennent cher." : "📈 Belle année sur les marchés, les placements en bourse en profitent.");
+    if (this.market && p.assets.some((a) => MARKET_BETA[a.kind] && !a.partnerCompany)) rep.lines.push(this.bigCrash ? "💥 GRAND KRACH mondial. Presque tout s'effondre, même les biens les plus solides." : this.market < 0 ? "📉 Krach sur les marchés cette année. Les placements en bourse prennent cher." : "📈 Belle année sur les marchés, les placements en bourse en profitent.");
     p.assets.forEach((a) => {
       if (a.partnerCompany) return;
       const K = R.ASSET_KINDS[a.kind];
       let rate = K.g + K.v * gauss(rng);
       if (a.rate !== undefined) rate = a.rate + K.v * gauss(rng);
       if (this.market && MARKET_BETA[a.kind]) rate += this.market * MARKET_BETA[a.kind];
+      if (this.bigCrash && GRAND_BETA[a.kind] !== undefined) rate += this.market * GRAND_BETA[a.kind];
+      if (a.kind === "crypto") rate += this.cryptoShift;
+      if ((a.kind === "livret" || a.kind === "obligations") && this.eco.zero > 0) rate = a.kind === "livret" ? 0 : -0.005;
+      else if (a.kind === "livret" && rng() < 0.12) rate = 0;
       if (a.kind === "voiture" && a.rate === undefined) rate = -0.12;
       if (a.kind === "loufoque") rate = K.g + 0.25 * gauss(rng);
+      if (a.empire) {
+        // un empire est volatil, il peut doubler comme s'effondrer en une année
+        rate = 0.1 + 0.3 * gauss(rng);
+        if (rng() < 0.04 + a.level * 0.008) {
+          rate = -(0.6 + rng() * 0.38);
+          rep.lines.push("💥 Scandale, fraude découverte ou mauvais pari. Ton empire perd presque toute sa valeur en quelques semaines.");
+          this.news(p, "💥 L'empire de " + p.name + " s'effondre brutalement.", "eco");
+          p.flags["empire_" + a.level] && delete p.flags["empire_" + a.level];
+        } else if (rate > 0.4) rep.lines.push("📈 Ton empire connaît une année extraordinaire.");
+        const div = Math.round(Math.max(0, a.value) * 0.02); p.cash += div; rep.income += div;
+      } else if (a.kind === "entreprise" && !a.partnerCompany && a.value >= 30000 && rng() < 0.014) {
+        const m = 5 + rng() * 25; rate = m - 1;
+        rep.lines.push("🦄 Ton entreprise devient une licorne. Sa valeur est multipliée par " + Math.round(m) + ".");
+        this.news(p, "🦄 L'entreprise de " + p.name + " explose, valorisation multipliée par " + Math.round(m) + ".", "eco");
+      }
       if (a.pool) {
         // placements risqués, un coup de génie ou un effondrement peuvent tout changer en une année
-        if (K.jackpot && rng() < K.jackpot[0]) { rate = K.jackpot[1] - 1; rep.lines.push("🚀 " + K.ic + " " + K.l + " ont frappé un grand coup, ta position a été multipliée par " + K.jackpot[1] + "."); }
+        if (K.jackpot && rng() < K.jackpot[0]) { const m = K.jackpot[1] * (rng() < 0.12 ? 4 : 1); rate = m - 1; rep.lines.push("🚀 " + K.ic + " " + K.l + " ont frappé un grand coup, ta position a été multipliée par " + m + "."); this.news(p, "🚀 " + p.name + " touche le gros lot avec ses " + K.l.toLowerCase() + ", position multipliée par " + m + ".", "eco"); }
         else if (K.crash && rng() < K.crash[0]) { rate = -K.crash[1]; rep.lines.push("📉 " + K.ic + " " + K.l + " s'effondrent cette année. Tu perds une bonne partie de ta mise."); }
+        if (a.kind === "levier" && this.bigCrash) { const call = Math.round(a.value * (1 + rng() * 1.5)); p.debt += call; rep.lines.push("📞 Appel de marge. Ton courtier te réclame " + C.fmt(call) + " en plus de la mise perdue."); rate = -0.95; }
       }
       if (K.floor !== undefined) rate = Math.max(K.floor, rate);
       const nv = Math.max(0, Math.round(a.value * (1 + rate)));
@@ -781,7 +888,7 @@ class Game {
     if (!p.prison && p.age >= 18) {
       const L = R.LIFESTYLES[p.lifestyle];
       const ns = p.lastNetSalary || 0;
-      const creep = Math.max(0, Math.min(ns, 80000) - 22000) * 0.45 + Math.max(0, ns - 80000) * 0.65;
+      const creep = Math.max(0, Math.min(ns, 80000) - 22000) * 0.55 + Math.max(0, ns - 80000) * 0.72;
       let base = (14000 + creep) * L.cost;
       const homeF = p.home === "parents" ? (p.age < 25 ? 0.35 : p.age < 30 ? 0.6 : 0.9) : p.home === "own" ? 0.85 : p.home === "street" ? 0.4 : 1;
       base *= homeF;
@@ -805,7 +912,12 @@ class Game {
     // inflation sur l'argent qui dort, et charges des grandes fortunes
     if (p.cash > 5000) { const infl = Math.round(p.cash * 0.015); p.cash -= infl; rep.expenses += infl; }
     const nw = C.netWorth(p);
-    if (nw > 150000) { const wt = Math.round((nw - 150000) * 0.012 + Math.max(0, nw - 1000000) * 0.02 + Math.max(0, nw - 4000000) * 0.02); p.cash -= wt; rep.expenses += wt; }
+    if (nw > 150000) {
+      // charges d'une fortune, qui s'allègent chez les très grandes fortunes (elles s'organisent)
+      const seg = (lo, hi, r) => Math.max(0, Math.min(nw, hi) - lo) * r;
+      const wt = Math.round(seg(150000, 1e6, 0.012) + seg(1e6, 4e6, 0.032) + seg(4e6, 3e7, 0.052) + seg(3e7, 3e8, 0.02) + seg(3e8, 1e12, 0.008));
+      p.cash -= wt; rep.expenses += wt;
+    }
     // bonheur selon le niveau de vie
     p.stats.bonheur = C.clamp(p.stats.bonheur + R.LIFESTYLES[p.lifestyle].bonheur, 0, 100);
     if (p.lifestyle === "luxe" || p.lifestyle === "folie") p.stats.repute = C.clamp(p.stats.repute + 1, 0, 100);

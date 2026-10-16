@@ -202,7 +202,7 @@ const SPEC = {
     ["Un client te confie un portefeuille important en insistant sur la discrétion. Il exige de la croissance sans risque.", "Tu gères avec brio, il te félicite.", "Le portefeuille dégringole, il te rappelle chaque heure."],
   ],
   enseignement: [
-    ["Ta classe de trente élèves est en ébullition. Un cafard apparaît dans le cartable de Mathilde, un cri retentit, et le tableau interactif décide de planter.", "Tu retournes la situation en cours de sciences naturelles. Les élèves adorent.", "Tu perds le contrôle, le directeur passe par hasard."],
+    ["Ta classe de trente élèves est en ébullition. Un cafard apparaît dans le cartable d'Inès, un cri retentit, et le tableau interactif décide de planter.", "Tu retournes la situation en cours de sciences naturelles. Les élèves adorent.", "Tu perds le contrôle, le directeur passe par hasard."],
     ["Des parents d'élèves exigent une réunion urgente, parce que leur enfant n'a eu que 19 sur 20.", "Tu les rassures avec calme, ils repartent apaisés.", "Ils déposent une pétition."],
   ],
   arts: [

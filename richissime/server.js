@@ -149,6 +149,7 @@ function forceStep(room) {
   if (["agenda", "respond", "recap"].includes(eng.phase)) eng.deadline = now - 1;
   else if (eng.phase === "review" && eng.review) eng.review.deadline = now - 1;
   else if (eng.phase === "group" && eng.group) eng.group.deadline = now - 1;
+  else if (eng.phase === "mini") { (eng.minis || []).forEach((m) => { if (m.state === "play") m.deadline = now - 1; }); eng.miniHold = 0; }
   else if (eng.phase === "event") eng.players.forEach((p) => { if (p.alive && p.scene) p.scene.deadline = now - 1; });
 }
 function stepRoom(room) {
@@ -407,6 +408,12 @@ io.on("connection", (socket) => {
   socket.on("game:group", safe(({ value }) => {
     if (!inGame()) return;
     const r = social.groupChoose(ctx.room.engine, seatOf(), value);
+    if (!r.ok && r.error) toast(r.error);
+    after();
+  }));
+  socket.on("game:mini", safe(({ id, action, arg }) => {
+    if (!inGame()) return;
+    const r = ctx.room.engine.minigames.act(ctx.room.engine, seatOf(), Number(id), String(action || ""), arg);
     if (!r.ok && r.error) toast(r.error);
     after();
   }));

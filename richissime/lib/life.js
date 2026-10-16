@@ -5,6 +5,7 @@
 // Les étapes d'un parcours (rencontre, rendez-vous, mariage, bébé, examen, candidature...)
 // restent proposées tant qu'elles sont possibles, pour ne jamais se retrouver coincé.
 // ============================================================
+const IN = require("./interests");
 const C = require("./core");
 const kit = require("./lifekit");
 require("./choices");
@@ -24,6 +25,12 @@ function inBand(p, pr) { const b = BANDS[pr.id]; if (!b) return true; const t = 
 
 function ev(spec, key, p, g) { const v = spec[key]; return typeof v === "function" ? v(p, g) : v; }
 
+// un choix qui prolonge une vraie passion peut revenir chaque année
+function passion(p, pr) {
+  const t = IN.top(p);
+  return !!(t && t.v >= 0.9 && IN.domainsOfProject(pr).includes(t.d));
+}
+
 function isEligible(g, p, pr) {
   const inPrison = !!p.prison;
   const prisonOnly = !!(pr.need && pr.need.prison === true);
@@ -41,6 +48,7 @@ function isEligible(g, p, pr) {
 // Les choix de vie qui reviennent d'une année sur l'autre sont dévalués, pour que la liste tourne.
 function freshness(p, g, pr) {
   let f = 1;
+  if (passion(p, pr)) return 1.6;
   const seen = p.lifeSeen[pr.id];
   if (seen !== undefined) { const gap = g.round - seen; f *= gap <= 1 ? 0.3 : gap === 2 ? 0.55 : gap === 3 ? 0.8 : 1; }
   const done = p.lifeDone[pr.id];
@@ -49,6 +57,7 @@ function freshness(p, g, pr) {
 }
 
 function chosenRecently(p, g, pr) {
+  if (passion(p, pr)) return false;
   const done = p.lifeDone[pr.id];
   if (done === undefined) return false;
   const cool = pr.cool === undefined ? 2 : pr.cool;
@@ -66,6 +75,12 @@ function offer(g, p) {
   const sticky = pool.filter((pr) => pr.prio > 0).sort((a, b) => (b.prio - a.prio) || ((p.lifeSeen[a.id] === undefined ? -1 : p.lifeSeen[a.id]) - (p.lifeSeen[b.id] === undefined ? -1 : p.lifeSeen[b.id])));
   const stickyMax = p.prison ? 3 : n >= 5 ? 2 : 1;
   sticky.slice(0, stickyMax).forEach((pr) => { picked.push(pr); used[pr.grp] = (used[pr.grp] || 0) + 1; });
+  // 1 bis. la passion du moment est presque toujours proposée sous une forme ou une autre
+  const tp = IN.top(p);
+  if (tp && tp.v >= 0.9 && rng() < Math.min(0.95, 0.4 + tp.v * 0.18)) {
+    const cands = pool.filter((pr) => !picked.includes(pr) && IN.domainsOfProject(pr).includes(tp.d) && !pr.prio);
+    if (cands.length) { const pr = cands[Math.floor(rng() * cands.length)]; picked.push(pr); used[pr.grp] = (used[pr.grp] || 0) + 1; }
+  }
   // 2. le reste, tiré au sort selon la cohérence avec la vie du joueur
   const cap = Math.max(1, Math.ceil(n / 2.5));
   const rest = pool.filter((pr) => !picked.includes(pr));
