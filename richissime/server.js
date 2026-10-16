@@ -383,6 +383,12 @@ io.on("connection", (socket) => {
     if (!r.ok && r.error) toast(r.error);
     after();
   }));
+  socket.on("game:quitjob", safe(() => {
+    if (!inGame()) return;
+    const r = ctx.room.engine.quitJob(seatOf());
+    if (!r.ok && r.error) toast(r.error);
+    after();
+  }));
   socket.on("game:finance", safe((op) => {
     if (!inGame()) return;
     const r = ctx.room.engine.finance(seatOf(), op || {});

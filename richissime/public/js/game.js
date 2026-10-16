@@ -50,6 +50,17 @@
       body.appendChild(j.length ? h("div", { "data-keepscroll": "journal", style: { maxHeight: "300px", overflow: "auto" } }, j.slice(0, 40).map((e) => h("div.jr", h("b", e.age + " ans"), " ", e.ic || "", " ", e.text))) : h("p.muted.small", "Ta vie commence. Les souvenirs s'accumuleront ici."));
       body.appendChild(openDetails("traits", "Ma personnalité", h("div", m.traits.map(statBar))));
     } else if (ui.tab === "rel") {
+      if (m.others && m.others.length) {
+        body.appendChild(h("h4", { style: { margin: "0 0 6px" } }, "Les autres joueurs et moi"));
+        body.appendChild(h("div.list", m.others.map((o) => h("div.item" + (o.alive ? "" : ".dead"), RD.avatar(o.avatar, 34, !o.alive),
+          h("div.main", h("b", o.name), " ", h("span.pill" + (o.tone === "bad" ? ".coral" : o.tone === "good" ? ".gold" : ""), { style: { fontSize: ".7rem" } }, o.ic + " " + o.role),
+            h("div.sub", o.alive ? o.age + " ans" + (o.notes.length ? " · " + o.notes.join(" · ") : "") : "Disparu(e)"),
+            o.alive ? h("div", { title: "Affinité " + o.aff + " sur 100, rivalité " + o.riv + " sur 100", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px", marginTop: "4px" } },
+              h("div.mini", h("i", { style: { width: o.aff + "%" } })), h("div.mini", h("i", { style: { width: o.riv + "%", background: "var(--bad)" } }))) : null,
+            o.log && o.log.length ? h("div.sub", { style: { fontStyle: "italic" } }, o.log[o.log.length - 1]) : null)))));
+        body.appendChild(h("p.small.muted", "Barre de gauche l'affinité, barre de droite la rivalité. Plus la rivalité monte, plus les coups deviennent graves, même quand tu ne fais rien.")); 
+        body.appendChild(h("h4", { style: { margin: "12px 0 6px" } }, "Ma famille et mes proches"));
+      }
       body.appendChild(h("div.list", m.relations.length ? m.relations.map((r) => h("div.item" + (r.alive ? "" : ".dead"), h("span.ic", r.ic), h("div.main", h("b", r.name), " ", h("span.sub", r.label + " · " + r.age + " ans" + (r.alive ? "" : " · disparu(e)")), r.alive ? h("div.mini", h("i", { style: { width: r.close + "%" } })) : null))) : [h("p.muted.small", "Personne pour l'instant.")]));
     } else if (ui.tab === "biens") {
       body.appendChild(h("div.list", m.assets.length ? m.assets.map((a) => h("div.item", h("span.ic", a.ic), h("div.main", h("b", a.name), h("div.sub", RD.money(a.value) + (a.income ? " · rapporte " + RD.money(a.income) + " par an" : "") + (a.upkeep ? " · entretien " + RD.money(a.upkeep) : ""))))) : [h("p.muted.small", "Tu ne possèdes rien pour l'instant.")]));
@@ -83,6 +94,7 @@
         h("div", h("div.nm", p.name, p.you ? " (toi)" : "", p.bot ? h("span.pill.navy", { style: { marginLeft: "5px" } }, "auto") : (S().game.autoSeats && S().game.autoSeats[p.seat] && !p.you ? h("span.pill", { style: { marginLeft: "5px" } }, "absent") : null)),
           h("div.meta", p.alive ? p.age + " ans · " + p.status + (p.prison ? " ⛓️" : "") : "Mort(e) à " + p.deathAge + " ans, " + p.cause),
           h("div.meta", p.marital + (p.kids ? " · " + p.kids + " enfant" + (p.kids > 1 ? "s" : "") : "")),
+          p.role ? h("div.meta", h("span.pill" + (p.role.tone === "bad" ? ".coral" : p.role.tone === "good" ? ".gold" : ""), { style: { fontSize: ".65rem" } }, p.role.ic + " " + p.role.word + " pour toi")) : null,
           h("div.meta", p.net !== null && p.net !== undefined ? h("b", RD.money(p.net)) : p.tier ? h("b", "Niveau " + p.tier) : "Fortune secrète", " · ", h("span.stars", { title: "Réputation sur 100. Tout le monde commence à 50." }, "⭐ " + p.repute))),
         p.alive && ["agenda", "recap", "event"].includes(st.phase) ? h("span.dot" + (p.ready ? ".on" : ""), { title: p.ready ? "a terminé" : "réfléchit" }) : null))),
       h("p.small.muted.starnote", "⭐ Les étoiles sont la réputation, sur 100. Tout le monde commence à 50. Elle monte avec les bons gestes (cadeaux, bénévolat, exploits, belle carrière) et baisse avec les coups bas, les scandales et la prison. Elle influence les rencontres et les réactions des autres."));
@@ -223,7 +235,7 @@
       body.appendChild(h("label.field", "Pour qui")); body.appendChild(tsel);
       body.appendChild(h("p.small.muted", (def.mode === "offer" ? "L'autre joueur devra accepter. " : "Cela se passe sans son accord. ") + (def.cost ? (def.split ? "Coût de " + RD.money(def.cost) + " pour chacun." : "Coût de " + RD.money(def.cost) + " pour toi.") : "")));
       const f = [];
-      if (["gift", "loan", "ask", "company", "duel"].includes(kind)) f.push(h("div", h("label.field", kind === "duel" ? "Mise (0 pour l'honneur)" : "Montant"), numInput("soc.amount", "", { min: 0, step: 100 })));
+      if (["gift", "loan", "ask", "company", "duel"].includes(kind)) f.push(h("div", h("label.field", kind === "duel" ? ((val("soc.game", "") || (curT.games && curT.games[0])) === "blackjack" ? "Mise (obligatoire au blackjack, un robot ne peut pas refuser)" : "Mise (0 pour l'honneur)") : "Montant"), numInput("soc.amount", "", { min: 0, step: 100 })));
       if (kind === "loan") { f.push(h("div", h("label.field", "Taux d'intérêt en %"), numInput("soc.rate", "8", { min: 0, max: 25 }))); f.push(h("div", h("label.field", "Durée en années"), numInput("soc.years", "3", { min: 1, max: 10 }))); }
       if (kind === "steal") f.push(h("div", h("label.field", "Ampleur du vol"), sel("soc.tier", [["petit", "Petit (discret)"], ["moyen", "Moyen"], ["gros", "Gros (très risqué)"]], "petit")));
       if (kind === "duel") { const gm = (curT.games && curT.games.length ? curT.games : []).map((id) => { const d = SO.duels.find((x) => x.id === id); return [id, d.ic + " " + d.l]; }); f.push(h("div", h("label.field", "Épreuve adaptée à votre âge"), sel("soc.game", gm, gm.length ? gm[0][0] : ""))); }
@@ -260,6 +272,9 @@
       warn,
       h("p.small.muted", "Voici " + (A.projects.length - 1) + " idées pour ton année. Elles changent chaque année et collent à ta vie (âge, travail, couple, argent, goûts). Le mot « étape » repère une suite logique de ton parcours. Si tu ne choisis rien, ce sera une année tranquille."),
       st.deadline ? RD.timerBar(st.deadline, 45000) : null,
+      m.job && !m.prison ? h("div.offer", { style: { display: "flex", gap: "10px", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", margin: "0 0 12px" } },
+        h("div", h("strong", m.job.ic + " " + m.job.title), h("div.small.muted", "En poste depuis " + Math.max(0, m.age - m.job.since) + " an(s), " + RD.money(m.job.salary) + " par an. Tu peux partir quand tu veux, mais tu ne toucheras pas de salaire cette année.")),
+        h("button.btn.bad", { type: "button", on: { click: () => { if (confirm("Quitter ton poste de " + m.job.title.toLowerCase() + " ?")) { RD.play("bad"); emit("game:quitjob"); } } } }, "🚪 Quitter mon emploi")) : null,
       projects,
       h("div", { style: { display: "grid", gap: "10px", marginTop: "14px" } }, financePanel(st), socialPanel(st)),
       h("div", { style: { marginTop: "16px", textAlign: "center" } }, h("button.btn.big", { on: { click: submit } }, "Valider mon année")),

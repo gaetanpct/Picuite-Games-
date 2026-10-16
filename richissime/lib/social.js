@@ -22,7 +22,6 @@ const DUELS = {
   quiz: { l: "Quiz", ic: "🧠", ages: [8, 120], score: (p) => p.stats.intel },
   charme: { l: "Concours de charme", ic: "✨", ages: [14, 60], score: (p) => p.stats.charme },
   blackjack: { l: "Blackjack", ic: "🂡", ages: [18, 120], score: (p) => (p.stats.intel + p.traits.courage) / 2 },
-  poker: { l: "Poker", ic: "🃏", ages: [18, 120], score: (p) => (p.stats.intel + p.traits.courage + p.stats.charme) / 3 },
   echecs: { l: "Parties d'échecs", ic: "♟️", ages: [8, 120], score: (p) => p.stats.intel * 0.8 + p.traits.prudent * 0.2 },
   petanque: { l: "Pétanque", ic: "🎯", ages: [45, 120], score: (p) => p.stats.sport * 0.4 + p.stats.charme * 0.3 + p.stats.intel * 0.3 },
   cartes: { l: "Belote de comptoir", ic: "🂡", ages: [30, 120], score: (p) => (p.stats.intel + p.stats.charme) / 2 },
@@ -111,7 +110,7 @@ function describeAction(g, A, off) {
     cost: spec.split ? Math.round(cost / 2) : cost, split: !!spec.split, step: spec.prio > 0, grp: spec.grp,
     targets: off.targets.map((s) => {
       const B = g.players[s]; const bd = SK.bond(g, A.seat, B.seat);
-      return { seat: s, name: B.name, word: SK.bondWord(g, A, B), games: spec.ui === "game" ? duelsFor(A, B) : undefined };
+      return { seat: s, name: B.name, word: FEUD.roleOf(g, A, B).word, games: spec.ui === "game" ? duelsFor(A, B) : undefined };
     }),
   };
 }
@@ -137,7 +136,12 @@ function validate(g, p, a) {
     case "marry": if (!(p.partner && p.partner.player === t.seat && p.partner.status === "couple")) return { ok: false, error: "Il faut d'abord être en couple avec ce joueur." }; break;
     case "company": act.amount = num(a.amount, 1000, Math.floor(p.cash), 0); if (act.amount < 1000) return { ok: false, error: "Il faut au moins 1 000 € à investir." }; break;
     case "steal": act.tier = ["petit", "moyen", "gros"].includes(a.tier) ? a.tier : "petit"; break;
-    case "duel": { const ok = duelsFor(p, t); act.game = ok.includes(a.game) ? a.game : ok[0]; if (!act.game) return { ok: false, error: "Aucune épreuve ne convient à votre âge." }; act.amount = num(a.amount, 0, Math.floor(p.cash), 0); break; }
+    case "duel": { const ok = duelsFor(p, t); act.game = ok.includes(a.game) ? a.game : ok[0]; if (!act.game) return { ok: false, error: "Aucune épreuve ne convient à votre âge." }; act.amount = num(a.amount, 0, Math.floor(p.cash), 0);
+      if (act.game === "blackjack") {
+        if (act.amount < 10) return { ok: false, error: "Au blackjack, on mise de l'argent. Mets au moins 10 €." };
+        if (t.cash < 10) return { ok: false, error: t.name + " n'a plus d'argent à miser." };
+      }
+      break; }
     default: {
       const cost = SK.ev(spec.cost, p, t, g) || 0;
       if (cost && p.cash < (spec.split ? cost / 2 : cost)) return { ok: false, error: "Tu n'as pas assez d'argent." };
@@ -170,7 +174,7 @@ function special(g, name, A, B, out, lines) {
       try { FXLIB.applyFx(g, B, { job: { track: tr, level: 0 } }, null); lines.b.push("💼 Tu travailles maintenant comme " + B.job.title.toLowerCase() + "."); lines.a.push("💼 " + B.name + " travaille désormais comme " + B.job.title.toLowerCase() + "."); } catch (e) { /* le métier n'est pas accessible */ }
       return;
     }
-    case "blackmail": { const m = money(B, A, 0.08, 15000); if (m) { g._loot = m; lines.a.push("💶 Tu as encaissé " + C.fmt(m) + "."); lines.b.push("💸 Tu as payé " + C.fmt(m) + " pour acheter le silence."); } return; }
+    case "blackmail": { const sec = !!SK.bond(g, A.seat, B.seat).tags.confident; const m = money(B, A, sec ? 0.18 : 0.08, sec ? 60000 : 15000); if (m) { g._loot = m; lines.a.push("💶 Tu as encaissé " + C.fmt(m) + "."); lines.b.push("💸 Tu as payé " + C.fmt(m) + " pour acheter le silence."); } return; }
     case "scam": { const m = money(B, A, 0.09, 20000); if (m) { g._loot = m; lines.a.push("💶 L'affaire t'a rapporté " + C.fmt(m) + "."); lines.b.push("💸 L'affaire douteuse t'a coûté " + C.fmt(m) + "."); } return; }
     case "plainte_ok": {
       const gr = freshGrievance(g, A, B); if (gr) gr.used = true;
@@ -181,12 +185,11 @@ function special(g, name, A, B, out, lines) {
       if (g.settings.mature && gr && (gr.kind === "steal" || gr.kind === "arnaque" || gr.kind === "chantage") && g.rng() < 0.3) { FXLIB.applyFx(g, B, { prison: C.rint(g.rng, 1, 3) }, null); lines.b.push("⛓️ Tu es condamné(e) à de la prison ferme."); }
       return;
     }
-    case "mini_blackjack":
-    case "mini_poker": {
+    case "mini_blackjack": {
       const low = Math.min(A.cash, B.cash);
       let stake = Math.round(Math.min(low * (0.04 + g.rng() * 0.08), 2000000));
       stake = stake >= 10000 ? Math.round(stake / 1000) * 1000 : stake >= 1000 ? Math.round(stake / 100) * 100 : Math.round(stake / 10) * 10;
-      startDuel(g, A, B, name === "mini_blackjack" ? "blackjack" : "poker", stake);
+      startDuel(g, A, B, "blackjack", stake);
       return;
     }
     case "plainte_ko": { const gr = freshGrievance(g, A, B); if (gr) gr.used = true; return; }
@@ -196,7 +199,7 @@ function special(g, name, A, B, out, lines) {
       startDuel(g, A, B, ls.game, Math.min(Math.floor(A.cash), Math.floor(B.cash), ls.amount ? ls.amount * 2 : 0));
       return;
     }
-    default: return;
+    default: return FEUD.special(g, name, A, B, out, lines);
   }
 }
 // applique une issue : effets, lien, histoires et nouvelles
@@ -249,7 +252,8 @@ function runGeneric(g, spec, A, B, yes, direct) {
 }
 
 // ---------- rancunes et revanches ----------
-const GRIEF = { steal: 1, rumor: 1, sabotage: 1, chantage: 1, arnaque: 1, denounce: 1 };
+const GRIEF = { steal: 1, rumor: 1, sabotage: 1, chantage: 1, arnaque: 1, denounce: 1, ruiner_affaires: 1, faire_licencier: 1, fouiller_passe: 1, tendre_piege: 1, saccager_biens: 1, contrat_tueur: 1 };
+const FEUD = require("./feud");
 function recordGrievance(g, victim, culprit, kind, loot) {
   g.grievances = (g.grievances || []).filter((x) => x.round >= g.round - 2);
   g.grievances.push({ v: victim.seat, c: culprit.seat, kind, round: g.round, loot: loot || 0 });
@@ -272,7 +276,7 @@ function resolveActions(g) {
     if (!spec) continue;
     SK.bond(g, p.seat, t.seat).last[spec.id] = g.round;
     if (!spec.legacy) {
-      if (spec.mode === "direct") { g._loot = 0; runGeneric(g, spec, p, t, true, true); if (GRIEF[spec.id]) recordGrievance(g, t, p, spec.id, g._loot); }
+      if (spec.mode === "direct") { g._loot = 0; runGeneric(g, spec, p, t, true, true); if (GRIEF[spec.id]) recordGrievance(g, t, p, spec.id, g._loot); if (spec.hostile && t.alive) FEUD.afterHostile(g, p, t); }
       else g.offers.push({ id: seq++, from: p.seat, to: t.seat, a, status: "pending" });
       continue;
     }
@@ -288,9 +292,9 @@ function resolveActions(g) {
         g.news(p, "🎁 " + p.name + " a fait un cadeau à " + t.name + wealthWord(g, amt) + ".");
         break;
       }
-      case "steal": g._loot = 0; doSteal(g, p, t, a); recordGrievance(g, t, p, "steal", g._loot); SK.touch(g, p.seat, t.seat, { riv: 18, aff: -10 }); break;
-      case "rumor": doRumor(g, p, t); recordGrievance(g, t, p, "rumor", 0); SK.touch(g, p.seat, t.seat, { riv: 16, aff: -10 }); break;
-      case "denounce": doDenounce(g, p, t); recordGrievance(g, t, p, "denounce", 0); SK.touch(g, p.seat, t.seat, { riv: 20, aff: -12 }); break;
+      case "steal": g._loot = 0; doSteal(g, p, t, a); recordGrievance(g, t, p, "steal", g._loot); SK.touch(g, p.seat, t.seat, { riv: 18, aff: -10 }); FEUD.afterHostile(g, p, t); break;
+      case "rumor": doRumor(g, p, t); recordGrievance(g, t, p, "rumor", 0); SK.touch(g, p.seat, t.seat, { riv: 16, aff: -10 }); FEUD.afterHostile(g, p, t); break;
+      case "denounce": doDenounce(g, p, t); recordGrievance(g, t, p, "denounce", 0); SK.touch(g, p.seat, t.seat, { riv: 20, aff: -12 }); FEUD.afterHostile(g, p, t); break;
       default: g.offers.push({ id: seq++, from: p.seat, to: t.seat, a, status: "pending" });
     }
   }
@@ -485,7 +489,7 @@ function botRespond(g, o) {
   const r = g.rng();
   const bd = SK.bond(g, o.from, o.to);
   let yes;
-  if (a.kind === "ask") yes = r < 0.4; else if (a.kind === "duel") yes = r < 0.6; else if (a.kind === "marry" || a.kind === "couple") yes = r < 0.55;
+  if (a.kind === "duel" && a.game === "blackjack") yes = true; else if (a.kind === "ask") yes = r < 0.4; else if (a.kind === "duel") yes = r < 0.6; else if (a.kind === "marry" || a.kind === "couple") yes = r < 0.55;
   else if (a.kind === "faire_la_paix" || a.kind === "derniere_reconciliation") yes = r < 0.7;
   else yes = r < 0.55 + bd.aff / 250 - bd.riv / 150;
   applyOffer(g, o, yes, yes && a.kind === "ask" && g.rng() < 0.4 ? "half" : yes ? "yes" : "no");
@@ -493,13 +497,21 @@ function botRespond(g, o) {
 function botAction(g, p) {
   const offer = p.socialOffer || [];
   if (!offer.length) return null;
-  const ws = offer.map((o) => (SK.byId[o.id].hostile ? 0.35 : 1) * (SK.byId[o.id].prio > 0 ? 2 : 1) * (SK.byId[o.id].grp === "reaction" ? 3 : 1));
+  // un robot rancunier frappe plus souvent, surtout si on lui a fait du mal ou s'il a un rival déclaré
+  const heat = (o) => Math.max.apply(null, o.targets.map((s) => SK.bond(g, p.seat, s).riv));
+  const ws = offer.map((o) => { const sp = SK.byId[o.id]; return (sp.hostile ? 0.35 * (1 + heat(o) / 12) * (o.id === "contrat_tueur" ? 0.35 : 1) : 1) * (sp.prio > 0 ? 2 : 1) * (sp.grp === "reaction" ? 3 : 1); });
   const tot = ws.reduce((x, y) => x + y, 0);
   let r = g.rng() * tot, o = offer[offer.length - 1];
   for (let i = 0; i < offer.length; i++) { r -= ws[i]; if (r <= 0) { o = offer[i]; break; } }
   const t = g.players[pick(g.rng, o.targets)];
   const v = validate(g, p, { kind: o.id, target: t.seat, amount: Math.max(100, Math.floor(p.cash * 0.1)), tier: "petit", game: duelsFor(p, t)[0], rate: 8, years: 3 });
   return v.ok ? v.action : null;
+}
+function botActChance(g, p) {
+  let pr = 0.3;
+  g.alivePlayers().forEach((q) => { if (q === p) return; if (SK.bond(g, p.seat, q.seat).riv >= 30) pr += 0.15; });
+  if ((g.grievances || []).some((x) => x.v === p.seat && !x.used && x.round >= g.round - 1)) pr += 0.2;
+  return Math.min(0.85, pr);
 }
 function botFinance(g, p) { g.finance(p.seat, { op: "invest", kind: pick(g.rng, ["livret", "actions"]), amount: Math.floor(p.cash * 0.4) }); }
 
@@ -1053,4 +1065,4 @@ function resolveGroup(g) {
   g.news(null, res.public, "group");
 }
 
-module.exports = { recordLoss, startDuel, KINDS, DUELS, GROUPS, duelsFor, offerActions, describeAction, validate, resolveActions, respond, expireOffers, offerText, botRespond, botAction, botFinance, loanTick, yearEnd, onDeath, planGroup, groupOptions, groupChoose, groupTick, groupReady, applyOffer };
+module.exports = { recordLoss, startDuel, KINDS, DUELS, GROUPS, duelsFor, offerActions, describeAction, validate, resolveActions, respond, expireOffers, offerText, botRespond, botAction, botActChance, botFinance, loanTick, yearEnd, onDeath, planGroup, groupOptions, groupChoose, groupTick, groupReady, applyOffer };

@@ -1,8 +1,7 @@
-// Parties de cartes jouées pour de vrai (blackjack et poker à cinq cartes)
+// Parties de cartes jouées pour de vrai (blackjack avec mise)
 (function () {
   const RD = (window.RD = window.RD || {});
   const h = RD.h;
-  const UI = (RD.miniUI = RD.miniUI || { sel: {} });
   const emit = (ev, d) => RD.emit(ev, d);
   const RNAME = { 11: "V", 12: "D", 13: "R", 14: "A" };
 
@@ -30,34 +29,6 @@
       state ? h("p.muted", { style: { textAlign: "center" } }, state) : null);
   }
 
-  function poker(m) {
-    const done = m.state === "done";
-    const th = m.theirs, me = m.mine;
-    const key = m.id + ":" + m.stage + ":" + me.cards.map((c) => c.n).join("");
-    UI.sel[key] = UI.sel[key] || {};
-    const sel = UI.sel[key];
-    const picking = m.stage === "echange" && m.canAct;
-    const cards = me.cards.map((c, i) => card(c, picking ? () => { sel[i] = !sel[i]; RD.render(); } : null, picking && sel[i]));
-    const picked = Object.keys(sel).filter((i) => sel[i]).map(Number);
-    let controls = null, info = null;
-    if (!done && m.stage === "echange") {
-      controls = picking ? h("div.row", { style: { justifyContent: "center", marginTop: "10px" } },
-        h("button.btn.good", { on: { click: () => send(m, "draw", picked) } }, picked.length ? "Échanger " + picked.length + " carte" + (picked.length > 1 ? "s" : "") : "Garder ma main")) : null;
-      info = picking ? "Touche les cartes que tu veux changer, puis valide." : "Tu as échangé. " + (m.oppDrawn ? "" : th.name + " choisit encore ses cartes.");
-    } else if (!done && m.stage === "mise") {
-      const facing = m.actions.includes("call");
-      controls = m.canAct ? h("div.row", { style: { justifyContent: "center", marginTop: "10px" } },
-        facing ? [h("button.btn.good", { on: { click: () => send(m, "call") } }, "Suivre (" + RD.money(m.raise) + " de plus)"), h("button.btn.bad", { on: { click: () => send(m, "fold") } }, "Se coucher")]
-          : [h("button.btn", { on: { click: () => send(m, "check") } }, "Parole"), h("button.btn.good", { on: { click: () => send(m, "raise") } }, "Relancer de " + RD.money(m.amount))]) : null;
-      info = m.canAct ? (facing ? th.name + " relance. Tu suis ou tu te couches ?" : "À toi de parler. Relancer double l'enjeu.") : "C'est à " + th.name + " de parler.";
-    }
-    return h("div.minibox",
-      h("div.mini-side", h("div.mini-name", th.name), h("div.cards", th.cards.map((c) => card(c))), done && th.hand ? h("div.mini-total", th.hand) : null),
-      h("div.mini-side.me", h("div.mini-name", "Toi"), h("div.cards", cards), me.hand ? h("div.mini-total", "Tu as " + me.hand) : null),
-      controls, info ? h("p.muted", { style: { textAlign: "center" } }, info) : null,
-      m.log && m.log.length ? h("div.small.muted", { style: { textAlign: "center" } }, m.log.map((l) => l.name + " " + l.text).join(" · ")) : null);
-  }
-
   function one(m) {
     if (!m.involved) {
       return h("div.offer", h("p", m.ic + " " + m.a.name + " et " + m.b.name + " jouent au " + m.label.toLowerCase() + (m.amount ? " pour " + RD.money(m.amount) : " pour l'honneur") + "."),
@@ -66,7 +37,7 @@
     const done = m.state === "done";
     return h("div.card", h("div.kicker", m.ic + " " + m.label + " contre " + m.theirs.name), h("h2", done ? "La partie est finie" : "À la table"),
       h("p.muted", stakeText(m)), !done && m.deadline ? RD.timerBar(m.deadline, 30000) : null,
-      m.kind === "blackjack" ? blackjack(m) : poker(m),
+      blackjack(m),
       done ? h("div.mini-result" + (m.result.winner === null ? "" : m.result.winner === m.you ? ".good" : ".bad"),
         h("strong", m.result.winner === null ? "Égalité" : m.result.winner === m.you ? "Tu as gagné" + (m.result.stake ? " " + RD.money(m.result.stake) : "") : "Tu as perdu" + (m.result.stake ? " " + RD.money(m.result.stake) : "")), h("div", m.result.text)) : null);
   }

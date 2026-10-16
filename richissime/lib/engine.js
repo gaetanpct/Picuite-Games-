@@ -12,6 +12,7 @@ const settingsLib = require("./settings");
 const social = require("./social");
 const sys = require("./sys");
 const life = require("./life");
+const EXP = require("./experience");
 
 const HABITS = {
   sport: { key: "sport", stat: "sport", spill: { charme: 1, sante: 1, courage: 0.4 }, ic: "💪", flag: "athletique", milestone: ["Trois ans de régularité. Ton corps change, ton allure aussi, et les regards avec.", "Six ans à t'entretenir. Ta silhouette et ta confiance te précèdent dans toutes les pièces.", "Dix ans de discipline. Tu es devenu(e) quelqu'un qu'on remarque dès l'entrée."], click: "Un déclic à la salle. Tu repousses tes limites, et ton charme grimpe avec ta forme." },
@@ -307,6 +308,23 @@ class Game {
     return list;
   }
 
+  // Démission à tout moment de l'agenda, sans passer par les choix de vie. Le salaire de l'année est perdu.
+  quitJob(seat) {
+    const p = this.players[seat];
+    if (!p || !p.alive || this.phase !== "agenda" || p.ready) return { ok: false, error: "Pas le moment." };
+    if (!p.job) return { ok: false, error: "Tu n'as pas d'emploi à quitter." };
+    if (p.prison) return { ok: false, error: "Impossible depuis la prison." };
+    const title = p.job.title, years = p.age - p.job.since;
+    FX.applyFx(this, p, { quit: true, bonheur: years >= 3 ? 1 : 3 }, null);
+    if (years < 1) FX.applyFx(this, p, { repute: -2 }, null);
+    p.mem.quits = (p.mem.quits || 0) + 1;
+    if (!(p.lifeOffer || []).includes("emploi_candidater")) p.lifeOffer = ["emploi_candidater"].concat(p.lifeOffer || []);
+    p.yearLog.push("🚪 Tu quittes ton poste de " + title.toLowerCase() + ". Tu ne toucheras pas de salaire cette année.");
+    p.journal.push({ age: p.age, text: "Tu as quitté ton emploi de " + title.toLowerCase() + ".", ic: "🚪", tag: "travail" });
+    if (p.plan && p.plan.project && !(p.lifeOffer || []).includes(p.plan.project)) p.plan = null;
+    return { ok: true };
+  }
+
   submitAgenda(seat, plan) {
     const p = this.players[seat];
     if (!p || !p.alive || this.phase !== "agenda" || p.ready) return { ok: false };
@@ -335,7 +353,7 @@ class Game {
     // le bot gère un peu son argent
     if (p.cash > 8000 && rng() < 0.4) social.botFinance(this, p);
     let act = null;
-    if (this.alivePlayers().length > 1 && rng() < 0.3) act = social.botAction(this, p);
+    if (this.alivePlayers().length > 1 && rng() < social.botActChance(this, p)) act = social.botAction(this, p);
     p.plan = { project: pr.id, social: act };
     p.ready = true;
   }
@@ -670,6 +688,7 @@ class Game {
 
   // ---------- fin de l'événementiel → bilan ----------
   _closeEvents() {
+    require("./feud").tick(this);
     this.alivePlayers().forEach((p) => this._yearEnd(p));
     social.yearEnd(this);
     if (!this.alivePlayers().length) { this._finishGame("allDead"); return; }
@@ -695,6 +714,7 @@ class Game {
     require("./interests").update(p, pr);
     if (pr.id.startsWith("par_")) { p.parTry = p.parTry || {}; p.parTry[pr.id] = (p.parTry[pr.id] || 0) + 1; }
     this._lifeOutcome(p, pr, rep);
+    EXP.variance(this, p, pr, rep);
     this._projectHook(p, pr, rep);
     // école
     this._schoolTick(p, rep);
@@ -733,13 +753,16 @@ class Game {
     if (!pr.outs || !pr.outs.length || p.dying) return;
     const x = { slots: {}, vals: {}, next: null };
     x.render = (t) => C.render(t, p, x);
-    const ws = pr.outs.map((o) => Math.max(0, typeof o.w === "function" ? o.w(p, x, this) : o.w));
+    const base = pr.outs.map((o) => Math.max(0, typeof o.w === "function" ? o.w(p, x, this) : o.w));
+    const info = EXP.tilt(this, p, pr, pr.outs, base, x);
+    const ws = info.ws;
     const total = ws.reduce((a, b) => a + b, 0);
     if (total <= 0) return;
-    let r = this.rng() * total, o = pr.outs[pr.outs.length - 1];
-    for (let i = 0; i < pr.outs.length; i++) { r -= ws[i]; if (r <= 0) { o = pr.outs[i]; break; } }
+    let r = this.rng() * total, o = pr.outs[pr.outs.length - 1], oi = pr.outs.length - 1;
+    for (let i = 0; i < pr.outs.length; i++) { r -= ws[i]; if (r <= 0) { o = pr.outs[i]; oi = i; break; } }
+    const pre = EXP.record(this, p, pr, info.risky ? info.tones[oi] : 0, info);
     FX.applyFx(this, p, o.fx, x);
-    const text = C.render(o.t, p, x);
+    const text = pre + C.render(o.t, p, x);
     rep.lines.push(text);
     if (o.j) p.journal.push({ age: p.age, text, ic: pr.ic, tag: "projet" });
   }

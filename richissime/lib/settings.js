@@ -85,7 +85,6 @@ const SCHEMA = [
         { value: "5", label: "5 actions", icon: "🤝", desc: "Un bon éventail à chaque tour." },
         { value: "8", label: "8 actions", icon: "🎪", desc: "Beaucoup d'idées, surtout pour les bandes d'amis chaotiques." },
       ] },
-      { id: "cardGames", label: "Blackjack et poker pour de vrai", type: "bool", default: true, info: "Quand un défi de poker ou de blackjack est accepté, la partie se joue avec de vraies cartes, tirées au hasard, face à l'autre joueur. Désactivé, le résultat est calculé tout de suite selon le profil des deux joueurs." },
       { id: "hostile", label: "Coups bas autorisés", type: "bool", default: true, info: "Autorise le vol, les rumeurs et les dénonciations contre les autres joueurs." },
       { id: "inheritance", label: "Héritage entre joueurs", type: "bool", default: false, info: "À sa mort, un joueur peut léguer 30 % de sa fortune à un autre joueur encore en vie, ou à son conjoint." },
       { id: "wealthView", label: "Fortunes visibles", type: "choice", default: "tiers", info: "Ce que les autres joueurs peuvent voir de ton argent.", options: [

@@ -22,9 +22,9 @@ reg({ id: "emprunt_demesure", grp: "argent", l: "Emprunter énormément pour sp�
   need: Object.assign({ net: [20000, null], ages: [24, 70] }, { nostudy: true, noprison: true, school: false }), cool: 8, w: 3, j: true,
   fit: (p) => (p.traits.courage >= 55 && p.traits.prudent < 60 ? 1.6 : 0.4),
   outs: [
-    out(0.05, "Le coup de poker du siècle. Ton levier explose le plafond, tu rembourses tout, et il reste une fortune.", { argent: (p) => cap(Math.max(250000, net(p) * 12), 900000000), bonheur: 12, repute: 8, pub: "🚀 $nom empoche une fortune après un pari à effet de levier." }, true),
-    out(0.3, "Le pari rapporte, sans miracle. Tu rembourses l'emprunt et tu gardes un joli bénéfice.", { argent: (p) => cap(Math.max(15000, net(p) * 0.6), 4000000), bonheur: 4 }),
-    out(0.65, "Le marché se retourne. La banque te réclame tout, et les intérêts continuent de courir.", { dette: (p) => cap(Math.max(60000, net(p) * 3), 80000000), bonheur: -12, repute: -3, prudent: 4 }, true),
+    out(0.06, "Le coup de poker du siècle. Ton levier explose le plafond, tu rembourses tout, et il reste une fortune.", { argent: (p) => cap(Math.max(250000, net(p) * 12), 900000000), bonheur: 12, repute: 8, pub: "🚀 $nom empoche une fortune après un pari à effet de levier." }, true),
+    out(0.34, "Le pari rapporte, sans miracle. Tu rembourses l'emprunt et tu gardes un joli bénéfice.", { argent: (p) => cap(Math.max(15000, net(p) * 0.6), 4000000), bonheur: 4 }),
+    out(0.6, "Le marché se retourne. La banque te réclame tout, et les intérêts continuent de courir.", { dette: (p) => cap(Math.max(60000, net(p) * 3), 80000000), bonheur: -12, repute: -3, prudent: 4 }, true),
   ] });
 
 reg({ id: "entrer_mafia", grp: "argent", l: "Rejoindre une organisation criminelle", ic: "🕴️", d: "Quelqu'un te propose de rejoindre la famille. L'argent coule vite, les amis sont fidèles, et le jour où la police frappe, on t'oublie longtemps dans une cellule.", tag: "mature",

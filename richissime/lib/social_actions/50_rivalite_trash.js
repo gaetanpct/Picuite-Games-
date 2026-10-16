@@ -1,5 +1,6 @@
 // Rivalités, coups bas, arnaques et délires. Les coups bas et le trash respectent les réglages de la partie.
 const { reg, bond, employed } = require("../socialkit");
+const F = require("../feud");
 
 reg({ id: "provocation", grp: "coup_bas", ic: "😏", l: "Lancer une provocation", d: "Un commentaire de travers, un regard de défi. La rivalité s'installe, ou s'enflamme.", hostile: true, mode: "direct",
   ages: [10, 90], w: 6, cool: 2, fit: (g, A, B, b) => 0.7 + b.riv / 20 + (b.tags.ex ? 1.5 : 0),
@@ -11,7 +12,7 @@ reg({ id: "provocation", grp: "coup_bas", ic: "😏", l: "Lancer une provocation
 reg({ id: "sabotage", grp: "coup_bas", ic: "🪤", l: "Saboter un projet", d: "Un dossier égaré, un courriel mal orienté, un café renversé au bon moment. Tu ne laisses aucune trace, normalement.", hostile: true, mode: "direct",
   ages: [18, 75], w: 6, cool: 3, ok: (g, A, B, b) => employed(A) && employed(B), fit: (g, A, B, b) => (b.riv >= 15 ? 1.5 : 0.35),
   direct: [
-    { w: 0.6, a: { honnete: -3, bonheur: 3 }, b: { perf: -10, repute: -2, bonheur: -4 }, ta: "Le rapport de $B arrive avec un jour de retard et un café dessus. Personne ne soupçonne rien, sauf peut-être le café.", tb: "Ton dossier a disparu. Tu retrouves un morceau de ton rapport dans la corbeille d'un collègue.", bond: { riv: 14, aff: -6 } },
+    { w: 0.6, special: "sabotage_ok", a: { honnete: -3, bonheur: 3 }, b: { perf: -10, repute: -2, bonheur: -4 }, ta: "Le rapport de $B arrive avec un jour de retard et un café dessus. Personne ne soupçonne rien, sauf peut-être le café.", tb: "Ton dossier a disparu. Tu retrouves un morceau de ton rapport dans la corbeille d'un collègue.", bond: { riv: 14, aff: -6 } },
     { w: 0.4, a: { repute: -6, perf: -6, bonheur: -4 }, b: { perf: 2, bonheur: 1 }, ta: "Une caméra a tout filmé. Tu passes un entretien désagréable avec les ressources humaines, qui est assez long pour qu'on t'offre un siège.", tb: "Tu surprends $A en train de déplacer ton dossier. Tu fais semblant de ne rien voir, puis tu en parles à tout l'étage.", bond: { riv: 14, aff: -8 }, news: "🪤 $A a été pris(e) en train de saboter le travail de $B." },
   ] });
 
@@ -30,10 +31,10 @@ reg({ id: "arnaque", grp: "coup_bas", ic: "🎩", l: "Vendre une affaire en or",
   ] });
 
 reg({ id: "vengeance", grp: "coup_bas", ic: "🧨", l: "Se venger d'un coup bas", d: "On t'a fait du tort, tu n'as pas oublié. Un plat qui se mange froid, avec un peu de piment.", hostile: true, mode: "direct",
-  ages: [14, 90], w: 14, prio: 1, cool: 2, coolPair: 2, ok: (g, A, B, b) => b.riv >= 25 || !!b.tags.ex || !!b.tags.betrayed,
+  ages: [14, 90], w: 14, prio: 1, cool: 2, coolPair: 2, ok: (g, A, B, b) => (g.grievances || []).some((x) => x.v === A.seat && x.c === B.seat && !x.used && x.round >= g.round - 3) || (b.riv >= 25 && (!!b.tags.ex || !!b.tags.betrayed)) || b.riv >= 55,
   direct: [
-    { w: 0.6, a: { bonheur: 5, bonte: -2 }, b: { repute: -4, bonheur: -6 }, ta: "Ta vengeance est subtile, élégante et parfaitement injuste. $B ne comprend pas ce qui lui arrive. Toi si.", tb: "Quelqu'un vient de te rendre une monnaie que tu pensais avoir oubliée. Tu n'as pas la moindre idée de qui.", bond: { riv: 12, aff: -5 } },
-    { w: 0.4, a: { bonheur: -3, repute: -3 }, b: { bonheur: 1 }, ta: "Ta vengeance échoue de façon spectaculaire. Il y a des plumes, des cris, des témoins.", tb: "La vengeance de $A tourne mal. Tu observes la scène depuis un banc, avec un sourire sans pitié.", bond: { riv: 12 }, news: "🧨 La vengeance de $A contre $B a tourné au fiasco." },
+    { w: (g, A, B) => F.odds(g, A, B, 0.55), special: "vengeance_ok", a: { bonheur: 5, bonte: -2 }, b: { repute: -4, bonheur: -6 }, ta: "Ta vengeance est subtile, élégante et parfaitement injuste. $B ne comprend pas ce qui lui arrive. Toi si.", tb: "Quelqu'un vient de te rendre une monnaie que tu pensais avoir oubliée. Tu n'as pas la moindre idée de qui.", bond: { riv: 12, aff: -5 } },
+    { w: (g, A, B) => 1 - F.odds(g, A, B, 0.55), special: "vengeance_ko", a: { bonheur: -3, repute: -3 }, b: { bonheur: 1 }, ta: "Ta vengeance échoue de façon spectaculaire. Il y a des plumes, des cris, des témoins.", tb: "La vengeance de $A tourne mal. Tu observes la scène depuis un banc, avec un sourire sans pitié.", bond: { riv: 12 }, news: "🧨 La vengeance de $A contre $B a tourné au fiasco." },
   ] });
 
 reg({ id: "faire_eloge", grp: "amitie", ic: "📣", l: "Faire l'éloge d'un autre devant tout le monde", d: "Un compliment sincère, au bon moment, devant les bonnes personnes. La réputation de l'autre y gagne, la tienne aussi.", mode: "direct",

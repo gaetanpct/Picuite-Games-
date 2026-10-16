@@ -5,7 +5,7 @@ const { reg } = require("../socialkit");
 const fresh = (g, A, B) => (g.grievances || []).find((x) => x.v === A.seat && x.c === B.seat && x.round === g.round - 1 && !x.used);
 const lost = (g, A, B) => (g.lostGames || []).find((x) => x.loser === A.seat && x.winner === B.seat && x.round === g.round - 1 && !x.used);
 const gate = (g, A, B, pct) => ((g.round * 7 + A.seat * 3 + B.seat * 5) % 10) < pct;
-const GAMES = { course: "la course", quiz: "le quiz", charme: "le concours de charme", poker: "le poker", blackjack: "le blackjack", echecs: "les échecs", petanque: "la pétanque", cartes: "les cartes" };
+const GAMES = { course: "la course", quiz: "le quiz", charme: "le concours de charme", blackjack: "le blackjack", echecs: "les échecs", petanque: "la pétanque", cartes: "les cartes" };
 
 reg({ id: "porter_plainte", grp: "reaction", ic: "⚖️", l: "Porter plainte", mode: "direct", ages: [14, 110], w: 30, cool: 0, coolPair: 0,
   d: (A, g) => "On t'a fait du tort l'an dernier. Tu peux saisir la justice, avec des chances variables de gagner. Si tu perds, tu as perdu ton temps.",

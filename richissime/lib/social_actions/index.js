@@ -5,7 +5,8 @@ require("./40_seniors");
 require("./50_rivalite_trash");
 require("./55_reactions");
 require("./60_classiques");
-require("./65_cartes");
+require("./70_conflits");
+require("./75_alliances");
 
 // Phrases affichées à la personne qui reçoit la proposition
 const { byId } = require("../socialkit");

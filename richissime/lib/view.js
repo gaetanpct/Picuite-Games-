@@ -7,6 +7,7 @@
 const R = require("./rules");
 const C = require("./core");
 const social = require("./social");
+const feud = require("./feud");
 
 const KIND_LABEL = {
   mere: ["Mère", "Mère"], pere: ["Père", "Père"], sibling: ["Frère", "Sœur"], friend: ["Ami", "Amie"], bestfriend: ["Meilleur ami", "Meilleure amie"],
@@ -58,6 +59,8 @@ function pubPlayer(g, q, viewerSeat, extra) {
     cause: q.death ? q.death.cause : null, deathAge: q.death ? q.death.age : null, survivor: !!(q.death && q.death.survivor),
   };
   if (extra && extra[q.seat]) Object.assign(o, extra[q.seat]);
+  const vp = g.players[viewerSeat];
+  if (vp && vp !== q) { const r = feud.roleOf(g, vp, q); o.role = { word: r.word, ic: r.ic, tone: r.tone }; }
   return o;
 }
 
@@ -75,6 +78,7 @@ function meView(g, p) {
     school: { phase: SCHOOL_LABEL[p.school.phase] || "", grade: Math.round(p.school.grade), diplomas: p.school.diplomas.filter((d) => d !== "aucun").map((d) => R.DIPLOMAS[d].l), edu: p.school.edu, eduLabel: Object.values(R.DIPLOMAS).filter((d) => d.rank === p.school.edu).map((d) => d.l)[0] || "", studying: p.school.phase === "sup", inSchool: ["primaire", "college", "lycee"].includes(p.school.phase), endAge: p.school.endAge },
     relations: p.npcs.filter((n) => n.alive || n.deadAge !== undefined).map((n) => ({ id: n.id, name: n.name, age: n.alive ? n.age : n.deadAge, gender: n.gender, kind: n.kind, label: relLabel(n), ic: KIND_ICON[n.kind] || "👤", close: Math.round(n.close), alive: n.alive, tag: n.tag })),
     partner: marital(g, p),
+    others: g.players.filter((q) => q.seat !== p.seat).map((q) => { const r = feud.roleOf(g, p, q); return { seat: q.seat, name: q.name, avatar: q.avatar, alive: q.alive, age: q.alive ? q.age : (q.death ? q.death.age : q.age), role: r.word, ic: r.ic, tone: r.tone, stage: r.stage, level: r.level, aff: r.aff, riv: r.riv, notes: r.notes, log: r.log }; }),
     assets: p.assets.map((a) => ({ id: a.id, kind: a.kind, name: a.name, value: Math.round(a.value), cost: Math.round(a.cost || 0), ic: (R.ASSET_KINDS[a.kind] || {}).ic || "📦", pool: !!a.pool, sellable: !a.pool && !a.partnerCompany, income: a.income || 0, upkeep: a.upkeep || 0, shared: !!a.partnerCompany })),
     heir: p.heir,
     history: p.wealthHistory.slice(),
