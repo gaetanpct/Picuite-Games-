@@ -48,8 +48,9 @@
     ]));
 
     body.appendChild(section("🛡️ Les modes de jeu", [
-      p("<b>Classique</b>, croque l'Œuf. <b>Conquête</b>, tiens les reliques et atteins l'objectif de points. <b>Chasse au roi</b>, pas d'œuf, la partie est perdue quand ton Roi tombe (un duel de deux rois est gagné par l'attaquant)."),
+      p("<b>Classique</b>, croque l'Œuf. <b>Conquête</b>, pas d'œuf par défaut, tiens les reliques et atteins l'objectif de points (de 8 à 100 selon ce que l'hôte choisit). <b>Chasse au roi</b>, pas d'œuf, la partie est perdue quand ton Roi tombe (un duel de deux rois est gagné par l'attaquant)."),
       p("En plus, il y a les <b>Équipes</b> 2 contre 2, le <b>Brouillard</b> (tu ne vois que près de tes pièces), <b>Chaos</b> (événements surprise), et <b>Express</b> (petit plateau, 10 minutes)."),
+      p("<b>Légion des merveilles</b>, tout le monde a le même noyau d'armée classique, et chacun choisit en secret ses pièces spéciales pour les places libres (Cavalier, Assassin, Reflet, Chauve-souris, Golem, Fantôme). Les pièces spéciales sont aussi disponibles en composition sur mesure."),
       p("<b>Composition sur mesure</b>, chaque joueur fabrique sa propre armée avec le même budget, sans limite de temps, avant le placement. La composition adverse reste secrète sauf si l'hôte choisit de la dévoiler."),
     ]));
 

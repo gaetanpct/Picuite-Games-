@@ -456,6 +456,49 @@
     const room = c.size - 1;
     let total = 0, cost = 0;
     ORDER.forEach((id) => { if (id !== "oeuf") { total += counts[id] || 0; cost += (counts[id] || 0) * PIECES[id].cost; } });
+    const L = c.legion;
+    if (L) {
+      const used = ORDER.reduce((t, id) => t + (PIECES[id].special ? (counts[id] || 0) : 0), 0);
+      $("#compose-sub").textContent = "Le noyau de l'armée est le même pour tout le monde. Choisis tes pièces spéciales pour les places libres. Les places que tu ne remplis pas deviennent des Gardes. Il n'y a pas de limite de temps.";
+      const mt = $("#compose-meters"); mt.innerHTML = "";
+      mt.appendChild(el("div", { class: "meter" }, [el("span", { text: "Pièces spéciales " + used + " sur " + L.slots }), el("div", { class: "meter__bar" }, [el("i", { style: { width: Math.min(100, (used / L.slots) * 100) + "%" } })])]));
+      const pr = $("#compose-presets"); pr.innerHTML = "";
+      if (!ready) {
+        pr.appendChild(el("span", { class: "muted small", text: "Partir d'un modèle" }));
+        Object.keys(L.presets || {}).forEach((k) => pr.appendChild(el("button", { class: "btn btn--small btn--plum", title: L.presets[k].desc, onclick: () => socket.emit("game:composePreset", { preset: k }), text: L.presets[k].icon + " " + L.presets[k].name })));
+      }
+      const gr = $("#compose-grid"); gr.innerHTML = "";
+      ORDER.forEach((id) => {
+        if (id === "oeuf") return;
+        const d = PIECES[id];
+        const n = counts[id] || 0;
+        if (!d.special) {
+          if (!n) return;
+          gr.appendChild(el("div", { class: "army-row", title: d.desc }, [el("span", { class: "army-row__ico", text: d.icon }), el("span", { class: "army-row__name", text: d.short }), el("small", { class: "army-row__cost", text: "Noyau" }), el("div", { class: "stepper" }, [el("b", { text: String(n) })])]));
+          return;
+        }
+        const canPlus = !ready && n < d.max && used < L.slots;
+        const canMinus = !ready && n > 0;
+        const set = (delta) => { const next = {}; ORDER.forEach((k) => { if (PIECES[k].special) next[k] = counts[k] || 0; }); next[id] = n + delta; socket.emit("game:compose", { counts: next }); };
+        gr.appendChild(el("div", { class: "army-row", title: d.desc }, [
+          el("span", { class: "army-row__ico", text: d.icon }),
+          el("span", { class: "army-row__name", text: d.short }),
+          el("small", { class: "army-row__cost", text: "Force " + d.rank + " · " + d.desc }),
+          el("div", { class: "stepper" }, [
+            el("button", { class: "mini-btn", text: "−", disabled: canMinus ? null : "", onclick: () => set(-1) }),
+            el("b", { text: String(n) }),
+            el("button", { class: "mini-btn", text: "+", disabled: canPlus ? null : "", onclick: () => set(1) }),
+          ]),
+        ]));
+      });
+      const stt = $("#compose-status"); stt.innerHTML = "";
+      st.players.forEach((p) => { const h = HOUSES[p.house % HOUSES.length]; stt.appendChild(el("span", { class: "comp-chip", text: h.icon + " " + p.name + (p.ready ? " ✅" : " ⏳") })); });
+      const bt = $("#btn-compose-ready");
+      bt.textContent = ready ? "↩ Modifier mon armée" : "✅ Valider mon armée";
+      bt.className = "btn btn--big " + (ready ? "btn--plum" : "btn--gold");
+      bt.onclick = () => socket.emit("game:composeReady", { ready: !ready });
+      return;
+    }
     $("#compose-sub").textContent = "Tout le monde a le même budget. Il n'y a pas de limite de temps. L'Œuf de Dragon est ajouté automatiquement et le Roi est toujours présent.";
     const meters = $("#compose-meters"); meters.innerHTML = "";
     meters.appendChild(el("div", { class: "meter" + (total > room ? " meter--bad" : "") }, [el("span", { text: "Pièces " + total + " sur " + room }), el("div", { class: "meter__bar" }, [el("i", { style: { width: Math.min(100, (total / room) * 100) + "%" } })])]));

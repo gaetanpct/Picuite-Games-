@@ -58,7 +58,8 @@
       this.armyCounts = Pieces.resolveArmy(this.settings);
       this.armSize = Pieces.armySizeFor(this.settings.boardSize);
       this.armyBy = this.players.map(() => this.armyCounts);
-      this.customMode = this.settings.armyPreset === "custom";
+      this.customMode = this.settings.armyPreset === "custom" || (this.settings.armyPreset === "legion" && this.settings.specialPieces);
+      this.legionMode = this.customMode && this.settings.armyPreset === "legion";
       this._depth = {};
       this.board.arms.forEach((arm) => {
         arm.cells.forEach(([r, c]) => { this._depth[K(r, c)] = this._armDepth(arm.side, r, c); });
@@ -76,6 +77,7 @@
 
     // ---------- composition sur mesure ----------
     _defaultComposition() {
+      if (this.legionMode) return this._cleanComposition((Pieces.LEGION_PRESETS[this.armSize] || Pieces.LEGION_PRESETS[24]).mixte.counts);
       return this._cleanComposition(Pieces.ARMIES[this.armSize].standard.counts);
     }
     _cleanComposition(input) {
@@ -90,7 +92,7 @@
       return { ok: true };
     }
     composePreset(pi, presetId) {
-      const preset = Pieces.ARMIES[this.armSize][presetId];
+      const preset = this.legionMode ? (Pieces.LEGION_PRESETS[this.armSize] || {})[presetId] : Pieces.ARMIES[this.armSize][presetId];
       if (!preset || (preset.special && !this.settings.specialPieces)) return { ok: false, error: "Modèle inconnu." };
       return this.composeSet(pi, preset.counts);
     }
@@ -139,7 +141,7 @@
     alivePlayers() { return this.players.filter((p) => !p.eliminated); }
     fogActive() { return !!this.settings.fog || this.tempFog > 0; }
     fogRadius() { return this.tempFog > 0 ? 1 : this.settings.fogRadius; }
-    isTargetMode() { return this.settings.mode === "kinghunt" ? "roi" : "oeuf"; }
+    isTargetMode() { if (this.settings.mode === "kinghunt") return "roi"; if (this.settings.mode === "conquest" && !this.settings.conquestEgg) return null; return "oeuf"; }
 
     _pushEvent(ev) {
       ev.seq = ++this.seq;
@@ -293,13 +295,16 @@
         return "own";
       };
       DIRS.forEach(([dr, dc]) => {
-        if (def.long) {
-          let r = p.r + dr, c = p.c + dc;
-          while (true) {
+        if (def.long || def.reach) {
+          const lim = def.long ? 99 : def.reach;
+          let r = p.r + dr, c = p.c + dc, steps = 1;
+          while (steps <= lim) {
             const k = consider(r, c);
-            if (k === "empty") { out.push([r, c]); r += dr; c += dc; continue; }
-            if (k === "enemy") out.push([r, c]);
-            break;
+            if (k === "empty") out.push([r, c]);
+            else if (k === "enemy") { out.push([r, c]); break; }
+            else if (k === "block" && def.fly && this.inBounds(r, c) && this.terrain[r][c] !== "void") { /* survol d'un obstacle */ }
+            else break;
+            r += dr; c += dc; steps++;
           }
         } else {
           const r = p.r + dr, c = p.c + dc;
@@ -369,7 +374,7 @@
       const target = this.grid[r][c];
       if (!target) {
         this._recordMove(p, r, c);
-        if (this.terrain[r][c] === "marsh") p.frozen = 2;
+        if (this.terrain[r][c] === "marsh" || PIECES[p.type].slow) p.frozen = 2;
         this._pushEvent({
           kind: "move", pieceId: p.id, owner: pi, from, to: { r, c }, cells: [from, { r, c }],
           text: this.pname(pi) + " avance une pièce.",
@@ -378,6 +383,7 @@
         return;
       }
       this._combat(p, target, from);
+      if (p.alive && PIECES[p.type].slow) p.frozen = Math.max(p.frozen, 2);
       this._afterAction();
     }
 
@@ -392,6 +398,8 @@
       else if (att.type === "rat" && def.type === "roi") result = "ratKing";
       else if (att.type === "roi" && def.type === "rat") result = "ratGuard"; // le Rat bat le Roi même quand il se défend
       else if (att.type === "roi" && def.type === "roi" && this.settings.mode === "kinghunt") result = "attWins"; // duel de rois : l'attaquant l'emporte
+      else if (Dd.mirror) result = "tie"; // le Reflet renvoie le coup, les deux disparaissent
+      else if (A.assassin && Dd.rank <= 9) result = "attWins"; // l'Assassin frappe n'importe qui sauf le Roi
       else if (A.rank > Dd.rank) result = "attWins";
       else if (A.rank < Dd.rank) result = "defWins";
       else result = "tie";
@@ -419,9 +427,9 @@
         case "flag": ev.text = `🥚 ${na} croque l'Œuf de Dragon de ${nd} !`; break;
         case "ratGuard": ev.text = `🐀 Coup de théâtre ! Le Rat Espion de ${nd} se défend et terrasse le Roi de ${na} !`; pd.stats.kingsSlain++; break;
         case "ratKing": ev.text = `🐀 Coup de théâtre ! Le Rat Espion de ${na} terrasse le Roi de ${nd} !`; pa.stats.kingsSlain++; break;
-        case "attWins": ev.text = `${la} de ${na} bat ${defHidden ? "une pièce" : ld} de ${nd}.`; break;
+        case "attWins": ev.text = A.assassin && Dd.rank > 1 ? `🥷 ${la} de ${na} frappe dans l'ombre et élimine ${defHidden ? "une pièce" : ld} de ${nd} !` : `${la} de ${na} bat ${defHidden ? "une pièce" : ld} de ${nd}.`; break;
         case "defWins": ev.text = defHidden ? `${la} de ${na} se casse les dents sur une pièce cachée dans la forêt de ${nd}.` : `${la} de ${na} se fait battre par ${ld} de ${nd}.`; break;
-        case "tie": ev.text = `${la} de ${na} et ${ld} de ${nd} s'éliminent mutuellement.`; break;
+        case "tie": ev.text = Dd.mirror ? `🪞 ${la} de ${na} frappe un Reflet de ${nd}. Le coup est renvoyé, les deux pièces disparaissent !` : `${la} de ${na} et ${ld} de ${nd} s'éliminent mutuellement.`; break;
       }
 
       // application
@@ -869,6 +877,7 @@
         armyCountsBy: this.players.map((_, i) => (this._compVisible(viewer, i) ? this.armyBy[i] : null)),
         compose: this.phase === "compose" ? {
           budget: this.settings.armyBudget, size: this.armSize,
+          legion: this.legionMode ? { slots: Pieces.legionSlots(this.armSize), core: Pieces.LEGION[this.armSize].core, presets: Pieces.LEGION_PRESETS[this.armSize] } : null,
           mine: this.comp[viewer].counts,
           ready: this.players.map((q) => q.ready),
         } : null,

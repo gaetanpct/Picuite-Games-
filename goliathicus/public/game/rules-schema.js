@@ -15,12 +15,13 @@
           id: "mode", label: "Mode de jeu", type: "cards", default: "classic",
           options: [
             { value: "classic", label: "Classique", icon: "🥚", desc: "Croque l'Œuf de Dragon d'un adversaire pour l'éliminer. Le dernier en lice gagne." },
-            { value: "conquest", label: "Conquête", icon: "🏆", desc: "Tiens les reliques du centre pour marquer des points. Le premier à atteindre l'objectif gagne, ou le dernier en lice." },
+            { value: "conquest", label: "Conquête", icon: "🏆", desc: "Pas d'œuf. Tiens les reliques du centre pour marquer des points. Le premier à atteindre l'objectif gagne, ou le dernier en lice." },
             { value: "kinghunt", label: "Chasse au roi", icon: "👑", desc: "Pas d'œuf ! Un camp est éliminé quand son Roi tombe. Protège ton roi, planque-le bien." },
           ],
           info: "Le mode de victoire de la partie.",
         },
-        { id: "relicTarget", label: "Points de reliques pour gagner", type: "chips", default: 12, options: [8, 12, 16, 24], showIf: { mode: "conquest" }, info: "Chaque relique tenue au début de ton tour rapporte 1 point." },
+        { id: "relicTarget", label: "Points de reliques pour gagner", type: "chips", default: 12, options: [8, 12, 16, 24, 40, 60, 100], showIf: { mode: "conquest" }, info: "Chaque relique tenue au début de ton tour rapporte 1 point. Avec 8 points, la partie est très courte. Avec 60 ou 100 points, c'est une longue guerre de position." },
+        { id: "conquestEgg", label: "🥚 Garder l'Œuf de Dragon en conquête", type: "bool", default: false, showIf: { mode: "conquest" }, info: "Désactivé = pas d'œuf en conquête, seules les reliques comptent (et la déroute si plus aucune pièce ne peut bouger). Activé = chaque camp protège aussi son œuf." },
         { id: "relicOrbits", label: "Nombre de reliques", type: "chips", default: 1, options: [{ value: 1, label: "Peu" }, { value: 2, label: "Beaucoup" }], showIf: { mode: "conquest" }, info: "Peu = 4 reliques (2 en duel), beaucoup = le double." },
       ],
     },
@@ -59,13 +60,14 @@
             { value: "trap", label: "Piégeuse", icon: "🥧", desc: "Des tartes et des nains." },
             { value: "fast", label: "Rapide", icon: "🧚", desc: "Des lutins à gogo." },
             { value: "loufoque", label: "Fantômes", icon: "👻", desc: "Avec des fantômes.", needs: { specialPieces: true } },
+            { value: "legion", label: "Légion des merveilles", icon: "🌟", desc: "Un noyau d'armée classique identique pour tous. Chacun choisit ses pièces spéciales (Cavalier, Assassin, Reflet, Chauve-souris, Golem, Fantôme) pour les places libres.", needs: { specialPieces: true } },
             { value: "custom", label: "Sur mesure", icon: "🛠️", desc: "Chaque joueur compose sa propre armée avec le même budget, sans limite de temps." },
           ],
           info: "Tout le monde joue avec la même composition (équitable).",
         },
         { id: "armyBudget", label: "Budget de l'armée sur mesure", type: "chips", default: 150, options: [110, 130, 150, 180], showIf: { armyPreset: "custom" }, info: "Chaque pièce coûte des points. Chaque joueur dépense le même budget pour composer sa propre armée avant le placement, sans limite de temps." },
         { id: "compReveal", label: "👀 Dévoiler les compositions à tous", type: "bool", default: false, showIf: { armyPreset: "custom" }, info: "Activé = chacun voit l'armée de ses adversaires une fois les compositions validées. Désactivé = la composition adverse reste secrète, il faut deviner." },
-        { id: "specialPieces", label: "👻 Pièces spéciales", type: "bool", default: true, info: "Autorise le Fantôme (saute par-dessus un obstacle) dans les compositions." },
+        { id: "specialPieces", label: "👻 Pièces spéciales", type: "bool", default: true, info: "Autorise les pièces spéciales dans les compositions (sur mesure et Légion) avec leurs pouvoirs. Fantôme, Cavalier, Assassin, Reflet, Chauve-souris et Golem." },
         { id: "bombsHidden", label: "🥧 Les tartes restent cachées", type: "bool", default: true, info: "Activé = une tarte qui fait exploser un attaquant (ou qui est désamorcée) n'est jamais dévoilée aux joueurs qui n'étaient pas dans le combat. Désactivé = tout le monde voit ce que c'était." },
         { id: "survivorsRevealed", label: "👁️ Les survivants restent dévoilés", type: "bool", default: true, info: "Activé = après un combat, la pièce gagnante reste visible de tous. Désactivé = mode mémoire, tu dois te souvenir de ce que tu as vu." },
       ],
@@ -129,7 +131,7 @@
     if (typeof playerCount === "number") {
       if (playerCount !== 4) base.teams = false;
     }
-    if (!base.specialPieces && base.armyPreset === "loufoque") base.armyPreset = "standard";
+    if (!base.specialPieces && (base.armyPreset === "loufoque" || base.armyPreset === "legion")) base.armyPreset = "standard";
     return base;
   }
 
