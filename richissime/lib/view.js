@@ -108,7 +108,7 @@ function sceneView(g, p) {
   const sc = p.scene; if (!sc) return null;
   return {
     id: sc.id, ic: sc.ic, title: sc.title, text: sc.text, state: sc.state, tags: sc.tags, depth: sc.depth,
-    choices: sc.choices.filter((c) => !c.hid).map((c) => ({ i: c.i, l: c.l, ic: c.ic, cost: c.cost || 0, ok: c.ok, why: c.why, risk: g.settings.hints ? c.risk : 0 })),
+    choices: sc.choices.filter((c) => !c.hid).map((c) => ({ i: c.i, l: c.l, ic: c.ic, cost: c.cost || 0, ok: c.ok, why: c.why, hint: c.hint || "", risk: g.settings.hints ? c.risk : 0 })),
     result: sc.result ? { text: sc.result.text, chips: sc.result.chips, death: sc.result.death, saved: sc.result.saved, choice: sc.result.choiceLabel, hasNext: sc.result.hasNext } : null,
     deadline: sc.deadline || 0,
   };
@@ -172,6 +172,16 @@ function lifeTitle(g, p, survivor) {
 
 // ---------- fiche de vie (fin par vote) ----------
 const MOMENT_W = { mort: 10, naissance: 10, jalon: 6, saga: 6, justice: 6, amour: 5, famille: 4, argent: 4, sante: 4, travail: 3, social: 3, ecole: 2, flash: 1 };
+function lifeFacts(p, age) {
+  const m = p.mem || {};
+  return {
+    jail: m.jailYears || 0, sentences: m.sentences || 0,
+    happy: m.bhN ? Math.round(m.bhSum / m.bhN) : Math.round(p.stats.bonheur),
+    partnerYears: m.partnerYears || 0, divorces: m.divorces || 0,
+    kidsLost: m.kidsLost || 0, richYears: m.richYears || 0, poorYears: m.poorYears || 0,
+    fired: m.fired || 0, peak: Math.round(m.peakNet || 0), age,
+  };
+}
 function lifeFile(g, p) {
   if (p._lf && p._lfAge === (p.death ? p.death.age : p.age)) return p._lf;
   const net = p.finalWorth !== undefined ? p.finalWorth : C.netWorth(p);
@@ -179,10 +189,7 @@ function lifeFile(g, p) {
   const wh = p.wealthHistory.length ? p.wealthHistory : [{ age, net }];
   const peak = wh.reduce((a, b) => (b.net > a.net ? b : a), wh[0]);
   const low = wh.reduce((a, b) => (b.net < a.net ? b : a), wh[0]);
-  const scored = p.journal.map((j, i) => ({ j, sc: (MOMENT_W[j.tag] || 2) + ((i * 2654435761) >>> 0) % 1000 / 400 }));
-  const keep = new Set(scored.filter((x) => x.j.tag === "naissance" || x.j.tag === "mort").map((x) => x));
-  scored.filter((x) => !keep.has(x)).sort((a, b) => b.sc - a.sc).slice(0, 12 - keep.size).forEach((x) => keep.add(x));
-  const moments = scored.filter((x) => keep.has(x)).map((x) => ({ age: x.j.age, ic: x.j.ic || "•", text: x.j.text }));
+  const moments = require("./ledger").keyMoments(p, p.journal, 14).map((x) => ({ age: x.age, ic: x.ic, text: x.text, big: x.w >= 9 }));
   const jobs = p.jobHistory.map((j) => j.title).concat(p.job ? [p.job.title] : []);
   const uniqJobs = jobs.filter((t, i) => jobs.indexOf(t) === i);
   const kids = p.npcs.filter((n) => n.kind === "child");
@@ -200,6 +207,7 @@ function lifeFile(g, p) {
     exes: p.npcs.filter((n) => n.kind === "ex").length,
     kids: kids.length, kidNames: kids.slice(0, 5).map((n) => n.name),
     record: p.record, prison: !!p.flags.ex_detenu,
+    facts: lifeFacts(p, age),
     moments, wealth: wh.map((w) => ({ age: w.age, net: Math.round(w.net) })),
   };
   return p._lf;
@@ -253,6 +261,20 @@ function finalView(g) {
   };
 }
 
+function proInfo(g, p) {
+  const PRO = require("./pro");
+  const S = PRO.state(p);
+  const ctxs = PRO.contexts(p).filter((c) => c !== "tous").map((c) => ({ id: c, l: PRO.CONTEXTS[c].l, ic: PRO.CONTEXTS[c].ic }));
+  const main = ctxs[0] || { id: "tous", l: PRO.CONTEXTS.tous.l, ic: PRO.CONTEXTS.tous.ic };
+  const illegal = ctxs.some((c) => c.id === "ombre" || c.id === "mafia");
+  return {
+    contexts: ctxs, main,
+    meters: { skill: Math.round(S.skill), net: Math.round(S.net), rep: Math.round(S.rep), heat: Math.round(S.heat), showHeat: illegal || S.heat > 0 },
+    options: g.availablePro(p).map((pr) => ({ id: pr.id, l: pr.l, ic: pr.ic, d: pr.d, cost: pr.cost || 0, step: !!pr.step, ill: !!pr.ill, risk: pr.risk === undefined ? -1 : pr.risk, gain: pr.gain || "", build: pr.build || "" })),
+    spe: p.spe ? { l: p.spe.l, ic: p.spe.ic, xp: p.spe.xp, done: !!p.spe.done } : null,
+  };
+}
+
 function getStateFor(g, seat, now) {
   const p = g.players[seat];
   const st = {
@@ -266,7 +288,8 @@ function getStateFor(g, seat, now) {
   st.scene = sceneView(g, p);
   if (g.phase === "agenda") {
     st.agenda = {
-      ready: !!p.ready, plan: p.plan ? { project: p.plan.project, social: p.plan.social || null } : null,
+      ready: !!p.ready, plan: p.plan ? { project: p.plan.project, social: p.plan.social || null, pro: p.plan.pro || null } : null,
+      pro: proInfo(g, p),
       projects: g.availableProjects(p).map((pr) => ({ id: pr.id, l: pr.l, ic: pr.ic, d: pr.d, cost: pr.cost || 0, step: !!pr.step })),
       finance: financeInfo(g, p), social: socialInfo(g, p),
     };
@@ -290,4 +313,4 @@ function getStateFor(g, seat, now) {
   return st;
 }
 
-module.exports = { getStateFor, KIND_LABEL };
+module.exports = { getStateFor, KIND_LABEL, lifeFile };

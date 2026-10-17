@@ -28,6 +28,12 @@ const SCHEMA = [
         { value: "5", label: "5 choix", icon: "⚖️", desc: "Le bon équilibre." },
         { value: "7", label: "7 choix", icon: "🧭", desc: "Davantage de liberté, parties plus longues." },
       ] },
+      { id: "proChoices", label: "Choix professionnels par année", type: "choice", default: "5", info: "Le nombre d'options que chaque joueur reçoit dans l'onglet Professionnel. Elles dépendent de son activité du moment (métier sérieux, métier manuel, scène, sport, indépendant, milieu, mafia, études, chômage, retraite). On peut en choisir une par année, en plus de son choix de vie.", options: [
+        { value: "3", label: "3 options", icon: "⚡", desc: "Un menu court, pour aller vite." },
+        { value: "4", label: "4 options", icon: "🏃", desc: "Court et varié." },
+        { value: "5", label: "5 options", icon: "⚖️", desc: "Le bon équilibre." },
+        { value: "7", label: "7 options", icon: "🧭", desc: "Davantage de stratégie de carrière." },
+      ] },
       { id: "timer", label: "Chrono par choix", type: "choice", default: "normal", info: "Si un joueur dépasse le temps, un choix est fait automatiquement à sa place.", options: [
         { value: "none", label: "Sans chrono", icon: "♾️", desc: "On attend tout le monde." },
         { value: "fast", label: "Rapide", icon: "⚡", desc: "25 secondes." },

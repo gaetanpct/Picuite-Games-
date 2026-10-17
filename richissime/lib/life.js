@@ -23,6 +23,18 @@ const BANDS = {
 };
 function inBand(p, pr) { const b = BANDS[pr.id]; if (!b) return true; const t = kit.tier(p); return t >= b[0] && t <= b[1]; }
 
+// Les choix qui rapportent de l'argent ou font avancer une carrière vivent dans l'onglet Professionnel.
+// Les autres restent dans les choix de vie (loisirs, amour, famille, santé, voyages, études, folies).
+const PRO_GRP = new Set(["emploi", "travail", "louche", "parcours"]);
+const PRO_IDS = new Set(["side", "creer", "creer_autre", "opportunite", "vide_grenier", "brocante", "petit_boulot", "baby_sitting", "bonbons", "creer_empire", "rachat_entreprise", "fonds_investissement", "reseau_clandestin", "racheter_club", "holding_familiale", "pari_fou", "entrer_mafia", "monter_en_grade", "quitter_mafia", "empire_1", "empire_2", "empire_3", "empire_4", "empire_5", "cartel_1", "cartel_2", "cartel_3", "formation_metier", "stage", "atelier_prison", "etudes_prison"]);
+const NOT_PRO = new Set(["equilibre", "soiree_clandestine", "bonbons"]);
+function isPro(pr) {
+  if (NOT_PRO.has(pr.id)) return false; return pr.pro === true || (pr.pro !== false && (PRO_GRP.has(pr.grp) || PRO_IDS.has(pr.id))); }
+LIST.forEach((pr) => {
+  pr.isPro = isPro(pr);
+  if (pr.isPro && pr.ill === undefined && (pr.grp === "louche" || /mafia|cartel|empire_|clandestin/.test(pr.id))) pr.ill = true;
+});
+
 function ev(spec, key, p, g) { const v = spec[key]; return typeof v === "function" ? v(p, g) : v; }
 
 // un choix qui prolonge une vraie passion peut revenir chaque année
@@ -68,7 +80,7 @@ function chosenRecently(p, g, pr) {
 function offer(g, p) {
   const n = Math.max(2, Math.min(10, Number(g.settings.lifeChoices) || 5));
   const rng = g.rng;
-  const pool = LIST.filter((pr) => pr.id !== "routine" && isEligible(g, p, pr) && !chosenRecently(p, g, pr));
+  const pool = LIST.filter((pr) => pr.id !== "routine" && !pr.isPro && isEligible(g, p, pr) && !chosenRecently(p, g, pr));
   const picked = [];
   const used = {};
   // 1. les étapes de parcours, toujours proposées
@@ -107,15 +119,65 @@ function offer(g, p) {
   return ids;
 }
 
+// Les options de l'onglet Professionnel. Elles dépendent du contexte du moment (métier, études, milieu, retraite...).
+// Les options propres au contexte passent avant les options générales.
+function offerPro(g, p) {
+  const PRO = require("./pro");
+  const n = Math.max(2, Math.min(9, Number(g.settings.proChoices) || 5));
+  const rng = g.rng;
+  const ctxs = PRO.contexts(p);
+  const specific = (pr) => Array.isArray(pr.ctx) && pr.ctx.some((c) => c !== "tous" && ctxs.includes(c));
+  const universal = (pr) => !Array.isArray(pr.ctx) || pr.ctx.includes("tous");
+  const pool = LIST.filter((pr) => pr.isPro && isEligible(g, p, pr) && !chosenRecently(p, g, pr) && (specific(pr) || (universal(pr) && (!pr.ctx || ctxs.includes("tous")))));
+  const picked = [];
+  const used = {};
+  const add = (pr) => { picked.push(pr); used[pr.grp] = (used[pr.grp] || 0) + 1; };
+  // 1. les étapes d'un parcours restent proposées
+  const sticky = pool.filter((pr) => pr.prio > 0).sort((a, b) => (b.prio - a.prio));
+  sticky.slice(0, 2).forEach(add);
+  // 2. tirage pondéré, avec un poids supplémentaire pour ce qui colle au contexte principal
+  const main = PRO.mainContext(p);
+  const target = Math.min(n, p.prison ? 3 : n);
+  const draw = (cands, want) => {
+    let guard = 0;
+    while (picked.length < want && cands.length && guard++ < 60) {
+      const ws = cands.map((pr) => {
+        const base = pr.w === undefined ? 5 : pr.w;
+        const fit = pr.fit ? pr.fit(p, g) : 1;
+        let lf = 1;
+        if (pr.tag === "loufoque") lf = [0, 0.4, 1, 2.2][p.cfg.loufoque] || 1;
+        const cap = Math.max(2, Math.ceil(n / 2));
+        if ((used[pr.grp] || 0) >= cap) return 0;
+        const mainBoost = Array.isArray(pr.ctx) && pr.ctx.includes(main) ? 1.5 : 1;
+        return base * fit * lf * mainBoost * freshness(p, g, pr) * (0.65 + rng() * 0.7);
+      });
+      const total = ws.reduce((a, b) => a + b, 0);
+      if (total <= 0) break;
+      let r = rng() * total, idx = ws.length - 1;
+      for (let i = 0; i < ws.length; i++) { r -= ws[i]; if (r <= 0) { idx = i; break; } }
+      add(cands.splice(idx, 1)[0]);
+    }
+  };
+  const rest = pool.filter((pr) => !picked.includes(pr));
+  const spec = rest.filter(specific);
+  const gen = rest.filter((pr) => !specific(pr));
+  draw(spec, Math.min(target, picked.length + Math.max(2, Math.ceil(target * 0.7))));
+  draw(gen, target);
+  draw(spec.filter((pr) => !picked.includes(pr)), target);
+  const ids = picked.map((pr) => pr.id);
+  ids.forEach((id) => { p.lifeSeen[id] = g.round; });
+  return ids;
+}
+
 // Description complète d'un choix pour le client
 function describe(g, p, id) {
   const pr = id === "routine" ? ROUTINE : byId[id];
   if (!pr) return null;
-  return { id: pr.id, l: ev(pr, "l", p, g), ic: pr.ic, d: ev(pr, "d", p, g), cost: ev(pr, "cost", p, g) || 0, step: pr.prio > 0, grp: pr.grp };
+  return { id: pr.id, l: ev(pr, "l", p, g), ic: pr.ic, d: ev(pr, "d", p, g), cost: ev(pr, "cost", p, g) || 0, step: pr.prio > 0, grp: pr.grp, pro: !!pr.isPro, ill: !!pr.ill, risk: pr.risk === undefined ? -1 : pr.risk, gain: pr.gain || "", build: pr.build || "" };
 }
 
 const ROUTINE = { id: "routine", grp: "divers", l: "Année tranquille", ic: "🌤️", d: "Tu laisses la vie venir, sans rien forcer.", need: {}, fx: {}, cost: 0 };
 LIST.push(ROUTINE);
 byId.routine = ROUTINE;
 
-module.exports = { LIST, byId, offer, describe, isEligible, ROUTINE, ev };
+module.exports = { LIST, byId, offer, offerPro, describe, isPro, isEligible, ROUTINE, ev };

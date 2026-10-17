@@ -40,10 +40,10 @@ ev("choix_lycee", {
   must: 60, ages: [15, 15], tags: ["ecole"], ic: "🧭🏫", need: { fn: (p) => p.school.phase === "college" },
   t: "Fin de collège, il faut choisir ton avenir. La conseillère d'orientation te tend une brochure. Lycée général, technologique, professionnel, apprentissage ou autre chose ?",
   c: [
-    D("Lycée général", "📘", "Tu rejoins un grand lycée de $ville. Dans trois ans, tu passes le bac et tu choisis tes études.", { school: { phase: "lycee", track: "general" }, intel: 1, bonheur: 1 }),
-    D("Lycée technologique", "🔧", "Une formation plus concrète, avec ateliers et projets. Tu pourras rebondir.", { school: { phase: "lycee", track: "techno" }, creatif: 2, bonheur: 1 }),
-    D("Lycée professionnel", "🛠️", "Tu apprends un vrai métier, sur le terrain. Le bac pro arrive en trois ans.", { school: { phase: "lycee", track: "pro" }, sport: 1, ambition: 1 }),
-    D("Apprentissage en entreprise", "🧑‍🏭", "Tu travailles et tu étudies en alternance. Moins de cours, plus de vie réelle.", { school: { phase: "none", track: "apprenti" }, dipl: "brevet", ambition: 3, jobHunt: true, flag: "apprenti" }),
+    D("Lycée général", "📘", "Tu rejoins un grand lycée de $ville. Dans trois ans, tu passes le bac et tu choisis tes études.", { next: "choix_filiere", school: { phase: "lycee", track: "general" }, intel: 1, bonheur: 1 }),
+    D("Lycée technologique", "🔧", "Une formation plus concrète, avec ateliers et projets. Tu pourras rebondir.", { next: "choix_filiere", school: { phase: "lycee", track: "techno" }, creatif: 2, bonheur: 1 }),
+    D("Lycée professionnel", "🛠️", "Tu apprends un vrai métier, sur le terrain. Le bac pro arrive en trois ans.", { next: "choix_filiere", school: { phase: "lycee", track: "pro" }, sport: 1, ambition: 1 }),
+    D("Apprentissage en entreprise", "🧑‍🏭", "Tu travailles et tu étudies en alternance. Moins de cours, plus de vie réelle.", { next: "choix_filiere", school: { phase: "none", track: "apprenti" }, dipl: "brevet", ambition: 3, jobHunt: true, flag: "apprenti" }),
     D("Arrêter l'école", "🚪", "Tu claques la porte de l'école. L'avenir est à toi, et il est très flou.", { school: { phase: "none" }, courage: 3, bonheur: 2, repute: -2, flag: "decrocheur", jobHunt: true }),
   ],
 });
@@ -89,6 +89,23 @@ ev("bac_rattrapage", {
   ],
 });
 
+ev("choix_filiere", {
+  chainOnly: true, tags: ["ecole"], ic: "🧭🎯",
+  t: "Ta voie est tracée, mais il reste à choisir ce qui te passionne vraiment. La spécialisation que tu prends maintenant va peser longtemps sur tes qualités, sur les métiers qu'on te proposera et sur le salaire de départ.",
+  c: (p) => {
+    const FIL = require("../filieres");
+    const stage = FIL.stageOf(p);
+    const list = FIL.forStage(stage);
+    const ch = list.map((s) => {
+      const ok = FIL.gateOk(p, s);
+      const why = ok ? null : FIL.gateWhy(s);
+      return C(s.l, s.ic, [O(1, s.d, { spe: s.id, bonheur: 2 })], ok ? { hint: s.d } : { need: { fn: () => false }, why });
+    });
+    ch.push(C("Rester polyvalent(e)", "🧩", [O(1, "Tu ne te spécialises pas. Tu gardes toutes les portes ouvertes, au prix d'un profil moins marqué.", { bonheur: 1, sociable: 1, intel: 1 })]));
+    return ch;
+  },
+});
+
 ev("orientation", {
   chainOnly: true, tags: ["ecole"], ic: "🧭🎓",
   t: "Le bac en poche, il faut décider de la suite. Les portes ouvertes se succèdent, les brochures s'empilent. Quelle voie choisis-tu pour tes études ?",
@@ -96,14 +113,14 @@ ev("orientation", {
     const ch = [];
     const edu = p.school.edu;
     const g = p.stats.intel;
-    ch.push(C("La fac (licence en 3 ans)", "🏛️", [O(1, "Tu t'inscris à l'université. Un grand amphi, des centaines d'étudiants, et une liberté vertigineuse.", { school: (p) => ({ phase: "sup", track: "fac", target: "licence", endAge: p.age + 3 }), bonheur: 3 })], { need: { edu: 3 } }));
-    ch.push(C("Une prépa et une grande école (5 ans)", "🏆", [O(1, "Deux ans de prépa, de nuits blanches et de café, puis une grande école. Tu t'engages dans le marathon.", { school: (p) => ({ phase: "sup", track: "prepa", target: "master", endAge: p.age + 5 }), dette: 12000, ambition: 4, intel: 3, bonheur: -3 })], { need: { edu: 3, stat: { intel: [52, null] } }, cost: 0, why: "Il faut un bon niveau (Intelligence 52)" }));
-    ch.push(C("Une école de commerce (5 ans)", "💼", [O(1, "Tu intègres une école de commerce. Les frais sont lourds, les soirées nombreuses, le réseau précieux.", { school: (p) => ({ phase: "sup", track: "commerce", target: "master", endAge: p.age + 5 }), dette: 22000, sociable: 4, charme: 2, ambition: 3 })], { need: { edu: 3 } }));
-    ch.push(C("Une école d'ingénieurs (5 ans)", "⚙️", [O(1, "Tu entres en école d'ingénieurs. Des équations, des projets et des cafés à gogo.", { school: (p) => ({ phase: "sup", track: "ingenieur", target: "master", endAge: p.age + 5 }), dette: 10000, intel: 4 })], { need: { edu: 3, stat: { intel: [50, null] } }, why: "Il faut un bon niveau (Intelligence 50)" }));
-    ch.push(C("Médecine (6 ans)", "🩺", [O(1, "Tu t'attaques à la première année de médecine, la jungle des concours. Courage !", { school: (p) => ({ phase: "sup", track: "medecine", target: "master", endAge: p.age + 6 }), dette: 8000, intel: 4, bonheur: -4, courage: 2 })], { need: { edu: 3, stat: { intel: [60, null] } }, why: "Il faut un très bon niveau (Intelligence 60)" }));
-    ch.push(C("Le droit (5 ans)", "⚖️", [O(1, "Tu t'inscris en droit. Les codes sont lourds, les plaidoiries passionnantes.", { school: (p) => ({ phase: "sup", track: "droit", target: "master", endAge: p.age + 5 }), dette: 6000, intel: 2, charme: 2 })], { need: { edu: 3 } }));
-    ch.push(C("Un BTS ou un IUT (2 ans)", "🔧", [O(1, "Une formation concrète et courte, avec stages et projets. Tu seras opérationnel(le) vite.", { school: (p) => ({ phase: "sup", track: "bts", target: "licence", endAge: p.age + 2 }), bonheur: 2 })], { need: { edu: 2 } }));
-    ch.push(C("Une école d'art (3 ans)", "🎨", [O(1, "Tu intègres une école d'art. Peinture, design, sculpture. Les repas sont maigres, les idées foisonnent.", { school: (p) => ({ phase: "sup", track: "art", target: "licence", endAge: p.age + 3 }), creatif: 5, dette: 4000, bonheur: 3 })], { need: { edu: 2 } }));
+    ch.push(C("La fac (licence en 3 ans)", "🏛️", [O(1, "Tu t'inscris à l'université. Un grand amphi, des centaines d'étudiants, et une liberté vertigineuse.", { next: "choix_filiere", school: (p) => ({ phase: "sup", track: "fac", target: "licence", endAge: p.age + 3 }), bonheur: 3 })], { need: { edu: 3 } }));
+    ch.push(C("Une prépa et une grande école (5 ans)", "🏆", [O(1, "Deux ans de prépa, de nuits blanches et de café, puis une grande école. Tu t'engages dans le marathon.", { next: "choix_filiere", school: (p) => ({ phase: "sup", track: "prepa", target: "master", endAge: p.age + 5 }), dette: 12000, ambition: 4, intel: 3, bonheur: -3 })], { need: { edu: 3, stat: { intel: [52, null] } }, cost: 0, why: "Il faut un bon niveau (Intelligence 52)" }));
+    ch.push(C("Une école de commerce (5 ans)", "💼", [O(1, "Tu intègres une école de commerce. Les frais sont lourds, les soirées nombreuses, le réseau précieux.", { next: "choix_filiere", school: (p) => ({ phase: "sup", track: "commerce", target: "master", endAge: p.age + 5 }), dette: 22000, sociable: 4, charme: 2, ambition: 3 })], { need: { edu: 3 } }));
+    ch.push(C("Une école d'ingénieurs (5 ans)", "⚙️", [O(1, "Tu entres en école d'ingénieurs. Des équations, des projets et des cafés à gogo.", { next: "choix_filiere", school: (p) => ({ phase: "sup", track: "ingenieur", target: "master", endAge: p.age + 5 }), dette: 10000, intel: 4 })], { need: { edu: 3, stat: { intel: [50, null] } }, why: "Il faut un bon niveau (Intelligence 50)" }));
+    ch.push(C("Médecine (6 ans)", "🩺", [O(1, "Tu t'attaques à la première année de médecine, la jungle des concours. Courage !", { next: "choix_filiere", school: (p) => ({ phase: "sup", track: "medecine", target: "master", endAge: p.age + 6 }), dette: 8000, intel: 4, bonheur: -4, courage: 2 })], { need: { edu: 3, stat: { intel: [60, null] } }, why: "Il faut un très bon niveau (Intelligence 60)" }));
+    ch.push(C("Le droit (5 ans)", "⚖️", [O(1, "Tu t'inscris en droit. Les codes sont lourds, les plaidoiries passionnantes.", { next: "choix_filiere", school: (p) => ({ phase: "sup", track: "droit", target: "master", endAge: p.age + 5 }), dette: 6000, intel: 2, charme: 2 })], { need: { edu: 3 } }));
+    ch.push(C("Un BTS ou un IUT (2 ans)", "🔧", [O(1, "Une formation concrète et courte, avec stages et projets. Tu seras opérationnel(le) vite.", { next: "choix_filiere", school: (p) => ({ phase: "sup", track: "bts", target: "licence", endAge: p.age + 2 }), bonheur: 2 })], { need: { edu: 2 } }));
+    ch.push(C("Une école d'art (3 ans)", "🎨", [O(1, "Tu intègres une école d'art. Peinture, design, sculpture. Les repas sont maigres, les idées foisonnent.", { next: "choix_filiere", school: (p) => ({ phase: "sup", track: "art", target: "licence", endAge: p.age + 3 }), creatif: 5, dette: 4000, bonheur: 3 })], { need: { edu: 2 } }));
     ch.push(C("Travailler tout de suite", "💼", [O(1, "Tu te mets en quête d'un premier emploi. Le monde du travail t'attend.", { ambition: 2, bonheur: 1, jobHunt: true })], {}));
     ch.push(C("Voyager d'abord, on verra après", "🎒", [O(0.7, "Une année sabbatique sur les routes. Tu reviens plus mûr(e) et un peu plus pauvre.", { bonheur: 7, courage: 3, intel: 2, argent: -300, flag: "annee_sabbatique" }), O(0.3, "Ton voyage tourne à la catastrophe, mais quelle expérience !", { bonheur: 3, courage: 5, argent: -600, sante: -3 })], { risk: 1 }));
     return ch;

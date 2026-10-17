@@ -11,6 +11,7 @@ const { pick, POOLS } = require("./pools");
 
 const SK = require("./socialkit");
 require("./social_actions");
+const GK = require("./group_events");
 const FXLIB = FX;
 
 const HOSTILE = ["steal", "rumor", "denounce"];
@@ -62,7 +63,7 @@ function specAllowed(g, A, spec) {
 // Calcule les actions de l'année d'un joueur. Elles tournent d'une année sur l'autre.
 function offerActions(g, A) {
   if (A.prison || !A.alive) return [];
-  const N = clamp(Number(g.settings.socialChoices) || 5, 2, 10);
+  let N = clamp(Number(g.settings.socialChoices) || 5, 2, 10);
   A.socialSeen = A.socialSeen || {};
   const others = g.players.filter((q) => q !== A && q.alive);
   const cands = [];
@@ -78,6 +79,33 @@ function offerActions(g, A) {
   const take = (c) => { picked.push(c); used[c.spec.grp] = (used[c.spec.grp] || 0) + 1; A.socialSeen[c.spec.id] = g.round; };
   // les étapes d'une relation (mariage, réconciliation, parrainage...) restent proposées tant qu'elles sont possibles
   cands.filter((c) => c.spec.prio > 0).sort((a, b) => (b.spec.prio - a.spec.prio) || ((A.socialSeen[a.spec.id] === undefined ? -1 : A.socialSeen[a.spec.id]) - (A.socialSeen[b.spec.id] === undefined ? -1 : A.socialSeen[b.spec.id]))).slice(0, N >= 5 ? 2 : 1).forEach(take);
+  // Le statut des autres joueurs réserve des places. Un ennemi juré, un conjoint ou un prisonnier ne se contentent pas d'une action en passant.
+  const present = {};
+  others.forEach((B) => {
+    const bd = SK.bond(g, A.seat, B.seat); const lv = FEUD.level(bd);
+    if (lv >= 2) present.ennemi = Math.max(present.ennemi || 0, lv >= 4 ? 4 : lv === 3 ? 3 : 2);
+    if (SK.coupleWith(A, B)) present.couple = 3;
+    else if (bd.tags.ex) present.ex = 1;
+    if (bd.tags.allie) present.allie = 1;
+    if (B.prison) present.prisonnier = 2;
+  });
+  // les places réservées s'ajoutent au réglage de base, pour garder de la variété autour
+  let budget = Math.min(5, Object.keys(present).reduce((x, k) => x + present[k], 0));
+  N += budget;
+  ["ennemi", "couple", "prisonnier", "ex", "allie"].forEach((stt) => {
+    let k = Math.min(present[stt] || 0, budget);
+    while (k-- > 0) {
+      const pool = cands.filter((c) => !picked.includes(c) && c.spec.status === stt);
+      if (!pool.length) break;
+      const ws = pool.map((c) => {
+        const seen = A.socialSeen[c.spec.id]; const gap = seen === undefined ? 9 : g.round - seen;
+        return (c.spec.w === undefined ? 5 : c.spec.w) * c.fit * (gap <= 1 ? 0.4 : gap === 2 ? 0.7 : 1) * (0.6 + g.rng() * 0.8);
+      });
+      const tot = ws.reduce((x, y) => x + y, 0); let r = g.rng() * tot, idx = ws.length - 1;
+      for (let i = 0; i < ws.length; i++) { r -= ws[i]; if (r <= 0) { idx = i; break; } }
+      take(pool[idx]); budget--;
+    }
+  });
   const cap = Math.max(1, Math.ceil(N / 2.5));
   const rest = cands.filter((c) => !picked.includes(c));
   let guard = 0;
@@ -749,17 +777,25 @@ function planGroup(g) {
   if (g.rng() >= freq) return false;
   g.lastGroup = g.round;
   const age = g.age;
+  // l'ancienne cagnotte commune est retirée, elle est remplacée par les événements du catalogue (travail d'équipe, affaires, etc.)
   const kinds = Object.keys(GROUPS).filter((k) => {
+    if (k === "public") return false;
     const d = GROUPS[k];
     if (age < d.ages[0]) return false;
     if (d.mature && !g.settings.mature) return false;
     const need = d.minPlayers || d.min;
     return alive.length >= need;
   });
-  if (!kinds.length) return false;
-  const kind = pick(g.rng, kinds);
-  const d = GROUPS[kind];
-  const skin = pick(g.rng, d.skins);
+  // le catalogue d'événements collectifs, sans répétition rapprochée
+  g.groupSeen = g.groupSeen || {};
+  let evs = GK.LIST.filter((e) => age >= e.ages[0] && age <= e.ages[1] && (!e.mature || g.settings.mature) && alive.length >= e.min);
+  const fresh = evs.filter((e) => g.groupSeen[e.id] === undefined || g.round - g.groupSeen[e.id] > 18);
+  if (fresh.length) evs = fresh;
+  if (!kinds.length && !evs.length) return false;
+  const useEv = evs.length && (!kinds.length || g.rng() < 0.75);
+  let kind, d, skin, ev = null;
+  if (useEv) { ev = pick(g.rng, evs); kind = "ev"; d = { max: ev.max, min: ev.min, role: !!GK.ARCH[ev.a].role }; skin = { t: ev.t, ic: ev.ic }; g.groupSeen[ev.id] = g.round; }
+  else { kind = pick(g.rng, kinds); d = GROUPS[kind]; skin = pick(g.rng, d.skins); }
   let seats = alive.map((p) => p.seat);
   if (kind === "dilemma") seats = seats.sort(() => g.rng() - 0.5).slice(0, 2);
   else if (seats.length > d.max) seats = seats.sort(() => g.rng() - 0.5).slice(0, d.max);
@@ -774,6 +810,7 @@ function planGroup(g) {
   let text = skin.t;
   if (big) text += " L'enjeu est exceptionnel cette fois.";
   if (kind === "dilemma") text = text.replace(/\$A/g, names[0]).replace(/\$B/g, names[1]).replace("$lieu", pick(g.rng, POOLS.lieux));
+  if (ev) text = text.replace(/\$lieu/g, pick(g.rng, POOLS.lieux)).replace(/\$ville/g, pick(g.rng, POOLS.villes));
   let target = null;
   if (kind === "rivalcrush") { seats = seats.sort(() => g.rng() - 0.5).slice(0, 2); text = text.replace(/\$A/g, g.players[seats[0]].name).replace(/\$B/g, g.players[seats[1]].name); }
   else if (d.role) {
@@ -781,7 +818,8 @@ function planGroup(g) {
     const tp = g.players[target];
     text = text.replace(/\$A/g, tp.name).replace(/\{\|e\}/g, tp.gender === "f" ? "e" : "");
   }
-  const grp = { kind, skin, seats, stake, big, choices: {}, state: "choose", text, ic: skin.ic, result: null, deadline: 0, extra: {} };
+  if (ev && !d.role) text = text.replace(/\$A/g, names[0]).replace(/\$B/g, names[1] || names[0]);
+  const grp = { kind, skin, seats, stake, big, choices: {}, state: "choose", text, ic: skin.ic, result: null, deadline: 0, extra: {}, ev };
   if (target !== null) grp.extra.target = target;
   if (kind === "auction") grp.extra.est = Math.round(stake * 2 * (0.8 + g.rng() * 0.6));
   if (kind === "split") grp.extra.pot = stake * seats.length * 1.3;
@@ -794,6 +832,7 @@ function planGroup(g) {
 
 function groupOptions(g, p) {
   const grp = g.group; if (!grp) return [];
+  if (grp.kind === "ev") return GK.ARCH[grp.ev.a].options(g, p, grp).map((o) => Object.assign({}, o, { d: String(o.d || "").replace(/\{\|e\}/g, p.gender === "f" ? "e" : ""), l: String(o.l).replace(/\{\|e\}/g, p.gender === "f" ? "e" : "") }));
   const d = GROUPS[grp.kind];
   if (grp.kind === "vote") return grp.seats.filter((s) => s !== p.seat).map((s) => ({ v: String(s), l: g.players[s].name, ic: g.players[s].avatar.acc || "👤", d: "Voter pour " + g.players[s].name })).concat([{ v: "blank", l: "Voter blanc", ic: "⚪", d: "Je m'abstiens." }]);
   if (d.role) {
@@ -838,6 +877,14 @@ function groupDefault(g, p) {
   const grp = g.group;
   const all = groupOptions(g, p);
   const opts = all.filter((o) => o.ok !== false);
+  if (grp.kind === "ev") {
+    if (!opts.length) return all.length ? all[0].v : "blank";
+    // un robot joue selon son caractère, un humain qui n'a pas répondu prend l'option la moins coûteuse
+    if (g.controlled(p)) { const v = GK.ARCH[grp.ev.a].bot(g, p, grp); return opts.some((o) => o.v === v) ? v : opts[0].v; }
+    const cheapest = opts.slice().sort((a, b) => (a.cost || 0) - (b.cost || 0));
+    const low = cheapest.filter((o) => (o.cost || 0) === (cheapest[0].cost || 0));
+    return low[Math.floor(low.length / 2)].v;
+  }
   if (!opts.length) { console.error('GROUP VIDE', grp.kind, all.length); return all.length ? all[0].v : 'blank'; }
   if (grp.kind === "vote") return pick(g.rng, opts).v;
   if (grp.kind === "dilemma") return g.rng() < 0.7 ? "coop" : "betray";
@@ -888,6 +935,15 @@ function resolveGroup(g) {
   const money = (s, d) => { P(s).cash += Math.round(d); };
   const st = (s, k, d) => { P(s).stats[k] = C.clamp(P(s).stats[k] + d, 0, 100); };
   const seats = grp.seats;
+  if (grp.kind === "ev") {
+    const H = GK.helpers(g, grp);
+    GK.ARCH[grp.ev.a].resolve(g, grp, H);
+    grp.result = H.res;
+    seats.forEach((sx) => { if (!H.res.lines[sx]) H.add(sx, H.res.public || "Rien de notable cette fois."); });
+    if (!H.res.public) H.res.public = "Une scène collective s'est jouée.";
+    g.news(null, H.res.public, "group");
+    return;
+  }
   if (grp.kind === "dilemma") {
     const [a, b] = seats; const ca = grp.choices[a], cb = grp.choices[b];
     const nm = (s) => P(s).name;
@@ -1065,4 +1121,4 @@ function resolveGroup(g) {
   g.news(null, res.public, "group");
 }
 
-module.exports = { recordLoss, startDuel, KINDS, DUELS, GROUPS, duelsFor, offerActions, describeAction, validate, resolveActions, respond, expireOffers, offerText, botRespond, botAction, botActChance, botFinance, loanTick, yearEnd, onDeath, planGroup, groupOptions, groupChoose, groupTick, groupReady, applyOffer };
+module.exports = { recordLoss, startDuel, KINDS, DUELS, GROUPS, duelsFor, offerActions, describeAction, validate, resolveActions, respond, expireOffers, offerText, botRespond, botAction, botActChance, botFinance, loanTick, yearEnd, onDeath, planGroup, breakUp, groupOptions, groupChoose, groupTick, groupReady, applyOffer };

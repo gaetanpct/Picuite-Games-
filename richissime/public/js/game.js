@@ -138,7 +138,7 @@
       body.appendChild(h("div.txt", sc.text));
       if (sc.deadline) body.appendChild(RD.timerBar(sc.deadline, 25000));
       body.appendChild(h("div.choices", sc.choices.map((c) => h("button.choice", { disabled: !c.ok, on: { click: () => { RD.play("click"); emit("game:scene", { i: c.i }); } } },
-        h("span.ic", c.ic), h("span.lab", c.l, !c.ok && c.why ? h("span.why", c.why) : null),
+        h("span.ic", c.ic), h("span.lab", c.l, c.hint && c.ok ? h("span.hint", c.hint) : null, !c.ok && c.why ? h("span.why", c.why) : null),
         c.cost ? h("span.cost", RD.money(c.cost)) : null, c.risk ? h("span.risk", { title: "Choix risqué" }, RISK[c.risk]) : null))));
     } else {
       const r = sc.result;
@@ -244,9 +244,54 @@
     return openDetails("soc", title, body, !!kind);
   }
 
+  // ---- onglet Professionnel ----
+  const RISK_WORD = ["Sans risque", "Risque faible", "Risque moyen", "Risque élevé"];
+  function proTab(st) {
+    const A = st.agenda; const m = st.me; const P = A.pro;
+    const cur = val("pro", "");
+    const meter = (l, v, color) => h("div.pmeter", { title: l + " " + v + " sur 100" }, h("span.small", l), h("div.mini", h("i", { style: { width: v + "%", background: color } })), h("b", String(v)));
+    const head = h("div.prohead",
+      h("div", h("strong", P.main.ic + " " + P.main.l), P.contexts.length > 1 ? h("div.small.muted", "Aussi " + P.contexts.slice(1).map((c) => c.ic + " " + c.l.toLowerCase()).join(", ")) : null),
+      h("div.pmeters", meter("Compétence", P.meters.skill, "var(--good)"), meter("Réseau", P.meters.net, "var(--navy)"), meter("Réputation", P.meters.rep, "var(--gold)"), P.meters.showHeat ? meter("Pression", P.meters.heat, "var(--bad)") : null));
+    const speCard = P.spe ? h("p.small", { style: { margin: "8px 0 0" } }, P.spe.ic + " Filière " + P.spe.l.toLowerCase() + (P.spe.done ? " (terminée)" : " (année " + Math.max(1, Math.floor(P.spe.xp) + 1) + ")") + ". Elle pèse sur les offres d'emploi, les salaires et la progression de ton métier.") : null;
+    const quit = m.job && !m.prison ? h("div.offer", { style: { display: "flex", gap: "10px", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", margin: "10px 0" } },
+      h("div", h("strong", m.job.ic + " " + m.job.title), h("div.small.muted", "En poste depuis " + Math.max(0, m.age - m.job.since) + " an(s), " + RD.money(m.job.salary) + " par an. Tu peux partir quand tu veux, mais tu ne toucheras pas de salaire cette année.")),
+      h("button.btn.bad", { type: "button", on: { click: () => { if (confirm("Quitter ton poste de " + m.job.title.toLowerCase() + " ?")) { RD.play("bad"); emit("game:quitjob"); } } } }, "🚪 Quitter mon emploi")) : null;
+    const none = h("button.proj" + (!cur ? ".sel" : ""), { type: "button", on: { click: () => { RD.play("select"); setVal("pro", ""); RD.render(); } } },
+      h("div.t", "⏸️ Continuer comme avant"), h("div.d", "Tu ne tentes rien de particulier côté professionnel cette année."));
+    const opts = P.options.map((o) => {
+      const on = cur === o.id;
+      return h("button.proj" + (on ? ".sel" : "") + (o.ill ? ".ill" : ""), { type: "button", disabled: o.cost > m.cash, on: { click: () => { RD.play("select"); setVal("pro", on ? "" : o.id); RD.render(); } } },
+        h("div.t", o.ic + " " + o.l), h("div.d", o.d),
+        h("div.pills",
+          o.step ? h("span.pill.gold", "étape") : null, o.ill ? h("span.pill.coral", "illégal") : null,
+          o.cost ? h("span.pill", RD.money(o.cost)) : null,
+          o.risk >= 0 ? h("span.pill", RISK_WORD[o.risk]) : null,
+          o.build ? h("span.pill.good", "Construit " + o.build.toLowerCase()) : null));
+    });
+    return h("div",
+      head, speCard,
+      h("p.small.muted", { style: { margin: "8px 0" } }, "Tu peux tenter une option professionnelle cette année, en plus de ton choix de vie. Les options changent selon ton activité du moment. Les pastilles disent ce que chacune construit pour ton avenir et le risque qu'elle comporte."),
+      quit,
+      h("div.projects", [none].concat(opts)));
+  }
+
+  const draftState = { sent: "", build: null, round: -1, timer: null };
+  function pushDraft() {
+    try {
+      const st = S().game;
+      if (!draftState.build || !st || st.phase !== "agenda" || (st.agenda && st.agenda.ready)) return;
+      const key = st.round + "|" + JSON.stringify(draftState.build());
+      if (key === draftState.sent) return;
+      draftState.sent = key;
+      emit("game:draft", draftState.build());
+    } catch (e) { /* le brouillon est un confort, jamais bloquant */ }
+  }
+  if (!draftState.timer) draftState.timer = setInterval(pushDraft, 1500);
+
   function agendaView(st) {
     const A = st.agenda; const m = st.me; const ui = S().ui;
-    if (ui.round !== st.round) { ui.round = st.round; setVal("project", ""); setVal("soc.kind", ""); setVal("soc.amount", ""); }
+    if (ui.round !== st.round) { ui.round = st.round; setVal("project", ""); setVal("pro", ""); ui.atab = "vie"; setVal("soc.kind", ""); setVal("soc.amount", ""); }
     if (A.ready) {
       const pending = st.players.filter((p) => p.alive && !p.ready).map((p) => p.name);
       return waitCard("Ton année est prête", pending.length ? "On attend " + pending.join(", ") + "." : "Tout le monde est prêt.");
@@ -256,27 +301,39 @@
       return h("button.proj" + (on ? ".sel" : ""), { type: "button", disabled: p.cost > m.cash, on: { click: () => { RD.play("select"); setVal("project", on ? "" : p.id); RD.render(); } } },
         h("div.t", p.ic + " " + p.l), h("div.d", p.d), p.step ? h("span.pill.gold", { style: { marginTop: "4px", marginRight: "4px" } }, "étape") : null, p.cost ? h("span.pill", { style: { marginTop: "4px" } }, RD.money(p.cost)) : null);
     }));
-    const submit = () => {
-      const plan = { project: val("project", "") || "routine" };
+    const buildPlan = () => {
+      const plan = { project: val("project", "") || "routine", pro: (A.pro && A.pro.options.some((o) => o.id === val("pro", ""))) ? val("pro", "") : null };
       const kind = val("soc.kind", "");
       const defA = (A.social.actions || []).find((a) => a.id === kind);
       if (kind && defA) plan.social = { kind, target: Number(val("soc.target", defA.targets[0].seat)), amount: Number(val("soc.amount", 0)), rate: Number(val("soc.rate", 8)), years: Number(val("soc.years", 3)), tier: val("soc.tier", "petit"), game: val("soc.game", "") };
+      return plan;
+    };
+    const submit = () => {
+      const plan = buildPlan();
       RD.play("year");
+      draftState.sent = JSON.stringify(plan);
       emit("game:agenda", plan);
     };
+    // Brouillon envoyé au serveur dès qu'un choix change, pour que le chrono ne perde pas les clics non validés
+    draftState.build = buildPlan; draftState.round = st.round;
+    pushDraft();
     const warn = m.prison ? h("p.small", { style: { color: "var(--bad)", fontWeight: 700 } }, "Tu es en prison. Les projets sont limités à la vie derrière les barreaux.") : null;
     const modal = [];
+    if (!ui.atab) ui.atab = "vie";
+    const mark = (on) => (on ? " ✔" : "");
+    const hasPro = !!(A.pro && (A.pro.options.length || m.job));
+    if (!hasPro) ui.atab = "vie";
+    const atabs = !hasPro ? null : h("div.tabs.atabs", [["vie", "🎲 Vie" + mark(!!val("project", ""))], ["pro", "💼 Professionnel" + mark(!!val("pro", "")) + (A.pro && A.pro.options.length ? " (" + A.pro.options.length + ")" : "")]].map(([k, l]) =>
+      h("button" + (ui.atab === k ? ".sel" : ""), { type: "button", on: { click: () => { RD.play("click"); ui.atab = k; RD.render(); } } }, l)));
     return h("div.card",
       h("div.kicker", "Année " + (st.round + 1) + " · " + m.age + " ans"),
       h("h2", "Que fais-tu de cette année ?"),
       warn,
-      h("p.small.muted", "Voici " + (A.projects.length - 1) + " idées pour ton année. Elles changent chaque année et collent à ta vie (âge, travail, couple, argent, goûts). Le mot « étape » repère une suite logique de ton parcours. Si tu ne choisis rien, ce sera une année tranquille."),
+      h("p.small.muted", "Voici " + (A.projects.length - 1) + " idées pour ton année. Elles changent chaque année et collent à ta vie (âge, travail, couple, argent, goûts). Le mot « étape » repère une suite logique de ton parcours. Si tu ne choisis rien, ce sera une année tranquille." + (A.pro && A.pro.options.length ? " Tout ce qui fait avancer ta carrière ou rapporte de l'argent se trouve dans l'onglet Professionnel, et tu peux y faire un choix en plus de celui-ci." : "")),
       st.deadline ? RD.timerBar(st.deadline, 45000) : null,
-      m.job && !m.prison ? h("div.offer", { style: { display: "flex", gap: "10px", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", margin: "0 0 12px" } },
-        h("div", h("strong", m.job.ic + " " + m.job.title), h("div.small.muted", "En poste depuis " + Math.max(0, m.age - m.job.since) + " an(s), " + RD.money(m.job.salary) + " par an. Tu peux partir quand tu veux, mais tu ne toucheras pas de salaire cette année.")),
-        h("button.btn.bad", { type: "button", on: { click: () => { if (confirm("Quitter ton poste de " + m.job.title.toLowerCase() + " ?")) { RD.play("bad"); emit("game:quitjob"); } } } }, "🚪 Quitter mon emploi")) : null,
-      projects,
-      h("div", { style: { display: "grid", gap: "10px", marginTop: "14px" } }, financePanel(st), socialPanel(st)),
+      atabs,
+      ui.atab === "pro" ? proTab(st) : h("div", projects,
+        h("div", { style: { display: "grid", gap: "10px", marginTop: "14px" } }, financePanel(st), socialPanel(st))),
       h("div", { style: { marginTop: "16px", textAlign: "center" } }, h("button.btn.big", { on: { click: submit } }, "Valider mon année")),
       modal);
   }

@@ -64,7 +64,7 @@ function setFlag(p, f, v) {
 
 function trackLevelFor(p, track) {
   const T = R.TRACKS[track];
-  const exp = (p.exp && p.exp[track]) || 0;
+  const exp = ((p.exp && p.exp[track]) || 0) + require("./filieres").bonusExp(p, track);
   let lvl = Math.min(T.levels.length - 1, Math.floor(exp / 4));
   if (T.gate) while (lvl > 0 && T.gate[lvl] > p.school.edu) lvl--;
   return lvl;
@@ -151,9 +151,16 @@ function applyFx(g, p, fx, x) {
       case "fire": if (p.job) { p.jobHistory.push({ title: p.job.title, track: p.job.track, from: p.job.since, to: p.age, why: "licencié" }); p.job = null; } break;
       case "quit": if (p.job) { p.jobHistory.push({ title: p.job.title, track: p.job.track, from: p.job.since, to: p.age, why: "démission" }); p.job = null; } break;
       case "promote": if (p.job) { const T = R.TRACKS[p.job.track]; const nl = p.job.level + 1; if (nl < T.levels.length && (!T.gate || T.gate[nl] <= p.school.edu)) { setLevel(p, nl); x.promoted = true; } else { p.job.salary = Math.round(p.job.salary * 1.08); x.promoted = false; } } break;
-      case "raise": if (p.job) p.job.salary = Math.round(p.job.salary * (1 + v)); break;
+      case "raise": if (p.job) {
+        // les augmentations s'empilent, mais un poste ne dépasse pas le double de son salaire de référence, sauf promotion
+        const T0 = R.TRACKS[p.job.track]; const cap = T0 ? T0.levels[p.job.level][1] * 2 : Infinity;
+        p.job.salary = Math.min(Math.max(cap, p.job.salary), Math.round(p.job.salary * (1 + v)));
+      } break;
       case "demote": if (p.job) setLevel(p, p.job.level - 1); break;
       case "perf": if (p.job) p.job.perf = C.clamp(p.job.perf + v, 0, 100); break;
+      case "pro": require("./pro").bump(p, v); break;
+      case "spe": require("./filieres").choose(g, p, v); break;
+      case "speXp": if (p.spe && !p.spe.done) p.spe.xp += v; break;
       case "retire": if (!p.retired) { p.retired = true; p.retiredAt = p.age; const last = p.job ? p.job.salary : 12000; p.pension = Math.round(Math.max(9000, last * 0.55)); if (p.job) { p.jobHistory.push({ title: p.job.title, track: p.job.track, from: p.job.since, to: p.age, why: "retraite" }); p.job = null; } } break;
       case "item": (Array.isArray(v) ? v : [v]).forEach((it) => { const a = addAsset(p, typeof it === "object" && it.value !== undefined ? Object.assign({}, it, { name: C.render(it.name, p, x), value: val(it.value, p, x, g) }) : it, x); x.lastItem = a; }); break;
       case "sell": p.assets.filter((a) => a.kind === v || a.id === v).forEach((a) => { p.cash += Math.round(a.value); }); p.assets = p.assets.filter((a) => !(a.kind === v || a.id === v)); break;
@@ -180,7 +187,7 @@ function applyFx(g, p, fx, x) {
       case "free": if (p.prison) { p.prison = null; } break;
       case "record": p.record += v; break;
       case "school": Object.assign(p.school, v); break;
-      case "dipl": giveDiploma(p, v); break;
+      case "dipl": giveDiploma(p, v); require("./filieres").markDiploma(p); break;
       case "pub": g.news(p, C.render(v, p, x)); break;
       case "badge": p.badges[v] = (p.badges[v] || 0) + 1; break;
       case "home": p.home = v; break;

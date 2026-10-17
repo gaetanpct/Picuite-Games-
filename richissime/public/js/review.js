@@ -34,6 +34,13 @@
       tile("Argent dépensé", RD.money(m.expenses), "vie, loyers, impôts, frais"),
       tile("Coups du sort", signed(m.gains - m.losses), "gagné " + RD.money(m.gains) + " et perdu " + RD.money(m.losses)),
       tile("Dettes à la fin", RD.money(m.debt), null, m.debt > 0 ? "bad" : null)));
+    const fa = f.facts;
+    if (fa) out.push(h("div.rvtiles",
+      tile("Années en prison", fa.jail + (fa.jail > 1 ? " ans" : " an"), fa.sentences ? fa.sentences + " condamnation" + (fa.sentences > 1 ? "s" : "") : "Jamais condamné", fa.jail >= 3 ? "bad" : (fa.jail === 0 ? "good" : null)),
+      tile("Bonheur moyen sur la vie", fa.happy + " / 100", null, fa.happy >= 62 ? "good" : (fa.happy < 42 ? "bad" : null)),
+      tile("Années en couple", fa.partnerYears + " ans", fa.divorces ? fa.divorces + " divorce" + (fa.divorces > 1 ? "s" : "") : null),
+      tile("Années riche", fa.richYears + " ans", "plus d'un million de patrimoine"),
+      tile("Années fauché", fa.poorYears + " ans", "moins de 2 000 € de patrimoine", fa.poorYears > 10 ? "bad" : null)));
     out.push(h("div.rvcols",
       h("div", h("h4", "Ses états à la fin"), f.stats.map(statBar)),
       h("div", h("h4", "Son parcours"),
@@ -45,7 +52,7 @@
           h("li", "🏠 " + (f.assets.length ? f.assets.join(", ") : "Aucun bien")),
           h("li", "⚖️ " + (f.record ? f.record + " ennui" + (f.record > 1 ? "s" : "") + " avec la justice" + (f.prison ? ", passage en prison" : "") : "Casier vierge"))))));
     out.push(h("h4", { style: { marginTop: "12px" } }, "Les moments clés"));
-    out.push(h("div.rvmoments", f.moments.map((x) => h("div.mo", h("b", x.age + " ans"), h("span", x.ic + " " + x.text)))));
+    out.push(h("div.rvmoments", f.moments.map((x) => h("div.mo" + (x.big ? ".big" : ""), h("b", x.age + " ans"), h("span", x.ic + " " + x.text)))));
     out.push(h("h4", { style: { marginTop: "12px" } }, "La fortune au fil des années"));
     out.push(RD.wealthChart([{ name: f.name, color: f.avatar.color, points: f.wealth, dead: true }], { height: 200 }));
     return h("div.card.rvcard", out);

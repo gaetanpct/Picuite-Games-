@@ -422,7 +422,7 @@ function special(g, name, A, B, out, lines) {
       note(g, bd, "Une trêve est signée entre " + A.name + " et " + B.name);
       return;
     }
-    default: return;
+    default: return require("./relations").special(g, name, A, B, out, lines);
   }
 }
 

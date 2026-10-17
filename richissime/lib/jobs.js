@@ -30,6 +30,7 @@ function affinity(g, p, k, T, ctx) {
   if (p.job && p.job.track === k && !ctx.sameOk) return 0;
   let a = 1;
   a *= IN.trackFactor(p, k);
+  a *= require("./filieres").affinityMul(p, k);
   { const FB = { sportpro: "par_sport_2", cinema: "par_cine_2", chanteur: "par_music_2" }; if (FB[k] && p.flags[FB[k]]) a *= 5; }
   const s = statOf(p, T.stat);
   a *= clamp(0.4 + s / 52, 0.35, 2.6);
@@ -75,7 +76,7 @@ function offers(g, p, opts) {
   opts = opts || {};
   const rng = g.rng;
   const n = opts.n || 3;
-  const bonusLevel = (opts.reseau || p.flags.bilan_competences || p.flags.piston ? 1 : 0);
+  const bonusLevel = (opts.reseau || p.flags.bilan_competences || p.flags.piston || require("./pro").state(p).net >= 55 ? 1 : 0);
   const ctxBase = {
     sameOk: !!opts.sameOk,
     floor: salaryFloor(p),
@@ -106,12 +107,15 @@ function offers(g, p, opts) {
     const skill = clamp((statOf(p, T.stat) - 50) / 300, -0.1, 0.18);
     const brain = clamp((p.stats.intel - 50) / 380, -0.07, 0.1);
     const gloss = clamp((p.stats.charme - 55) / 500, 0, 0.08);
-    const mul = 0.92 + rng() * 0.26 + (p.job ? 0.14 : 0) + (p.flags.piston ? 0.08 : 0) + skill + brain + gloss + (p.flags.formation_recente ? 0.07 : 0);
+    const PS = require("./pro").state(p);
+    const mul = 0.92 + rng() * 0.26 + (p.job ? 0.14 : 0) + (p.flags.piston ? 0.08 : 0) + skill + brain + gloss + (p.flags.formation_recente ? 0.07 : 0) + require("./filieres").salaryBonus(p, k) + clamp(PS.net / 700, 0, 0.12) + clamp(PS.skill / 900, 0, 0.1);
     const salary = Math.round(T.levels[level][1] * mul / 100) * 100;
     const exp = (p.exp && p.exp[k]) || 0;
     const hist = p.jobHistory.some((j) => j.track === k);
     let why = "";
-    if (exp > 0 || hist) why = "dans ta spécialité";
+    const fl = require("./filieres").labelFor(p, k);
+    if (fl && !(exp > 0 || hist)) why = fl;
+    else if (exp > 0 || hist) why = "dans ta spécialité";
     else if (statOf(p, T.stat) >= 62) why = "qui colle à ton profil";
     else if (T.lunar) why = "pour le moins original";
     out.push({ track: k, level, title: T.levels[level][0], salary, mulReal: salary / T.levels[level][1], boss: pick(rng, POOLS.boites), why });

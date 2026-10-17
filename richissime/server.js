@@ -383,6 +383,10 @@ io.on("connection", (socket) => {
     if (!r.ok && r.error) toast(r.error);
     after();
   }));
+  socket.on("game:draft", safe((plan) => {
+    if (!inGame()) return;
+    ctx.room.engine.saveDraft(seatOf(), plan || {});
+  }));
   socket.on("game:quitjob", safe(() => {
     if (!inGame()) return;
     const r = ctx.room.engine.quitJob(seatOf());

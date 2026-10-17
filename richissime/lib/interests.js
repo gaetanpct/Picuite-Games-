@@ -43,12 +43,12 @@ function top(p) {
   return best;
 }
 // à chaque fin d'année, l'intérêt pour les domaines pratiqués monte, les autres s'effacent doucement
-function update(p, pr) {
+function update(p, pr, second) {
   p.interest = p.interest || {};
-  Object.keys(p.interest).forEach((d) => { p.interest[d] *= 0.95; if (p.interest[d] < 0.05) delete p.interest[d]; });
+  if (!second) Object.keys(p.interest).forEach((d) => { p.interest[d] *= 0.95; if (p.interest[d] < 0.05) delete p.interest[d]; });
   const doms = domainsOfProject(pr);
   doms.forEach((d) => { p.interest[d] = (p.interest[d] || 0) + (doms.length > 1 ? 0.75 : 1); });
-  if (p.job) (TRACK_DOM[p.job.track] || []).forEach((d) => { p.interest[d] = (p.interest[d] || 0) + 0.35; });
+  if (p.job && !second) (TRACK_DOM[p.job.track] || []).forEach((d) => { p.interest[d] = (p.interest[d] || 0) + 0.35; });
 }
 // coefficient d'un métier selon les centres d'intérêt
 function trackFactor(p, k) {

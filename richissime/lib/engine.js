@@ -31,11 +31,11 @@ const SHADY = ["magouille", "contrebande", "faux_diplome", "detournement", "sabo
 const PROJECT_FLAGS = ["cherche_amour", "en_voyage", "fete_annee", "magouille_annee", "side_annee", "travail_acharne", "famille_annee", "formation_annee", "epargne_annee", "sport_annee", "soin_annee"];
 
 const DEATH_CAUSES = {
-  enfance: ["d'une chute de toboggan légendaire", "d'un fou rire interminable", "d'une maladie très rare", "d'un goûter tragique"],
-  ado: ["d'un accident de trottinette", "d'une chute en skate", "d'une maladie foudroyante", "d'un pari stupide"],
-  jeune: ["d'un accident de la route", "d'une maladie soudaine", "d'une chute en randonnée", "d'une imprudence"],
-  adulte: ["d'une crise cardiaque", "d'un accident de la route", "d'une longue maladie", "d'un surmenage fatal"],
-  senior: ["de vieillesse, paisiblement", "dans son sommeil", "d'une grippe tenace", "d'un cœur fatigué", "en faisant la sieste au soleil"],
+  enfance: ["d'une chute de toboggan légendaire", "d'une maladie très rare", "d'une grippe qui a mal tourné", "d'une pneumonie fulgurante", "d'une allergie imprévue", "d'une fièvre qui ne descend pas"],
+  ado: ["d'un accident de trottinette", "d'une chute en skate", "d'une maladie foudroyante", "d'une infection mal soignée", "d'un malaise pendant un cours de sport", "d'une leucémie fulgurante"],
+  jeune: ["d'un accident de la route", "d'une maladie soudaine", "d'une chute en randonnée", "d'un cancer découvert trop tard", "d'une infection sévère", "d'un malaise cardiaque inattendu", "d'un lymphome agressif"],
+  adulte: ["d'une crise cardiaque", "d'une longue maladie", "d'un surmenage fatal", "d'un cancer du poumon", "d'un cancer du pancréas", "d'une cirrhose", "d'une insuffisance rénale", "d'une infection pulmonaire sévère", "d'un cancer du sein", "d'un cancer de la prostate", "d'un diabète mal soigné", "d'un lymphome", "d'un AVC"],
+  senior: ["de vieillesse, paisiblement", "dans son sommeil", "d'une grippe tenace", "d'un cœur fatigué", "en faisant la sieste au soleil", "d'une pneumonie", "d'un cancer", "d'une insuffisance cardiaque", "d'une maladie neurodégénérative", "d'une insuffisance respiratoire", "d'une attaque cérébrale", "d'une infection urinaire non soignée", "de ses nombreuses années, entouré de ses proches"],
 };
 
 function incomeTax(s) {
@@ -153,11 +153,12 @@ class Game {
     if (this.age > capAge || this.age > 111) return this._finishGame(this.age > 111 ? "age" : "cap");
     this.alivePlayers().forEach((p) => {
       p.age = this.age;
-      p.plan = null; p.ready = false; p.scene = null; p.eventsDone = false; p.report = null;
+      p.plan = null; p.draft = null; p.ready = false; p.scene = null; p.eventsDone = false; p.report = null;
       p.yearLog = [];
       p.botAt = this.now() + 300 + Math.floor(this.rng() * 900) * this.timeScale;
       this._rollFate(p);
       p.lifeOffer = life.offer(this, p);
+      p.proOffer = life.offerPro(this, p);
       p.socialOffer = this.alivePlayers().length > 1 && social.offerActions ? social.offerActions(this, p) : [];
     });
     this.offers = [];
@@ -308,6 +309,11 @@ class Game {
     return list;
   }
 
+  // Les options de l'onglet Professionnel, décrites, sans "aucune" (elle se choisit en ne cliquant rien)
+  availablePro(p) {
+    return (p.proOffer || []).map((id) => life.describe(this, p, id)).filter(Boolean);
+  }
+
   // Démission à tout moment de l'agenda, sans passer par les choix de vie. Le salaire de l'année est perdu.
   quitJob(seat) {
     const p = this.players[seat];
@@ -318,16 +324,16 @@ class Game {
     FX.applyFx(this, p, { quit: true, bonheur: years >= 3 ? 1 : 3 }, null);
     if (years < 1) FX.applyFx(this, p, { repute: -2 }, null);
     p.mem.quits = (p.mem.quits || 0) + 1;
-    if (!(p.lifeOffer || []).includes("emploi_candidater")) p.lifeOffer = ["emploi_candidater"].concat(p.lifeOffer || []);
+    p.proOffer = ["emploi_candidater"].concat((p.proOffer || []).filter((id) => id !== "emploi_candidater"));
     p.yearLog.push("🚪 Tu quittes ton poste de " + title.toLowerCase() + ". Tu ne toucheras pas de salaire cette année.");
     p.journal.push({ age: p.age, text: "Tu as quitté ton emploi de " + title.toLowerCase() + ".", ic: "🚪", tag: "travail" });
     if (p.plan && p.plan.project && !(p.lifeOffer || []).includes(p.plan.project)) p.plan = null;
+    if (p.plan && p.plan.pro && !(p.proOffer || []).includes(p.plan.pro)) p.plan.pro = null;
     return { ok: true };
   }
 
-  submitAgenda(seat, plan) {
-    const p = this.players[seat];
-    if (!p || !p.alive || this.phase !== "agenda" || p.ready) return { ok: false };
+  // Construit le plan de l'année à partir de ce que le joueur a choisi. Utilisé pour la validation et pour le brouillon.
+  _buildPlan(p, plan, strict) {
     plan = plan || {};
     const avail = this.availableProjects(p);
     let project = avail.find((x) => x.id === plan.project);
@@ -335,11 +341,36 @@ class Game {
     let act = null;
     if (plan.social && plan.social.kind) {
       const v = social.validate(this, p, plan.social);
-      if (!v.ok) return { ok: false, error: v.error };
-      act = v.action;
+      if (!v.ok) { if (strict) return { ok: false, error: v.error }; }
+      else act = v.action;
     }
-    p.plan = { project: project.id, social: act };
+    let pro = null;
+    if (plan.pro) {
+      const pp = this.availablePro(p).find((x) => x.id === plan.pro);
+      if (pp) pro = pp.id;
+      else if (strict) return { ok: false, error: "Cette option professionnelle n'est plus disponible." };
+    }
+    return { ok: true, plan: { project: project.id, social: act, pro } };
+  }
+
+  submitAgenda(seat, plan) {
+    const p = this.players[seat];
+    if (!p || !p.alive || this.phase !== "agenda" || p.ready) return { ok: false };
+    const b = this._buildPlan(p, plan, true);
+    if (!b.ok) return b;
+    p.plan = b.plan; p.draft = null;
     p.ready = true; p.missed = 0; p.auto = p.auto && p.bot;
+    return { ok: true };
+  }
+
+  // Le brouillon garde les clics du joueur. Si le chrono s'arrête avant qu'il valide, ce brouillon devient son année.
+  saveDraft(seat, plan) {
+    const p = this.players[seat];
+    if (!p || !p.alive || this.phase !== "agenda" || p.ready) return { ok: false };
+    if (!plan || typeof plan !== "object") return { ok: false };
+    const clean = { project: String(plan.project || "").slice(0, 60), pro: plan.pro ? String(plan.pro).slice(0, 60) : null };
+    if (plan.social && plan.social.kind) clean.social = Object.assign({}, plan.social, { kind: String(plan.social.kind).slice(0, 60) });
+    p.draft = clean;
     return { ok: true };
   }
 
@@ -354,7 +385,16 @@ class Game {
     if (p.cash > 8000 && rng() < 0.4) social.botFinance(this, p);
     let act = null;
     if (this.alivePlayers().length > 1 && rng() < social.botActChance(this, p)) act = social.botAction(this, p);
-    p.plan = { project: pr.id, social: act };
+    // et une option professionnelle dans la plupart des années
+    let pro = null;
+    const opts = this.availablePro(p).filter((x) => (!SHADY.includes(x.id) || rng() < 0.2) && !(x.cost && x.cost > p.cash * 0.6));
+    if (opts.length && rng() < 0.75) {
+      const w = opts.map((x) => (x.step ? 3 : 1) * (x.ill ? (p.traits.honnete < 45 ? 1 : 0.25) : 1));
+      let r2 = rng() * w.reduce((a, b) => a + b, 0), pick = opts[opts.length - 1];
+      for (let i = 0; i < opts.length; i++) { r2 -= w[i]; if (r2 <= 0) { pick = opts[i]; break; } }
+      pro = pick.id;
+    }
+    p.plan = { project: pr.id, social: act, pro };
     p.ready = true;
   }
 
@@ -362,14 +402,30 @@ class Game {
     const alive = this.alivePlayers();
     alive.forEach((p) => {
       if (!p.plan) {
-        // joueur trop lent : année tranquille
-        p.plan = { project: "routine", social: null };
-        if (!this.controlled(p)) { p.missed++; this._maybeAuto(p); }
+        // joueur trop lent : on retient ses clics non validés, sinon une année tranquille
+        const b = p.draft && !this.controlled(p) ? this._buildPlan(p, p.draft, false) : null;
+        if (b && b.ok && (b.plan.project !== "routine" || b.plan.social || b.plan.pro)) {
+          p.plan = b.plan;
+          p.yearLog.push("⏱️ Le temps était écoulé. Tes choix non validés ont été retenus pour cette année.");
+          p.missed = 0;
+        } else {
+          p.plan = { project: "routine", social: null, pro: null };
+          if (!this.controlled(p)) { p.missed++; this._maybeAuto(p); }
+        }
       }
+      p.draft = null;
       let pr = life.byId[p.plan.project] || life.ROUTINE;
       const cost = life.ev(pr, "cost", p, this) || 0;
       if (cost) { if (p.cash >= cost) p.cash -= cost; else pr = life.ROUTINE; }
       this._startProject(p, pr);
+      // l'option professionnelle de l'année, payée à part
+      let pp = p.plan.pro ? life.byId[p.plan.pro] : null;
+      if (pp) {
+        const c2 = life.ev(pp, "cost", p, this) || 0;
+        if (c2) { if (p.cash >= c2) p.cash -= c2; else pp = null; }
+      }
+      p.projectPro = pp ? pp.id : null;
+      if (pp) this._startProject(p, pp, true);
     });
     social.resolveActions(this);
     const pend = this.offers.some((o) => o.status === "pending");
@@ -397,10 +453,10 @@ class Game {
     this._startEvents();
   }
 
-  _startProject(p, pr) {
+  _startProject(p, pr, isPro) {
     const hookFlags = { love: "cherche_amour", trip: "en_voyage", party: "fete_annee", scam: "magouille_annee", side: "side_annee", work: "travail_acharne", family: "famille_annee", formation: "formation_annee", save: "epargne_annee", gym: "sport_annee", care: "soin_annee" };
     if (pr.hook && hookFlags[pr.hook]) { p.flags[hookFlags[pr.hook]] = 1; p.flagTtl[hookFlags[pr.hook]] = 1; }
-    p.project = pr.id;
+    if (!isPro) p.project = pr.id;
     p.lifeDone[pr.id] = this.round;
     if (pr.flag) { p.flags[pr.flag] = 1; p.flagTtl[pr.flag] = 1; }
     if (pr.scene) {
@@ -596,7 +652,7 @@ class Game {
       let ok = true, why = "";
       if (cost && p.cash < cost && !c.credit) { ok = false; why = "Pas assez d'argent"; }
       if (c.need && !C.check(p, c.need, this, x)) { ok = false; why = c.why || "Tu ne remplis pas les conditions"; }
-      return { i, def: c, l: C.render(c.l, p, x), ic: c.ic || "", cost, ok, why, risk: c.risk || 0, hid: !!(c.hid && !ok) };
+      return { i, def: c, l: C.render(c.l, p, x), ic: c.ic || "", hint: c.hint ? C.render(c.hint, p, x) : "", cost, ok, why, risk: c.risk || 0, hid: !!(c.hid && !ok) };
     });
     if (!choices.some((c) => c.ok)) {
       // sécurité : toujours un choix possible
@@ -628,6 +684,14 @@ class Game {
     const sc = p.scene;
     const ok = sc.choices.filter((c) => c.ok && c.risk < 3);
     const pool = ok.length ? ok : sc.choices.filter((c) => c.ok);
+    if (sc.id === "choix_filiere" && pool.length > 1) {
+      // une spécialisation choisie par défaut reste cohérente avec les goûts et les qualités
+      const FIL = require("./filieres");
+      const ws = pool.map((c) => { const o = c.def.o && c.def.o[0]; const id = o && o.fx && o.fx.spe; return id ? FIL.fitScore(p, id) : 0.6; });
+      let r = this.rng() * ws.reduce((a, b) => a + b, 0), idx = pool.length - 1;
+      for (let i = 0; i < pool.length; i++) { r -= ws[i]; if (r <= 0) { idx = i; break; } }
+      return this._resolveChoice(p, pool[idx]);
+    }
     this._resolveChoice(p, pick(this.rng, pool));
   }
 
@@ -689,6 +753,7 @@ class Game {
   // ---------- fin de l'événementiel → bilan ----------
   _closeEvents() {
     require("./feud").tick(this);
+    require("./statut").tick(this);
     this.alivePlayers().forEach((p) => this._yearEnd(p));
     social.yearEnd(this);
     if (!this.alivePlayers().length) { this._finishGame("allDead"); return; }
@@ -708,14 +773,12 @@ class Game {
     const rep = { age: p.age, lines: p.yearLog.slice(), income: 0, expenses: 0, assetDelta: 0, flashes: [], netBefore: C.netWorth(p) };
     const st0 = Object.assign({}, p.stats);
     const pr = life.byId[p.project] || life.ROUTINE;
-    // projet de l'année
-    if (pr.fx && Object.keys(pr.fx).length) FX.applyFx(this, p, pr.fx, null);
-    this._habit(p, pr, rep);
-    require("./interests").update(p, pr);
-    if (pr.id.startsWith("par_")) { p.parTry = p.parTry || {}; p.parTry[pr.id] = (p.parTry[pr.id] || 0) + 1; }
-    this._lifeOutcome(p, pr, rep);
-    EXP.variance(this, p, pr, rep);
-    this._projectHook(p, pr, rep);
+    // projet de vie de l'année, puis option professionnelle
+    this._runProject(p, pr, rep);
+    const ppr = p.projectPro ? life.byId[p.projectPro] : null;
+    if (ppr) this._runProject(p, ppr, rep, true);
+    p.projectPro = null;
+    require("./pro").tick(this, p, rep);
     // école
     this._schoolTick(p, rep);
     // vie professionnelle et argent
@@ -731,13 +794,14 @@ class Game {
     // drapeaux à durée
     Object.keys(p.flagTtl).forEach((f) => { p.flagTtl[f]--; if (p.flagTtl[f] <= 0) { delete p.flags[f]; delete p.flagTtl[f]; } });
     // mort naturelle
-    if (!p.dying) this._naturalDeath(p);
+    if (!p.dying) this._naturalDeath(p, rep);
     if (p.dying) {
       if (!p.dying.final && p.flags.ange_gardien) { delete p.flags.ange_gardien; p.stats.sante = Math.max(p.stats.sante, 30); rep.lines.push("😇 Ton ange gardien t'a sauvé de justesse cette année."); p.dying = null; }
       else this.die(p, p.dying.cause);
     }
     rep.netAfter = C.netWorth(p);
     this._remember(p, rep);
+    require("./ledger").scan(this, p);
     rep.cash = Math.round(p.cash); rep.debt = Math.round(p.debt);
     rep.stats = {};
     Object.keys(p.stats).forEach((k) => { rep.stats[k] = { v: Math.round(p.stats[k]), d: Math.round(p.stats[k]) - Math.round(st0[k]) }; });
@@ -746,6 +810,16 @@ class Game {
     p.report = rep;
     p.yearsWorked += p.job ? 1 : 0;
     if (p.job) p.exp[p.job.track] = (p.exp[p.job.track] || 0) + 1;
+  }
+
+  _runProject(p, pr, rep, second) {
+    if (pr.fx && Object.keys(pr.fx).length) FX.applyFx(this, p, pr.fx, null);
+    this._habit(p, pr, rep);
+    require("./interests").update(p, pr, second);
+    if (pr.id.startsWith("par_")) { p.parTry = p.parTry || {}; p.parTry[pr.id] = (p.parTry[pr.id] || 0) + 1; }
+    this._lifeOutcome(p, pr, rep);
+    EXP.variance(this, p, pr, rep);
+    this._projectHook(p, pr, rep);
   }
 
   // Issue tirée au sort du choix de vie, quand il n'a pas de scène dédiée
@@ -796,6 +870,7 @@ class Game {
 
   _schoolTick(p, rep) {
     const s = p.school;
+    require("./filieres").tick(this, p, rep);
     if (s.phase === "sup" && s.endAge !== null && p.age + 1 >= s.endAge) { p.queue.push({ id: "diplome_sup", at: p.age + 1 }); s.endAge = null; }
     // les notes reviennent doucement vers l'intelligence
     if (["primaire", "college", "lycee", "sup"].includes(s.phase)) {
@@ -825,7 +900,7 @@ class Game {
       const net = sal - incomeTax(sal);
       p.cash += net; rep.income += net; rep.tax = (rep.tax || 0) + (sal - net);
       p.lastNetSalary = net;
-      if (T.illicit && rng() < 0.08 + p.job.level * 0.03 - (p.stats.intel - 50) / 500) {
+      if (T.illicit && rng() < 0.08 + p.job.level * 0.03 - (p.stats.intel - 50) / 500 + require("./pro").state(p).heat / 700) {
         const jt = p.job.title;
         FX.applyFx(this, p, { prison: C.rint(rng, 1, 3 + p.job.level), repute: -15, bonheur: -8 }, null);
         rep.lines.push("🚔 Ton activité illégale a été découverte, tu es arrêté(e).");
@@ -845,10 +920,12 @@ class Game {
     if (!p.prison && (C.hasFlag(p, "mafia") || C.hasFlag(p, "parrain"))) {
       const boss = C.hasFlag(p, "parrain");
       const cl = [1, 2, 3].filter((i) => C.hasFlag(p, "cartel_" + i)).length;
-      const gain = boss ? Math.round(Math.min(2000000000, Math.max(150000, Math.max(0, C.netWorth(p)) * (0.07 + cl * 0.06)))) : C.rint(rng, 25000, 110000);
+      const PS = require("./pro").state(p);
+      const respect = 1 + PS.rep / 220;
+      const gain = Math.round((boss ? Math.min(2000000000, Math.max(150000, Math.max(0, C.netWorth(p)) * (0.07 + cl * 0.06))) : C.rint(rng, 25000, 110000)) * respect);
       p.cash += gain; rep.income += gain;
       rep.lines.push("🕴️ La famille t'a rapporté " + C.fmt(gain) + " en liquide cette année.");
-      if (rng() < (boss ? 0.075 + cl * 0.03 : 0.075) - (p.stats.intel - 50) / 900) {
+      if (rng() < (boss ? 0.075 + cl * 0.03 : 0.075) - (p.stats.intel - 50) / 900 + PS.heat / 900 - PS.net / 2500) {
         const yrs = boss ? C.rint(rng, 12 + cl * 3, 30 + cl * 5) : C.rint(rng, 5, 14);
         FX.applyFx(this, p, { prison: yrs, repute: -20, bonheur: -12, unflag: ["mafia", "parrain", "cartel_1", "cartel_2", "cartel_3"] }, null);
         p.cash = Math.round(p.cash * (cl ? 0.15 : 0.4)); p.assets.forEach((a) => { a.value = Math.round(a.value * (cl ? 0.3 : 0.65)); });
@@ -990,7 +1067,7 @@ class Game {
     if (p.stats.sante <= 0) p.dying = { cause: "d'épuisement total", final: false };
   }
 
-  _naturalDeath(p) {
+  _naturalDeath(p, rep) {
     const rng = this.rng;
     const lifespanAdj = 1;
     const base = R.baseMortality(p.age * lifespanAdj);
@@ -1002,6 +1079,13 @@ class Game {
     if (rng() < pr) {
       const st = R.stageOf(p.age);
       p.dying = { cause: pick(rng, DEATH_CAUSES[st]), final: false };
+      return;
+    }
+    // un accident ou un coup du sort, même quand tout va bien
+    const acc = require("./mort").roll(this, p);
+    if (acc) {
+      p.dying = { cause: acc.cause, final: false, story: acc.story };
+      if (rep) rep.lines.push("💥 " + acc.story);
     }
   }
 
@@ -1102,16 +1186,41 @@ class Game {
     return { ok: true };
   }
 
+  // Le jury d'une IA lit la vie en entier. Chaque IA a ses goûts (argent, bonheur, amour, morale, aventure),
+  // mais personne ne peut donner un grand score à une vie passée en prison, ruinée ou gâchée.
   _botRate(p) {
     const t = this.players[this.reviewTarget()];
     const rng = this.rng;
     const net = t.finalWorth !== undefined ? t.finalWorth : C.netWorth(t);
     const age = t.death ? t.death.age : t.age;
-    const wealth = net <= 0 ? -1 : Math.min(2.5, Math.log10(1 + net / 20000));
-    const lived = C.clamp((age - 30) / 40, -1, 1.5);
-    const fun = Math.min(1.5, t.journal.length / 70);
-    const happy = (t.stats.bonheur - 50) / 30;
-    const sc = 3.4 + wealth + lived + fun + happy + gauss(rng) * 1.3;
+    const m = t.mem || {};
+    const taste = (k) => 0.55 + (((p.seat * 7919 + k * 104729 + (this.seed || 0)) >>> 0) % 1000) / 1000 * 0.9;
+    const wMoney = taste(1), wHappy = taste(2), wLove = taste(3), wMoral = taste(4), wAdv = taste(5), wAmb = taste(6);
+    let sc = 1.4;
+    // fortune, avec un effet qui s'écrase vite
+    sc += (net <= 0 ? -0.8 : Math.min(2.2, Math.log10(1 + net / 50000) * 1.1)) * wMoney;
+    if (m.poorYears > 15) sc -= 0.8;
+    // bonheur moyen sur toute la vie
+    const hap = m.bhN ? m.bhSum / m.bhN : t.stats.bonheur;
+    sc += C.clamp((hap - 82) / 10, -2.6, 1.2) * wHappy;
+    // prison
+    const jail = m.jailYears || 0;
+    sc -= Math.min(4.8, jail * 0.3) * (0.8 + wMoral * 0.5);
+    sc -= Math.max(0, (m.sentences || 1) - 1) * 0.3;
+    // morale
+    sc -= Math.min(1.5, (t.record || 0) * 0.25) * wMoral;
+    // durée de vie
+    sc += C.clamp((age - 55) / 30, -1.6, 0.6);
+    // amour et famille
+    sc += Math.min(1.0, (m.partnerYears || 0) / 40) * wLove;
+    sc += Math.min(0.75, t.npcs.filter((n) => n.kind === "child" && n.alive).length * 0.25) * wLove;
+    sc -= Math.min(0.6, (m.divorces || 0) * 0.2);
+    // réussites racontées par le registre
+    const wins = (t.ledger || []).filter((l) => ["metier", "argent", "etudes", "carriere"].includes(l.kind)).reduce((s, l) => s + l.w, 0);
+    sc += Math.min(1.4, wins / 30) * wAmb;
+    // vie remplie
+    sc += Math.min(1.0, t.journal.length / 160) * wAdv;
+    sc += gauss(rng) * 0.7;
     this.rate(p.seat, C.clamp(Math.round(sc), 1, 10));
   }
 

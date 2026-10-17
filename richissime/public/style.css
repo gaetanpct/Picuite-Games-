@@ -369,3 +369,17 @@ svg.chart text { font-family: var(--body); font-size: 11px; fill: #3b3b48; }
 .mini-result.good { background: rgba(40, 160, 80, .18); }
 .mini-result.bad { background: rgba(200, 50, 50, .16); }
 @media (max-width: 520px) { .pcard { width: 46px; height: 68px; } .pcard .r { font-size: 1.1rem; } }
+.rvmoments .mo.big { font-weight: 700; background: rgba(214,40,40,.08); border-radius: 6px; padding-left: 4px; }
+
+/* onglet Professionnel de l'agenda */
+.atabs button { font-size: .95rem; padding: 7px 14px; }
+.prohead { display: grid; gap: 8px; padding: 10px 12px; border: 2px solid var(--ink); border-radius: 12px; background: var(--paper-2); }
+.pmeters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 14px; }
+.pmeter { display: grid; grid-template-columns: 78px 1fr 26px; align-items: center; gap: 6px; font-size: .8rem; }
+.pmeter .mini { height: 8px; border: 1.5px solid var(--ink); border-radius: 99px; background: #fff; overflow: hidden; }
+.pmeter .mini i { display: block; height: 100%; }
+.proj .pills { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+.proj .pills .pill { font-size: .66rem; padding: 1px 7px; }
+.proj.ill { border-color: var(--bad); }
+
+.choice .lab .hint { display: block; font-weight: 400; font-size: .82rem; color: #3b3b48; line-height: 1.25; margin-top: 2px; }
