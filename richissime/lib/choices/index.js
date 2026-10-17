@@ -15,5 +15,6 @@ const FILES = [
   "95_pro_bureau.js",
   "96_pro_terrain_scene.js",
   "97_pro_ombre_mafia.js",
+  "98_pro_justice.js",
 ];
 FILES.forEach((f) => require(path.join(__dirname, f)));

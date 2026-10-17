@@ -22,6 +22,16 @@ const SCHEMA = [
         { value: "none", label: "Sans limite", icon: "♾️", desc: "On attend tous les votes." },
       ] },
       { id: "selfRate", label: "Se noter soi-même", type: "bool", default: true, info: "Si désactivé, on ne peut pas voter pour sa propre vie (sauf si on joue seul)." },
+      { id: "pace", label: "Rythme de la partie", type: "choice", default: "annuel", info: "En mode année par année, tu décides de tout chaque année. En mode cinq ans par cinq ans, tu choisis ton cap puis quatre années passent toutes seules, et tu ne réponds qu'aux décisions clés qui changent vraiment une vie (amour, métier, argent, justice, famille). Les années intermédiaires suivent le cap que tu as choisi et le bilan les résume.", options: [
+        { value: "annuel", label: "Année par année", icon: "📅", desc: "Tu joues chaque année, avec tous les choix de vie et toutes les scènes." },
+        { value: "quinquennal", label: "Cinq ans par cinq ans", icon: "⏩", desc: "Une année de choix tous les cinq ans, quatre années résumées entre les deux, et seulement des décisions clés." },
+      ] },
+      { id: "keyCount", label: "Décisions clés par étape", type: "choice", default: "3", info: "Utilisé seulement dans le mode cinq ans par cinq ans. Le nombre de grandes décisions qui t'attendent à chaque étape. S'il y en a moins de disponibles à ton âge, tu en reçois moins plutôt que des choix sans intérêt.", options: [
+        { value: "2", label: "2 décisions", icon: "⚡", desc: "Très rapide, uniquement l'essentiel." },
+        { value: "3", label: "3 décisions", icon: "⚖️", desc: "Le bon équilibre." },
+        { value: "4", label: "4 décisions", icon: "🧭", desc: "Davantage de moments forts à chaque étape." },
+        { value: "6", label: "6 décisions", icon: "🎢", desc: "Une étape bien remplie, parties plus longues." },
+      ] },
       { id: "lifeChoices", label: "Choix de vie par année", type: "choice", default: "5", info: "Le nombre de propositions que chaque joueur reçoit pour son année. Elles changent chaque année et collent à sa vie (âge, travail, couple, argent, goûts). Moins il y en a, plus la partie est rapide.", options: [
         { value: "3", label: "3 choix", icon: "⚡", desc: "Partie express, ça va droit au but." },
         { value: "4", label: "4 choix", icon: "🏃", desc: "Court et varié." },

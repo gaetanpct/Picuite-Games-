@@ -137,7 +137,7 @@ function offerPro(g, p) {
   sticky.slice(0, 2).forEach(add);
   // 2. tirage pondéré, avec un poids supplémentaire pour ce qui colle au contexte principal
   const main = PRO.mainContext(p);
-  const target = Math.min(n, p.prison ? 3 : n);
+  const target = Math.min(n, p.prison ? 5 : n);
   const draw = (cands, want) => {
     let guard = 0;
     while (picked.length < want && cands.length && guard++ < 60) {

@@ -31,7 +31,7 @@ function marital(g, p) {
 function statusLine(g, p) {
   if (!p.alive) return "Décédé" + (p.gender === "f" ? "e" : "");
   if (p.prison) return "En prison";
-  if (p.job) return p.job.title;
+  if (p.job) return p.job.title + (p.job.club ? " · " + p.job.club : "");
   if (p.retired) return "Retraité" + (p.gender === "f" ? "e" : "");
   if (R.TRACKS && p.school.phase === "sup") return "Étudiant" + (p.gender === "f" ? "e" : "");
   if (["primaire", "college", "lycee"].includes(p.school.phase)) return p.age < 11 ? "Écolier" + (p.gender === "f" ? "ère" : "") : p.age < 15 ? "Collégien" + (p.gender === "f" ? "ne" : "") : "Lycéen" + (p.gender === "f" ? "ne" : "");
@@ -71,10 +71,10 @@ function meView(g, p) {
     seat: p.seat, name: p.name, gender: p.gender, avatar: p.avatar, alive: p.alive, age: p.age, gift: p.gift, city: p.city,
     stats: Object.keys(R.STATS).map((k) => ({ id: k, l: R.STATS[k].l, ic: R.STATS[k].ic, v: Math.round(p.stats[k]) })),
     traits: Object.keys(R.TRAITS).map((k) => ({ id: k, l: R.TRAITS[k].l, ic: R.TRAITS[k].ic, v: Math.round(p.traits[k]) })),
-    cash: Math.round(p.cash), debt: Math.round(p.debt), net: nw, tier: C.wealthTier(nw).l, tierK: C.wealthTier(nw).k,
+    cash: Math.round(p.cash), dirty: Math.round(p.dirty || 0), org: p.org ? { name: p.org.name, rank: require("./justice").rankLabel(p) } : null, pris: p.prison && p.pris ? { gang: p.pris.gang, rep: Math.round(p.pris.rep), plan: Math.round(p.pris.plan), dossier: Math.round(p.pris.dossier), bribed: p.pris.bribed } : null, debt: Math.round(p.debt), net: nw, tier: C.wealthTier(nw).l, tierK: C.wealthTier(nw).k,
     lifestyle: p.lifestyle, home: p.home, prison: p.prison ? { left: p.prison.left, total: p.prison.total } : null, record: p.record,
     retired: !!p.retired, pension: Math.round(p.pension || 0),
-    job: p.job ? { title: p.job.title, salary: p.job.salary, level: p.job.level, since: p.job.since, perf: Math.round(p.job.perf), track: T.l, ic: T.ic, illicit: !!T.illicit, next: T.levels[p.job.level + 1] ? T.levels[p.job.level + 1][0] : null, levels: T.levels.map((l) => l[0]) } : null,
+    job: p.job ? { title: p.job.title + (p.job.club ? " · " + p.job.club : ""), salary: p.job.salary, level: p.job.level, since: p.job.since, perf: Math.round(p.job.perf), track: T.l, ic: T.ic, illicit: !!T.illicit, next: T.levels[p.job.level + 1] ? T.levels[p.job.level + 1][0] : null, levels: T.levels.map((l) => l[0]) } : null,
     school: { phase: SCHOOL_LABEL[p.school.phase] || "", grade: Math.round(p.school.grade), diplomas: p.school.diplomas.filter((d) => d !== "aucun").map((d) => R.DIPLOMAS[d].l), edu: p.school.edu, eduLabel: Object.values(R.DIPLOMAS).filter((d) => d.rank === p.school.edu).map((d) => d.l)[0] || "", studying: p.school.phase === "sup", inSchool: ["primaire", "college", "lycee"].includes(p.school.phase), endAge: p.school.endAge },
     relations: p.npcs.filter((n) => n.alive || n.deadAge !== undefined).map((n) => ({ id: n.id, name: n.name, age: n.alive ? n.age : n.deadAge, gender: n.gender, kind: n.kind, label: relLabel(n), ic: KIND_ICON[n.kind] || "👤", close: Math.round(n.close), alive: n.alive, tag: n.tag })),
     partner: marital(g, p),

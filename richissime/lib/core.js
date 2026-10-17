@@ -13,7 +13,7 @@ const fmt = (n) => {
 
 // ---------- Fortune ----------
 function assetsValue(p) { return p.assets.reduce((s, a) => s + (a.value || 0), 0); }
-function netWorth(p) { return Math.round(p.cash + assetsValue(p) - p.debt); }
+function netWorth(p) { return Math.round(p.cash + (p.dirty || 0) + assetsValue(p) - p.debt); }
 function wealthTier(n) {
   if (n < 0) return { k: 0, l: "Endetté" };
   if (n < 2000) return { k: 1, l: "Fauché" };

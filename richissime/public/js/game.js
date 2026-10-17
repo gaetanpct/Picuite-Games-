@@ -76,6 +76,9 @@
       h("div.me-head", RD.avatar(m.avatar, 52, !m.alive), h("div", h("div.nm", m.name), h("div.small.muted", m.age + " ans · " + (st.players[m.seat].status)))),
       h("div.row.between", h("div", h("div.small.muted", "Argent"), h("div.bigmoney" + (m.cash < 0 ? ".neg" : ""), RD.money(m.cash))),
         h("div", { style: { textAlign: "right" } }, h("div.small.muted", "Patrimoine"), h("div.bigmoney" + (m.net < 0 ? ".neg" : ""), RD.moneyShort(m.net)))),
+      m.dirty > 0 ? h("div.dirtyline", { title: "L'argent sale vient d'activités illégales. Il compte dans ton patrimoine mais on ne peut pas l'utiliser pour des achats normaux. On le dépense dans l'ombre (pots-de-vin, contrats, évasion), ou on le blanchit. La police peut le saisir." }, "🧺 Argent sale " + RD.money(m.dirty) + " (inclus dans le patrimoine)") : null,
+      m.org ? h("div.small", { style: { margin: "4px 0", fontWeight: 700 } }, "🕴️ " + m.org.name + " · " + m.org.rank) : null,
+      m.prison && m.pris ? h("div.small.muted", { style: { margin: "4px 0" } }, "Détention. " + (m.pris.gang ? "Clan " + m.pris.gang + ". " : "Aucun clan. ") + "Respect " + m.pris.rep + ", dossier " + m.pris.dossier + ", plan d'évasion " + m.pris.plan + " sur 100.") : null,
       m.debt > 0 ? h("div.small", { style: { color: "var(--bad)", fontWeight: 700, margin: "4px 0" } }, "Dettes " + RD.money(m.debt)) : null,
       h("div.pill.gold", { style: { margin: "6px 0 8px" } }, m.tier),
       m.prison ? h("div.pill.coral", { style: { marginLeft: "6px" } }, "⛓️ Prison " + m.prison.left + " an(s)") : null,
@@ -261,7 +264,7 @@
       h("div.t", "⏸️ Continuer comme avant"), h("div.d", "Tu ne tentes rien de particulier côté professionnel cette année."));
     const opts = P.options.map((o) => {
       const on = cur === o.id;
-      return h("button.proj" + (on ? ".sel" : "") + (o.ill ? ".ill" : ""), { type: "button", disabled: o.cost > m.cash, on: { click: () => { RD.play("select"); setVal("pro", on ? "" : o.id); RD.render(); } } },
+      return h("button.proj" + (on ? ".sel" : "") + (o.ill ? ".ill" : ""), { type: "button", disabled: o.cost > m.cash + (o.ill ? (m.dirty || 0) : 0), on: { click: () => { RD.play("select"); setVal("pro", on ? "" : o.id); RD.render(); } } },
         h("div.t", o.ic + " " + o.l), h("div.d", o.d),
         h("div.pills",
           o.step ? h("span.pill.gold", "étape") : null, o.ill ? h("span.pill.coral", "illégal") : null,
@@ -288,6 +291,8 @@
     } catch (e) { /* le brouillon est un confort, jamais bloquant */ }
   }
   if (!draftState.timer) draftState.timer = setInterval(pushDraft, 1500);
+
+  const five = () => { const r = S().room; return !!(r && r.settings && r.settings.pace === "quinquennal"); };
 
   function agendaView(st) {
     const A = st.agenda; const m = st.me; const ui = S().ui;
@@ -327,7 +332,8 @@
       h("button" + (ui.atab === k ? ".sel" : ""), { type: "button", on: { click: () => { RD.play("click"); ui.atab = k; RD.render(); } } }, l)));
     return h("div.card",
       h("div.kicker", "Année " + (st.round + 1) + " · " + m.age + " ans"),
-      h("h2", "Que fais-tu de cette année ?"),
+      h("h2", five() ? "Quel cap prends-tu pour les cinq prochaines années ?" : "Que fais-tu de cette année ?"),
+      five() ? h("p.small.muted", "Ton choix guide cette année et les quatre suivantes. Ensuite, seules les décisions clés te seront demandées.") : null,
       warn,
       h("p.small.muted", "Voici " + (A.projects.length - 1) + " idées pour ton année. Elles changent chaque année et collent à ta vie (âge, travail, couple, argent, goûts). Le mot « étape » repère une suite logique de ton parcours. Si tu ne choisis rien, ce sera une année tranquille." + (A.pro && A.pro.options.length ? " Tout ce qui fait avancer ta carrière ou rapporte de l'argent se trouve dans l'onglet Professionnel, et tu peux y faire un choix en plus de celui-ci." : "")),
       st.deadline ? RD.timerBar(st.deadline, 45000) : null,
@@ -398,6 +404,10 @@
     return h("div.card",
       h("div.kicker", "Bilan"), h("h2", "Tes " + rp.age + " ans"),
       h("div.rep-nums", nums.map(([l, v, c]) => h("div.num" + c, h("span.small", l), h("b", v)))),
+      rp.cycle && rp.cycle.length ? h("div.cycle", h("h4", "Les années en bref"),
+        rp.cycle.map((y) => h("details.acc", { open: false }, h("summary", y.age + " ans, patrimoine " + RD.money(y.net) + " (" + (y.d >= 0 ? "+ " : "− ") + RD.money(Math.abs(y.d)) + ")" + (y.dead ? ", fin de vie" : ""), h("span", "▾")),
+          h("div.in", y.lines.length ? y.lines.map((l) => h("div.rep-line", l)) : h("div.rep-line.muted", "Une année sans histoire."))))) : null,
+      h("h4", { style: { marginTop: "10px" } }, rp.cycle && rp.cycle.length ? "Cette année, " + rp.age + " ans" : "Cette année"),
       rp.lines.length ? h("div", rp.lines.map((l) => h("div.rep-line", l))) : null,
       rp.flashes.length ? h("div", { style: { marginTop: "8px" } }, h("h4", "Dans les journaux"), rp.flashes.map((f) => h("div.rep-line", f.ic + " " + f.t))) : null,
       stats.length ? h("div.chips", { style: { marginTop: "10px" } }, stats.map((s) => h("span.chip." + (s.v.d > 0 ? "up" : "down"), meta[s.k].ic + " " + meta[s.k].l + " " + RD.signed(s.v.d)))) : null,
@@ -455,8 +465,9 @@
         h("div.yearbadge", "Année " + (st.round + 1) + " · " + st.me.age + " ans"),
         h("div.phasebadge", PHASE_LABEL[st.phase] || ""),
         h("div.grow"),
-        isHost && st.phase !== "over" ? h("button.btn.small.light" + (st.turbo === "on" ? ".sel" : ""), { title: "Fait avancer les étapes automatiquement (choix au hasard). S'arrête tout seul avant le vote.", disabled: st.turbo === "on", on: { click: () => emit("host:turbo", { on: true }) } }, st.turbo === "on" ? "⏩ Accélération en cours" : st.turbo === "stop" ? "⏩ Reprendre l'accélération" : "⏩ Accélérer") : null,
-        isHost && st.phase !== "over" ? h("button.btn.small.light", { title: "L'accélération s'arrête à la fin de l'année en cours", disabled: !st.turbo || st.turbo === "off", on: { click: () => emit("host:turbo", { on: false }) } }, st.turbo === "stop" ? "⏹ Arrêt à la fin de l'année" : "⏹ Arrêter d'accélérer") : null,
+        isHost && st.phase !== "over" ? (st.turbo === "on"
+          ? h("button.btn.small.light.sel", { title: "Arrête l'accélération tout de suite", on: { click: () => emit("host:turbo", { on: false }) } }, "⏹ Arrêter d'accélérer")
+          : h("button.btn.small.light", { title: "Fait avancer les étapes automatiquement avec des choix au hasard. Ça s'arrête tout seul au moment du vote, et le bouton d'arrêt coupe tout de suite.", on: { click: () => emit("host:turbo", { on: true }) } }, "⏩ Accélérer")) : null,
         h("button.iconbtn", { title: RD.sound.on ? "Couper le son" : "Activer le son", "aria-label": "son", on: { click: () => { RD.setSound(!RD.sound.on); RD.render(); } } }, RD.sound.on ? "🔊" : "🔇"),
         h("button.iconbtn", { title: "Quitter la partie", "aria-label": "quitter", on: { click: () => { if (confirm("Quitter la partie ? Un pilote automatique prendra ta place.")) RD.leaveRoom(); } } }, "🚪"))),
       h("div.wrap", grid),
