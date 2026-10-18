@@ -21,14 +21,9 @@
     dragon: { id: "dragon", name: "Dragon", short: "Dragon", icon: "🐲", rank: 9, cost: 14, mobile: true, max: 2, desc: "Seul le Roi le dépasse." },
     roi: { id: "roi", name: "Roi", short: "Roi", icon: "👑", rank: 10, cost: 18, mobile: true, max: 1, desc: "Le plus fort de tous. Seul le Rat Espion peut le terrasser, même quand c'est le Roi qui attaque." },
     fantome: { id: "fantome", name: "Fantôme", short: "Fantôme", icon: "👻", rank: 5, cost: 6, mobile: true, ghost: true, special: true, max: 3, desc: "Peut sauter par-dessus un obstacle (lac, ruine) juste devant lui." },
-    cavalier: { id: "cavalier", name: "Cavalier Fougueux", short: "Cavalier", icon: "🐎", rank: 6, cost: 7, mobile: true, reach: 2, special: true, max: 3, desc: "Avance d'une ou deux cases en ligne droite et peut attaquer au bout. Aussi fort qu'un Chevalier." },
-    assassin: { id: "assassin", name: "Assassin", short: "Assassin", icon: "🥷", rank: 1, cost: 8, mobile: true, assassin: true, special: true, max: 2, desc: "Très fragile quand on l'attaque. Quand c'est lui qui attaque, il élimine n'importe quelle pièce jusqu'au Dragon. Seul le Roi lui résiste." },
-    reflet: { id: "reflet", name: "Reflet", short: "Reflet", icon: "🪞", rank: 4, cost: 6, mobile: true, mirror: true, special: true, max: 2, desc: "Quand on l'attaque, il renvoie le coup. Les deux pièces disparaissent, quelle que soit la force de l'attaquant. Aussi fort qu'un Garde quand il attaque." },
-    chauvesouris: { id: "chauvesouris", name: "Chauve-souris Géante", short: "Chauve-souris", icon: "🦇", rank: 5, cost: 8, mobile: true, reach: 3, fly: true, special: true, max: 2, desc: "Vole jusqu'à trois cases en ligne droite, par-dessus les lacs et les ruines, et peut attaquer au bout. Aussi forte qu'une Archère." },
-    golem: { id: "golem", name: "Golem de Pierre", short: "Golem", icon: "🗿", rank: 8, cost: 8, mobile: true, slow: true, special: true, max: 2, desc: "Presque aussi fort qu'un Sorcier mais très lent. Après chaque déplacement, il se repose pendant son prochain tour." },
   };
 
-  const ORDER = ["oeuf", "tarte", "rat", "lutin", "nain", "garde", "archere", "chevalier", "troll", "sorcier", "dragon", "roi", "fantome", "cavalier", "assassin", "reflet", "chauvesouris", "golem"];
+  const ORDER = ["oeuf", "tarte", "rat", "lutin", "nain", "garde", "archere", "chevalier", "troll", "sorcier", "dragon", "roi", "fantome"];
 
   // Les quatre maisons. Chacune a un pouvoir à usage limité.
   const HOUSES = [
@@ -68,26 +63,6 @@
     },
   };
 
-  // Légion des merveilles. Un noyau classique identique pour tous, et chacun choisit ses pièces spéciales pour les places libres.
-  const LEGION = {
-    24: { core: { tarte: 2, roi: 1, dragon: 1, sorcier: 1, troll: 2, chevalier: 2, archere: 1, garde: 2, nain: 2, lutin: 2, rat: 1 }, fallback: { golem: 1, cavalier: 1, assassin: 1, reflet: 1, chauvesouris: 1, fantome: 1 } },
-    12: { core: { tarte: 1, roi: 1, dragon: 1, troll: 1, chevalier: 1, nain: 1, lutin: 1, rat: 1 }, fallback: { cavalier: 1, assassin: 1, golem: 1 } },
-  };
-  const LEGION_PRESETS = {
-    24: {
-      aerienne: { name: "Aérienne", icon: "🦇", desc: "Des chauves-souris et des cavaliers pour frapper vite.", counts: { chauvesouris: 2, cavalier: 3, fantome: 1 } },
-      ombre: { name: "Ombre", icon: "🥷", desc: "Des assassins et des reflets, pour piéger les gros bras.", counts: { assassin: 2, reflet: 2, fantome: 2 } },
-      rempart: { name: "Rempart", icon: "🗿", desc: "Des golems et des reflets, lent mais solide.", counts: { golem: 2, reflet: 2, cavalier: 2 } },
-      mixte: { name: "Mixte", icon: "🌟", desc: "Un peu de tout.", counts: { golem: 1, cavalier: 1, assassin: 1, reflet: 1, chauvesouris: 1, fantome: 1 } },
-    },
-    12: {
-      aerienne: { name: "Aérienne", icon: "🦇", desc: "Vitesse et vol.", counts: { chauvesouris: 1, cavalier: 2 } },
-      ombre: { name: "Ombre", icon: "🥷", desc: "Un assassin et un reflet.", counts: { assassin: 1, reflet: 1, fantome: 1 } },
-      mixte: { name: "Mixte", icon: "🌟", desc: "Un peu de tout.", counts: { cavalier: 1, assassin: 1, golem: 1 } },
-    },
-  };
-  function legionSlots(size) { const L = LEGION[size] || LEGION[24]; return size - 1 - countsTotal(L.core); }
-
   const CHAOS_EVENTS = {
     boue: { name: "Marée de boue", icon: "🟤", text: "Une marée de boue envahit le centre du royaume. Trois cases deviennent des marais." },
     melange: { name: "Mélange royal", icon: "🌀", text: "Un tourbillon échange la place de deux pièces mobiles !" },
@@ -115,10 +90,6 @@
     const size = armySizeFor(settings.boardSize);
     let counts;
     const presets = ARMIES[size];
-    if (settings.armyPreset === "legion" && settings.specialPieces) {
-      const L = LEGION[size] || LEGION[24];
-      return finalizeCounts(Object.assign({ oeuf: 1 }, L.core, L.fallback), settings);
-    }
     {
       let p = presets[settings.armyPreset] || presets.standard;
       if (p.special && !settings.specialPieces) p = presets.standard;
@@ -134,9 +105,6 @@
       // Pas d'œuf : le roi est la cible. On le remplace par un garde.
       if (counts.oeuf) { counts.garde = (counts.garde || 0) + counts.oeuf; delete counts.oeuf; }
       if (!counts.roi) counts.roi = 1;
-    } else if (settings.mode === "conquest" && !settings.conquestEgg) {
-      // pas d'œuf en conquête : la place devient un garde
-      if (counts.oeuf) { counts.garde = (counts.garde || 0) + counts.oeuf; delete counts.oeuf; }
     } else if (!counts.oeuf) {
       counts.oeuf = 1;
     }
@@ -146,21 +114,6 @@
 
   // Nettoie une armée personnalisée (valide en toute circonstance).
   function sanitizeCustom(input, settings, size) {
-    if (settings.armyPreset === "legion" && settings.specialPieces) {
-      const L = LEGION[size] || LEGION[24];
-      const res = Object.assign({}, L.core);
-      let left = legionSlots(size);
-      ORDER.forEach((id) => {
-        const pc = PIECES[id];
-        if (!pc.special) return;
-        let n = Math.max(0, Math.min(pc.max, Math.floor(Number(input && input[id]) || 0)));
-        n = Math.min(n, left);
-        if (n > 0) { res[id] = n; left -= n; }
-      });
-      if (left > 0) res.garde = (res.garde || 0) + left;
-      res.oeuf = 1;
-      return res;
-    }
     const out = {};
     let total = 0;
     ORDER.forEach((id) => {
@@ -198,5 +151,5 @@
     return out;
   }
 
-  return { PIECES, ORDER, HOUSES, ARMIES, LEGION, LEGION_PRESETS, legionSlots, CHAOS_EVENTS, armySizeFor, countsCost, countsTotal, resolveArmy, finalizeCounts, sanitizeCustom };
+  return { PIECES, ORDER, HOUSES, ARMIES, CHAOS_EVENTS, armySizeFor, countsCost, countsTotal, resolveArmy, finalizeCounts, sanitizeCustom };
 });

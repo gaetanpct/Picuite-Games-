@@ -62,8 +62,6 @@
     if (d === "oeuf") return "win";
     if (a === "rat" && d === "roi") return "win";
     if (a === "roi" && d === "rat") return "lose";
-    if (D.mirror) return "tie";
-    if (A.assassin && D.rank <= 9) return "win";
     if (A.rank > D.rank) return "win";
     if (A.rank < D.rank) return "lose";
     return "tie";
@@ -410,7 +408,7 @@
     });
     // le reste : lutins et petites pièces devant, grosses pièces au milieu
     const rest = pending.filter((p) => !out[p.id]);
-    const frontClass = (t) => t === "lutin" || t === "garde" || t === "archere" || t === "rat" || t === "fantome" || t === "chauvesouris" || t === "cavalier";
+    const frontClass = (t) => t === "lutin" || t === "garde" || t === "archere" || t === "rat" || t === "fantome";
     const frontPieces = shuffle(rest.filter((p) => frontClass(p.type)));
     const midPieces = shuffle(rest.filter((p) => !frontClass(p.type)));
     // le roi et le dragon évitent la première ligne
@@ -527,7 +525,7 @@
       if (n <= 0) return;
       const d = PIECES[t];
       if (d.mobile) {
-        if (longOnly && !(d.long || d.ghost || d.reach)) return;
+        if (longOnly && !(d.long || d.ghost)) return;
         const x = n * (belief[t] || 1);
         w[t] = x; mobTot += x;
       } else if (!p.moved && !longOnly) {
@@ -622,7 +620,7 @@
       Object.keys(d).forEach((t) => {
         const def = PIECES[t];
         if (!def.mobile || d[t] <= 0) return;
-        if (dist > 1) { if (!(def.long || (def.reach && dist <= def.reach)) || !clearLine(view, e, r, c, vacated)) return; }
+        if (dist > 1) { if (!def.long || !clearLine(view, e, r, c, vacated)) return; }
         const f = fight(t, my.type, view.mode);
         if (f === "win") pThreat += d[t];
         else if (f === "tie") pThreat += d[t] * 0.4;
@@ -792,8 +790,8 @@
     } else guard.forEach((b) => put(b, pick([...free], (x) => depthKey(x) * 2)));
     lures.forEach((b) => put(b, pick([...free], (x) => -Math.abs(depthKey(x) - 0.45) * 3 + (rng() < 0.3 ? 1 : 0))));
     // préférence de profondeur par type (0 = ligne de front, 1 = fond)
-    const pref = { lutin: 0.0, rat: 0.25, garde: 0.2, archere: 0.3, fantome: 0.2, cavalier: 0.3, assassin: 0.5, reflet: 0.35, chauvesouris: 0.2, golem: 0.6, chevalier: 0.4, troll: 0.5, nain: 0.55, sorcier: 0.65, dragon: 0.7, roi: 0.8 };
-    const order = ["roi", "dragon", "sorcier", "golem", "nain", "troll", "chevalier", "cavalier", "assassin", "reflet", "rat", "archere", "chauvesouris", "garde", "fantome", "lutin"];
+    const pref = { lutin: 0.0, rat: 0.25, garde: 0.2, archere: 0.3, fantome: 0.2, chevalier: 0.4, troll: 0.5, nain: 0.55, sorcier: 0.65, dragon: 0.7, roi: 0.8 };
+    const order = ["roi", "dragon", "sorcier", "nain", "troll", "chevalier", "rat", "archere", "garde", "fantome", "lutin"];
     rest.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
     rest.forEach((p) => {
       const want = pref[p.type] != null ? pref[p.type] : 0.4;
@@ -818,18 +816,6 @@
     const room = (info.size || 24) - 1;
     const level = LEVELS[levelId] || LEVELS.normal;
     const special = state.settings.specialPieces;
-    if (info.legion) {
-      const slots = info.legion.slots;
-      const seqL = (levelId === "hard" || levelId === "expert" || level.master) ? ["golem", "assassin", "reflet", "cavalier", "chauvesouris", "fantome", "golem", "cavalier"] : ["cavalier", "fantome", "reflet", "chauvesouris", "assassin", "golem", "cavalier", "fantome"];
-      const pickL = {};
-      let got = 0;
-      const start = Math.floor(rng() * seqL.length);
-      for (let i = 0; i < seqL.length * 2 && got < slots; i++) {
-        const t = seqL[(start + i) % seqL.length];
-        if ((pickL[t] || 0) < PIECES[t].max) { pickL[t] = (pickL[t] || 0) + 1; got++; }
-      }
-      return pickL;
-    }
     const out = { roi: 1 };
     let cost = PIECES.roi.cost, total = 1;
     const add = (t) => {
