@@ -105,7 +105,7 @@ function tick(g, p, rep) {
   const nl = p.job.level + 1;
   if (nl >= T.levels.length || (T.gate && T.gate[nl] > p.school.edu)) return;
   const yrs = p.age - p.job.since;
-  let ch = (S.skill - 22) / 420 + (p.job.perf - 62) / 520 + S.rep / 800 + (S.net - 20) / 1400;
+  let ch = (S.skill - 22) / 420 + (p.job.perf - 62) / 520 + S.rep / 800 + (S.net - 20) / 1400 + (p.stats.repute - 50) / 700;
   if (yrs < 2) ch *= 0.25;
   ch = clamp(ch, 0, 0.2);
   if (rng() < ch) {

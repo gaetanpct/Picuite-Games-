@@ -74,10 +74,10 @@
     if (isHost) {
       box.appendChild(h("div.card.flat.gold", { style: { marginBottom: "12px" } },
         h("b", "🎲 Destins aléatoires"),
-        h("p.small", "Un seul bouton pour tirer au sort la famille de naissance, la dangerosité de la vie, le niveau de loufoquerie et le don de naissance de chaque joueur. Ce n'est volontairement pas équitable."),
+        h("p.small", "Un seul bouton pour tirer au sort la famille de naissance, la dangerosité de la vie et le don de naissance de chaque joueur. Ce n'est volontairement pas équitable."),
         h("div.row", { style: { gap: "8px", flexWrap: "wrap" } },
-          h("button.btn.small", { type: "button", on: { click: () => { RD.play("select"); RD.emit("room:settings", { settings: { startClass: "chaos", danger: "chaos", loufoque: "chaos", giftMode: "chaos" } }); } } }, "🎲 Tout tirer au hasard"),
-          h("button.btn.small.light", { type: "button", on: { click: () => { RD.play("click"); RD.emit("room:settings", { settings: { startClass: "moyenne", danger: "normal", loufoque: "2", giftMode: "choix" } }); } } }, "⚖️ Même départ pour tous"))));
+          h("button.btn.small", { type: "button", on: { click: () => { RD.play("select"); RD.emit("room:settings", { settings: { startClass: "chaos", danger: "chaos", giftMode: "chaos" } }); } } }, "🎲 Tout tirer au hasard"),
+          h("button.btn.small.light", { type: "button", on: { click: () => { RD.play("click"); RD.emit("room:settings", { settings: { startClass: "moyenne", danger: "normal", giftMode: "choix" } }); } } }, "⚖️ Même départ pour tous"))));
     }
     S().meta.schema.forEach((cat) => {
       const c = h("div.setcat", h("h4", cat.category));

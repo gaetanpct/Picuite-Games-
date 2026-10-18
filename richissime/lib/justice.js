@@ -187,7 +187,7 @@ function yearly(g, p, rep) {
       const left = p.escapedLeft + rint(rng, 1, 3);
       p.escapedLeft = 0; delete p.flags.fugitif; delete p.flagTtl.fugitif;
       const FX = require("./fx");
-      FX.applyFx(g, p, { prison: left, repute: -8, bonheur: -10 }, null);
+      FX.applyFx(g, p, { prison: left, repute: -8, bonheur: -10 }, { slots: {}, vals: {}, hard: true });
       rep.lines.push("🚔 La police te retrouve. Tu retournes en prison pour " + left + " ans, évasion comprise.");
       g.news(p, "🚔 " + p.name + ", évadé(e), est repris(e).", "crime");
     } else if (!p.flags.fugitif) p.escapedLeft = 0;
@@ -222,7 +222,15 @@ function launder(g, p, amount, fee) {
 function cleanWorth(p) { return Math.round(p.cash + C.assetsValue(p) - p.debt); }
 
 // le grade d'organisation
-function rankLabel(p) { return p.org ? RANKS[clamp(p.org.rank, 0, RANKS.length - 1)] : null; }
+function rankLabel(p) {
+  if (!p.org) return null;
+  const f = p.flags || {};
+  if (f.cartel_3) return "Roi mondial de la drogue";
+  if (f.cartel_2) return "Chef de réseau international";
+  if (f.cartel_1) return "Parrain des ports";
+  if (f.parrain) return RANKS[5];
+  return RANKS[clamp(p.org.rank, 0, 4)];
+}
 function orgName(g) { return ORGS[Math.floor(g.rng() * ORGS.length)]; }
 
 module.exports = { ORGS, RANKS, dirty, addDirty, earn, canPay, pay, isDirtyFx, dirtify, seize, pris, onSentence, prisonYear, onRelease, yearly, coverDeficit, launder, cleanWorth, rankLabel, orgName };

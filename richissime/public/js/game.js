@@ -215,6 +215,25 @@
     return openDetails("fin", h("span", "💰 Mon argent"), body, false);
   }
 
+  function prochePanel(st) {
+    const PR = st.agenda.proches || [];
+    const title = "🫂 Une action envers un proche" + (PR.length ? " (" + PR.length + " personnes)" : "");
+    const body = h("div");
+    if (!PR.length) { body.appendChild(h("p.muted", "Aucun proche ne demande d'attention particulière cette année. Les liens très forts ou très faibles, ton conjoint et tes ex apparaissent ici.")); return openDetails("pro_", title, body, false); }
+    body.appendChild(h("p.small.muted", "Tu peux faire une seule chose par année envers un seul proche. C'est facultatif. Conjoint, ex à reconquérir, amis, rivaux ou famille, les idées changent selon la force du lien."));
+    const cn = val("proche.npc", ""), ca = val("proche.act", "");
+    PR.forEach((o) => {
+      const open = cn === o.npc;
+      body.appendChild(h("button.opt" + (open ? ".sel" : ""), { type: "button", on: { click: () => { RD.play("click"); setVal("proche.npc", open ? "" : o.npc); setVal("proche.act", ""); RD.render(); } } },
+        h("div.t", o.ic + " " + o.name + " (" + o.label + ", lien " + o.close + " sur 100)")));
+      if (open) {
+        body.appendChild(h("div.opts", o.acts.map((a) => h("button.opt" + (ca === a.id ? ".sel" : ""), { type: "button", title: a.d, on: { click: () => { RD.play("select"); setVal("proche.act", ca === a.id ? "" : a.id); RD.render(); } } },
+          h("div.t", a.l), h("div.d", a.d), a.cost ? h("span.pill", RD.money(a.cost)) : null))));
+      }
+    });
+    return openDetails("pro_", title, body, !!(cn && ca));
+  }
+
   function socialPanel(st) {
     const SO = st.agenda.social;
     const acts = SO.actions || [];
@@ -296,7 +315,7 @@
 
   function agendaView(st) {
     const A = st.agenda; const m = st.me; const ui = S().ui;
-    if (ui.round !== st.round) { ui.round = st.round; setVal("project", ""); setVal("pro", ""); ui.atab = "vie"; setVal("soc.kind", ""); setVal("soc.amount", ""); }
+    if (ui.round !== st.round) { ui.round = st.round; setVal("project", ""); setVal("pro", ""); ui.atab = "vie"; setVal("soc.kind", ""); setVal("soc.amount", ""); setVal("proche.npc", ""); setVal("proche.act", ""); }
     if (A.ready) {
       const pending = st.players.filter((p) => p.alive && !p.ready).map((p) => p.name);
       return waitCard("Ton année est prête", pending.length ? "On attend " + pending.join(", ") + "." : "Tout le monde est prêt.");
@@ -311,6 +330,8 @@
       const kind = val("soc.kind", "");
       const defA = (A.social.actions || []).find((a) => a.id === kind);
       if (kind && defA) plan.social = { kind, target: Number(val("soc.target", defA.targets[0].seat)), amount: Number(val("soc.amount", 0)), rate: Number(val("soc.rate", 8)), years: Number(val("soc.years", 3)), tier: val("soc.tier", "petit"), game: val("soc.game", "") };
+      const pn = val("proche.npc", ""), pa = val("proche.act", "");
+      if (pn && pa) plan.proche = { npc: pn, act: pa };
       return plan;
     };
     const submit = () => {
@@ -339,7 +360,7 @@
       st.deadline ? RD.timerBar(st.deadline, 45000) : null,
       atabs,
       ui.atab === "pro" ? proTab(st) : h("div", projects,
-        h("div", { style: { display: "grid", gap: "10px", marginTop: "14px" } }, financePanel(st), socialPanel(st))),
+        h("div", { style: { display: "grid", gap: "10px", marginTop: "14px" } }, financePanel(st), prochePanel(st), socialPanel(st))),
       h("div", { style: { marginTop: "16px", textAlign: "center" } }, h("button.btn.big", { on: { click: submit } }, "Valider mon année")),
       modal);
   }

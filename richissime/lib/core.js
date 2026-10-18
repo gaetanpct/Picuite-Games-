@@ -13,6 +13,8 @@ const fmt = (n) => {
 
 // ---------- Fortune ----------
 function assetsValue(p) { return p.assets.reduce((s, a) => s + (a.value || 0), 0); }
+// valeur d'une table indexée par un niveau qui peut être fractionnaire (1,5 est entre 1 et 2)
+function lerp(arr, l) { const i = Math.floor(l), f = l - i; const a = arr[i], b = arr[Math.min(arr.length - 1, i + 1)]; return a + (b - a) * f; }
 function netWorth(p) { return Math.round(p.cash + (p.dirty || 0) + assetsValue(p) - p.debt); }
 function wealthTier(n) {
   if (n < 0) return { k: 0, l: "Endetté" };
@@ -176,4 +178,4 @@ function check(p, need, g, x) {
 
 function hasFlag(p, f) { const v = p.flags[f]; return v !== undefined && v !== 0; }
 
-module.exports = { clamp, rint, fmt, assetsValue, netWorth, wealthTier, addNpc, findNpc, hasRel, getOrMakeNpc, relMatch, render, check, inSchool, studying, hasFlag, NPC_TAGS, FAMILY_KINDS };
+module.exports = { lerp, clamp, rint, fmt, assetsValue, netWorth, wealthTier, addNpc, findNpc, hasRel, getOrMakeNpc, relMatch, render, check, inSchool, studying, hasFlag, NPC_TAGS, FAMILY_KINDS };

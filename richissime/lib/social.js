@@ -115,7 +115,7 @@ function offerActions(g, A) {
       const seen = A.socialSeen[c.spec.id];
       const gap = seen === undefined ? 9 : g.round - seen;
       const fresh = gap <= 1 ? 0.3 : gap === 2 ? 0.55 : gap === 3 ? 0.8 : 1;
-      const lf = c.spec.loufoque ? [0, 0.4, 1, 2.2][A.cfg.loufoque] || 1 : 1;
+      const lf = c.spec.loufoque ? C.lerp([0, 0.4, 1, 2.2], A.cfg.loufoque) || 1 : 1;
       return (c.spec.w === undefined ? 5 : c.spec.w) * c.fit * fresh * lf * (0.65 + g.rng() * 0.7);
     });
     const total = ws.reduce((x, y) => x + y, 0);
@@ -527,7 +527,7 @@ function botAction(g, p) {
   if (!offer.length) return null;
   // un robot rancunier frappe plus souvent, surtout si on lui a fait du mal ou s'il a un rival déclaré
   const heat = (o) => Math.max.apply(null, o.targets.map((s) => SK.bond(g, p.seat, s).riv));
-  const ws = offer.map((o) => { const sp = SK.byId[o.id]; return (sp.hostile ? 0.35 * (1 + heat(o) / 12) * (o.id === "contrat_tueur" ? 0.35 : 1) : 1) * (sp.prio > 0 ? 2 : 1) * (sp.grp === "reaction" ? 3 : 1); });
+  const ws = offer.map((o) => { const sp = SK.byId[o.id]; return (sp.hostile ? (g.settings.aiStyle === "sage" ? 0.08 : g.settings.aiStyle === "enfer" ? 0.9 : 0.5) * (1 + heat(o) / 12) * (o.id === "contrat_tueur" ? 0.35 : 1) : 1) * (sp.prio > 0 ? 2 : 1) * (sp.grp === "reaction" ? 3 : 1); });
   const tot = ws.reduce((x, y) => x + y, 0);
   let r = g.rng() * tot, o = offer[offer.length - 1];
   for (let i = 0; i < offer.length; i++) { r -= ws[i]; if (r <= 0) { o = offer[i]; break; } }
@@ -539,7 +539,8 @@ function botActChance(g, p) {
   let pr = 0.3;
   g.alivePlayers().forEach((q) => { if (q === p) return; if (SK.bond(g, p.seat, q.seat).riv >= 30) pr += 0.15; });
   if ((g.grievances || []).some((x) => x.v === p.seat && !x.used && x.round >= g.round - 1)) pr += 0.2;
-  return Math.min(0.85, pr);
+  pr *= g.settings.aiStyle === "sage" ? 0.7 : g.settings.aiStyle === "enfer" ? 1.5 : 1.2;
+  return Math.min(0.9, pr);
 }
 function botFinance(g, p) { g.finance(p.seat, { op: "invest", kind: pick(g.rng, ["livret", "actions"]), amount: Math.floor(p.cash * 0.4) }); }
 

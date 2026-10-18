@@ -31,18 +31,16 @@ const CITIES = {
 // clubs par sport et par niveau, avec la ville du club
 const CLUBS = {
   foot: [
-    [0, [["US Quevilly-Rouen", "Rouen"], ["FC Trélissac", "Périgueux"], ["Stade Briochin", "Saint-Brieuc"], ["Red Star FC", "Paris"]]],
-    [1, [["Paris FC", "Paris"], ["SM Caen", "Caen"], ["Valenciennes FC", "Valenciennes"], ["Grenoble Foot 38", "Grenoble"], ["AJ Auxerre", "Auxerre"]]],
-    [2, [["RC Lens", "Lens"], ["LOSC Lille", "Lille"], ["Stade Rennais", "Rennes"], ["OGC Nice", "Nice"], ["Olympique Lyonnais", "Lyon"], ["FC Nantes", "Nantes"]]],
-    [3, [["Olympique de Marseille", "Marseille"], ["AS Monaco", "Monaco"], ["Paris Saint-Germain", "Paris"], ["Atlético de Madrid", "Madrid"], ["Borussia Dortmund", "Dortmund"], ["AC Milan", "Milan"]]],
-    [4, [["Real Madrid", "Madrid"], ["FC Barcelone", "Barcelone"], ["Manchester City", "Manchester"], ["Bayern Munich", "Munich"], ["Liverpool FC", "Liverpool"], ["Inter Miami", "Miami"]]],
+    [0, [["AS Cannes", "Cannes"], ["Racing Club de France Football", "Paris"], ["Angoulême Charente FC", "Angoulême"], ["Olympique Saint-Quentin", "Saint-Quentin"]]],
+    [1, [["FC Rouen", "Rouen"], ["Dijon FCO", "Dijon"], ["FC Versailles", "Versailles"], ["US Orléans", "Orléans"], ["Le Puy Foot 43", "Le Puy-en-Velay"]]],
+    [2, [["AS Saint-Étienne", "Saint-Étienne"], ["Stade de Reims", "Reims"], ["Montpellier Hérault Sport Club", "Montpellier"], ["Red Star FC", "Paris"], ["FC Sochaux-Montbéliard", "Sochaux"]]],
+    [3, [["Paris Saint-Germain", "Paris"], ["Real Madrid", "Madrid"], ["FC Barcelone", "Barcelone"], ["Manchester City", "Manchester"]]],
   ],
   rugby: [
-    [0, [["US Dax", "Dax"], ["Stade Aurillacois", "Aurillac"]]],
-    [1, [["Aviron Bayonnais", "Bayonne"], ["USA Perpignan", "Perpignan"], ["CA Brive", "Brive"]]],
-    [2, [["Stade Rochelais", "La Rochelle"], ["Racing 92", "Paris"], ["Castres Olympique", "Castres"], ["Section Paloise", "Pau"]]],
-    [3, [["Stade Toulousain", "Toulouse"], ["RC Toulon", "Toulon"], ["Stade Français", "Paris"]]],
-    [4, [["Stade Toulousain", "Toulouse"], ["Leinster Rugby", "Dublin"], ["Saracens", "Londres"]]],
+    [0, [["Rugby Club Langon", "Langon"], ["Stade Nantais", "Nantes"], ["Rugby Club de Suresnes", "Suresnes"]]],
+    [1, [["SC Albi", "Albi"], ["RC Massy Essonne", "Massy"]]],
+    [2, [["CA Brive", "Brive"], ["Provence Rugby", "Aix-en-Provence"]]],
+    [3, [["Rugby Club Toulonnais", "Toulon"], ["Stade Toulousain", "Toulouse"], ["Leinster Rugby", "Dublin"]]],
   ],
   sportpro: [
     [0, [["le club municipal", null], ["l'association sportive de la ville", null]]],

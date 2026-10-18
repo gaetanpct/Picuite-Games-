@@ -117,7 +117,10 @@ function applyFx(g, p, fx, x) {
     if (NUM_STATS.includes(key)) { p.stats[key] = C.clamp(p.stats[key] + v, 0, 100); continue; }
     if (NUM_TRAITS.includes(key)) { p.traits[key] = C.clamp(p.traits[key] + v, 0, 100); continue; }
     switch (key) {
-      case "argent": { const m = Math.round(v); p.cash += m; if (p.life) { if (m > 0) p.life.gains += m; else p.life.losses -= m; } break; }
+      case "argent": { let m = Math.round(v);
+        // les petits gains ponctuels sont plus rares quand on est jeune. Les très gros gains ne sont pas touchés
+        if (m > 0 && m < 120000) { const f = p.age <= 25 ? 0.45 : p.age <= 35 ? 0.65 : p.age <= 50 ? 0.85 : 1; const blend = m <= 30000 ? 0 : (m - 30000) / 90000; m = Math.round(m * (f + (1 - f) * blend)); }
+        p.cash += m; if (p.life) { if (m > 0) p.life.gains += m; else p.life.losses -= m; } break; }
       case "dette": p.debt = Math.max(0, p.debt + Math.round(v)); break;
       case "notes": p.school.grade = C.clamp(p.school.grade + v, 0, 100); break;
       case "rel":
@@ -198,7 +201,13 @@ function applyFx(g, p, fx, x) {
       case "org": if (v === false) { p.org = null; delete p.flags.mafia; } else { const nm = typeof v === "string" ? v : (p.org ? p.org.name : JU.orgName(g)); p.org = { name: nm, rank: p.org ? p.org.rank : 0, since: p.age }; p.flags.mafia = 1; } break;
       case "rank": if (p.org) p.org.rank = C.clamp(p.org.rank + v, 0, 5); break;
       case "launder": { const r = JU.launder(g, p, v.amount, v.fee); x.lastLaunder = r; break; }
-      case "prison": { const yrs = Math.max(1, Math.round(v)); if (p.prison) { p.prison.left += yrs; p.prison.total += yrs; p.record += 1; break; } p.prison = { left: yrs, total: yrs }; p.record += 1; p.flags.ex_detenu = 1; JU.onSentence(g, p, yrs, { heavy: !!(x && x.heavy) }); if (p.job) { p.jobHistory.push({ title: p.job.title, track: p.job.track, from: p.job.since, to: p.age, why: "prison" }); p.job = null; } break; }
+      case "prison": { let yrs = Math.max(1, Math.round(v));
+        // la justice n'est pas toujours sévère. Peines courtes souvent avec sursis, longues peines un peu réduites
+        if (!p.prison && !(x && (x.heavy || x.hard))) {
+          if (yrs <= 3 && rng() < 0.45) { p.record += 1; p.flags.ex_detenu = 1; p.stats.repute = C.clamp(p.stats.repute - 5, 0, 100); p.cash -= Math.min(Math.max(0, p.cash), 800 * yrs); if (p.yearLog) p.yearLog.push("⚖️ Le juge te condamne à du sursis et à une amende. Tu évites la prison de justesse."); break; }
+          yrs = Math.max(1, Math.round(yrs * 0.75));
+        }
+        if (p.prison) { p.prison.left += yrs; p.prison.total += yrs; p.record += 1; break; } p.prison = { left: yrs, total: yrs }; p.record += 1; p.flags.ex_detenu = 1; JU.onSentence(g, p, yrs, { heavy: !!(x && x.heavy) }); if (p.job) { p.jobHistory.push({ title: p.job.title, track: p.job.track, from: p.job.since, to: p.age, why: "prison" }); p.job = null; } break; }
       case "free": if (p.prison) { p.prison = null; } break;
       case "record": p.record += v; break;
       case "school": Object.assign(p.school, v); break;

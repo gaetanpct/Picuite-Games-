@@ -9,6 +9,7 @@ const C = require("./core");
 const social = require("./social");
 const feud = require("./feud");
 
+const PROCHE = require("./proche");
 const KIND_LABEL = {
   mere: ["Mère", "Mère"], pere: ["Père", "Père"], sibling: ["Frère", "Sœur"], friend: ["Ami", "Amie"], bestfriend: ["Meilleur ami", "Meilleure amie"],
   rival: ["Rival", "Rivale"], teacher: ["Professeur", "Professeure"], partner: ["Partenaire", "Partenaire"], spouse: ["Époux", "Épouse"], child: ["Enfant", "Enfant"],
@@ -288,7 +289,8 @@ function getStateFor(g, seat, now) {
   st.scene = sceneView(g, p);
   if (g.phase === "agenda") {
     st.agenda = {
-      ready: !!p.ready, plan: p.plan ? { project: p.plan.project, social: p.plan.social || null, pro: p.plan.pro || null } : null,
+      ready: !!p.ready, plan: p.plan ? { project: p.plan.project, social: p.plan.social || null, pro: p.plan.pro || null, proche: p.plan.proche || null } : null,
+      proches: PROCHE.offer(g, p).map((o) => Object.assign(o, { label: relLabel({ kind: o.kind, gender: (p.npcs.find((x) => x.id === o.npc) || {}).gender }), ic: KIND_ICON[o.kind] || "🙂" })),
       pro: proInfo(g, p),
       projects: g.availableProjects(p).map((pr) => ({ id: pr.id, l: pr.l, ic: pr.ic, d: pr.d, cost: pr.cost || 0, step: !!pr.step })),
       finance: financeInfo(g, p), social: socialInfo(g, p),
