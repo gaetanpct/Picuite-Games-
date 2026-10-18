@@ -388,6 +388,8 @@ io.on("connection", (socket) => {
   socket.on("disconnect", safe(() => {
     const room = ctx.room; const p = me();
     if (!room || !p) return;
+    // un ancien socket qui meurt tard ne doit pas écraser la nouvelle connexion du même joueur
+    if (p.socketId && p.socketId !== socket.id) return;
     p.connected = false; p.socketId = null; p.disconnectedAt = Date.now();
     if (room.status === "lobby") {
       setTimeout(() => {

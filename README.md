@@ -121,3 +121,19 @@ Cette version rend la vie plus cohérente, plus piquante et un peu moins facile.
 - Les actions envers les proches ne sont plus dans les idées de l'année. Dans l'onglet Proches à gauche, clique sur le prénom d'un proche pour ouvrir ses actions possibles.
 - Le mode accéléré crée maintenant des liens avec les autres joueurs, dans le ton de ta personnalité, et continue à jouer dans tes habitudes.
 - Cinq parcours très rares, avec une suite de choix à réussir un par un. La voie divine passe par la secte, les fidèles, le temple, le prophète, le miracle puis l'ascension. Un dieu ne vieillit plus et bénit ou éprouve chaque année l'un des autres joueurs. Il y a aussi la politique jusqu'à la présidence, la conquête spatiale jusqu'à Mars, la recherche jusqu'au prix Nobel et la famille royale jusqu'au trône.
+
+## Dixième mise à jour de Richissime Destiny
+
+- Un seul conjoint à la fois. Si tu es en couple avec un autre joueur, l'ancien conjoint personnage devient un ex. Il n'y a plus de doublon.
+- Les actions envers les proches ne concernent plus les parents. Elles couvrent les frères et sœurs, le rival, le meilleur ami ou la meilleure amie, les amis, puis ceux qui arrivent en cours de route comme les ex, les béguins, les enfants et les stars.
+- Chaque type de proche a ses propres actions. On peut proposer à un ami ou à un béguin de se mettre en couple si on est seul. On peut tenter de contacter une star, ce qui peut marcher, et si elle recale on perd le contact. Si le contact existe, on peut lui proposer une collaboration.
+- Quand les dépenses de l'année dépassent l'argent disponible, les placements vendus pour couvrir le manque sont maintenant annoncés dans le bilan, avec le montant et le type de placement. Les impôts et charges d'une grande fortune sont eux aussi affichés.
+
+## Onzième mise à jour de Richissime Destiny
+
+- Un parcours professionnel réussi se voit enfin sur le personnage. Plus le poste est haut, plus les compétences, le réseau et la réputation ont un niveau minimum élevé. Chaque promotion les fait monter d'un coup. Pour les métiers de la célébrité comme le cinéma, la musique ou le sport pro, la réputation et le charme suivent encore plus vite. Une légende du cinéma n'a donc plus une réputation à 40.
+
+## Douzième mise à jour
+
+- Correction d'un blocage de Richissime Destiny. Après une coupure de connexion très brève, la page ne se rattachait pas à la partie. Les clics ne partaient plus, l'écran ne bougeait plus et le serveur finissait par te croire absent. La page se rattache maintenant à chaque reconnexion, et elle redemande l'état de la partie toutes les douze secondes.
+- Un ancien lien de connexion qui se ferme en retard ne peut plus écraser la nouvelle connexion du joueur. Cela vaut pour Richissime Destiny et pour Goliathicus.
