@@ -1,7 +1,7 @@
 {
   "name": "picuite-games",
   "version": "1.0.0",
-  "description": "Picuite Games - le site qui réunit Gaeboub-up, Goliathicus et Richissime Destiny",
+  "description": "Picuite Games - le site qui réunit Gaeboub-up, Goliathicus, Richissime Destiny, Golfouille et Zoomalou",
   "main": "server.js",
   "scripts": { "start": "node server.js" },
   "engines": { "node": ">=18" },

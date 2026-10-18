@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Logo Zoomalou">
+<circle cx="80" cy="80" r="70" fill="#2b2f4a" stroke="#14172b" stroke-width="6"/>
+<path d="M18 112 C40 96 60 128 84 112 C108 96 128 100 144 116 C134 140 110 150 80 150 C50 150 28 136 18 112 Z" fill="#454b73"/>
+<path d="M12 100 L148 100" stroke="#fff" stroke-width="3" stroke-dasharray="10 10" opacity="0.6"/>
+<path d="M30 92 L40 70 Q46 62 58 62 L100 62 Q114 62 120 74 L132 92 Z" fill="#e8453c" stroke="#14172b" stroke-width="5" stroke-linejoin="round"/>
+<path d="M50 70 L58 66 L82 66 L82 80 L46 80 Z" fill="#bfe8ff" stroke="#14172b" stroke-width="3" stroke-linejoin="round"/>
+<path d="M88 66 L104 66 Q110 66 113 74 L116 80 L88 80 Z" fill="#bfe8ff" stroke="#14172b" stroke-width="3" stroke-linejoin="round"/>
+<rect x="24" y="86" width="116" height="14" rx="6" fill="#e8453c" stroke="#14172b" stroke-width="5"/>
+<circle cx="52" cy="104" r="12" fill="#222" stroke="#14172b" stroke-width="4"/><circle cx="52" cy="104" r="4" fill="#ddd"/>
+<circle cx="112" cy="104" r="12" fill="#222" stroke="#14172b" stroke-width="4"/><circle cx="112" cy="104" r="4" fill="#ddd"/>
+<path d="M14 80 L30 80 M8 90 L24 90 M16 100 L28 100" stroke="#ffd84a" stroke-width="4" stroke-linecap="round"/>
+<g transform="translate(110 30)"><rect x="0" y="0" width="26" height="30" rx="5" fill="#ffd84a" stroke="#14172b" stroke-width="4"/><rect x="5" y="6" width="16" height="9" rx="2" fill="#14172b"/><path d="M26 6 L34 12 L34 24" stroke="#14172b" stroke-width="4" fill="none" stroke-linecap="round"/></g>
+</svg>

@@ -2,7 +2,7 @@
 
 Le site qui réunit tous les jeux, avec une page d'accueil pour choisir.
 
-Jeux inclus pour l'instant, Gaeboub-up (plateau à la Monopoly), Goliathicus (stratégie et bluff) et Richissime Destiny (simulation de vie entre amis).
+Jeux inclus pour l'instant, Gaeboub-up (plateau à la Monopoly), Goliathicus (stratégie et bluff), Richissime Destiny (simulation de vie entre amis), Golfouille (golf en 3D sur des terrains générés) et Zoomalou (courses de voitures sur des circuits générés).
 
 ## Lancer en local
 
@@ -19,13 +19,13 @@ Puis ouvrir localhost, port 3000, dans le navigateur.
 4. Start Command, npm start.
 5. Render fournit la variable PORT tout seul.
 
-Une seule adresse sert tout le site. Les jeux sont sur /gaeboub-up, /goliathicus et /richissime. La route /health répond quand le serveur est vivant.
+Une seule adresse sert tout le site. Les jeux sont sur /gaeboub-up, /goliathicus, /richissime, /golfouille et /zoomalou. La route /health répond quand le serveur est vivant.
 
 ## Organisation
 
 - server.js, le serveur du site, il découvre et monte automatiquement chaque jeu.
 - public/, la page d'accueil (index.html, style.css, app.js), les logos dans public/logos et le petit bouton de retour pg-back.js.
-- gaeboub-up/, goliathicus/ et richissime/, un dossier par jeu directement à la racine, sans dossier games. Chaque dossier contient son server.js, son dossier public, ses éventuels dossiers lib, et un fichier game.json qui sert à la présentation sur l'accueil. Tout dossier de la racine qui contient un server.js et un game.json est reconnu comme un jeu (sauf public et node_modules).
+- gaeboub-up/, goliathicus/, richissime/, golfouille/ et zoomalou/, un dossier par jeu directement à la racine, sans dossier games. Chaque dossier contient son server.js, son dossier public, ses éventuels dossiers lib, et un fichier game.json qui sert à la présentation sur l'accueil. Tout dossier de la racine qui contient un server.js et un game.json est reconnu comme un jeu (sauf public et node_modules).
 
 Pour envoyer le projet sur GitHub, il suffit de déposer chaque dossier séparément (gaeboub-up, goliathicus, richissime, public), puis les fichiers de la racine. Chaque envoi reste sous la limite de 100 fichiers.
 
@@ -147,3 +147,28 @@ Cette version rend la vie plus cohérente, plus piquante et un peu moins facile.
 - Les IA ripostent. Quand une pièce ennemie dangereuse est connue, par exemple un Roi qui ravage le camp ou un gros bras près de l'œuf, la pièce la moins précieuse qui la bat à coup sûr part à sa rencontre. Un Rat avance vers un Roi connu en contournant les lacs, même au prix d'un risque. Les autres pièces ne le gênent plus.
 - Les IA voient mieux le danger. Elles regardent aussi les lignes de tir des éclaireurs, comparent la case d'arrivée à la case de départ, mettent à l'abri une pièce menacée et pensent à ne pas se faire reprendre juste après une capture.
 - Sur des parties entre anciennes et nouvelles IA, le niveau Dragon gagne environ deux parties sur trois, le niveau Chevalier un peu plus d'une sur deux, et le Roi Stratège reste à égalité, ce qui est attendu car il était déjà le plus fort.
+
+## Quatorzième mise à jour, deux nouveaux jeux
+
+Deux jeux arrivent sur l'accueil, Golfouille et Zoomalou. Ils partagent un petit socle commun dans le dossier common (salon, réglages expliqués, bots, chat, 3D avec three.js), ce qui garde le même esprit que les autres jeux. Chaque réglage est modifiable dans le salon et expliqué juste dessous.
+
+### Golfouille
+
+- Golf en 3D avec des terrains générés à l'infini. Un bouton Générer un autre terrain dans le salon montre un aperçu, et Jouer ce parcours fixe la graine pour que tout le monde joue exactement le même trou.
+- Huit biomes (prairie, désert, neige, jungle, volcan, plage, bonbons, cosmos), chacun avec son décor et ses obstacles.
+- Course au trou. Le premier arrivé marque le plus de points, le temps compte, et l'on joue en tour par tour ou tous en même temps selon le réglage.
+- Plusieurs clubs (driver, fer, cale, lob, putter) avec des portées et des trajectoires différentes, une jauge de puissance à maintenir, une aide de visée réglable (aucune, points ou trajectoire).
+- De petits pouvoirs ramassés sur le terrain pour gêner les autres, avec un choix de cible. Leur fréquence et leur apparition se règlent.
+- Bots à quatre niveaux, reconnexion, mode solo.
+- Le serveur calcule chaque coup avec la même physique que le client, donc personne ne peut tricher sur la distance.
+
+### Zoomalou
+
+- Courses de voitures sur des circuits générés à l'infini, inspirées de Trackmania Turbo, avec des graphismes volontairement simples.
+- Sept biomes (côte, désert, neige, forêt, volcan, bonbons, néon), des sols différents (bitume, terre, glace, sol collant), des tapis turbo, des bosses à sauter et des points de contrôle.
+- Cinq voitures, Bolide, Rallye-Pote, Pétard, Toupie et Bouboule, chacune avec ses forces. Le réglage permet de choisir librement ou de tirer une voiture imposée pour tout le monde.
+- Mode essence. Le premier pilote pose un temps, puis chaque autre pilote a un réservoir limité pour le battre et retente tant qu'il lui reste de l'essence. Le réservoir se règle de deux façons, relatif au record ou fixe en secondes. Un essai abandonné coûte l'essence déjà brûlée.
+- Ordre des pilotes. Le réglage propose À tour de rôle ou Le dernier d'abord, où le pilote le moins bien classé pose le temps et le leader joue en dernier.
+- Mode chrono. Tout le monde roule en même temps, les voitures des autres sont transparentes, et le meilleur temps de chacun compte.
+- Fantôme du record avec écart en direct, retour au dernier point de contrôle, caméras multiples, commandes clavier, tactiles et manette.
+- Les temps sont rejoués par le serveur à partir des touches envoyées, sauf si l'on choisit de faire confiance aux joueurs dans les réglages.
