@@ -33,7 +33,7 @@
         { id: "fogRadius", label: "Portée de vue", type: "chips", default: 2, options: [1, 2, 3], showIf: { fog: true }, info: "Distance maximale (en cases) à laquelle tu vois les pièces ennemies." },
         { id: "chaos", label: "🎲 Chaos", type: "bool", default: false, info: "Un événement surprise secoue le royaume à intervalles réguliers, avec de la boue, des tourbillons, des tartes qui tombent du ciel..." },
         { id: "chaosEvery", label: "Un événement tous les", type: "chips", default: 5, options: [{ value: 3, label: "3 tours" }, { value: 5, label: "5 tours" }, { value: 8, label: "8 tours" }], showIf: { chaos: true }, info: "Un « tour » = tout le monde a joué une fois." },
-        { id: "boardSize", label: "⚡ Taille du plateau", type: "chips", default: "normal", options: [{ value: "normal", label: "Normale (~35 min)" }, { value: "express", label: "Express (~10 min)" }], info: "Express = petit plateau et armées de 12 pièces, pour une partie éclair." },
+        { id: "boardSize", label: "⚡ Taille du plateau", type: "chips", default: "normal", options: [{ value: "normal", label: "Normale (~35 min)" }, { value: "express", label: "Express (~10 min)" }, { value: "grand", label: "Grande (~60 min)" }], info: "Express = petit plateau et armées de 12 pièces, pour une partie éclair. Grande = grand plateau et armées de 40 pièces, pour une longue partie de stratégie. Le budget des armées sur mesure grandit avec la taille." },
       ],
     },
     {

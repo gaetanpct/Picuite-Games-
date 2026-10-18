@@ -50,7 +50,7 @@
     },
   ];
 
-  // Compositions d'armées. size = nombre de cases du camp (24 normal, 12 express).
+  // Compositions d'armées. size = nombre de cases du camp (24 normal, 12 express, 40 grand).
   const ARMIES = {
     24: {
       standard: { name: "Équilibrée", icon: "⚖️", desc: "La recette classique, pour bien démarrer.", counts: { oeuf: 1, tarte: 3, roi: 1, dragon: 1, sorcier: 1, troll: 2, chevalier: 3, archere: 2, garde: 2, nain: 3, lutin: 4, rat: 1 } },
@@ -97,7 +97,61 @@
     brouillard: { name: "Brouillard soudain", icon: "🌫️", text: "Un brouillard épais tombe pendant un tour de table complet. Visibilité réduite à 1 case." },
   };
 
-  function armySizeFor(boardSize) { return boardSize === "express" ? 12 : 24; }
+  function armySizeFor(boardSize) { return boardSize === "express" ? 12 : boardSize === "grand" ? 40 : 24; }
+
+  // Budget d'une armée sur mesure. Sur le grand plateau, il grandit avec le nombre de pièces.
+  function budgetFor(settings, size) {
+    const b = Number(settings.armyBudget) || 150;
+    return size > 24 ? Math.round(b * size / 24) : b;
+  }
+
+  // Agrandit une composition pour remplir un camp plus grand. L'œuf et le roi restent uniques,
+  // les autres pièces gardent leurs proportions sans dépasser leur maximum.
+  function scaleCounts(counts, total) {
+    const keep = { oeuf: counts.oeuf || 0, roi: counts.roi || 0 };
+    const rest = Object.keys(counts).filter((k) => PIECES[k] && k !== "oeuf" && k !== "roi");
+    const base = rest.reduce((s, k) => s + counts[k], 0);
+    const target = total - keep.oeuf - keep.roi;
+    const out = {};
+    const rem = [];
+    let sum = 0;
+    rest.forEach((k) => {
+      const exact = counts[k] * target / base;
+      const n = Math.min(PIECES[k].max, Math.floor(exact));
+      out[k] = n; sum += n; rem.push([k, exact - n]);
+    });
+    rem.sort((a, b) => b[1] - a[1]);
+    for (let i = 0; sum < target && i < rem.length * 3; i++) {
+      const k = rem[i % rem.length][0];
+      if (out[k] < PIECES[k].max) { out[k]++; sum++; }
+    }
+    ["garde", "chevalier", "archere", "nain", "lutin"].forEach((k) => {
+      while (sum < target && (out[k] || 0) < PIECES[k].max) { out[k] = (out[k] || 0) + 1; sum++; }
+    });
+    if (keep.oeuf) out.oeuf = keep.oeuf;
+    if (keep.roi) out.roi = keep.roi;
+    return out;
+  }
+  function growMax(counts, f) {
+    const o = {};
+    Object.keys(counts).forEach((k) => { o[k] = Math.min(PIECES[k].max, Math.ceil(counts[k] * f)); });
+    return o;
+  }
+  // Grand plateau (40 cases par camp), déduit des armées de 24.
+  (function buildBig() {
+    ARMIES[40] = {};
+    Object.keys(ARMIES[24]).forEach((id) => {
+      const a = ARMIES[24][id];
+      ARMIES[40][id] = Object.assign({}, a, { desc: a.desc + " Version grand plateau.", counts: scaleCounts(a.counts, 40) });
+    });
+    const L = LEGION[24];
+    LEGION[40] = { core: scaleCounts(Object.assign({ oeuf: 0 }, L.core), 27), fallback: growMax(L.fallback, 2) };
+    LEGION_PRESETS[40] = {};
+    Object.keys(LEGION_PRESETS[24]).forEach((id) => {
+      const a = LEGION_PRESETS[24][id];
+      LEGION_PRESETS[40][id] = Object.assign({}, a, { counts: growMax(a.counts, 2) });
+    });
+  })();
 
   function cloneCounts(c) { return Object.assign({}, c); }
 
@@ -175,7 +229,7 @@
     // l'œuf prend une place (sauf chasse au roi, géré après)
     const room = size - 1;
     // réduit les surplus en partant des moins chers
-    const budget = Number(settings.armyBudget) || 150;
+    const budget = budgetFor(settings, size);
     const trim = ORDER.slice().reverse();
     const over = () => countsTotal(out) > room || countsCost(out) > budget;
     let guard = 0;
@@ -198,5 +252,5 @@
     return out;
   }
 
-  return { PIECES, ORDER, HOUSES, ARMIES, LEGION, LEGION_PRESETS, legionSlots, CHAOS_EVENTS, armySizeFor, countsCost, countsTotal, resolveArmy, finalizeCounts, sanitizeCustom };
+  return { PIECES, ORDER, HOUSES, ARMIES, LEGION, LEGION_PRESETS, legionSlots, CHAOS_EVENTS, armySizeFor, budgetFor, countsCost, countsTotal, resolveArmy, finalizeCounts, sanitizeCustom };
 });

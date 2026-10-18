@@ -114,7 +114,7 @@
     // ---------- utilitaires ----------
     _armDepth(side, r, c) {
       const R = this.board.rows, C = this.board.cols;
-      const D = this.board.kind === "duel" ? (this.settings.boardSize === "express" ? 2 : 3) : (this.settings.boardSize === "express" ? 3 : 4);
+      const D = this.board.depth;
       if (side === "bottom") return r - (R - D);
       if (side === "top") return D - 1 - r;
       if (side === "left") return D - 1 - c;
@@ -876,7 +876,7 @@
         armyCounts: this.armyBy[viewer] || this.armyCounts,
         armyCountsBy: this.players.map((_, i) => (this._compVisible(viewer, i) ? this.armyBy[i] : null)),
         compose: this.phase === "compose" ? {
-          budget: this.settings.armyBudget, size: this.armSize,
+          budget: Pieces.budgetFor(this.settings, this.armSize), size: this.armSize,
           legion: this.legionMode ? { slots: Pieces.legionSlots(this.armSize), core: Pieces.LEGION[this.armSize].core, presets: Pieces.LEGION_PRESETS[this.armSize] } : null,
           mine: this.comp[viewer].counts,
           ready: this.players.map((q) => q.ready),

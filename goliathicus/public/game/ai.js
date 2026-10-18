@@ -44,7 +44,7 @@
 
   const NAMES = ["Bouzelouf", "Tigrou", "Daddy", "Mommy", "Pupuce", "Zaza", "Khalamité", "BadGyal", "Yakak", "Maître Picut", "Tonton Gaufre", "Mamie Tartine"];
 
-  function newMemory() { return { known: {}, lastSeq: 0, lastFrom: {}, moveCount: 0, lastCombatRound: 0, belief: {}, exposed: {}, lastSeen: {} }; }
+  function newMemory() { return { known: {}, lastSeq: 0, lastFrom: {}, moveCount: 0, lastCombatRound: 0, belief: {}, exposed: {}, lastSeen: {}, trail: {}, plan: null, lastMover: null, enemyAct: {}, tick: 0 }; }
 
   function rankOf(t) { return PIECES[t].rank; }
   function val(t, mode) {
@@ -91,7 +91,12 @@
         });
       } else if (ev.kind === "move" && ev.owner === state.you) {
         mem.lastFrom[ev.pieceId] = K(ev.from.r, ev.from.c);
+        const tr = mem.trail[ev.pieceId] || (mem.trail[ev.pieceId] = []);
+        tr.push(K(ev.from.r, ev.from.c)); if (tr.length > 8) tr.shift();
+        mem.lastMover = ev.pieceId;
       } else if (ev.kind === "move" && state.players[ev.owner].team !== myTeam) {
+        const ea = mem.enemyAct[ev.pieceId] || (mem.enemyAct[ev.pieceId] = { moves: 0, last: 0 });
+        ea.moves++; ea.last = state.round;
         learnFromEnemyMove(mem, state, ev, byId);
       }
     });
@@ -214,8 +219,109 @@
   }
 
   // ---------- décision ----------
+  // ---------- mémoire des plans et des trajets (tous niveaux) ----------
+  // Pénalité quand une pièce retourne sur une case qu'elle vient de quitter (tourner en rond).
+  function trailPenalty(mem, p, r, c, strength) {
+    const tr = mem.trail[p.id];
+    if (!tr || !tr.length) return 0;
+    const k = K(r, c);
+    let pen = 0;
+    for (let i = tr.length - 1, age = 0; i >= 0; i--, age++) {
+      if (tr[i] === k) { pen = Math.max(pen, strength * (age < 2 ? 1 : age < 4 ? 0.6 : 0.3)); }
+    }
+    return pen;
+  }
+
+  // Le plan en cours (une pièce, une cible) est conservé tant qu'il reste valable.
+  function planValid(state, mem, view) {
+    const pl = mem.plan;
+    if (!pl) return null;
+    if (state.round - pl.since > 14) return null;
+    const mover = state.pieces.find((x) => x.id === pl.pieceId && x.owner === view.me);
+    const tgt = state.pieces.find((x) => x.id === pl.targetId);
+    if (!mover || !tgt || !state.legal[mover.id]) return null;
+    return { mover, tgt, pl };
+  }
+
+  // Distance réelle (en contournant lacs et ruines) jusqu'à une case, calculée une fois par tour.
+  function pathMap(view, r0, c0) {
+    const key = "pm" + r0 + "," + c0;
+    if (view.cache && view.cache.has(key)) return view.cache.get(key);
+    const b = view.state.board;
+    const blocked = (r, c) => {
+      if (r < 0 || c < 0 || r >= b.rows || c >= b.cols) return true;
+      const t = b.terrain[r][c];
+      if (!(t === "plain" || t === "forest" || t === "marsh")) return true;
+      return (b.ruins || []).some(([a, d]) => a === r && d === c);
+    };
+    const m = new Map([[K(r0, c0), 0]]);
+    const q = [[r0, c0]];
+    for (let i = 0; i < q.length; i++) {
+      const [r, c] = q[i]; const d = m.get(K(r, c));
+      DIRS.forEach(([dr, dc]) => {
+        const nr = r + dr, nc = c + dc, k = K(nr, nc);
+        if (blocked(nr, nc) || m.has(k)) return;
+        m.set(k, d + 1); q.push([nr, nc]);
+      });
+    }
+    if (view.cache) view.cache.set(key, m);
+    return m;
+  }
+  function stepGain(view, tgt, p, r, c) {
+    const m = pathMap(view, tgt.r, tgt.c);
+    const a = m.get(K(p.r, p.c)), b = m.get(K(r, c));
+    if (a == null || b == null) return (Math.abs(tgt.r - p.r) + Math.abs(tgt.c - p.c)) - (Math.abs(tgt.r - r) + Math.abs(tgt.c - c));
+    return a - b;
+  }
+
+  // Riposte. Quand une pièce ennemie connue est dangereuse (un Roi qui ravage, un gros bras près de l'œuf),
+  // la pièce qui la bat à coup sûr, la moins précieuse possible, part la chercher. Le Rat contre le Roi en est l'exemple.
+  function counterPlan(state, mem, view, valueOf) {
+    let best = null, bestS = 2;
+    view.enemies.forEach((e) => {
+      const t = view.typeOf(e);
+      if (!t || !PIECES[t].mobile || e.frozen > 0 && false) return;
+      const V = valueOf(t);
+      const dProt = view.protect ? Math.abs(e.r - view.protect.r) + Math.abs(e.c - view.protect.c) : 99;
+      const big = t === "roi" || V >= 10;
+      if (!big && dProt > 5) return;
+      view.mine.forEach((p) => {
+        if (!state.legal[p.id] || !PIECES[p.type].mobile) return;
+        if (fight(p.type, t, view.mode) !== "win") return;
+        if (p.type === "rat" && t !== "roi") return;
+        const pm = pathMap(view, e.r, e.c).get(K(p.r, p.c));
+        const d = pm == null ? Math.abs(p.r - e.r) + Math.abs(p.c - e.c) : pm;
+        const sc = (V * (big ? 1 : 0.6)) / (1 + 0.22 * d) - valueOf(p.type) * 0.18;
+        if (sc > bestS) { bestS = sc; best = { mover: p, tgt: e, urgent: true }; }
+      });
+    });
+    return best;
+  }
+
+  // Choisit (ou garde) un plan simple. Retourne { mover, tgt } ou null.
+  function pickPlan(state, mem, view, scoreFn, valueOf) {
+    const ctr = valueOf ? counterPlan(state, mem, view, valueOf) : null;
+    if (ctr) { mem.plan = { pieceId: ctr.mover.id, targetId: ctr.tgt.id, since: state.round, urgent: true }; return ctr; }
+    const keep = planValid(state, mem, view);
+    if (keep) {
+      const s = scoreFn(keep.mover, keep.tgt);
+      if (s > 0.5) return keep;
+    }
+    let best = null, bestS = 1.5;
+    view.mine.forEach((p) => {
+      if (!state.legal[p.id] || !PIECES[p.type].mobile) return;
+      view.enemies.forEach((e) => {
+        const s = scoreFn(p, e);
+        if (s > bestS) { bestS = s; best = { mover: p, tgt: e }; }
+      });
+    });
+    if (best) mem.plan = { pieceId: best.mover.id, targetId: best.tgt.id, since: state.round };
+    else mem.plan = null;
+    return best;
+  }
+
   function chooseMove(state, mem, level, rng) {
-    const view = buildView(state, mem);
+    const view = masterView(state, mem);
     const { me, mode } = view;
     const myPieces = state.pieces.filter((p) => p.owner === me);
     const enemies = state.pieces.filter((p) => state.players[p.owner].team !== view.myTeam);
@@ -228,9 +334,20 @@
     const quiet = round - (mem.lastCombatRound || 0);
     const impatience = Math.min(14, Math.max(0, (quiet - 5) * 0.9));
     const cands = [];
+    // plan suivi : une pièce, une cible, tant que ça reste intéressant
+    const planScore = (p, e) => {
+      if (!PIECES[p.type].mobile || p.type === "roi" && mode !== "kinghunt" && round < 30) return 0;
+      const a = evAttack(view, p, e, level, rng);
+      const d = Math.abs(p.r - e.r) + Math.abs(p.c - e.c);
+      return (a.ev * 0.6 + a.info * 0.5 - 0.05 * Math.max(0, dangerAt(view, mem, p, p.r, p.c, null, null)) * val(p.type, mode)) / (1 + 0.2 * d);
+    };
+    const plan = level.danger > 0 ? pickPlan(state, mem, view, planScore, (t) => val(t, mode)) : null;
     myPieces.forEach((p) => {
       const dests = state.legal[p.id];
       if (!dests) return;
+      const Vp = val(p.type, mode);
+      const curDanger = level.danger > 0 ? dangerAt(view, mem, p, p.r, p.c, null, null) : 0;
+      const vac = K(p.r, p.c);
       dests.forEach(([r, c]) => {
         const target = view.grid.get(K(r, c));
         let score = 0;
@@ -247,6 +364,9 @@
           if (p.type === "nain" && !target.moved && round > 8) bonus += 5 * level.hunt;
           if (!a.known && p.type !== "nain" && !target.moved && round > 8) bonus -= 2 * level.hunt * (1 - a.pWin);
           score += bonus + impatience * (a.pLose < 0.65 ? 1 : 0.3);
+          // ne pas se faire reprendre juste après (mémoire de ce que je sais des voisins)
+          if (a.pWin > 0 && level.danger > 0) score -= Vp * dangerAt(view, mem, p, r, c, target.id, vac) * a.pWin * 0.5 * level.danger;
+          if (plan && plan.mover.id === p.id && plan.tgt.id === target.id) score += plan.urgent ? 14 : 3;
         } else {
           // simple déplacement : progression et sécurité
           const cur = nearest(enemies, p.r, p.c);
@@ -268,7 +388,7 @@
               score += (dNow - dNew) * 1.2;
             }
           }
-          // sécurité à l'arrivée
+          // sécurité à l'arrivée (adjacents et lignes de tir), comparée à la case de départ
           let worst = 0;
           DIRS.forEach(([dr, dc]) => {
             const e = view.grid.get(K(r + dr, c + dc));
@@ -276,9 +396,18 @@
             const t = threatOn(view, e, p.type);
             if (t > worst) worst = t;
           });
-          score -= val(p.type, mode) * worst * 0.7 * level.danger;
-          // éviter de tourner en rond
-          if (mem.lastFrom[p.id] === K(r, c)) score -= 2.5;
+          if (level.danger > 0) {
+            const dgNew = dangerAt(view, mem, p, r, c, null, vac);
+            score -= Vp * Math.max(worst * 0.5, dgNew) * 0.7 * level.danger * (plan && plan.urgent && plan.mover.id === p.id ? 0.1 : 1);
+            // une pièce menacée qui se met à l'abri
+            if (curDanger > 0.3 && dgNew < curDanger) score += Vp * (curDanger - dgNew) * 0.6 * level.danger;
+          } else score -= Vp * worst * 0.7 * level.danger;
+          // éviter de tourner en rond (mémoire des dernières cases)
+          score -= trailPenalty(mem, p, r, c, level.danger > 0 ? 3.4 : 1.5);
+          // plan en cours, on avance vers la cible
+          if (plan && plan.mover.id === p.id) {
+            score += stepGain(view, plan.tgt, p, r, c) * (plan.urgent ? 12 : 1.8);
+          } else if (mem.lastMover === p.id && level.danger > 0) score += 0.6;
           // l'œuf et les tartes ne bougent pas, mais les défenseurs restent autour de l'œuf
           if (protect && p.id !== protect.id) {
             const dBefore = Math.abs(p.r - protect.r) + Math.abs(p.c - protect.c);
@@ -672,6 +801,15 @@
     });
 
     const cands = [];
+    // plan suivi : une pièce, une cible, tant que ça reste intéressant
+    const planScore = (p, e) => {
+      if (!PIECES[p.type].mobile || (p.type === "roi" && mode !== "kinghunt" && round < 30)) return 0;
+      const a = evAttackM(view, mem, p, e, level);
+      const d = Math.abs(p.r - e.r) + Math.abs(p.c - e.c);
+      const Vq = roleValue(view, p.type, true);
+      return (a.ev * 0.5 + a.info * 0.4 - Vq * dangerAt(view, mem, p, p.r, p.c, null, null) * 0.3) / (1 + 0.2 * d);
+    };
+    const plan = pickPlan(state, mem, view, planScore, (t) => roleValue(view, t, t === "rat" ? true : false));
     view.mine.forEach((p) => {
       const dests = state.legal[p.id];
       if (!dests) return;
@@ -693,10 +831,11 @@
           // un nain qui sait ce qu'il fait sur du fixe
           if (!a.known && !target.moved && p.type === "nain" && round > 6) score += 3 * level.hunt;
           score += impatience * (a.pLose < 0.6 ? 1 : 0.3);
+          if (plan && plan.mover.id === p.id && plan.tgt.id === target.id) score += plan.urgent ? 14 : 3;
         } else {
           // simple déplacement
           const dgNew = dangerAt(view, mem, p, r, c, null, vac);
-          score -= (dgNew - curDanger) * Vp * TUNE.danger;
+          score -= (dgNew - curDanger) * Vp * TUNE.danger * (plan && plan.urgent && plan.mover.id === p.id ? 0.1 : 1);
           // approcher les cibles intéressantes
           const targets = attractive.get(p.id) || [];
           targets.forEach(({ e, score: sc }) => {
@@ -723,7 +862,10 @@
               score += (dNow - dNew) * 1.1;
             }
           }
-          if (mem.lastFrom[p.id] === K(r, c)) score -= 2.2;
+          score -= trailPenalty(mem, p, r, c, 3.4);
+          if (plan && plan.mover.id === p.id) {
+            score += stepGain(view, plan.tgt, p, r, c) * (plan.urgent ? 12 : 1.8);
+          } else if (mem.lastMover === p.id) score += 0.6;
           // défense : occuper les accès à l'Œuf (ou au Roi) quand l'ennemi approche
           if (protect && p.id !== protect.id && threatened) {
             const isGuardCell = (key) => openNeighbors.includes(key);

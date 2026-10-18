@@ -137,3 +137,13 @@ Cette version rend la vie plus cohérente, plus piquante et un peu moins facile.
 
 - Correction d'un blocage de Richissime Destiny. Après une coupure de connexion très brève, la page ne se rattachait pas à la partie. Les clics ne partaient plus, l'écran ne bougeait plus et le serveur finissait par te croire absent. La page se rattache maintenant à chaque reconnexion, et elle redemande l'état de la partie toutes les douze secondes.
 - Un ancien lien de connexion qui se ferme en retard ne peut plus écraser la nouvelle connexion du joueur. Cela vaut pour Richissime Destiny et pour Goliathicus.
+
+## Treizième mise à jour (Goliathicus)
+
+- Nouvelle taille de plateau, la Grande. Chaque camp compte 40 pièces au lieu de 24. Le duel se joue sur 15 lignes et 10 colonnes, et la croix à 3 ou 4 joueurs sur 18 par 18. Les lacs sont adaptés, il reste toujours des passages. Le réglage se trouve dans la taille du plateau, avec une durée indiquée d'environ une heure.
+- Sur la Grande, toutes les armées toutes prêtes, la Légion des merveilles et les préréglages existent aussi, avec les mêmes proportions que la taille normale. Le budget de l'armée sur mesure grandit avec le nombre de pièces, pour que le réglage reste cohérent.
+- Les IA ont maintenant une mémoire de leurs trajets. Une pièce évite de revenir sur les cases qu'elle vient de quitter, ce qui supprime la plupart des allers-retours.
+- Les IA suivent un plan. Une pièce et une cible sont choisies, puis gardées tant que c'est intéressant, au lieu de changer de pièce à chaque tour. Le plan est abandonné si la cible disparaît ou si le coup devient trop risqué.
+- Les IA ripostent. Quand une pièce ennemie dangereuse est connue, par exemple un Roi qui ravage le camp ou un gros bras près de l'œuf, la pièce la moins précieuse qui la bat à coup sûr part à sa rencontre. Un Rat avance vers un Roi connu en contournant les lacs, même au prix d'un risque. Les autres pièces ne le gênent plus.
+- Les IA voient mieux le danger. Elles regardent aussi les lignes de tir des éclaireurs, comparent la case d'arrivée à la case de départ, mettent à l'abri une pièce menacée et pensent à ne pas se faire reprendre juste après une capture.
+- Sur des parties entre anciennes et nouvelles IA, le niveau Dragon gagne environ deux parties sur trois, le niveau Chevalier un peu plus d'une sur deux, et le Roi Stratège reste à égalité, ce qui est attendu car il était déjà le plus fort.

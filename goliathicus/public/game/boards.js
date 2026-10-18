@@ -31,6 +31,7 @@
   function buildBoard(settings, playerCount, rng) {
     rng = rng || Math.random;
     const express = settings.boardSize === "express";
+    const grand = settings.boardSize === "grand";
     const count = Math.max(2, Math.min(4, playerCount));
     const sides = SIDES_BY_COUNT[count];
     const duel = count === 2;
@@ -40,7 +41,7 @@
     const neutral = [];
 
     if (duel) {
-      W = express ? 6 : 8; D = express ? 2 : 3; M = express ? 4 : 6;
+      W = express ? 6 : grand ? 10 : 8; D = express ? 2 : grand ? 4 : 3; M = express ? 4 : grand ? 7 : 6;
       rows = D + M + D; cols = W;
       for (let r = 0; r < rows; r++) { terrain.push([]); for (let c = 0; c < cols; c++) terrain[r].push("plain"); }
       const bottom = [], top = [];
@@ -50,7 +51,7 @@
       arms.push({ seat: 1, side: "top", cells: top });
       for (let r = D; r < D + M; r++) for (let c = 0; c < cols; c++) neutral.push([r, c]);
     } else {
-      C = express ? 4 : 6; D = express ? 3 : 4;
+      C = express ? 4 : grand ? 8 : 6; D = express ? 3 : grand ? 5 : 4;
       rows = cols = C + 2 * D;
       for (let r = 0; r < rows; r++) { terrain.push([]); for (let c = 0; c < cols; c++) terrain[r].push("void"); }
       for (let r = D; r < D + C; r++) for (let c = D; c < D + C; c++) { terrain[r][c] = "plain"; neutral.push([r, c]); }
@@ -104,10 +105,14 @@
     if (mode === "classic") {
       if (duel) {
         if (express) { [1, 4].forEach((c) => [D + 1, D + 2].forEach((r) => { terrain[r][c] = "lake"; })); }
+        else if (grand) { [2, 3, 6, 7].forEach((c) => [D + 2, D + 3, D + 4].forEach((r) => { terrain[r][c] = "lake"; })); }
         else { [1, 2, 5, 6].forEach((c) => [D + 2, D + 3].forEach((r) => { terrain[r][c] = "lake"; })); }
       } else {
         const a = D + C / 2 - 1;
-        [a, a + 1].forEach((r) => [a, a + 1].forEach((c) => { terrain[r][c] = "lake"; }));
+        if (grand) {
+          // quatre petits lacs autour du centre, pour garder des passages
+          [[a - 1, a - 1], [a - 1, a + 2], [a + 2, a - 1], [a + 2, a + 2], [a, a], [a, a + 1], [a + 1, a], [a + 1, a + 1]].forEach(([r, c]) => { terrain[r][c] = "lake"; });
+        } else [a, a + 1].forEach((r) => [a, a + 1].forEach((c) => { terrain[r][c] = "lake"; }));
       }
     } else if (mode === "random" || mode === "wild") {
       const share = mode === "wild" ? { lake: 0.2, forest: 0.14, marsh: 0.1 } : { lake: 0.1, forest: 0.1, marsh: 0.06 };
@@ -154,7 +159,7 @@
       }
     }
 
-    return { kind: duel ? "duel" : "cross", rows, cols, terrain, arms, neutral, relics, sides, express };
+    return { kind: duel ? "duel" : "cross", rows, cols, terrain, arms, neutral, relics, sides, express, grand, depth: D };
   }
 
   // Rotation d'affichage : place le camp du joueur en bas de l'écran.
