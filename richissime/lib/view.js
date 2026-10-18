@@ -279,6 +279,7 @@ function proInfo(g, p) {
 
 function getStateFor(g, seat, now) {
   const p = g.players[seat];
+  g.players.forEach((q) => PROCHE.sync(q));
   const st = {
     phase: g.phase, round: g.round, age: g.age, startAge: g.startAge, deadline: g.deadline || 0, settings: g.settings,
     players: g.players.map((q) => pubPlayer(g, q, seat)),

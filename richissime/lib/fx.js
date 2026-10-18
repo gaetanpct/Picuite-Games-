@@ -90,14 +90,17 @@ function hire(p, track, level, salaryMul) {
   p.job = { track, level, title, salary: Math.round(sal * (salaryMul || 1)), since: p.age, perf: 50 };
   p.retired = false;
   p.exp = p.exp || {};
+  require("./pro").lift(p, false);
 }
 function setLevel(p, level) {
   const T = R.TRACKS[p.job.track];
   level = C.clamp(level, 0, T.levels.length - 1);
   const mul = p.job.salary / T.levels[p.job.level][1];
+  const prevLevel = p.job.level;
   p.job.level = level;
   p.job.title = T.levels[level][0];
   p.job.salary = Math.round(T.levels[level][1] * mul);
+  if (level > prevLevel) require("./pro").lift(p, true); else require("./pro").lift(p, false);
 }
 
 // Applique un tableau d'effets à un joueur. g = partie, x = contexte {slots, vals}.
@@ -131,6 +134,7 @@ function applyFx(g, p, fx, x) {
       case "becomes":
         for (const sl of Object.keys(v)) {
           const n = slot(x, p, sl); if (!n) continue;
+          if ((v[sl] === "partner" || v[sl] === "spouse") && p.partner && p.partner.player !== undefined) continue;
           n.kind = v[sl];
           if (n.kind === "partner") { p.partner = { npc: n.id, status: "couple", since: p.age }; n.close = Math.max(n.close, 70); }
           if (n.kind === "spouse") { const since = p.partner && p.partner.since !== undefined ? p.partner.since : p.age; p.partner = { npc: n.id, status: "marie", since, wed: p.age }; n.close = Math.max(n.close, 75); }

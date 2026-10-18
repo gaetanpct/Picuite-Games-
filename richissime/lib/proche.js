@@ -2,7 +2,7 @@
 // Interactions avec les proches (personnages secondaires) : conjoint, ex, amis, rivaux, famille.
 const C = require("./core");
 
-const FAMILY = ["mere", "pere", "sibling", "child", "grandparent"];
+const FAMILY = ["sibling", "child"];
 const clamp = C.clamp;
 
 function group(n) {
@@ -10,6 +10,8 @@ function group(n) {
   if (n.kind === "ex") return "ex";
   if (n.kind === "friend" || n.kind === "bestfriend") return "ami";
   if (n.kind === "rival" || n.kind === "enemy") return "rival";
+  if (n.kind === "star") return "star";
+  if (n.kind === "crush") return "crush";
   if (FAMILY.includes(n.kind)) return "famille";
   return null;
 }
@@ -18,6 +20,15 @@ function st(p, k, d) { p.stats[k] = clamp(p.stats[k] + d, 0, 100); }
 function pay(p, c) { p.cash -= c; }
 function log(p, text, ic, tag) { p.yearLog.push(text); p.journal.push({ age: p.age, text, ic: ic || "🫂", tag: tag || "amour" }); }
 function chance(p, n, base, k) { return clamp(base + (n.close - 50) / 200 + (p.stats.charme - 50) / 400 + (p.stats.repute - 50) / (k || 500), 0.05, 0.92); }
+
+function couple(g, p, n, base) {
+  if (g.rng() < chance(p, n, base)) {
+    n.kind = "partner"; p.partner = { npc: n.id, status: "couple", since: p.age }; n.close = Math.max(n.close, 65); st(p, "bonheur", 10);
+    log(p, n.name + " a dit oui. Vous voilà en couple.", "💞"); return null;
+  }
+  bump(n, n.close >= 70 ? -6 : -12); st(p, "bonheur", -4);
+  return n.name + " préfère que vous restiez comme avant. L'ambiance est un peu gênée.";
+}
 
 const ACTS = {
   couple: [
@@ -58,6 +69,9 @@ const ACTS = {
     { id: "reconcilier", l: "Renouer le contact", d: "Pour un lien devenu faible. Gratuit.", cost: 0,
       cond: (g, p, n) => n.close < 45,
       run(g, p, n) { bump(n, 13); return "Tu as renoué avec " + n.name + "."; } },
+    { id: "couple", l: "Proposer de se mettre en couple", d: "Transformer l'amitié en histoire d'amour. Possible seulement si tu es seul. Si cela ne marche pas, l'amitié en souffre.", cost: 0,
+      cond: (g, p, n) => !p.partner && p.age >= 15 && n.age >= 15 && n.close >= 40,
+      run(g, p, n) { return couple(g, p, n, 0.12); } },
   ],
   rival: [
     { id: "coup_bas", l: "Lui jouer un mauvais tour", d: "Saboter discrètement. Il peut se retourner contre toi.", cost: 0, mature: true,
@@ -66,6 +80,29 @@ const ACTS = {
       run(g, p, n) { if (g.rng() < chance(p, n, 0.4, 400)) { n.kind = "friend"; n.close = Math.max(n.close, 45); st(p, "bonheur", 4); return n.name + " a accepté la paix. Vous êtes désormais amis."; } bump(n, -3); return n.name + " a refusé ta main tendue."; } },
     { id: "defi", l: "Lancer un défi", d: "Un duel amical pour trancher. Gagner donne de la réputation, perdre en retire.", cost: 0,
       run(g, p, n) { const win = g.rng() < clamp((p.stats.intel + p.stats.sport + p.stats.charme) / 300, 0.15, 0.85); if (win) { st(p, "repute", 5); st(p, "bonheur", 3); bump(n, -4); return "Tu as battu " + n.name + " lors de votre défi."; } st(p, "repute", -3); bump(n, 3); return n.name + " a gagné votre défi."; } },
+  ],
+  star: [
+    { id: "contacter", l: "Tenter de la contacter", d: "Un message, une lettre, un contact commun. Ça peut ne mener à rien et, si elle te recale, tu perds le contact. Plus ta réputation est haute, plus tu as de chances.", cost: 0,
+      cond: (g, p, n) => n.close < 40,
+      run(g, p, n) {
+        const pr = clamp(0.1 + (p.stats.repute - 50) / 250 + (p.stats.charme - 50) / 400 + (p.job && p.job.level >= 2 ? 0.08 : 0), 0.04, 0.6);
+        if (g.rng() < pr) { n.close = Math.max(n.close, 45); st(p, "repute", 5); st(p, "bonheur", 5); const PS = require("./pro").state(p); PS.net = Math.min(100, PS.net + 8); return n.name + " a répondu à ton message. Vous échangez désormais de temps en temps."; }
+        n.alive = false; n.deadAge = undefined; p.npcs = p.npcs.filter((x) => x !== n); st(p, "bonheur", -3);
+        return n.name + " t'a recalé" + (p.gender === "f" ? "e" : "") + ". Vous n'avez plus aucun contact.";
+      } },
+    { id: "collab", l: "Proposer une collaboration", d: "Un projet à deux, avec un gros potentiel pour ta carrière. Il faut déjà un bon contact.", cost: 0,
+      cond: (g, p, n) => n.close >= 40,
+      run(g, p, n) {
+        if (g.rng() < chance(p, n, 0.4)) { const s = C.rint(g.rng, 5000, 50000); p.cash += s; st(p, "repute", 8); const PS = require("./pro").state(p); PS.net = Math.min(100, PS.net + 10); bump(n, 5); return "Ta collaboration avec " + n.name + " fait du bruit. Tu gagnes " + s + " € et ta notoriété grimpe."; }
+        bump(n, -8); return n.name + " a décliné ta proposition, poliment.";
+      } },
+  ],
+  crush: [
+    { id: "declarer", l: "Se déclarer", d: "Dire enfin ce que tu ressens. Possible seulement si tu es seul.", cost: 0,
+      cond: (g, p) => !p.partner && p.age >= 15,
+      run(g, p, n) { return couple(g, p, n, 0.3); } },
+    { id: "sortir", l: "Inviter à sortir", d: "Une sortie pour mieux se connaître. Gratuit.", cost: 0,
+      run(g, p, n) { bump(n, 8); st(p, "bonheur", 3); return "Ta sortie avec " + n.name + " s'est bien passée."; } },
   ],
   famille: [
     { id: "temps", l: "Passer du temps ensemble", d: "Un week-end en famille. Gratuit.", cost: 0,
@@ -87,8 +124,27 @@ function actsFor(g, p, n) {
 }
 function eligible(g, p) {
   if (p.prison) return [];
-  return p.npcs.filter((n) => n.alive && group(n) && (group(n) === "couple" || group(n) === "ex" || n.close >= 65 || n.close <= 30));
+  const ord = { partner: 0, spouse: 0, ex: 1, crush: 2, bestfriend: 3, friend: 4, sibling: 5, rival: 6, enemy: 6, star: 7, child: 8 };
+  return p.npcs.filter((n) => n.alive && group(n) && (n.kind !== "star" || n.close > 0 || true)).sort((a, b) => (ord[a.kind] === undefined ? 9 : ord[a.kind]) - (ord[b.kind] === undefined ? 9 : ord[b.kind]));
 }
+// Un seul conjoint, soit un autre joueur soit un personnage. On range les doublons
+function sync(p) {
+  if (!p.npcs) return;
+  const loveN = p.npcs.filter((n) => n.alive && (n.kind === "partner" || n.kind === "spouse"));
+  if (p.partner && p.partner.player !== undefined) {
+    loveN.forEach((n) => { n.kind = "ex"; n.close = Math.min(n.close, 10); });
+  } else if (p.partner && p.partner.npc) {
+    const cur = p.npcs.find((n) => n.id === p.partner.npc && n.alive);
+    if (!cur) p.partner = null;
+    else loveN.filter((n) => n !== cur).forEach((n) => { n.kind = "ex"; n.close = Math.min(n.close, 10); });
+  }
+  if (!p.partner && loveN.length) {
+    const n = loveN[0];
+    p.partner = n.kind === "spouse" ? { npc: n.id, status: "marie", since: p.age, wed: p.age } : { npc: n.id, status: "couple", since: p.age };
+    loveN.slice(1).forEach((m) => { m.kind = "ex"; m.close = Math.min(m.close, 10); });
+  }
+}
+
 function offer(g, p) {
   return eligible(g, p).slice(0, 10).map((n) => ({ npc: n.id, name: n.name, kind: n.kind, close: Math.round(n.close), acts: actsFor(g, p, n).map((a) => ({ id: a.id, l: a.l, d: a.d, cost: a.cost || 0 })) })).filter((o) => o.acts.length);
 }
@@ -130,4 +186,4 @@ function botPick(g, p, peaceful) {
   for (const x of pool) { r -= x.w; if (r <= 0) return x.sel; }
   return pool.length ? pool[pool.length - 1].sel : null;
 }
-module.exports = { offer, validate, run, botPick, group };
+module.exports = { offer, validate, run, botPick, group, sync };

@@ -195,7 +195,8 @@ io.on("connection", (socket) => {
     ctx.room = room; ctx.token = player.token;
     player.socketId = socket.id; player.connected = true; player.disconnectedAt = null; player.lastKey = null;
     if (room.engine && room.status !== "lobby") {
-      const ep = room.engine.players[room.players.indexOf(player)];
+      const ix = room.players.indexOf(player); const rl = room.engine.relay;
+      const ep = room.engine.players[rl && rl[ix] !== undefined ? rl[ix] : ix];
       if (ep && !ep.bot) { ep.auto = false; ep.missed = 0; }
       player.auto = false;
     }
@@ -246,6 +247,21 @@ io.on("connection", (socket) => {
     broadcastRoom(room);
   }));
 
+  // Resynchronisation demandée par la page. Si ce socket n'est plus rattaché, on le rattache
+  socket.on("game:sync", safe(({ code, token }) => {
+    if (!ctx.room) {
+      const room = rooms.get(String(code || "").toUpperCase());
+      const p = room && room.players.find((x) => x.token === token && !x.isBot && !x.left);
+      if (!p) return socket.emit("room:gone");
+      attach(room, p);
+      socket.emit("room:joined", { code: room.code, token });
+      socket.emit("chat:history", room.chat);
+      broadcastRoom(room);
+    }
+    const room = ctx.room; const p = me();
+    if (room && room.engine && p) { p.lastKey = null; sendGame(room, true); }
+  }));
+
   socket.on("room:reconnect", safe(({ code, token }) => {
     if (ctx.room) return;
     const room = rooms.get(String(code || "").toUpperCase());
@@ -283,6 +299,8 @@ io.on("connection", (socket) => {
   socket.on("disconnect", safe(() => {
     const room = ctx.room; const p = me();
     if (!room || !p) return;
+    // un ancien socket qui meurt tard ne doit pas écraser la nouvelle connexion du même joueur
+    if (p.socketId && p.socketId !== socket.id) return;
     p.connected = false; p.socketId = null; p.disconnectedAt = Date.now();
     if (room.status === "lobby") {
       setTimeout(() => {

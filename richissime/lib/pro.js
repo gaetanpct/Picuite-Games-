@@ -89,6 +89,25 @@ function bump(p, d) {
   if (d && (d.skill || d.net || d.rep)) S.done++;
 }
 
+// Un parcours réussi se voit dans les compétences, le réseau et la réputation. Plus le poste est haut, plus ces valeurs ont un plancher élevé.
+const FAME = ["sportpro", "cinema", "chanteur", "dj", "humour", "danse", "createur", "photo", "peintre"];
+function lift(p, jump) {
+  if (!p.job || p.prison) return;
+  const T = R.TRACKS[p.job.track];
+  if (!T || T.illicit || T.levels.length < 2) return;
+  const f = clamp(p.job.level / (T.levels.length - 1), 0, 1);
+  const S = state(p);
+  if (jump) { S.skill = clamp(S.skill + 4, 0, 100); S.net = clamp(S.net + 3, 0, 100); S.rep = clamp(S.rep + 4, 0, 100); }
+  const fame = FAME.includes(p.job.track);
+  S.skill = Math.max(S.skill, Math.round(8 + 50 * f * f));
+  S.net = Math.max(S.net, Math.round(8 + 40 * f * f));
+  S.rep = Math.max(S.rep, Math.round(8 + 60 * f * f));
+  const rf = Math.round((fame ? 48 : 44) + (fame ? 46 : 36) * f * f);
+  if (p.stats.repute < rf) p.stats.repute = Math.min(100, jump ? Math.max(rf, p.stats.repute + 6) : p.stats.repute + (rf - p.stats.repute) * 0.5);
+  else if (jump) p.stats.repute = Math.min(100, p.stats.repute + 4);
+  if (fame && f >= 0.5 && p.stats.charme < 40 + 40 * f) p.stats.charme = Math.min(100, p.stats.charme + 3);
+}
+
 // Chaque année la fiche évolue toute seule, puis elle pèse sur la promotion
 function tick(g, p, rep) {
   const S = state(p);
@@ -98,6 +117,7 @@ function tick(g, p, rep) {
   S.rep = Math.max(0, S.rep - 0.7);
   if (p.retired) S.skill = Math.max(0, S.skill - 1);
   if (!p.job || p.prison) return;
+  lift(p, false);
   const T = R.TRACKS[p.job.track];
   if (!T || T.illicit) return;
   // une vraie compétence fait progresser plus vite, même sans choix précis cette année
@@ -119,4 +139,4 @@ function tick(g, p, rep) {
   }
 }
 
-module.exports = { CONTEXTS, FAM, trackFamily, state, contexts, mainContext, bump, tick };
+module.exports = { lift, CONTEXTS, FAM, trackFamily, state, contexts, mainContext, bump, tick };

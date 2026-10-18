@@ -12,10 +12,13 @@
     const socket = (S.socket = io({ path: location.pathname.replace(/[^\/]*$/, "") + "socket.io", transports: ["websocket", "polling"] }));
     socket.on("connect", () => {
       S.connected = true;
-      if (S.token && S.code && !S.room) socket.emit("room:reconnect", { code: S.code, token: S.token });
-      else render();
+      // à chaque (re)connexion, on se rattache à sa partie. Le nouveau socket n'est lié à aucun salon tant qu'on ne le demande pas
+      if (S.token && S.code) socket.emit("room:reconnect", { code: S.code, token: S.token });
+      render();
     });
     socket.on("disconnect", () => { S.connected = false; RD.toast("Connexion perdue, reconnexion en cours…", "error"); });
+    // si le serveur n'a rien envoyé depuis un moment, on redemande l'état. Cela rattrape un paquet perdu ou un socket silencieux
+    setInterval(() => { if (S.socket && S.socket.connected && S.token && S.code && S.room && S.room.status !== "lobby") S.socket.emit("game:sync", { code: S.code, token: S.token }); }, 12000);
     socket.on("meta", (m) => { S.meta = m; render(); });
     socket.on("toast", (t) => RD.toast(t.text, t.type));
     socket.on("room:joined", ({ code, token }) => { S.token = token; S.code = code; RD.store.set("token", token); RD.store.set("code", code); history.replaceState(null, "", "?room=" + code); });
@@ -76,7 +79,7 @@
     else { key = "wait"; fn = (r) => { clear(r); r.appendChild(h("div.wrap.center", h("h2", "La partie démarre…"))); }; }
     const fresh = key !== screenKey;
     screenKey = key;
-    RD.keep(() => { fn(root, fresh); });
+    try { RD.keep(() => { fn(root, fresh); }); } catch (err) { console.error("render", err); screenKey = ""; }
     if (fresh) window.scrollTo(0, 0);
   }
   RD.render = render;

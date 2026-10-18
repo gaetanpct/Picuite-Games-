@@ -1310,6 +1310,7 @@ class Game {
       const seg = (lo, hi, r) => Math.max(0, Math.min(nw, hi) - lo) * r;
       const wt = Math.round(seg(150000, 1e6, 0.012) + seg(1e6, 4e6, 0.032) + seg(4e6, 3e7, 0.052) + seg(3e7, 3e8, 0.02) + seg(3e8, 1e12, 0.008));
       p.cash -= wt; rep.expenses += wt;
+      if (wt >= 5000) rep.lines.push("🏛️ Impôts et charges liés à ta fortune, " + C.fmt(wt) + " cette année.");
     }
     // bonheur selon le niveau de vie
     p.stats.bonheur = C.clamp(p.stats.bonheur + R.LIFESTYLES[p.lifestyle].bonheur, 0, 100);
@@ -1320,11 +1321,13 @@ class Game {
     // découvert, ensuite couvert par la vente d'actifs liquides
     if (p.cash < 0) {
       const liq = p.assets.filter((a) => (R.ASSET_KINDS[a.kind] || {}).liquid && a.value > 0).sort((a, b) => b.value - a.value);
+      let sold = 0; const names = [];
       for (const a of liq) {
         if (p.cash >= 0) break;
         const take = Math.min(a.value, -p.cash);
-        a.value -= take; p.cash += take;
+        a.value -= take; p.cash += take; sold += take; names.push((R.ASSET_KINDS[a.kind] || {}).l || a.name);
       }
+      if (sold > 0) rep.lines.push("💳 Tes dépenses de l'année dépassaient ton argent disponible. Pour éviter un découvert, " + C.fmt(Math.round(sold)) + " de placements ont été vendus automatiquement (" + names.join(", ").toLowerCase() + "). Garde plus de liquidités pour l'éviter.");
       p.assets = p.assets.filter((a) => a.value > 0 || a.income || a.partnerCompany);
     }
     // découvert et intérêts
@@ -1388,6 +1391,7 @@ class Game {
 
   _npcTick(p) {
     const rng = this.rng;
+    PROCHE.sync(p);
     p.npcs.forEach((n) => {
       if (!n.alive) return;
       n.age++;
