@@ -97,3 +97,18 @@ Septième mise à jour de Richissime Destiny, centrée sur le rythme, la prison,
 - Cinq nouvelles pièces spéciales, avec le Fantôme déjà présent. Le Cavalier Fougueux avance d'une ou deux cases. L'Assassin est très fragile en défense mais élimine tout jusqu'au Dragon quand il attaque, sauf le Roi. Le Reflet renvoie le coup, et les deux pièces disparaissent. La Chauve-souris Géante vole sur trois cases par-dessus les lacs et les ruines. Le Golem de Pierre est presque aussi fort qu'un Sorcier, mais se repose après chaque déplacement.
 - Un nouveau mode de composition, la Légion des merveilles. Tout le monde a le même noyau d'armée classique, et chacun choisit en secret ses pièces spéciales pour les places libres. Les places non remplies deviennent des Gardes.
 - Les pièces spéciales sont aussi disponibles dans la composition sur mesure, avec le budget. Le réglage Pièces spéciales les autorise ou les interdit partout.
+
+## Huitième mise à jour de Richissime Destiny
+
+Cette version rend la vie plus cohérente, plus piquante et un peu moins facile.
+
+- Les proches comptent enfin. Un nouveau panneau de l'agenda permet d'agir sur ton conjoint, un ex que tu veux reconquérir, tes amis, tes rivaux ou ta famille. Les idées apparaissent surtout quand le lien est très fort ou très faible. On peut organiser une soirée, un voyage, demander un service, proposer une affaire, présenter des excuses, tourner la page, lancer un défi ou jouer un mauvais tour. Les robots s'en servent aussi.
+- La mafia a maintenant une vraie échelle à six grades, de recrue jusqu'à parrain. Chaque grade rapporte davantage. Un parrain gagne des millions par an, et les trois niveaux de cartel poussent les gains jusqu'à plusieurs dizaines de millions par an, pour un des plus gros réseaux du monde. La chute reste possible et coûte très cher.
+- La justice est moins sévère. Les petites peines donnent souvent du sursis avec une amende, et les longues peines sont un peu réduites. Les évasions et les coups de filet gardent leur poids.
+- L'argent est moins facile au début de la vie. Les dépenses de base et les petits gains ponctuels ont été revus. Les stars, les grands sportifs et les très grosses sommes ne sont pas touchés.
+- Un réglage Caractère des joueurs automatiques permet de choisir des robots sages, piquants ou sans pitié. Les piquants prennent des risques de vie, entrent dans la mafia, vont en prison, nouent des alliances et déclenchent des rivalités.
+- Le mode accéléré joue maintenant comme toi. Il retient tes habitudes, tes types de projets, ton goût du risque et tes placements, puis il choisit des vrais projets de vie, investit, retire de l'argent en cas de besoin et rembourse tes dettes.
+- Le train de vie compte. Le luxe et la démesure donnent du bonheur, de la réputation, du charme et un réseau qui grandit, avec des rencontres utiles, mais aussi des dépenses qui dérapent et des scandales. La vie sobre fait économiser et rend prudent. Chaque option est expliquée en détail dans le panneau Mon argent.
+- La réputation pèse davantage sur les promotions, les salaires proposés et les collaborations. Elle remonte plus vite quand elle est basse, et deux nouvelles idées permettent de la soigner, l'engagement dans une association et la remise en état de ton image.
+- Les noms des vedettes viennent de ta liste, avec le bon genre. Les clubs de football et de rugby sont rangés par division, de la quatrième division jusqu'à l'élite.
+- Les réglages ont été simplifiés. Les options qui étaient toujours réglées de la même façon ont disparu de l'écran.
