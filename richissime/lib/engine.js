@@ -13,8 +13,6 @@ const social = require("./social");
 const sys = require("./sys");
 const life = require("./life");
 const EXP = require("./experience");
-const JU = require("./justice");
-const PROCHE = require("./proche");
 
 const HABITS = {
   sport: { key: "sport", stat: "sport", spill: { charme: 1, sante: 1, courage: 0.4 }, ic: "💪", flag: "athletique", milestone: ["Trois ans de régularité. Ton corps change, ton allure aussi, et les regards avec.", "Six ans à t'entretenir. Ta silhouette et ta confiance te précèdent dans toutes les pièces.", "Dix ans de discipline. Tu es devenu(e) quelqu'un qu'on remarque dès l'entrée."], click: "Un déclic à la salle. Tu repousses tes limites, et ton charme grimpe avec ta forme." },
@@ -29,7 +27,6 @@ const HABITS = {
 };
 const GRAND_BETA = { immo: 0.3, entreprise: 0.45, art: 0.55, or: -0.5, voiture: 0 };
 const MARKET_BETA = { etf: 1, actions: 1.3, matieres: 0.6, crypto: 1.8, levier: 2, startup: 0.5, pierre: 0.25, art: 0.5 };
-const KS = require("./keyscenes");
 const SHADY = ["magouille", "contrebande", "faux_diplome", "detournement", "sabotage_collegue", "incendie_assurance", "casse_bande", "evasion", "fausse_maladie", "fausses_montres", "pari_clandestin", "soiree_clandestine"];
 const PROJECT_FLAGS = ["cherche_amour", "en_voyage", "fete_annee", "magouille_annee", "side_annee", "travail_acharne", "famille_annee", "formation_annee", "epargne_annee", "sport_annee", "soin_annee"];
 
@@ -69,8 +66,6 @@ class Game {
     this.chat = [];
     this.history = [];
     this.startAge = 8;
-    this.step = this.settings.pace === "quinquennal" ? 5 : 1;
-    this.keyCount = Number(this.settings.keyCount) || 3;
     this.age = this.startAge;
     this.endedReason = null;
     (opts.players || []).forEach((info, seat) => this.players.push(this._newChar(info, seat)));
@@ -161,7 +156,6 @@ class Game {
       p.plan = null; p.draft = null; p.ready = false; p.scene = null; p.eventsDone = false; p.report = null;
       p.yearLog = [];
       p.botAt = this.now() + 300 + Math.floor(this.rng() * 900) * this.timeScale;
-      p.keyLeft = this.step > 1 ? this.keyCount : 0;
       this._rollFate(p);
       p.lifeOffer = life.offer(this, p);
       p.proOffer = life.offerPro(this, p);
@@ -288,7 +282,7 @@ class Game {
         if (!sc) { this._nextScene(p); changed = true; continue; }
         const lateHuman = !this.controlled(p) && sc.deadline && t >= sc.deadline;
         if (sc.state === "choose" && ((this.controlled(p) && t >= p.botAt) || lateHuman)) {
-          if (lateHuman && !this.turbo) { p.missed++; this._maybeAuto(p); }
+          if (lateHuman) { p.missed++; this._maybeAuto(p); }
           this._autoChoose(p); changed = true;
         } else if (sc.state === "result" && ((this.controlled(p) && t >= p.botAt) || (sc.deadline && t >= sc.deadline))) {
           this._continueScene(p); changed = true;
@@ -300,12 +294,12 @@ class Game {
     } else if (this.phase === "recap") {
       for (const p of this.alivePlayers()) if (!p.ready && this.controlled(p) && t >= p.botAt) { p.ready = true; changed = true; }
       const all = this.alivePlayers().every((p) => p.ready);
-      if (all || (this.deadline && t >= this.deadline)) { this._advance(); changed = true; }
+      if (all || (this.deadline && t >= this.deadline)) { this.round++; this._beginRound(); changed = true; }
     }
     return changed;
   }
 
-  _maybeAuto(p) { if (p.missed >= 3 && !p.bot && !this.turbo) p.auto = true; }
+  _maybeAuto(p) { if (p.missed >= 3 && !p.bot) p.auto = true; }
 
   // ---------- agenda ----------
   // Les choix de l'année pour ce joueur, déjà décrits, avec l'année tranquille toujours en dernier
@@ -356,12 +350,7 @@ class Game {
       if (pp) pro = pp.id;
       else if (strict) return { ok: false, error: "Cette option professionnelle n'est plus disponible." };
     }
-    let proche = null;
-    if (plan.proche && plan.proche.npc) {
-      const v = PROCHE.validate(this, p, plan.proche);
-      if (v.ok) proche = v.sel; else if (strict) return { ok: false, error: v.error || "Action impossible." };
-    }
-    return { ok: true, plan: { project: project.id, social: act, pro, proche } };
+    return { ok: true, plan: { project: project.id, social: act, pro } };
   }
 
   submitAgenda(seat, plan) {
@@ -370,7 +359,6 @@ class Game {
     const b = this._buildPlan(p, plan, true);
     if (!b.ok) return b;
     p.plan = b.plan; p.draft = null;
-    this._noteHabit(p, "plan", b.plan);
     p.ready = true; p.missed = 0; p.auto = p.auto && p.bot;
     return { ok: true };
   }
@@ -382,81 +370,31 @@ class Game {
     if (!plan || typeof plan !== "object") return { ok: false };
     const clean = { project: String(plan.project || "").slice(0, 60), pro: plan.pro ? String(plan.pro).slice(0, 60) : null };
     if (plan.social && plan.social.kind) clean.social = Object.assign({}, plan.social, { kind: String(plan.social.kind).slice(0, 60) });
-    if (plan.proche && plan.proche.npc) clean.proche = { npc: String(plan.proche.npc).slice(0, 40), act: String(plan.proche.act || "").slice(0, 40) };
     p.draft = clean;
     return { ok: true };
   }
 
-  // Mémoire des habitudes du joueur humain. Sert au pilote automatique du mode accéléré, pour qu'il joue comme lui.
-  _noteHabit(p, kind, v) {
-    if (p.bot) return;
-    const h = p.hab || (p.hab = { proj: {}, grp: {}, pro: {}, risk: 0, n: 0, invest: {}, social: 0, years: 0 });
-    if (kind === "plan") {
-      h.years++;
-      h.proj[v.project] = (h.proj[v.project] || 0) + 1;
-      const pr = life.byId[v.project]; if (pr && pr.grp) h.grp[pr.grp] = (h.grp[pr.grp] || 0) + 1;
-      if (v.pro) { h.pro[v.pro] = (h.pro[v.pro] || 0) + 1; const pp = life.byId[v.pro]; if (pp && pp.grp) h.grp[pp.grp] = (h.grp[pp.grp] || 0) + 1; }
-      if (v.social || v.proche) h.social++;
-    } else if (kind === "choice") {
-      h.n++; h.risk += (v.risk || 0);
-    }
-  }
-  _habRisk(p) { const h = p.hab; return h && h.n >= 3 ? h.risk / h.n : 1; }
-  // un joueur est piloté quand l'accélération joue à sa place ou qu'il est absent
-  _piloted(p) { return !p.bot && (this.turbo || p.auto); }
-
-  // Gère l'argent à sa place, avec des placements dans ses habitudes
-  _pilotFinance(p) {
-    const h = p.hab;
-    const cost = Math.max(6000, (p.lastNetSalary || 0) * 0.5);
-    const liq = p.assets.filter((a) => a.pool && a.value > 0);
-    if (p.cash < 800 && liq.length) {
-      const a = liq.slice().sort((x, y) => y.value - x.value)[0];
-      this.finance(p.seat, { op: "withdraw", id: a.id, amount: Math.min(a.value, Math.max(2000, cost * 0.5)) });
-    }
-    if (p.debt > 0 && p.cash > cost * 2 + p.debt * 0.2) this.finance(p.seat, { op: "repay", amount: Math.min(p.debt, Math.floor(p.cash - cost)) });
-    const spare = p.cash - cost * 1.5;
-    if (spare > 5000) {
-      const risk = this._habRisk(p);
-      const used = h && Object.keys(h.invest || {}).sort((a, b) => h.invest[b] - h.invest[a])[0];
-      const kind = used || (risk >= 1.8 ? "actions" : risk >= 1 ? "etf" : "livret");
-      this.finance(p.seat, { op: "invest", kind, amount: Math.floor(spare * (risk >= 1.8 ? 0.5 : 0.35)) });
-    }
-  }
-
-  _botAgenda(p, silent) {
+  _botAgenda(p) {
     const rng = this.rng;
-    const careful = (!!silent || this._piloted(p)) && !p.bot;
-    const AI = this.settings.aiStyle === "sage" ? { shady: 0.3, ill: 0.3 } : this.settings.aiStyle === "enfer" ? { shady: 4, ill: 3.5 } : { shady: 2.5, ill: 2 };
-    const riskOk = careful && this._habRisk(p) >= 2 ? 0.12 : 0;
-    const avail = this.availableProjects(p).filter((x) => !SHADY.includes(x.id) || (!careful && rng() < Math.min(0.85, 0.15 * AI.shady)) || rng() < riskOk);
+    const avail = this.availableProjects(p).filter((x) => !SHADY.includes(x.id) || rng() < 0.15);
     // les robots aiment avancer dans leur parcours (examen, rendez-vous, candidature)
-    const H = careful ? p.hab : null;
-    const habW = (x) => { if (!H) return 1; const gsum = Math.max(1, Object.values(H.grp).reduce((a, b) => a + b, 0)); return 1 + Math.min(3, (H.proj[x.id] || 0) * 0.8) + 3 * ((H.grp[x.grp] || 0) / gsum); };
-    const ws = avail.map((x) => habW(x) * (x.step ? 3 : 1) * (/mafia|monter_en_grade|prendre_la_tete|cartel_|pari_fou/.test(x.id) ? AI.ill * 1.5 : 1) * (x.id === "routine" ? 0.3 : 1) * (x.cost && x.cost > p.cash * 0.5 ? 0.3 : 1));
+    const ws = avail.map((x) => (x.step ? 3 : 1) * (x.id === "routine" ? 0.3 : 1) * (x.cost && x.cost > p.cash * 0.5 ? 0.3 : 1));
     let r = rng() * ws.reduce((a, b) => a + b, 0), pr = avail[avail.length - 1];
     for (let i = 0; i < avail.length; i++) { r -= ws[i]; if (r <= 0) { pr = avail[i]; break; } }
-    // pendant les années silencieuses, on garde le cap choisi par le joueur quand c'est encore possible
-    const keep = (silent || careful) && p.lastPick && p.lastPick.project ? avail.find((x) => x.id === p.lastPick.project && x.id !== "routine") : null;
-    if (keep && rng() < 0.6) pr = keep;
     // le bot gère un peu son argent
-    if (careful) this._pilotFinance(p); else if (p.cash > 8000 && rng() < 0.4) social.botFinance(this, p);
+    if (p.cash > 8000 && rng() < 0.4) social.botFinance(this, p);
     let act = null;
-    if (!silent && !careful && this.alivePlayers().length > 1 && rng() < social.botActChance(this, p)) act = social.botAction(this, p);
+    if (this.alivePlayers().length > 1 && rng() < social.botActChance(this, p)) act = social.botAction(this, p);
     // et une option professionnelle dans la plupart des années
     let pro = null;
-    const opts = this.availablePro(p).filter((x) => (!SHADY.includes(x.id) || (!careful && rng() < Math.min(0.85, 0.2 * AI.shady))) && !(careful && x.ill) && !(x.cost && x.cost > p.cash * 0.6));
+    const opts = this.availablePro(p).filter((x) => (!SHADY.includes(x.id) || rng() < 0.2) && !(x.cost && x.cost > p.cash * 0.6));
     if (opts.length && rng() < 0.75) {
-      const w = opts.map((x) => (x.step ? 3 : 1) * (x.ill ? (p.traits.honnete < 45 ? 1 : 0.25) * AI.ill : 1));
+      const w = opts.map((x) => (x.step ? 3 : 1) * (x.ill ? (p.traits.honnete < 45 ? 1 : 0.25) : 1));
       let r2 = rng() * w.reduce((a, b) => a + b, 0), pick = opts[opts.length - 1];
       for (let i = 0; i < opts.length; i++) { r2 -= w[i]; if (r2 <= 0) { pick = opts[i]; break; } }
       pro = pick.id;
     }
-    const keepPro = (silent || careful) && p.lastPick && p.lastPick.pro ? opts.find((x) => x.id === p.lastPick.pro) : null;
-    if (keepPro && rng() < 0.6) pro = keepPro.id;
-    let proche = null;
-    if (!careful || rng() < 0.3) proche = PROCHE.botPick(this, p, careful);
-    p.plan = { project: pr.id, social: act, pro, proche };
+    p.plan = { project: pr.id, social: act, pro };
     p.ready = true;
   }
 
@@ -466,22 +404,29 @@ class Game {
       if (!p.plan) {
         // joueur trop lent : on retient ses clics non validés, sinon une année tranquille
         const b = p.draft && !this.controlled(p) ? this._buildPlan(p, p.draft, false) : null;
-        if (b && b.ok && (b.plan.project !== "routine" || b.plan.social || b.plan.pro || b.plan.proche)) {
+        if (b && b.ok && (b.plan.project !== "routine" || b.plan.social || b.plan.pro)) {
           p.plan = b.plan;
           p.yearLog.push("⏱️ Le temps était écoulé. Tes choix non validés ont été retenus pour cette année.");
           p.missed = 0;
-        } else if (this.turbo && !p.bot) {
-          // l'accélération joue pour lui, dans ses habitudes
-          this._botAgenda(p, false);
         } else {
           p.plan = { project: "routine", social: null, pro: null };
-          if (!this.controlled(p) && !this.turbo) { p.missed++; this._maybeAuto(p); }
+          if (!this.controlled(p)) { p.missed++; this._maybeAuto(p); }
         }
       }
       p.draft = null;
-      this._startPlan(p);
+      let pr = life.byId[p.plan.project] || life.ROUTINE;
+      const cost = life.ev(pr, "cost", p, this) || 0;
+      if (cost) { if (p.cash >= cost) p.cash -= cost; else pr = life.ROUTINE; }
+      this._startProject(p, pr);
+      // l'option professionnelle de l'année, payée à part
+      let pp = p.plan.pro ? life.byId[p.plan.pro] : null;
+      if (pp) {
+        const c2 = life.ev(pp, "cost", p, this) || 0;
+        if (c2) { if (p.cash >= c2) p.cash -= c2; else pp = null; }
+      }
+      p.projectPro = pp ? pp.id : null;
+      if (pp) this._startProject(p, pp, true);
     });
-    if (this.step > 1) alive.forEach((p) => { if (p.plan) p.lastPick = { project: p.plan.project, pro: p.plan.pro }; });
     social.resolveActions(this);
     const pend = this.offers.some((o) => o.status === "pending");
     if (pend) {
@@ -490,28 +435,6 @@ class Game {
       this.alivePlayers().forEach((p) => { p.botAt = this.now() + 400 + Math.floor(this.rng() * 800) * this.timeScale; });
     } else this._afterRespond();
   }
-
-  // Démarre le plan choisi d'un joueur pour l'année (paiement, projet, option professionnelle)
-  _startPlan(p) {
-    let pr = life.byId[p.plan.project] || life.ROUTINE;
-    const cost = life.ev(pr, "cost", p, this) || 0;
-    const illL = this._isIll(pr);
-    if (cost) { if (JU.canPay(p, cost, illL)) JU.pay(p, cost, illL); else pr = life.ROUTINE; }
-    this._startProject(p, pr);
-    // l'option professionnelle de l'année, payée à part
-    let pp = p.plan.pro ? life.byId[p.plan.pro] : null;
-    if (pp) {
-      const c2 = life.ev(pp, "cost", p, this) || 0;
-      const illP = this._isIll(pp);
-      if (c2) { if (JU.canPay(p, c2, illP)) JU.pay(p, c2, illP); else pp = null; }
-    }
-    p.projectPro = pp ? pp.id : null;
-    if (pp) this._startProject(p, pp, true);
-    if (p.plan.proche) PROCHE.run(this, p, p.plan.proche);
-  }
-
-  // une option qui relève de l'ombre se paie et rapporte en argent sale
-  _isIll(pr) { return !!(pr && (pr.ill || (Array.isArray(pr.ctx) && pr.ctx.some((c) => c === "ombre" || c === "mafia")))); }
 
   _closeRespond() {
     social.expireOffers(this);
@@ -554,7 +477,6 @@ class Game {
         let a = p.assets.find((x) => x.kind === kind && x.liquid !== false && x.pool);
         if (!a) { a = { id: "a" + (++p.assetSeq), kind, name: R.ASSET_KINDS[kind].l, value: 0, cost: 0, upkeep: 0, income: 0, pool: true }; p.assets.push(a); }
         p.cash -= amt; a.value += amt; a.cost += amt;
-        if (!p.bot) { const hh = p.hab || (p.hab = { proj: {}, grp: {}, pro: {}, risk: 0, n: 0, invest: {}, social: 0, years: 0 }); hh.invest[kind] = (hh.invest[kind] || 0) + 1; }
         return { ok: true };
       }
       case "withdraw": {
@@ -605,7 +527,6 @@ class Game {
       // une scène préparée par le choix de l'année remplace le tirage au hasard, mais les jalons (bac, diplôme...) passent toujours
       const due = p.queue.filter((q) => q.at <= p.age).length + kit.EVENTS.filter((e) => e.must && this._eligible(p, e)).length;
       p.eventsLeft = Math.max(p.forced.length ? extra : 1 + extra, Math.min(due, 4));
-      if (this.step > 1) p.eventsLeft = this.keyCount + Math.min(due, 3);
       p.botAt = this.now() + 300;
     });
   }
@@ -627,7 +548,7 @@ class Game {
   _weight(p, e) {
     let w = e.w === undefined ? 5 : e.w;
     const tags = e.tags || [];
-    if (tags.includes("loufoque")) w *= C.lerp([0, 0.35, 1, 2.6], p.cfg.loufoque);
+    if (tags.includes("loufoque")) w *= [0, 0.35, 1, 2.6][p.cfg.loufoque];
     if (tags.length && tags[0] === p.lastTag) w *= 0.45;
     if (!e.once && p.seen[e.id]) w *= 0.5;
     const nf = e.need && e.need.flag;
@@ -640,7 +561,6 @@ class Game {
     for (let i = 0; i < p.queue.length; i++) {
       const q = p.queue[i];
       if (q.at <= p.age) {
-        if (this.silentNow && kit.byId[q.id] && KS.isKey(kit.byId[q.id], 1)) continue;
         p.queue.splice(i, 1);
         const e = kit.byId[q.id];
         if (!e) continue;
@@ -650,14 +570,13 @@ class Game {
       }
     }
     // 2. jalons obligatoires
-    const musts = kit.EVENTS.filter((e) => e.must && this._eligible(p, e) && !(this.silentNow && KS.isKey(e, 1)));
+    const musts = kit.EVENTS.filter((e) => e.must && this._eligible(p, e));
     if (musts.length) { musts.sort((a, b) => (b.must === true ? 1 : b.must) - (a.must === true ? 1 : a.must)); return { e: musts[0] }; }
     // 3. tirage pondéré
-    let pool = kit.EVENTS.filter((e) => !e.must && !e.chainOnly && this._eligible(p, e));
-    if (this.step > 1) pool = this._keyPool(pool, p, this.silentNow ? -1 : 1);
+    const pool = kit.EVENTS.filter((e) => !e.must && !e.chainOnly && this._eligible(p, e));
     let total = 0;
     const ws = pool.map((e) => { const w = this._weight(p, e); total += w; return w; });
-    if (!pool.length || total <= 0) return this.step > 1 && !this.silentNow ? { e: null } : { e: kit.byId.annee_tranquille };
+    if (!pool.length || total <= 0) return { e: kit.byId.annee_tranquille };
     let r = this.rng() * total;
     for (let i = 0; i < pool.length; i++) { r -= ws[i]; if (r <= 0) return { e: pool[i] }; }
     return { e: pool[pool.length - 1] };
@@ -721,7 +640,7 @@ class Game {
           picked = { e: e0, preset: f.vals };
         }
       }
-      else if (p.eventsLeft > 0) { p.eventsLeft--; picked = this._pickEvent(p); if (!picked.e) { p.eventsDone = true; return; } }
+      else if (p.eventsLeft > 0) { p.eventsLeft--; picked = this._pickEvent(p); }
       else { p.eventsDone = true; return; }
     }
     const e = picked.e;
@@ -757,7 +676,6 @@ class Game {
     const ch = p.scene.choices[idx];
     if (!ch || !ch.ok) return { ok: false, error: ch ? ch.why : "" };
     p.missed = 0; if (!p.bot) p.auto = false;
-    this._noteHabit(p, "choice", ch);
     this._resolveChoice(p, ch);
     return { ok: true };
   }
@@ -766,14 +684,6 @@ class Game {
     const sc = p.scene;
     const ok = sc.choices.filter((c) => c.ok && c.risk < 3);
     const pool = ok.length ? ok : sc.choices.filter((c) => c.ok);
-    if (!p.bot && pool.length > 1 && sc.id !== "choix_filiere") {
-      // un joueur piloté choisit comme il le fait d'habitude, avec le même goût du risque et sans dépenser tout son argent
-      const avg = this._habRisk(p);
-      const ws = pool.map((c) => Math.exp(-Math.abs((c.risk || 0) - avg)) * (c.cost && c.cost > p.cash * 0.6 ? 0.3 : 1));
-      let r = this.rng() * ws.reduce((a, b) => a + b, 0), idx = pool.length - 1;
-      for (let i = 0; i < pool.length; i++) { r -= ws[i]; if (r <= 0) { idx = i; break; } }
-      return this._resolveChoice(p, pool[idx]);
-    }
     if (sc.id === "choix_filiere" && pool.length > 1) {
       // une spécialisation choisie par défaut reste cohérente avec les goûts et les qualités
       const FIL = require("./filieres");
@@ -840,98 +750,6 @@ class Game {
     if (dead) { p.eventsDone = true; p.eventsLeft = 0; }
   }
 
-  // ---------- mode 5 ans par 5 ans ----------
-  // Choisit dans le tirage les scènes qui comptent vraiment. Pendant les années silencieuses, on prend les petites scènes.
-  _keyPool(pool, p, mode) {
-    if (mode < 0) return pool.filter((e) => !KS.isKey(e, 1));
-    for (let lv = 0; lv <= 2; lv++) {
-      const sel = pool.filter((e) => KS.isKey(e, lv));
-      if (sel.length >= 4 || (lv === 2 && sel.length)) return sel;
-    }
-    return [];
-  }
-
-  _capReached() {
-    const cap = this.settings.ageCap;
-    const capAge = cap === "none" ? 9999 : Number(cap);
-    if (this.age > capAge || this.age > 111) { this._finishGame(this.age > 111 ? "age" : "cap"); return true; }
-    return false;
-  }
-
-  // Passe à l'année suivante. En mode 5 ans, les années entre deux décisions clés se jouent toutes seules.
-  _advance() {
-    this.round++;
-    if (this.step > 1) {
-      this.players.forEach((p) => { p.cycleLog = []; });
-      while (this.round % this.step !== 0) {
-        this.age = this.startAge + this.round;
-        if (!this.alivePlayers().length) return this._finishGame("allDead");
-        if (this._capReached()) return;
-        const r = this._silentYear();
-        if (r === "end" || r === "death") return;
-        this.round++;
-      }
-    }
-    this._beginRound();
-  }
-
-  _runScenes(p) {
-    let guard = 0;
-    while (!p.eventsDone && guard++ < 14) {
-      if (!p.scene) { this._nextScene(p); continue; }
-      if (p.scene.state === "choose") this._autoChoose(p); else this._continueScene(p);
-    }
-    p.scene = null; p.eventsDone = true;
-  }
-
-  _silentYear() {
-    this.silentNow = true;
-    try {
-      this._economy();
-      const alive = this.alivePlayers();
-      alive.forEach((p) => {
-        p.age = this.age; p.plan = null; p.draft = null; p.ready = false; p.scene = null; p.eventsDone = false; p.report = null; p.yearLog = [];
-        this._rollFate(p);
-        p.lifeOffer = life.offer(this, p);
-        p.proOffer = life.offerPro(this, p);
-        p.socialOffer = [];
-      });
-      this.offers = []; this.group = null; this.minis = []; this.miniHold = 0;
-      alive.forEach((p) => { this._botAgenda(p, true); this._startPlan(p); });
-      alive.forEach((p) => {
-        // les décisions clés attendent la prochaine année de choix
-        const keep = p.forced.filter((f) => f.id.indexOf("sys:") === 0 || (kit.byId[f.id] && KS.isKey(kit.byId[f.id], 1)));
-        p.forced = p.forced.filter((f) => !keep.includes(f));
-        p.eventsLeft = 1 + (this.rng() < 0.3 ? 1 : 0);
-        p.scene = null; p.eventsDone = false;
-        this._runScenes(p);
-        const seen = {}; p.forced = keep.concat(p.forced).filter((f) => (seen[f.id] ? false : (seen[f.id] = true)));
-      });
-      require("./feud").tick(this);
-      require("./statut").tick(this);
-      alive.forEach((p) => this._yearEnd(p));
-      social.yearEnd(this);
-    } finally { this.silentNow = false; }
-    this.players.forEach((p) => {
-      if (!p.report) return;
-      const r = p.report;
-      (p.cycleLog = p.cycleLog || []).push({ age: r.age, lines: r.lines.slice(0, 6), net: r.netAfter, d: r.netAfter - r.netBefore, dead: !p.alive });
-    });
-    if (!this.alivePlayers().length) { this._finishGame("allDead"); return "end"; }
-    const died = this.players.some((p) => !p.alive && p.death && p.death.round === this.round);
-    if (died) { this._toRecap(); return "death"; }
-    return null;
-  }
-
-  _toRecap() {
-    this.phase = "recap";
-    const ms = this.timerMs(0.5);
-    this.deadline = ms ? this.now() + Math.max(ms, 10000 * this.timeScale) : 0;
-    this.players.forEach((p) => { p.ready = !p.alive || false; p.botAt = this.now() + 500 + Math.floor(this.rng() * 900) * this.timeScale; });
-    this.players.forEach((p) => { if (!p.alive && p.death && p.death.round === this.round) p.ready = false; });
-    if (this.step > 1) this.players.forEach((p) => { if (p.report) p.report.cycle = (p.cycleLog || []).slice(); });
-  }
-
   // ---------- fin de l'événementiel → bilan ----------
   _closeEvents() {
     require("./feud").tick(this);
@@ -939,7 +757,14 @@ class Game {
     this.alivePlayers().forEach((p) => this._yearEnd(p));
     social.yearEnd(this);
     if (!this.alivePlayers().length) { this._finishGame("allDead"); return; }
-    this._toRecap();
+    // réalise les morts de fin d'année
+    this.players.forEach((p) => { if (p.alive && p.dying) { /* déjà traité */ } });
+    this.phase = "recap";
+    const ms = this.timerMs(0.5);
+    this.deadline = ms ? this.now() + Math.max(ms, 10000 * this.timeScale) : 0;
+    this.players.forEach((p) => { p.ready = !p.alive || false; p.botAt = this.now() + 500 + Math.floor(this.rng() * 900) * this.timeScale; });
+    // les joueurs morts cette année doivent aussi voir leur bilan
+    this.players.forEach((p) => { if (!p.alive && p.death && p.death.round === this.round) p.ready = false; });
   }
 
   // ---------- bilan de fin d'année pour un joueur ----------
@@ -954,7 +779,6 @@ class Game {
     if (ppr) this._runProject(p, ppr, rep, true);
     p.projectPro = null;
     require("./pro").tick(this, p, rep);
-    require("./lieux").sync(this, p, rep);
     // école
     this._schoolTick(p, rep);
     // vie professionnelle et argent
@@ -965,10 +789,8 @@ class Game {
     this._npcTick(p);
     // petite nouvelle de l'année
     this._flashes(p, rep);
-    JU.yearly(this, p, rep);
     // fin de peine
-    if (p.prison) JU.prisonYear(this, p, rep);
-    if (p.prison) { p.prison.left--; if (p.prison.left <= 0) { JU.onRelease(this, p, rep); p.prison = null; rep.lines.push("🔓 Tu sors de prison. Il faut reprendre une vie normale."); p.journal.push({ age: p.age, text: "Libéré après sa peine.", ic: "🔓", tag: "justice" }); this.news(p, "🔓 " + p.name + " est sorti(e) de prison."); } }
+    if (p.prison) { p.prison.left--; if (p.prison.left <= 0) { p.prison = null; rep.lines.push("🔓 Tu sors de prison. Il faut reprendre une vie normale."); p.journal.push({ age: p.age, text: "Libéré après sa peine.", ic: "🔓", tag: "justice" }); this.news(p, "🔓 " + p.name + " est sorti(e) de prison."); } }
     // drapeaux à durée
     Object.keys(p.flagTtl).forEach((f) => { p.flagTtl[f]--; if (p.flagTtl[f] <= 0) { delete p.flags[f]; delete p.flagTtl[f]; } });
     // mort naturelle
@@ -1005,7 +827,6 @@ class Game {
     if (!pr.outs || !pr.outs.length || p.dying) return;
     const x = { slots: {}, vals: {}, next: null };
     x.render = (t) => C.render(t, p, x);
-    x.dirty = this._isIll(pr);
     const base = pr.outs.map((o) => Math.max(0, typeof o.w === "function" ? o.w(p, x, this) : o.w));
     const info = EXP.tilt(this, p, pr, pr.outs, base, x);
     const ws = info.ws;
@@ -1057,57 +878,6 @@ class Game {
     }
   }
 
-  // Effets du train de vie. Le luxe ouvre des portes mais coûte et expose
-  _lifestyleYear(p, rep) {
-    if (p.prison || p.age < 18) return;
-    const rng = this.rng, PS = require("./pro").state(p), ls = p.lifestyle;
-    const st = (k, d) => { p.stats[k] = C.clamp(p.stats[k] + d, 0, 100); };
-    if (ls === "frugal") {
-      p.traits.prudent = C.clamp(p.traits.prudent + 0.8, 0, 100);
-      if (rng() < 0.18) { st("sante", 1); }
-      if (rng() < 0.12) { const g1 = Math.round(Math.max(0, Math.min(p.cash, 40000)) * 0.03); if (g1 > 100) { p.cash += g1; rep.income += g1; rep.lines.push("🥔 Ta vie sobre te laisse de la marge. Tu mets de côté " + C.fmt(g1) + " de plus."); } }
-      if (rng() < 0.10) st("repute", -1);
-      return;
-    }
-    if (ls !== "luxe" && ls !== "folie") return;
-    const big = ls === "folie";
-    st("repute", big ? (rng() < 0.7 ? 2 : -1) : (rng() < 0.65 ? 1.5 : 0));
-    st("charme", big ? 0.6 : 0.4);
-    PS.net = Math.min(100, PS.net + (big ? 3 : 2));
-    if (rng() < (big ? 0.2 : 0.15)) {
-      PS.net = Math.min(100, PS.net + 3); st("bonheur", 3);
-      rep.lines.push(big ? "🥂 Une soirée privée te met en contact avec des gens très haut placés. Un nouveau projet professionnel devient possible." : "🥂 Ton train de vie te fait croiser des gens utiles. Un contact intéressant pour tes projets.");
-      if (rng() < 0.4) { const nf = C.getOrMakeNpc(p, rng, "friend"); if (nf) nf.close = C.clamp(nf.close + 8, 0, 100); }
-    }
-    if (rng() < (big ? 0.25 : 0.12)) {
-      const extra = Math.round(Math.max(1500, Math.min(60000, Math.max(0, p.cash) * (big ? 0.06 : 0.03))));
-      p.cash -= extra; rep.expenses += extra; st("bonheur", -2);
-      if (big && rng() < 0.4) { st("repute", -6); st("sante", -2); rep.lines.push("📸 Une soirée trop arrosée fait scandale. Les photos circulent, ta santé et ta réputation prennent un coup."); }
-      else rep.lines.push("💸 Tu as dépensé sans compter cette année, " + C.fmt(extra) + " de plus que prévu. Les jaloux commencent à parler.");
-    }
-    if (big) st("sante", -1.2);
-  }
-
-  // La réputation revient vers un niveau moyen, plus vite quand elle est basse. Elle pèse sur les offres et les promotions
-  _reputationYear(p, rep) {
-    const rng = this.rng, r0 = p.stats.repute;
-    if (p.age < 14) return;
-    let d = 0;
-    if (r0 < 50) d = (50 - r0) * 0.12 + 0.4;
-    else if (r0 > 72) d = -(r0 - 72) * 0.04;
-    if (p.prison) d = Math.min(d, 0);
-    p.stats.repute = C.clamp(r0 + d, 0, 100);
-    if (r0 >= 68 && !p.prison && rng() < 0.12) {
-      const gain = C.rint(rng, 1500, 9000) * (r0 >= 85 ? 2 : 1);
-      p.cash += gain; rep.income += gain;
-      rep.lines.push("🌟 Ta bonne réputation t'ouvre une porte. On te propose une collaboration bien payée, " + C.fmt(gain) + " cette année.");
-    }
-    if (r0 < 25 && !p.prison && rng() < 0.15) {
-      p.stats.bonheur = C.clamp(p.stats.bonheur - 3, 0, 100);
-      rep.lines.push("🚪 Ta mauvaise réputation te ferme des portes cette année. On te rappelle moins et on t'invite moins.");
-    }
-  }
-
   _money(p, rep) {
     const rng = this.rng;
     // salaire ou pension
@@ -1128,8 +898,7 @@ class Game {
       p.job.perf = C.clamp(p.job.perf + (statv - 50) * 0.06 + (rng() - 0.5) * 8, 0, 100);
       sal = Math.round(sal);
       const net = sal - incomeTax(sal);
-      if (T.illicit) JU.earn(p, net, 0.65); else p.cash += net;
-      rep.income += net; rep.tax = (rep.tax || 0) + (sal - net);
+      p.cash += net; rep.income += net; rep.tax = (rep.tax || 0) + (sal - net);
       p.lastNetSalary = net;
       if (T.illicit && rng() < 0.08 + p.job.level * 0.03 - (p.stats.intel - 50) / 500 + require("./pro").state(p).heat / 700) {
         const jt = p.job.title;
@@ -1142,10 +911,10 @@ class Game {
       const pn = p.pension - Math.round(incomeTax(p.pension) * 0.5);
       p.cash += pn; rep.income += pn; p.lastNetSalary = pn;
     } else if (C.studying(p) && !p.prison) {
-      const bourse = 2600; p.cash += bourse; rep.income += bourse;
+      const bourse = 3200; p.cash += bourse; rep.income += bourse;
     } else if (p.age >= 18 && !p.job && !p.prison) {
       // aides minimales
-      const aide = 4500; p.cash += aide; rep.income += aide;
+      const aide = 6000; p.cash += aide; rep.income += aide;
     }
     // la mafia paie bien, jusqu'au jour de la chute
     if (!p.prison && (C.hasFlag(p, "mafia") || C.hasFlag(p, "parrain"))) {
@@ -1153,17 +922,13 @@ class Game {
       const cl = [1, 2, 3].filter((i) => C.hasFlag(p, "cartel_" + i)).length;
       const PS = require("./pro").state(p);
       const respect = 1 + PS.rep / 220;
-      // revenu annuel selon le grade. Du petit soldat aux parrains qui gagnent des dizaines de millions
-      const rk = boss ? 5 : (p.org ? p.org.rank : 0);
-      const TAB = [[20000, 60000], [50000, 130000], [120000, 300000], [300000, 800000], [800000, 2500000], [2000000, 5000000]];
-      const base = C.rint(rng, TAB[rk][0], TAB[rk][1]) * (boss ? 1 + cl * 1.1 : 1);
-      const gain = Math.round(base * respect);
-      JU.earn(p, gain, 0.85); rep.income += gain;
+      const gain = Math.round((boss ? Math.min(2000000000, Math.max(150000, Math.max(0, C.netWorth(p)) * (0.07 + cl * 0.06))) : C.rint(rng, 25000, 110000)) * respect);
+      p.cash += gain; rep.income += gain;
       rep.lines.push("🕴️ La famille t'a rapporté " + C.fmt(gain) + " en liquide cette année.");
-      if (rng() < (boss ? 0.05 + cl * 0.02 : 0.035 + rk * 0.004) - (p.stats.intel - 50) / 900 + PS.heat / 900 - PS.net / 2500) {
+      if (rng() < (boss ? 0.075 + cl * 0.03 : 0.075) - (p.stats.intel - 50) / 900 + PS.heat / 900 - PS.net / 2500) {
         const yrs = boss ? C.rint(rng, 12 + cl * 3, 30 + cl * 5) : C.rint(rng, 5, 14);
-        FX.applyFx(this, p, { prison: yrs, repute: -20, bonheur: -12, unflag: ["mafia", "parrain", "cartel_1", "cartel_2", "cartel_3"] }, { slots: {}, vals: {}, heavy: true });
-        JU.seize(this, p, cl ? 0.55 : 0.3, rep.lines, "coup de filet");
+        FX.applyFx(this, p, { prison: yrs, repute: -20, bonheur: -12, unflag: ["mafia", "parrain", "cartel_1", "cartel_2", "cartel_3"] }, null);
+        p.cash = Math.round(p.cash * (cl ? 0.15 : 0.4)); p.assets.forEach((a) => { a.value = Math.round(a.value * (cl ? 0.3 : 0.65)); });
         rep.lines.push("🚔 Le coup de filet a eu lieu. Tu es condamné(e) à " + yrs + " ans de prison, et la justice saisit une grande partie de tes biens.");
         this.news(p, "🚔 " + p.name + " tombe pour " + yrs + " ans après le démantèlement de son organisation.", "crime");
         p.journal.push({ age: p.age, text: "Condamné(e) à " + yrs + " ans de prison pour appartenance à la mafia.", ic: "🚔", tag: "justice" });
@@ -1224,8 +989,8 @@ class Game {
       const L = R.LIFESTYLES[p.lifestyle];
       const ns = p.lastNetSalary || 0;
       const creep = Math.max(0, Math.min(ns, 80000) - 22000) * 0.55 + Math.max(0, ns - 80000) * 0.72;
-      let base = (14500 + creep) * L.cost;
-      const homeF = p.home === "parents" ? (p.age < 25 ? 0.7 : p.age < 30 ? 0.9 : 1) : p.home === "own" ? 0.85 : p.home === "street" ? 0.4 : 1;
+      let base = (14000 + creep) * L.cost;
+      const homeF = p.home === "parents" ? (p.age < 25 ? 0.35 : p.age < 30 ? 0.6 : 0.9) : p.home === "own" ? 0.85 : p.home === "street" ? 0.4 : 1;
       base *= homeF;
       if (p.home === "own") base += 0.012 * p.assets.filter((a) => a.kind === "immo").reduce((s, a) => s + a.value, 0);
       const kids = p.npcs.filter((n) => n.kind === "child" && n.alive && n.age < 19).length;
@@ -1255,11 +1020,8 @@ class Game {
     }
     // bonheur selon le niveau de vie
     p.stats.bonheur = C.clamp(p.stats.bonheur + R.LIFESTYLES[p.lifestyle].bonheur, 0, 100);
-    this._lifestyleYear(p, rep);
-    this._reputationYear(p, rep);
-    // découvert, d'abord couvert par l'argent sale passé par des circuits discrets
-    JU.coverDeficit(p, rep);
-    // découvert, ensuite couvert par la vente d'actifs liquides
+    if (p.lifestyle === "luxe" || p.lifestyle === "folie") p.stats.repute = C.clamp(p.stats.repute + 1, 0, 100);
+    // découvert, d'abord couvert par la vente d'actifs liquides
     if (p.cash < 0) {
       const liq = p.assets.filter((a) => (R.ASSET_KINDS[a.kind] || {}).liquid && a.value > 0).sort((a, b) => b.value - a.value);
       for (const a of liq) {
@@ -1393,8 +1155,6 @@ class Game {
   // ---------- fin par vote ----------
   _startReview() {
     this.phase = "review";
-    // personne ne doit voir son vote joué par le pilote automatique à cause de l'accélération ou de rendez-vous manqués
-    this.players.forEach((p) => { if (!p.bot) { p.auto = false; p.missed = 0; } });
     const order = this.players.slice().sort((a, b) => ((a.death ? a.death.age : a.age) - (b.death ? b.death.age : b.age)) || (a.seat - b.seat)).map((p) => p.seat);
     this.review = { order, idx: 0, ratings: {}, deadline: 0, minUntil: 0 };
     order.forEach((t) => { this.review.ratings[t] = {}; });

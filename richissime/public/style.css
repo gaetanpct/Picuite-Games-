@@ -332,7 +332,7 @@ svg.chart text { font-family: var(--body); font-size: 11px; fill: #3b3b48; }
 @media (max-width: 560px) { .rvscale button { width: 36px; height: 40px; } }
 
 /* place pour le bouton de retour Picuite Games en haut à gauche */
-.topbar .logo { margin-left: 0; }
+.topbar .logo { margin-left: 40px; }
 
 /* ---- niveau de risque des placements, étoiles, actions entre joueurs ---- */
 .riskline { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; font-weight: 700; font-size: .9rem; flex-wrap: wrap; }
@@ -383,5 +383,3 @@ svg.chart text { font-family: var(--body); font-size: 11px; fill: #3b3b48; }
 .proj.ill { border-color: var(--bad); }
 
 .choice .lab .hint { display: block; font-weight: 400; font-size: .82rem; color: #3b3b48; line-height: 1.25; margin-top: 2px; }
-
-.dirtyline { margin: 4px 0; padding: 4px 8px; border: 2px dashed var(--ink); border-radius: 8px; background: #f3e9d3; font-size: .85rem; font-weight: 700; }

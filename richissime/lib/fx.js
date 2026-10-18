@@ -3,7 +3,6 @@
 // ============================================================
 const R = require("./rules");
 const C = require("./core");
-const JU = require("./justice");
 const { pick } = require("./pools");
 
 const NUM_STATS = Object.keys(R.STATS);
@@ -63,7 +62,6 @@ function setFlag(p, f, v) {
   Object.keys(f).forEach((k) => { p.flags[k] = 1; p.flagTtl[k] = f[k]; });
 }
 
-const clamp0 = (v, m) => Math.max(0, Math.min(m, v));
 function trackLevelFor(p, track) {
   const T = R.TRACKS[track];
   const exp = ((p.exp && p.exp[track]) || 0) + require("./filieres").bonusExp(p, track);
@@ -105,11 +103,6 @@ function applyFx(g, p, fx, x) {
   if (!fx) return;
   x = x || { slots: {}, vals: {} };
   const rng = g.rng;
-  // un gain d'argent illégal devient de l'argent sale, et une dépense de l'ombre se paie d'abord avec
-  if (fx.argent !== undefined && fx.launder === undefined && (x.dirty || JU.isDirtyFx(fx))) {
-    const av = val(fx.argent, p, x, g);
-    if (typeof av === "number" && av !== 0) fx = JU.dirtify(fx, av, p);
-  }
   for (const key of Object.keys(fx)) {
     const raw = fx[key];
     const v = val(raw, p, x, g);
@@ -117,10 +110,7 @@ function applyFx(g, p, fx, x) {
     if (NUM_STATS.includes(key)) { p.stats[key] = C.clamp(p.stats[key] + v, 0, 100); continue; }
     if (NUM_TRAITS.includes(key)) { p.traits[key] = C.clamp(p.traits[key] + v, 0, 100); continue; }
     switch (key) {
-      case "argent": { let m = Math.round(v);
-        // les petits gains ponctuels sont plus rares quand on est jeune. Les très gros gains ne sont pas touchés
-        if (m > 0 && m < 120000) { const f = p.age <= 25 ? 0.45 : p.age <= 35 ? 0.65 : p.age <= 50 ? 0.85 : 1; const blend = m <= 30000 ? 0 : (m - 30000) / 90000; m = Math.round(m * (f + (1 - f) * blend)); }
-        p.cash += m; if (p.life) { if (m > 0) p.life.gains += m; else p.life.losses -= m; } break; }
+      case "argent": { const m = Math.round(v); p.cash += m; if (p.life) { if (m > 0) p.life.gains += m; else p.life.losses -= m; } break; }
       case "dette": p.debt = Math.max(0, p.debt + Math.round(v)); break;
       case "notes": p.school.grade = C.clamp(p.school.grade + v, 0, 100); break;
       case "rel":
@@ -193,21 +183,7 @@ function applyFx(g, p, fx, x) {
         break;
       }
       case "die": p.dying = { cause: C.render(typeof v === "string" ? v : v.cause, p, x), final: !!(v && v.final) }; break;
-      case "sale": JU.addDirty(p, Math.round(v)); break;
-      case "pris": { const S = JU.pris(p); Object.keys(v).forEach((k) => { if (k === "gang") S.gang = v.gang; else if (k === "snitch") S.snitch = !!v.snitch; else S[k] = (S[k] || 0) + v[k]; }); S.rep = Math.max(0, S.rep); S.plan = clamp0(S.plan, 100); S.dossier = clamp0(S.dossier, 100); break; }
-      case "shorten": if (p.prison) { p.prison.left = Math.max(0, p.prison.left - Math.round(v)); if (p.prison.left <= 0) p.prison.left = 0; } break;
-      case "extend": if (p.prison) { p.prison.left += Math.round(v); p.prison.total += Math.round(v); } break;
-      case "escape": if (p.prison) { p.escapedLeft = p.prison.left; p.prison = null; p.pris = null; p.flags.fugitif = 1; p.flagTtl.fugitif = 12; p.record += 1; g.news(p, "🏃 " + p.name + " s'est évadé(e) de prison !", "crime"); } break;
-      case "org": if (v === false) { p.org = null; delete p.flags.mafia; } else { const nm = typeof v === "string" ? v : (p.org ? p.org.name : JU.orgName(g)); p.org = { name: nm, rank: p.org ? p.org.rank : 0, since: p.age }; p.flags.mafia = 1; } break;
-      case "rank": if (p.org) p.org.rank = C.clamp(p.org.rank + v, 0, 5); break;
-      case "launder": { const r = JU.launder(g, p, v.amount, v.fee); x.lastLaunder = r; break; }
-      case "prison": { let yrs = Math.max(1, Math.round(v));
-        // la justice n'est pas toujours sévère. Peines courtes souvent avec sursis, longues peines un peu réduites
-        if (!p.prison && !(x && (x.heavy || x.hard))) {
-          if (yrs <= 3 && rng() < 0.45) { p.record += 1; p.flags.ex_detenu = 1; p.stats.repute = C.clamp(p.stats.repute - 5, 0, 100); p.cash -= Math.min(Math.max(0, p.cash), 800 * yrs); if (p.yearLog) p.yearLog.push("⚖️ Le juge te condamne à du sursis et à une amende. Tu évites la prison de justesse."); break; }
-          yrs = Math.max(1, Math.round(yrs * 0.75));
-        }
-        if (p.prison) { p.prison.left += yrs; p.prison.total += yrs; p.record += 1; break; } p.prison = { left: yrs, total: yrs }; p.record += 1; p.flags.ex_detenu = 1; JU.onSentence(g, p, yrs, { heavy: !!(x && x.heavy) }); if (p.job) { p.jobHistory.push({ title: p.job.title, track: p.job.track, from: p.job.since, to: p.age, why: "prison" }); p.job = null; } break; }
+      case "prison": { const yrs = Math.max(1, Math.round(v)); p.prison = { left: yrs, total: yrs }; p.record += 1; p.flags.ex_detenu = 1; if (p.job) { p.jobHistory.push({ title: p.job.title, track: p.job.track, from: p.job.since, to: p.age, why: "prison" }); p.job = null; } break; }
       case "free": if (p.prison) { p.prison = null; } break;
       case "record": p.record += v; break;
       case "school": Object.assign(p.school, v); break;

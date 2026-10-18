@@ -33,46 +33,24 @@ reg({ id: "emprunt_demesure", grp: "argent", l: "Emprunter énormément pour sp�
 reg({ id: "entrer_mafia", grp: "argent", l: "Rejoindre une organisation criminelle", ic: "🕴️", d: "Quelqu'un te propose de rejoindre la famille. L'argent coule vite, les amis sont fidèles, et le jour où la police frappe, on t'oublie longtemps dans une cellule.", tag: "mature",
   need: Object.assign({ noflag: ["mafia", "parrain"] }, adult, { ages: [18, 60] }), cool: 8, w: 5, j: true, fit: (p) => (C.hasFlag(p, "mafia") || C.hasFlag(p, "parrain") ? 0 : crooked(p) * (tier(p) <= 1 ? 1.5 : 1)),
   outs: [
-    out(0.5, "On t'accueille avec un dîner silencieux. Tu es désormais dans la famille. Tu as de l'argent liquide, des obligations, et des amis qui ne posent pas de question.", { argent: 12000, honnete: -10, repute: -3, bonheur: 3, flag: "mafia", org: true }, true),
+    out(0.5, "On t'accueille avec un dîner silencieux. Tu es désormais dans la famille. Tu as de l'argent liquide, des obligations, et des amis qui ne posent pas de question.", { argent: 12000, honnete: -10, repute: -3, bonheur: 3, flag: "mafia" }, true),
     out(0.3, "On te teste, puis on te laisse tranquille. Tu n'es pas retenu, mais tu gardes un petit billet.", { argent: 3000, honnete: -3 }),
     out(0.2, "Le dîner était piégé, la police était assise à la table d'à côté. Tu passes quelques années en prison.", { prison: 4, honnete: -6, repute: -10, bonheur: -8 }, true),
   ] });
 
-reg({ id: "monter_en_grade", grp: "argent", l: "Grimper dans la famille", ic: "🪜", d: "Tu veux plus de territoire, plus de respect, plus de coups à jouer. L'échelle compte six grades, de recrue jusqu'à parrain. Chaque marche rapporte davantage, et la chute coûte plus cher.", tag: "mature", prio: 1,
-  need: Object.assign({ flag: "mafia", fn: (p) => (p.org ? p.org.rank : 0) < 4 }, { noprison: true, nostudy: true, ages: [20, 80] }), cool: 2, w: 16, j: true, fit: (p) => (C.hasFlag(p, "mafia") && !C.hasFlag(p, "parrain") ? 2.2 : 0),
+reg({ id: "monter_en_grade", grp: "argent", l: "Grimper dans la famille", ic: "🪜", d: "Tu veux plus de territoire, plus de respect, plus de coups à jouer. Le sommet est un poste de parrain, et le prix de la chute est énorme.", tag: "mature", prio: 1,
+  need: Object.assign({ flag: "mafia" }, { noprison: true, nostudy: true, ages: [20, 80] }), cool: 4, w: 14, j: true, fit: (p) => (C.hasFlag(p, "mafia") && !C.hasFlag(p, "parrain") ? 2 : 0),
   outs: [
-    out(0.58, "Tu as prouvé ta valeur. On te confie plus de territoire et davantage de monde sous tes ordres, et les enveloppes grossissent.", { rank: 1, argent: (p) => cap(Math.max(20000, 15000 * (1 + (p.org ? p.org.rank : 0)) ** 2), 900000), honnete: -3, repute: -2 }, true),
-    out(0.3, "On te fait attendre. Tu restes à ton rang, mais les poches se remplissent un peu.", { argent: 15000, honnete: -2 }),
-    out(0.12, "Un rival te dénonce. Perquisition, procès, verdict lourd.", { prison: 6, honnete: -4, repute: -12, bonheur: -10 }, true),
-  ] });
-
-reg({ id: "prendre_la_tete", grp: "argent", l: "Prendre la tête de la famille", ic: "👑", d: "Tu es le bras droit. Le vieux parrain vieillit et tout le monde le sait. Le coup est dangereux. Une fois en place, tu touches des millions par an.", tag: "mature", prio: 1,
-  need: Object.assign({ flag: "mafia", fn: (p) => p.org && p.org.rank >= 4 }, { noprison: true, nostudy: true, ages: [25, 85] }), cool: 3, w: 16, j: true, fit: (p) => (C.hasFlag(p, "mafia") && !C.hasFlag(p, "parrain") ? 2.5 : 0),
-  outs: [
-    out(0.5, "Le vieux parrain s'efface, tu prends sa place. Désormais on baisse les yeux quand tu passes. Les gains se comptent en millions, et les années à prévoir en prison aussi.", { rank: 1, argent: (p) => cap(Math.max(500000, net(p) * 0.1), 30000000), honnete: -8, repute: -4, flag: "parrain", unflag: "mafia", pub: "🕴️ La rumeur dit que $nom est devenu le nouveau parrain." }, true),
-    out(0.35, "La succession traîne. Tu restes dans l'ombre du patron, sans rien perdre.", { argent: 60000, honnete: -2 }),
-    out(0.15, "Le coup de force échoue. Tes rivaux te livrent à la police.", { prison: 10, honnete: -4, repute: -15, bonheur: -12 }, true),
-  ] });
-
-reg({ id: "benevolat_asso", grp: "social", l: "S'engager dans une association", ic: "🤲", d: "Quelques mois utiles auprès de gens qui en ont besoin. Gratuit, bon pour ta réputation et ton moral.",
-  need: { ages: [15, 90], noprison: true, nostudy: false }, cool: 3, w: 6, fit: (p) => (p.stats.repute < 50 ? 2 : 1),
-  outs: [
-    out(0.75, "Ton engagement est remarqué. On parle de toi en bien dans le quartier.", { repute: 7, bonte: 3, bonheur: 4 }, true),
-    out(0.25, "Une année discrète, mais agréable. Quelques nouveaux contacts.", { repute: 3, bonheur: 2 }),
-  ] });
-
-reg({ id: "reparer_image", grp: "social", l: "Redorer ton image", ic: "🪞", d: "Tu prends un conseiller en communication et tu fais profil bas. Coût 1 500 €. Utile quand ta réputation est basse.", cost: 1500,
-  need: { ages: [18, 90], noprison: true, fn: (p) => p.stats.repute < 45 }, cool: 3, w: 12, prio: 1, fit: (p) => 2.5,
-  outs: [
-    out(0.65, "Les gens finissent par oublier tes erreurs. Ta réputation remonte nettement.", { repute: 13, bonheur: 3 }, true),
-    out(0.35, "Le résultat est timide, mais la tendance est meilleure.", { repute: 6 }),
+    out(0.45, "Le vieux parrain s'efface, tu prends sa place. Désormais on baisse les yeux quand tu passes. Les gains sont immenses, et les années à prévoir en prison aussi.", { argent: (p) => cap(Math.max(60000, net(p) * 0.1), 30000000), honnete: -8, repute: -4, flag: "parrain", unflag: "mafia" }, true),
+    out(0.4, "Tu prends du galon et des responsabilités. Rien de définitif, mais les poches se remplissent.", { argent: 30000, honnete: -4 }),
+    out(0.15, "Un rival te dénonce. Perquisition, procès, verdict lourd.", { prison: 9, honnete: -4, repute: -12, bonheur: -10 }, true),
   ] });
 
 reg({ id: "quitter_mafia", grp: "argent", l: "Tourner la page de la famille", ic: "🚪", d: "Tu dis que c'est fini. Certains te laissent partir, d'autres te le font payer.", tag: "mature", prio: 1,
   need: { noprison: true, nostudy: true, ages: [20, 90] }, cool: 3, w: 8, fit: (p) => ((C.hasFlag(p, "mafia") || C.hasFlag(p, "parrain")) && (p.mem.jailYears > 0 || p.age > 45) ? 1.6 : (C.hasFlag(p, "mafia") || C.hasFlag(p, "parrain")) ? 0.5 : 0),
   outs: [
-    out(0.55, "On te laisse partir, avec un regard qui dit tout. Tu changes de ville et tu dors enfin.", { unflag: ["mafia", "parrain", "cartel_1", "cartel_2", "cartel_3"], org: false, honnete: 6, bonheur: 8, repute: 2 }, true),
-    out(0.3, "On te laisse partir, mais pas sans une facture lourde.", { unflag: ["mafia", "parrain", "cartel_1", "cartel_2", "cartel_3"], org: false, argent: (p) => -Math.round(Math.max(0, net(p)) * 0.3), bonheur: 3 }),
+    out(0.55, "On te laisse partir, avec un regard qui dit tout. Tu changes de ville et tu dors enfin.", { unflag: ["mafia", "parrain"], honnete: 6, bonheur: 8, repute: 2 }, true),
+    out(0.3, "On te laisse partir, mais pas sans une facture lourde.", { unflag: ["mafia", "parrain"], argent: (p) => -Math.round(Math.max(0, net(p)) * 0.3), bonheur: 3 }),
     out(0.15, "Le départ tourne mal. On te fait comprendre que la porte reste fermée, avec ton portefeuille en prime.", { argent: (p) => -Math.round(Math.max(0, net(p)) * 0.25), bonheur: -8, repute: -3 }, true),
   ] });
 }

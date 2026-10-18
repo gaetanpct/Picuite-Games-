@@ -30,7 +30,7 @@ const GRACE_LOBBY_MS = 60 * 1000 * TS;
 const AFK_AUTO_MS = 45 * 1000 * TS;
 const ACCESSORIES = ["🎩", "👑", "🕶️", "🎀", "🧢", "🎓", "🪖", "🤠", "🧐", "🎧", "🌸", "🦊", "🐱", "🐸", "🦄", "🐙"];
 const COLORS = ["#c9a13b", "#e5583c", "#2f7f9d", "#6a4fb3", "#2e9a62", "#d4549a", "#e08a1e", "#3a3f6b"];
-const STARS = require("./lib/stars");
+const BOT_NAMES = ["Gaston", "Mélusine", "Barnabé", "Pétronille", "Anselme", "Clémentine", "Fulbert", "Gudule", "Hippolyte", "Josette", "Léonce", "Marcelline"];
 const rng = Math.random;
 
 function makeCode() {
@@ -88,12 +88,12 @@ function sendGame(room, force) {
     if (p.isBot || !p.socketId) return;
     try {
       const st = View.getStateFor(eng, seat);
-      st.turbo = room.turbo ? "on" : "off";
       const key = JSON.stringify(st);
       if (!force && p.lastKey === key) return;
       p.lastKey = key;
       st.serverTime = Date.now();
       st.autoSeats = room.players.map((q) => !!q.auto);
+      st.turbo = room.turbo ? (room.turbo === "stop" ? "stop" : "on") : "off";
       io.to(p.socketId).emit("game:state", st);
     } catch (e) { console.error("sendGame", e); }
   });
@@ -156,19 +156,13 @@ function stepRoom(room) {
   const eng = room.engine;
   if (!eng) return;
   try {
-    // Mode accéléré. À chaque battement, on force plusieurs étapes d'affilée. Il s'arrête tout seul dès que le vote commence
-    // ou que la partie finit, et le bouton d'arrêt le coupe tout de suite.
-    eng.turbo = !!room.turbo;
+    // mode accéléré : jamais pendant le vote, et il s'arrête de lui-même à la fin de la vie
     if (room.turbo) {
-      for (let i = 0; i < 6 && room.turbo; i++) {
-        if (eng.phase === "review" || eng.phase === "over") { room.turbo = false; break; }
-        forceStep(room);
-        syncAuto(room);
-        eng.tick();
-        if (eng.phase === "review" || eng.phase === "over") room.turbo = false;
-      }
-      eng.turbo = !!room.turbo;
-    } else syncAuto(room);
+      if (eng.phase === "review" || eng.phase === "over") room.turbo = false;
+      else if (room.turbo === "stop" && eng.round !== room.turboStopRound) room.turbo = false;
+      else forceStep(room);
+    }
+    syncAuto(room);
     eng.tick();
     if (eng.phase === "over" && room.status === "game") {
       room.status = "over";
@@ -323,12 +317,11 @@ io.on("connection", (socket) => {
     const room = ctx.room; if (!room || !isHost() || room.status !== "lobby") return;
     if (room.players.length >= MAX_PLAYERS) return toast("Le salon est complet.");
     const used = new Set(room.players.map((p) => p.name));
-    const pool = STARS.filter((s) => !used.has(s.n));
-    const star = pool.length ? pool[Math.floor(rng() * pool.length)] : { n: "Robot " + room.players.length, g: rng() < 0.5 ? "m" : "f" };
-    const name = star.n;
+    const pool = BOT_NAMES.filter((n) => !used.has(n));
+    const name = pool.length ? pool[Math.floor(rng() * pool.length)] : "Robot " + room.players.length;
     const idx = room.players.length;
     const gifts = Object.keys(R.GIFTS);
-    room.players.push({ id: makeId(), token: null, socketId: null, name, gender: star.g, avatar: { acc: ACCESSORIES[(idx * 3 + 5) % ACCESSORIES.length], color: COLORS[(idx + 2) % COLORS.length] }, gift: gifts[Math.floor(rng() * gifts.length)], isBot: true, ready: true, connected: true, left: false, auto: false });
+    room.players.push({ id: makeId(), token: null, socketId: null, name, gender: rng() < 0.5 ? "m" : "f", avatar: { acc: ACCESSORIES[(idx * 3 + 5) % ACCESSORIES.length], color: COLORS[(idx + 2) % COLORS.length] }, gift: gifts[Math.floor(rng() * gifts.length)], isBot: true, ready: true, connected: true, left: false, auto: false });
     broadcastRoom(room);
   }));
   socket.on("room:removeBot", safe(({ id }) => {
@@ -365,9 +358,9 @@ io.on("connection", (socket) => {
     const room = ctx.room; if (!room || !isHost() || !room.engine) return;
     const eng = room.engine;
     if (eng.phase === "review" || eng.phase === "over") { room.turbo = false; sendGame(room, true); return; }
-    // l'arrêt est immédiat
-    room.turbo = !!on;
-    if (on) stepRoom(room);
+    if (on) { if (!room.turbo) room.turbo = true; else if (room.turbo === "stop") room.turbo = true; }
+    else if (room.turbo) { room.turbo = "stop"; room.turboStopRound = eng.round; }
+    stepRoom(room);
     sendGame(room, true);
   }));
   // passe à la vie suivante pendant le vote, avec un délai de sécurité contre les clics répétés

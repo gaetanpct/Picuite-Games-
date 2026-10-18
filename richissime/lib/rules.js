@@ -41,10 +41,10 @@ const STAGE_LABEL = { enfance: "Enfance", ado: "Adolescence", jeune: "Jeunesse",
 
 // Niveaux de vie, choisis librement. Le coût multiplie les dépenses courantes.
 const LIFESTYLES = {
-  frugal: { l: "Sobre", ic: "🥔", cost: 0.7, bonheur: -1, d: "Dépenses réduites de 30 pour cent. Tu es plus prudent et tu gardes de la marge, mais tu sors moins, tu rencontres moins de monde et ton moral baisse un peu." },
-  normal: { l: "Normal", ic: "🏠", cost: 1, bonheur: 0, d: "Un train de vie tranquille. Aucun bonus, aucun risque particulier." },
-  luxe: { l: "Luxueux", ic: "🥂", cost: 2.2, bonheur: 2, d: "Dépenses multipliées par 2,2. Plus de bonheur, de charme et de réputation, un réseau qui s'élargit et des rencontres utiles pour tes projets. En contrepartie, des dépenses qui dérapent parfois et des jaloux." },
-  folie: { l: "Démesuré", ic: "🛥️", cost: 4, bonheur: 3, d: "Dépenses multipliées par 4. Yachts, caviar, paparazzis. Beaucoup de bonheur, de réputation et de contacts de haut vol, mais la santé en pâtit, les scandales guettent et la facture est lourde." },
+  frugal: { l: "Sobre", ic: "🥔", cost: 0.7, bonheur: -1, d: "Dépenses réduites de 30 %, un peu moins de joie." },
+  normal: { l: "Normal", ic: "🏠", cost: 1, bonheur: 0, d: "Un train de vie tranquille." },
+  luxe: { l: "Luxueux", ic: "🥂", cost: 2.2, bonheur: 2, d: "Dépenses ×2,2, beaucoup de bonheur et de réputation." },
+  folie: { l: "Démesuré", ic: "🛥️", cost: 4, bonheur: 3, d: "Dépenses ×4. Yachts, caviar, paparazzis." },
 };
 
 // Diplômes. rank = niveau d'études.

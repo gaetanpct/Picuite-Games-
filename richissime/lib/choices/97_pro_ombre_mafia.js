@@ -52,7 +52,7 @@ P("o_complice", "ombre", "🤝", "Recruter un complice de confiance", "Quelqu'un
   P("o_blanchir", "ombre", "🧼", "Blanchir ton argent dans un commerce", "Une laverie, un bar, un petit garage où le tiroir-caisse a beaucoup d'imagination.",
     { need: shadow, cost: 5000, cool: 4, w: 6, risk: 2, ill: true, tag: "mature",
       outs: [
-        out(ch, "Ta façade tourne bien. Tes revenus ont désormais une origine presque plausible, et les contrôles s'éloignent.", { pro: { heat: -22, skill: 3 }, argent: (p) => sal(p, 0.06), launder: (p) => ({ amount: Math.round((p.dirty || 0) * 0.6), fee: 0.2 }), item: { kind: "entreprise", name: "Ta petite façade légale", value: 14000, income: 2200, upkeep: 800 }, honnete: -2, bonheur: 2 }, true),
+        out(ch, "Ta façade tourne bien. Tes revenus ont désormais une origine presque plausible, et les contrôles s'éloignent.", { pro: { heat: -22, skill: 3 }, argent: (p) => sal(p, 0.06), item: { kind: "entreprise", name: "Ta petite façade légale", value: 14000, income: 2200, upkeep: 800 }, honnete: -2, bonheur: 2 }, true),
         out(fail(ch), "Un contrôleur trop zélé épluche tes comptes. Le commerce ferme, avec une belle amende.", { dette: 6000, pro: { heat: 14 }, bonheur: -5 }, true),
       ] });
 }
@@ -119,7 +119,7 @@ P("m_racket", "mafia", "🚪", "Faire la tournée des commerçants", "Le sourire
   P("m_blanchiment", "mafia", "🧾", "Superviser le blanchiment de l'organisation", "Des sociétés écrans, des factures qui n'ont jamais vu un service, un comptable qui fait des heures supplémentaires.",
     { need: gang, cool: 2, w: 8, risk: 2, ill: true, tag: "mature",
       outs: [
-        out(ch, "Les flux sont propres. Les parrains t'apprécient et la police ne voit que du feu.", { argent: (p) => scale(p, 0.03, 10000, 3000000), launder: (p) => ({ amount: Math.round((p.dirty || 0) * 0.5), fee: 0.12 }), pro: { skill: 5, rep: 4, heat: -12 }, honnete: -2, bonheur: 2 }, true),
+        out(ch, "Les flux sont propres. Les parrains t'apprécient et la police ne voit que du feu.", { argent: (p) => scale(p, 0.03, 10000, 3000000), pro: { skill: 5, rep: 4, heat: -12 }, honnete: -2, bonheur: 2 }, true),
         out(fail(ch), "Un contrôle fiscal tombe sur l'une des sociétés. Il faut vite effacer des traces.", { argent: (p) => -scale(p, 0.01, 2000, 600000), pro: { heat: 14, rep: -2 }, bonheur: -3 }),
       ] });
 }

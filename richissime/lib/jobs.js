@@ -106,7 +106,7 @@ function offers(g, p, opts) {
     // les qualités se paient : intelligence et compétence du métier, charme pour les postes de contact, formation récente
     const skill = clamp((statOf(p, T.stat) - 50) / 300, -0.1, 0.18);
     const brain = clamp((p.stats.intel - 50) / 380, -0.07, 0.1);
-    const gloss = clamp((p.stats.charme - 55) / 500, 0, 0.08) + clamp((p.stats.repute - 50) / 500, -0.08, 0.1);
+    const gloss = clamp((p.stats.charme - 55) / 500, 0, 0.08);
     const PS = require("./pro").state(p);
     const mul = 0.92 + rng() * 0.26 + (p.job ? 0.14 : 0) + (p.flags.piston ? 0.08 : 0) + skill + brain + gloss + (p.flags.formation_recente ? 0.07 : 0) + require("./filieres").salaryBonus(p, k) + clamp(PS.net / 700, 0, 0.12) + clamp(PS.skill / 900, 0, 0.1);
     const salary = Math.round(T.levels[level][1] * mul / 100) * 100;

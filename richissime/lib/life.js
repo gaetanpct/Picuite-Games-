@@ -104,7 +104,7 @@ function offer(g, p) {
       const base = pr.w === undefined ? 5 : pr.w;
       const fit = pr.fit ? pr.fit(p, g) : 1;
       let lf = 1;
-      if (pr.tag === "loufoque") lf = C.lerp([0, 0.4, 1, 2.2], p.cfg.loufoque) || 1;
+      if (pr.tag === "loufoque") lf = [0, 0.4, 1, 2.2][p.cfg.loufoque] || 1;
       return base * fit * lf * freshness(p, g, pr) * (0.65 + rng() * 0.7);
     });
     const total = ws.reduce((a, b) => a + b, 0);
@@ -137,7 +137,7 @@ function offerPro(g, p) {
   sticky.slice(0, 2).forEach(add);
   // 2. tirage pondéré, avec un poids supplémentaire pour ce qui colle au contexte principal
   const main = PRO.mainContext(p);
-  const target = Math.min(n, p.prison ? 5 : n);
+  const target = Math.min(n, p.prison ? 3 : n);
   const draw = (cands, want) => {
     let guard = 0;
     while (picked.length < want && cands.length && guard++ < 60) {
@@ -145,7 +145,7 @@ function offerPro(g, p) {
         const base = pr.w === undefined ? 5 : pr.w;
         const fit = pr.fit ? pr.fit(p, g) : 1;
         let lf = 1;
-        if (pr.tag === "loufoque") lf = C.lerp([0, 0.4, 1, 2.2], p.cfg.loufoque) || 1;
+        if (pr.tag === "loufoque") lf = [0, 0.4, 1, 2.2][p.cfg.loufoque] || 1;
         const cap = Math.max(2, Math.ceil(n / 2));
         if ((used[pr.grp] || 0) >= cap) return 0;
         const mainBoost = Array.isArray(pr.ctx) && pr.ctx.includes(main) ? 1.5 : 1;
