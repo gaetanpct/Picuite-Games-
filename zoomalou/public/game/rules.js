@@ -39,9 +39,8 @@
       { id: "features", label: "Animations du circuit", type: "multi", default: FEATURE_OPTIONS.map((f) => f.value), options: FEATURE_OPTIONS, info: "Décoche ce que tu n'aimes pas." },
       { id: "seed", label: "Graine du parcours", type: "text", default: "", max: 20, placeholder: "Laisse vide pour du hasard", info: "Écris un mot pour rejouer exactement les mêmes circuits plus tard ou avec des amis." },
     ] },
-    { category: "🚗 Les voitures", rules: [
-      { id: "cars", label: "Voitures autorisées", type: "multi", default: Car.CAR_ORDER.slice(), options: Car.CAR_ORDER.map((id) => ({ value: id, label: Car.CARS[id].name, icon: Car.CARS[id].icon, desc: Car.CARS[id].desc })), info: "Chaque voiture a sa vitesse, son adhérence et son caractère." },
-      { id: "carMode", label: "Choix de la voiture", type: "chips", default: "libre", options: [{ value: "libre", label: "Chacun choisit" }, { value: "imposee", label: "Tirée au sort" }], info: "Chacun choisit passe par le garage avant chaque course. Tirée au sort donne la même voiture à tout le monde, pour une course équitable." },
+    { category: "🚗 La conduite", rules: [
+      { id: "botPace", label: "Vitesse des tours des pilotes automatiques", type: "chips", default: 2, options: [{ value: 1, label: "Normale" }, { value: 2, label: "Deux fois plus vite" }, { value: 4, label: "Quatre fois plus vite" }], showIf: { mode: "essence" }, info: "Les pilotes automatiques roulent en direct, essai après essai, avec leur essence qui baisse. Accélérer évite d'attendre quand ils ont un grand réservoir." },
       { id: "ghost", label: "Fantôme du record", type: "bool", default: true, info: "Affiche une voiture transparente qui rejoue le meilleur temps du moment et un écart en direct." },
       { id: "others", label: "Voir les autres pilotes", type: "bool", default: true, info: "Affiche les voitures des autres pilotes en transparence pendant qu'ils roulent. Elles ne gênent jamais." },
       { id: "verify", label: "Contrôle des temps", type: "chips", default: "replay", options: [{ value: "replay", label: "Rejouer les pilotages" }, { value: "trust", label: "Faire confiance" }], info: "Rejouer les pilotages fait refaire chaque course par le serveur pour confirmer le temps exact. Faire confiance accepte le temps annoncé par chaque navigateur, plus simple mais triche possible." },
@@ -61,7 +60,6 @@
       else { const ok = valuesOf(r); const want = typeof ok[0] === "number" ? Number(v) : v; if (ok.includes(want)) out[r.id] = want; }
     });
     if (!out.biomes.length) out.biomes = [Track.BIOME_IDS[0]];
-    if (!out.cars.length) out.cars = [Car.CAR_ORDER[0]];
     return out;
   }
   function pickBiome(s, i, r) { const l = s.biomes; if (s.biomeOrder === "unique") return l[0]; if (s.biomeOrder === "ordre") return l[i % l.length]; return l[Math.floor(r() * l.length)]; }

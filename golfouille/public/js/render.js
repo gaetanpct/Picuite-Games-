@@ -14,6 +14,7 @@
   let renderer, scene, camera, sun, hemi, canvas, host;
   let terrain, liquids = [], movers = [], orbMeshes = {}, wallMeshes = {}, flag, particles = [], stars, windSock;
   let followId = null, camMode = "aim", camYaw = 0, camDist = 9, camPitch = 0.42, camPos = new T.Vector3(), camLook = new T.Vector3(), flyT = -1, flyPath = null;
+  const UP = new T.Vector3(0, 1, 0);
   let biome = null, clockOffset = 0, playStart = 0, holeGroup = null, shake = 0, aimGroup = null, aimDots = [], predLine = null, tmpV = new T.Vector3();
   const listeners = {};
   View.on = (ev, fn) => { listeners[ev] = fn; };
@@ -290,23 +291,83 @@
   function surfColor(s) { const C = biome.col; return [C.fairway, C.green, C.rough, C.sand, C.water, C.ice, C.mud, C.lava, C.bouncy, C.wall][s] || C.rough; }
 
   // ---------- visée ----------
-  View.setAim = function (show, x, y, z, yaw, len, mode, predicted) {
-    if (!aimGroup) {
-      aimGroup = new T.Group(); scene.add(aimGroup);
-      const dm = new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthTest: false });
-      for (let i = 0; i < 26; i++) { const m = new T.Mesh(G.sph(0.14, 6, 5), dm); m.renderOrder = 9; aimGroup.add(m); aimDots.push(m); }
-      const arrow = new T.Mesh(G.cone(0.32, 0.8, 8), new T.MeshBasicMaterial({ color: 0xffd84a, depthTest: false })); arrow.renderOrder = 9; arrow.rotation.x = Math.PI / 2; aimGroup.add(arrow); aimGroup.userData.arrow = arrow;
-      predLine = new T.Line(new T.BufferGeometry(), new T.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthTest: false })); predLine.renderOrder = 9; predLine.frustumCulled = false; scene.add(predLine);
-    }
-    aimGroup.visible = show; predLine.visible = false; if (!show) return;
+  // mode "aucune" cache tout, "points" montre la direction, "trajectoire" montre le vol, les rebonds, le roulé et la zone d'incertitude
+  const aimTex = {};
+  function emojiTex(ch) {
+    if (aimTex[ch]) return aimTex[ch];
+    const c = document.createElement("canvas"); c.width = c.height = 96; const g = c.getContext("2d"); g.font = "64px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillStyle = "rgba(0,0,0,0.35)"; g.beginPath(); g.arc(48, 48, 44, 0, 6.3); g.fill(); g.fillText(ch, 48, 52);
+    const t = new T.CanvasTexture(c); aimTex[ch] = t; return t;
+  }
+  const MARK = { hit: "💥", ob: "🚫", boost: "⚡", orb: "✨", portal: "🌀", tramp: "🟣", skip: "💦", sunk: "⛳" };
+  let aimPool = null, aimLabelKey = "";
+  function buildAimPool() {
+    aimGroup = new T.Group(); scene.add(aimGroup);
+    const flat = (c, o) => new T.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthTest: false, side: T.DoubleSide });
+    aimPool = { air: [], roll: [], marks: [], matAir: flat(0xffffff, 0.95), matRoll: flat(0xffd84a, 0.95) };
+    const sg = new T.SphereGeometry(0.13, 8, 6), dg = new T.CylinderGeometry(0.17, 0.17, 0.04, 10);
+    for (let i = 0; i < 130; i++) { const m = new T.Mesh(i % 2 ? sg : sg, aimPool.matAir); m.renderOrder = 9; m.visible = false; aimGroup.add(m); aimPool.air.push(m); }
+    for (let i = 0; i < 130; i++) { const m = new T.Mesh(dg, aimPool.matRoll); m.renderOrder = 9; m.visible = false; aimGroup.add(m); aimPool.roll.push(m); }
+    const ring = (c, ri, ro) => { const m = new T.Mesh(new T.RingGeometry(ri, ro, 32), flat(c, 0.95)); m.rotation.x = -Math.PI / 2; m.renderOrder = 9; m.visible = false; aimGroup.add(m); return m; };
+    aimPool.carry = ring(0xffffff, 0.5, 0.75); aimPool.rest = ring(0xffd84a, 0.4, 0.62);
+    aimPool.disc = new T.Mesh(new T.CircleGeometry(1, 40), flat(0xffffff, 0.2)); aimPool.disc.rotation.x = -Math.PI / 2; aimPool.disc.renderOrder = 8; aimPool.disc.visible = false; aimGroup.add(aimPool.disc);
+    aimPool.discEdge = new T.Mesh(new T.RingGeometry(0.94, 1, 48), flat(0xffffff, 0.55)); aimPool.discEdge.rotation.x = -Math.PI / 2; aimPool.discEdge.renderOrder = 8; aimPool.discEdge.visible = false; aimGroup.add(aimPool.discEdge);
+    for (let i = 0; i < 8; i++) { const sp = new T.Sprite(new T.SpriteMaterial({ depthTest: false, transparent: true })); sp.scale.set(1.5, 1.5, 1); sp.renderOrder = 10; sp.visible = false; aimGroup.add(sp); aimPool.marks.push(sp); }
+    const lc = document.createElement("canvas"); lc.width = 320; lc.height = 96; aimPool.lc = lc; aimPool.ltex = new T.CanvasTexture(lc);
+    aimPool.label = new T.Sprite(new T.SpriteMaterial({ map: aimPool.ltex, depthTest: false, transparent: true })); aimPool.label.scale.set(5.2, 1.56, 1); aimPool.label.renderOrder = 11; aimPool.label.visible = false; aimGroup.add(aimPool.label);
+    const arrow = new T.Mesh(new T.ConeGeometry(0.32, 0.8, 8), new T.MeshBasicMaterial({ color: 0xffd84a, depthTest: false })); arrow.renderOrder = 9; aimGroup.add(arrow); aimPool.arrow = arrow;
+    aimPool.line = [];
+    for (let i = 0; i < 26; i++) { const m = new T.Mesh(sg, aimPool.matAir); m.renderOrder = 9; m.visible = false; aimGroup.add(m); aimPool.line.push(m); }
+  }
+  function setLabel(text, warn) {
+    const key = text + "|" + warn; if (key === aimLabelKey) return; aimLabelKey = key;
+    const c = aimPool.lc, g = c.getContext("2d"); g.clearRect(0, 0, c.width, c.height);
+    g.fillStyle = warn ? "rgba(150,20,20,0.88)" : "rgba(10,40,30,0.85)"; const r = 22; g.beginPath(); g.moveTo(r, 8); g.lineTo(c.width - r, 8); g.quadraticCurveTo(c.width - 4, 8, c.width - 4, 8 + r); g.lineTo(c.width - 4, c.height - 8 - r); g.quadraticCurveTo(c.width - 4, c.height - 8, c.width - r, c.height - 8); g.lineTo(r, c.height - 8); g.quadraticCurveTo(4, c.height - 8, 4, c.height - 8 - r); g.lineTo(4, 8 + r); g.quadraticCurveTo(4, 8, r, 8); g.fill();
+    g.font = "bold 44px sans-serif"; g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(text, c.width / 2, c.height / 2 + 2); aimPool.ltex.needsUpdate = true;
+  }
+  // x y z position de la balle, yaw direction. o = { mode, len, frames, events, sigma, label, warn, outcome }
+  View.setAim = function (show, x, y, z, yaw, o) {
+    if (!aimPool) buildAimPool();
+    aimGroup.visible = show; if (!show) return; o = o || {};
+    const P = aimPool; const mode = o.mode || "points";
+    const hideAll = () => { P.air.forEach((m) => { m.visible = false; }); P.roll.forEach((m) => { m.visible = false; }); P.marks.forEach((m) => { m.visible = false; }); P.carry.visible = P.rest.visible = P.disc.visible = P.discEdge.visible = P.label.visible = false; };
     const sx = Math.sin(yaw), sz = Math.cos(yaw);
-    aimDots.forEach((d, i) => { const dist = 1.3 + i * (len / 26); d.visible = mode !== "trajectoire" && mode !== "aucune"; const px = x + sx * dist, pz = z + sz * dist; d.position.set(px, groundY(px, pz) + 0.25, pz); d.scale.setScalar(i % 5 === 4 ? 1.7 : 1); });
-    const arrow = aimGroup.userData.arrow; const ax = x + sx * (len + 1.4), az = z + sz * (len + 1.4); arrow.visible = mode !== "aucune" && mode !== "trajectoire";
-    arrow.position.set(ax, groundY(ax, az) + 0.35, az); arrow.rotation.set(Math.PI / 2, 0, 0); arrow.rotation.order = "YXZ"; arrow.rotation.y = yaw; arrow.rotation.x = Math.PI / 2;
-    if (mode === "trajectoire" && predicted) {
-      const pts = []; for (let i = 0; i < predicted.length; i += 3 * 2) pts.push(new T.Vector3(predicted[i] / 100, predicted[i + 1] / 100, predicted[i + 2] / 100));
-      predLine.geometry.dispose(); predLine.geometry = new T.BufferGeometry().setFromPoints(pts); predLine.visible = true;
+    P.line.forEach((d, i) => { const dist = 1.3 + i * ((o.len || 20) / 26); d.visible = mode === "points"; const px = x + sx * dist, pz = z + sz * dist; d.position.set(px, groundY(px, pz) + 0.25, pz); d.scale.setScalar(i % 5 === 4 ? 1.7 : 1); });
+    P.arrow.visible = mode === "points"; { const len = o.len || 20; const ax = x + sx * (len + 1.4), az = z + sz * (len + 1.4); P.arrow.position.set(ax, groundY(ax, az) + 0.35, az); P.arrow.rotation.order = "YXZ"; P.arrow.rotation.y = yaw; P.arrow.rotation.x = Math.PI / 2; }
+    if (mode !== "trajectoire" || !o.frames) { hideAll(); return; }
+    const f = o.frames, n = f.length / 3; let total = 0; for (let i = 1; i < n; i++) total += Math.hypot(f[i * 3] - f[(i - 1) * 3], f[i * 3 + 2] - f[(i - 1) * 3 + 2]) / 100;
+    const gap = Math.max(0.9, total / 120); let acc = 0, ia = 0, ir = 0;
+    P.air.forEach((m) => { m.visible = false; }); P.roll.forEach((m) => { m.visible = false; });
+    for (let i = 1; i < n; i++) {
+      acc += Math.hypot(f[i * 3] - f[(i - 1) * 3], f[i * 3 + 2] - f[(i - 1) * 3 + 2]) / 100 + Math.abs(f[i * 3 + 1] - f[(i - 1) * 3 + 1]) / 200;
+      if (acc < gap) continue; acc = 0;
+      const px = f[i * 3] / 100, py = f[i * 3 + 1] / 100, pz = f[i * 3 + 2] / 100; const gy = groundY(px, pz);
+      if (py - gy > 0.3) { if (ia < P.air.length) { const m = P.air[ia++]; m.position.set(px, py, pz); m.visible = true; } }
+      else if (ir < P.roll.length) { const m = P.roll[ir++]; m.position.set(px, gy + 0.1, pz); m.visible = true; }
     }
+    // premier contact avec le sol
+    let cx = null, cz = null; for (let i = 1; i < n; i++) { const py = f[i * 3 + 1] / 100, gy = groundY(f[i * 3] / 100, f[i * 3 + 2] / 100); if (py - gy < 0.2 && i > 3) { cx = f[i * 3] / 100; cz = f[i * 3 + 2] / 100; break; } }
+    if (cx != null && o.showCarry !== false) { P.carry.visible = true; P.carry.position.set(cx, groundY(cx, cz) + 0.12, cz); } else P.carry.visible = false;
+    const ex = f[(n - 1) * 3] / 100, ez = f[(n - 1) * 3 + 2] / 100, egy = groundY(ex, ez);
+    P.rest.visible = true; P.rest.position.set(ex, egy + 0.14, ez); P.rest.material.color.setHex(o.warn ? 0xff5a4a : 0xffd84a);
+    const sg = Math.max(0.5, o.sigma || 0.5);
+    P.disc.visible = P.discEdge.visible = true; P.disc.position.set(ex, egy + 0.1, ez); P.disc.scale.set(sg, sg, 1); P.discEdge.position.set(ex, egy + 0.11, ez); P.discEdge.scale.set(sg, sg, 1);
+    P.disc.material.color.setHex(o.warn ? 0xff5a4a : 0xffffff); P.discEdge.material.color.setHex(o.warn ? 0xff5a4a : 0xffffff);
+    // pastilles sur les événements
+    P.marks.forEach((m) => { m.visible = false; }); let mi = 0;
+    (o.events || []).forEach((e) => {
+      const ch = MARK[e.k]; if (!ch || mi >= P.marks.length || e.k === "sunk" && false) return;
+      const m = P.marks[mi++]; m.material.map = emojiTex(ch); m.material.needsUpdate = true; m.position.set(e.x, e.y + 1.1, e.z); m.visible = true;
+    });
+    if (o.outcome === "water" || o.outcome === "lava") { if (mi < P.marks.length) { const m = P.marks[mi++]; m.material.map = emojiTex(o.outcome === "lava" ? "🔥" : "💦"); m.material.needsUpdate = true; m.position.set(ex, egy + 1.4, ez); m.visible = true; } }
+    if (o.label) { setLabel(o.label, !!o.warn); P.label.visible = true; P.label.position.set(ex, egy + 3.1 + Math.min(1.5, sg * 0.15), ez); } else P.label.visible = false;
+  };
+  // point du terrain sous un clic ou un doigt
+  View.pick = function (cx, cy) {
+    if (!terrain || !renderer) return null; const r = host.getBoundingClientRect();
+    const ndc = new T.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+    const rc = new T.Raycaster(); rc.setFromCamera(ndc, camera); const hit = rc.intersectObject(terrain, false)[0];
+    return hit ? { x: hit.point.x, z: hit.point.z } : null;
   };
 
   // ---------- caméra ----------
@@ -315,6 +376,9 @@
   View.camState = () => ({ yaw: camYaw, dist: camDist, pitch: camPitch });
   View.follow = function (id) { followId = id; };
   View.setCamMode = function (m) { camMode = m; };
+  let topInfo = null;
+  View.setTop = function (on, info) { if (on) { topInfo = info; camMode = "top"; } else if (camMode === "top") { camMode = "aim"; topInfo = null; } };
+  View.isTop = () => camMode === "top";
   View.startFlyover = function (ms) {
     const h = View.hole; if (!h) return; flyT = 0; flyPath = { dur: ms || 4200, pts: h.path.filter((_, i) => i % 2 === 0).map((p) => new T.Vector3(p.x, 0, p.z)) };
     camMode = "fly";
@@ -333,6 +397,13 @@
       const dirx = -dx / dl, dirz = -dz / dl; // on regarde du trou vers le départ puis on revient
       tmpV.set(px + dirx * 14, groundY(px, pz) + 16 - e * 5, pz + dirz * 14); camPos.lerp(tmpV, 0.12); camLook.set(px, groundY(px, pz), pz);
       camera.position.copy(camPos); camera.lookAt(camLook); return;
+    }
+    if (camMode !== "top") { camera.up.lerp(UP, 0.25).normalize(); }
+    if (camMode === "top" && topInfo) {
+      const sx = Math.sin(topInfo.yaw), sz = Math.cos(topInfo.yaw); const H = topInfo.h;
+      tmpV.set(topInfo.x - sx * H * 0.16, groundY(topInfo.x, topInfo.z) + H, topInfo.z - sz * H * 0.16); camPos.lerp(tmpV, Math.min(1, dt * 6));
+      camLook.lerp(tmpV.set(topInfo.x, groundY(topInfo.x, topInfo.z), topInfo.z), Math.min(1, dt * 8));
+      camera.up.lerp(new T.Vector3(sx, 0, sz), Math.min(1, dt * 8)).normalize(); camera.position.copy(camPos); camera.lookAt(camLook); return;
     }
     if (camMode === "over") {
       const cx = (h.tee.x + h.cup.x) / 2, cz = (h.tee.z + h.cup.z) / 2; const span = Math.hypot(h.cup.x - h.tee.x, h.cup.z - h.tee.z);

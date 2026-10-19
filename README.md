@@ -156,7 +156,7 @@ Deux jeux arrivent sur l'accueil, Golfouille et Zoomalou. Ils partagent un petit
 
 - Golf en 3D avec des terrains générés à l'infini. Un bouton Générer un autre terrain dans le salon montre un aperçu, et Jouer ce parcours fixe la graine pour que tout le monde joue exactement le même trou.
 - Huit biomes (prairie, désert, neige, jungle, volcan, plage, bonbons, cosmos), chacun avec son décor et ses obstacles.
-- Course au trou. Le premier arrivé marque le plus de points, le temps compte, et l'on joue en tour par tour ou tous en même temps selon le réglage.
+- Course au trou. Le premier arrivé marque le plus de points, et l'on joue en tour par tour ou tous en même temps selon le réglage.
 - Plusieurs clubs (driver, fer, cale, lob, putter) avec des portées et des trajectoires différentes, une jauge de puissance à maintenir, une aide de visée réglable (aucune, points ou trajectoire).
 - De petits pouvoirs ramassés sur le terrain pour gêner les autres, avec un choix de cible. Leur fréquence et leur apparition se règlent.
 - Bots à quatre niveaux, reconnexion, mode solo.
@@ -166,9 +166,30 @@ Deux jeux arrivent sur l'accueil, Golfouille et Zoomalou. Ils partagent un petit
 
 - Courses de voitures sur des circuits générés à l'infini, inspirées de Trackmania Turbo, avec des graphismes volontairement simples.
 - Sept biomes (côte, désert, neige, forêt, volcan, bonbons, néon), des sols différents (bitume, terre, glace, sol collant), des tapis turbo, des bosses à sauter et des points de contrôle.
-- Cinq voitures, Bolide, Rallye-Pote, Pétard, Toupie et Bouboule, chacune avec ses forces. Le réglage permet de choisir librement ou de tirer une voiture imposée pour tout le monde.
+- Cinq voitures, Bolide, Rallye-Pote, Pétard, Toupie et Bouboule, chacune avec ses forces. Le premier joueur, l'hôte, choisit la voiture de tout le monde au garage avant chaque course, pour que la course reste équitable.
 - Mode essence. Le premier pilote pose un temps, puis chaque autre pilote a un réservoir limité pour le battre et retente tant qu'il lui reste de l'essence. Le réservoir se règle de deux façons, relatif au record ou fixe en secondes. Un essai abandonné coûte l'essence déjà brûlée.
 - Ordre des pilotes. Le réglage propose À tour de rôle ou Le dernier d'abord, où le pilote le moins bien classé pose le temps et le leader joue en dernier.
 - Mode chrono. Tout le monde roule en même temps, les voitures des autres sont transparentes, et le meilleur temps de chacun compte.
 - Fantôme du record avec écart en direct, retour au dernier point de contrôle, caméras multiples, commandes clavier, tactiles et manette.
 - Les temps sont rejoués par le serveur à partir des touches envoyées, sauf si l'on choisit de faire confiance aux joueurs dans les réglages.
+
+## Quinzième mise à jour, version finale de Golfouille et de Zoomalou
+
+### Golfouille
+
+- Nouvelle visée. Un simple toucher sur le terrain, ou sur la carte en haut à gauche, vise ce point. Le jeu choisit le club et règle la force pour que la balle s'y arrête, et tu peux ensuite tout changer à la main.
+- Prévision complète du coup. Le trait blanc montre le vol, le jaune le roulé, un cercle montre où la balle retombe et un autre l'erreur possible du coup. Des pastilles signalent les obstacles touchés, l'eau, la lave et les moulins ou barrières en mouvement. Le texte au-dessus des clubs donne la distance de vol, la distance d'arrêt, ce qui restera jusqu'au trou et la nature du sol sous la balle. Le réglage Aide à la visée permet de garder la trajectoire complète, la direction seule ou rien du tout.
+- Vue du dessus (bouton carte ou touche V) pour voir toute la trajectoire et toucher la cible. Bouton caddie (touche C) pour que le jeu vise vers le trou et choisisse le club conseillé.
+- Clubs expliqués. Chaque bouton de club affiche sa portée réelle en mètres depuis l'endroit où se trouve la balle, un club conseillé est signalé, et changer de club garde le même point visé. La jauge de force affiche le pourcentage et la distance, avec des boutons plus et moins.
+- Repère du trou toujours visible, avec la distance, même hors de l'écran. Petit tutoriel au premier coup, qu'on peut revoir dans le menu.
+- Nouveau barème de points, identique partout et expliqué à l'écran. Le premier dans le trou gagne 10 points, puis 7, 5, 3, 2 et 1. Un trou en un ajoute 5 points. Dans le décompte Arrivée et coups, chaque coup sous le par ajoute 2 points. Dans le décompte aux coups il n'y a pas de points et le moins de coups gagne. Le détail de chaque trou s'affiche à la fin du trou, avec la place, les coups, le bonus et le total.
+- Correction. L'ordre d'arrivée se calcule maintenant à l'instant exact où la balle tombe dans le trou, et non plus à la prochaine seconde du serveur.
+- Messages clairs après chaque coup (birdie, par, plouf, hors limites), compte à rebours visible quand le trou va se terminer, et trophées de fin de partie (plus long coup, roi du chaos, cible favorite, plongeur de l'année, collectionneur d'orbes, trou en un).
+
+### Zoomalou
+
+- Commandes aux quatre flèches. Haut pour accélérer, bas pour freiner puis reculer, gauche et droite pour tourner. Entrée recommence l'essai depuis le départ et Maj ramène au dernier point de contrôle. Les touches sont rappelées dans le garage et en course.
+- Voiture choisie par l'hôte pour tout le monde, sans réglage. Elle se choisit au garage avant chaque course.
+- Correction du bug d'essence avec les pilotes automatiques. Ils jouaient tous leurs essais d'un coup en cachette, ce qui vidait la jauge dès le début de leur tour. Ils roulent maintenant en direct, essai après essai, avec une jauge qui baisse vraiment. Ils abandonnent un essai quand ils sont en retard sur le record, ou insistent jusqu'à l'arrivée selon leur niveau.
+- Nouveau réglage Vitesse des tours des pilotes automatiques (normale, deux fois ou quatre fois plus vite) pour ne pas attendre quand ils ont un grand réservoir.
+- Le tableau de fin de course indique le nombre d'essais de chaque pilote.

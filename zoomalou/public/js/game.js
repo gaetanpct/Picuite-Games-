@@ -15,7 +15,7 @@
   const fmtS = (t) => fmt(t) + " s";
 
   const G = {
-    track: null, roundIdx: -1, total: 0, mode: "essence", st: null, turn: null, record: null, author: 0, imposed: null, samples: [], offset: 0, order: [],
+    track: null, roundIdx: -1, total: 0, mode: "essence", st: null, turn: null, record: null, author: 0, carId: "bolide", botPlan: null, samples: [], offset: 0, order: [],
     run: null, keys: {}, touch: {}, rstReq: false, snaps: {}, viewInit: false, myBest: null, myBestFrames: null, ghostFrames: null, ghostCar: "bolide", ghostT0: 0, ghostPtr: 0,
     autoArm: 0, wantArm: false, armedAt: 0, lastFeed: [], sheet: null, endInfo: null, lastTurnKey: "", waiting: false, prev: { seed: "", idx: 0, key: "", track: null }, lastMini: 0, lastDom: 0,
     cpBanner: 0, lastState: "",
@@ -77,7 +77,7 @@
   function onRound(m) {
     clock(m.now);
     if (!G.viewInit) { V.init($("#gl-host"), store.get("zoom.quality", autoQuality())); G.viewInit = true; V.paused = false; V.onFrame = onFrame; }
-    G.track = m.track; G.roundIdx = m.index; G.total = m.total; G.mode = m.mode; G.author = m.author; G.imposed = m.imposed; G.order = m.order || [];
+    G.track = m.track; G.roundIdx = m.index; G.total = m.total; G.mode = m.mode; G.author = m.author; G.carId = m.car || G.carId; G.botPlan = null; G.order = m.order || [];
     G.run = null; G.myBest = null; G.myBestFrames = null; G.ghostFrames = null; G.record = null; G.snaps = {}; G.turn = null; G.wantArm = false; G.armedAt = 0; G.waiting = false;
     closeSheet(); V.loadTrack(G.track); V.resize(); V.removeAllCars(); setBanner("Course " + (m.index + 1) + " sur " + m.total, G.track.name + " · " + TR.BIOMES[G.track.biome].name, 2600);
   }
@@ -94,7 +94,7 @@
 
   // ---------- état ----------
   function onState(s) {
-    clock(s.now); const old = G.st; G.st = s;
+    clock(s.now); const old = G.st; G.st = s; if (s.car) G.carId = s.car;
     if (!G.track) return;
     if (s.turn && (!G.turn || G.turn.pid !== s.turn.pid || G.turn.idx !== s.turn.idx)) { /* z:turn arrive juste avant */ }
     if (G.turn && s.turn) { G.turn.fuelLeft = s.turn.fuelLeft; G.turn.tries = s.turn.tries; G.turn.goAt = s.turn.goAt; G.turn.ended = s.turn.ended; }
@@ -112,7 +112,7 @@
   // ---------- pilotage ----------
   function arm() { if (G.armedAt && Date.now() - G.armedAt < 1200) return; G.armedAt = Date.now(); G.waiting = true; Kit.socket.emit("z:attempt"); }
   function onGo(m) {
-    clock(m.now); G.waiting = false; const car = m.car || (me() ? me().car : "bolide");
+    clock(m.now); G.waiting = false; const car = G.carId || m.car || "bolide";
     G.run = { r: CA.newRun(G.track, car), bytes: [], goAt: m.goAt, fuelTicks: m.fuelLeft > 0 ? Math.floor(m.fuelLeft * 60) : 1e12, fuel0: m.fuelLeft || 0, challenger: m.fuelLeft > 0, frames: [], done: false, car, cpShown: 0, out: false, finishSent: false, gptr: 0, lastGo: 0 };
     G.ghostPtr = 0; V.resetGates(); V.resetFollow(); G.armedAt = 0; G.cpBanner = 0;
     G.ghostT0 = m.goAt;
@@ -120,8 +120,8 @@
   }
   function inputNow() {
     const k = G.keys, t = G.touch; let steer = 0;
-    if (k.arrowleft || k.q || k.a || t.left) steer -= 1; if (k.arrowright || k.d || t.right) steer += 1;
-    let thr = (k.arrowup || k.z || k.w || t.gas) ? 1 : 0, brk = (k.arrowdown || k.s || t.brake) ? 1 : 0;
+    if (k.arrowleft || t.left) steer -= 1; if (k.arrowright || t.right) steer += 1;
+    let thr = (k.arrowup || t.gas) ? 1 : 0, brk = (k.arrowdown || t.brake) ? 1 : 0;
     const gp = navigator.getGamepads ? navigator.getGamepads()[0] : null;
     if (gp) { const ax = gp.axes[0] || 0; if (Math.abs(ax) > 0.12) steer = clamp(ax, -1, 1); if ((gp.buttons[7] && gp.buttons[7].value > 0.1) || (gp.buttons[0] && gp.buttons[0].pressed)) thr = 1; if (gp.buttons[6] && gp.buttons[6].value > 0.1) brk = 1; if (gp.buttons[2] && gp.buttons[2].pressed && !G.gpRst) { G.rstReq = true; G.gpRst = true; } if (!(gp.buttons[2] && gp.buttons[2].pressed)) G.gpRst = false; if (gp.buttons[3] && gp.buttons[3].pressed && !G.gpRs) { G.gpRs = true; restartAttempt(); } if (!(gp.buttons[3] && gp.buttons[3].pressed)) G.gpRs = false; }
     const rst = G.rstReq ? 1 : 0; G.rstReq = false;
@@ -170,7 +170,7 @@
     const myRun = run && run.r;
     if (myRun && (canDrive() || run.done)) {
       const r = myRun; const car = V.ensureCar("me", run.car, hexOf(cm ? cm.color : 0), false, null);
-      const inp = G.keys; const steer = ((inp.arrowright || inp.d || G.touch.right) ? 1 : 0) - ((inp.arrowleft || inp.q || inp.a || G.touch.left) ? 1 : 0);
+      const inp = G.keys; const steer = ((inp.arrowright || G.touch.right) ? 1 : 0) - ((inp.arrowleft || G.touch.left) ? 1 : 0);
       const fx = Math.sin(r.hd), fz = Math.cos(r.hd); const vf = r.vx * fx + r.vz * fz, vl = r.vx * -Math.cos(r.hd) + r.vz * Math.sin(r.hd);
       V.setCarState("me", { x: r.x, y: r.y, z: r.z, h: r.hd, p: r.pitch, a: r.air, b: r.boostT > 0, speed: vf, steer: -r.steerV, skid: Math.abs(vl) > 4 && !r.air ? 1 : 0 }, false);
       car.skidCol = r.onSurf === 1 ? "#a07a50" : r.onSurf === 2 ? "#e0f4ff" : "#dddddd";
@@ -195,7 +195,7 @@
     if (G.mode === "chrono") { G.ghostFrames = G.myBestFrames; G.ghostCar = run ? run.car : (cm ? cm.car : "bolide"); }
     const frames = G.ghostFrames; let ghostOn = false;
     if (S().ghost && frames && frames.length >= 16) {
-      if (run && !run.done && run.countdown === 0) gt = run.r.tick / 60; else if (spectating && s.turn.goAt) gt = (now - s.turn.goAt) / 1000;
+      if (run && !run.done && run.countdown === 0) gt = run.r.tick / 60; else if (spectating) { const bc = botClock(); if (bc) gt = bc.gap ? null : bc.t; else if (s.turn.goAt) gt = (now - s.turn.goAt) / 1000; }
       if (gt != null && gt >= 0) { const nF = frames.length / 8 - 1; const f = gt * 10; const k = Math.min(nF - 1, Math.floor(f)); const u = clamp(f - k, 0, 1);
         if (f <= nF + 20) { const o = Math.min(nF - 1, k) * 8, o2 = o + 8; const L = (a, b) => a + (b - a) * u; const hd = frames[o + 3] + ((((frames[o2 + 3] - frames[o + 3]) % 6.2832) + 9.4248) % 6.2832 - 3.1416) * u;
           V.ensureCar("ghost", G.ghostCar, "#9fe8ff", true, "Record"); V.setCarState("ghost", { x: L(frames[o], frames[o2]), y: L(frames[o + 1], frames[o2 + 1]), z: L(frames[o + 2], frames[o2 + 2]), h: hd, p: frames[o + 4], a: frames[o + 5], b: frames[o + 6], speed: 20 }, false); ghostOn = true; } }
@@ -229,12 +229,21 @@
     if (m.pid === myId()) { G.run = null; G.waiting = false; }
   }
   function onResult(m) { if (m.pid !== myId()) feed(nameOf(m.pid) + " termine en " + fmtS(m.time)); }
-  function onBotTurn(m) { feed(nameOf(m.pid) + " tente sa chance" + (m.tries > 1 ? " en " + m.tries + " essais" : "")); }
+  function onBotTurn(m) { clock(m.now); G.botPlan = m; }
+  // horloge d'un tour d'automate, calculée comme sur le serveur à partir du plan reçu
+  function botClock() {
+    const p = G.botPlan, s = G.st; if (!p || !s || !s.turn || s.turn.pid !== p.pid || s.phase !== "turns") return null;
+    const e = (snow() - p.startAt) / 1000 * p.rate; if (e < 0) return { t: 0, fuel: p.fuel, idx: 0, gap: true, n: p.segs.length };
+    let burned = 0, idx = p.segs.length - 1, seg = p.segs[idx];
+    for (let i = 0; i < p.segs.length; i++) { const sg = p.segs[i]; if (e < sg.t0 + sg.dur + 1.5) { seg = sg; idx = i; break; } burned += sg.burn; }
+    const local = e - seg.t0; const inSeg = local >= 0 && local <= seg.dur;
+    return { t: clamp(local, 0, seg.dur), fuel: p.fuel > 0 ? Math.max(0, p.fuel - burned - (seg.burn > 0 ? clamp(local, 0, seg.dur) : 0)) : 0, idx, gap: !inSeg, n: p.segs.length, kind: seg.kind };
+  }
   function onRoundEnd(m) {
     clock(m.now); G.endInfo = m; G.run = null;
     const tbl = el("table", { class: "tbl" }, [
-      el("thead", {}, [el("tr", {}, [el("th", { text: "Pilote" }), el("th", { class: "r", text: "Meilleur temps" }), el("th", { class: "r", text: "Points" }), el("th", { class: "r", text: "Total" })])]),
-      el("tbody", {}, m.rows.map((r) => { const p = stP(r.id) || {}; const car = CA.CARS[r.car]; return el("tr", {}, [el("td", {}, [el("span", { class: "dotc", style: { background: hexOf(p.color) } }), (r.winner ? "🏆 " : "") + (p.name || "?") + (car ? " " + car.icon : "")]), el("td", { class: "r", text: r.best == null ? "-" : fmtS(r.best) }), el("td", { class: "r", text: "+" + r.pts }), el("td", { class: "r", text: String(r.total) })]); })),
+      el("thead", {}, [el("tr", {}, [el("th", { text: "Pilote" }), el("th", { class: "r", text: "Meilleur temps" }), el("th", { class: "r", text: "Essais" }), el("th", { class: "r", text: "Points" }), el("th", { class: "r", text: "Total" })])]),
+      el("tbody", {}, m.rows.map((r) => { const p = stP(r.id) || {}; const car = CA.CARS[r.car]; return el("tr", {}, [el("td", {}, [el("span", { class: "dotc", style: { background: hexOf(p.color) } }), (r.winner ? "🏆 " : "") + (p.name || "?") + (car ? " " + car.icon : "")]), el("td", { class: "r", text: r.best == null ? "-" : fmtS(r.best) }), el("td", { class: "r", text: String(r.tries || 0) }), el("td", { class: "r", text: "+" + r.pts }), el("td", { class: "r", text: String(r.total) })]); })),
     ]);
     const note = el("p", { id: "sheet-next", class: "muted small", text: "" });
     const info = el("p", { class: "muted", text: m.track + (m.author ? " · temps de l'auteur " + fmtS(m.author) : "") + (m.recordTime ? " · record final " + fmtS(m.recordTime) : "") });
@@ -262,26 +271,31 @@
   let bannerTimer = 0;
   function setBanner(big, small, ms) { const c = $("#z-center"); if (!c) return; c.innerHTML = ""; const b = el("div", { class: "banner", text: big }); if (small) b.appendChild(el("small", { text: small })); c.appendChild(b); clearTimeout(bannerTimer); if (ms) bannerTimer = setTimeout(() => { c.innerHTML = ""; }, ms); }
   function feed(text) { const box = $("#z-feed"); if (!box) return; const line = el("div", { class: "pill", text }); box.appendChild(line); while (box.children.length > 3) box.firstChild.remove(); setTimeout(() => line.remove(), 4200); }
-  function hideGarage() { const g = $("#garage"); if (g) g.classList.add("hidden"); }
+  function hideGarage() { const g = $("#garage"); if (g) { g.classList.add("hidden"); g.dataset.key = ""; } }
   function renderGarage() {
-    const g = $("#garage"); if (!g || !G.st || !G.track) return; const s = G.st; const cm = me(); const cfg = S();
-    // on ne reconstruit pas pendant une pression pour garder les clics fiables
-    g.classList.remove("hidden"); g.innerHTML = "";
-    const B = TR.BIOMES[G.track.biome]; const secs = Math.max(0, Math.ceil((s.phaseUntil - snow()) / 1000));
+    const g = $("#garage"); if (!g || !G.st || !G.track) return; const s = G.st; const cm = me();
+    // on ne reconstruit le garage que si son contenu change, sinon un clic en cours serait perdu
+    const secs = Math.max(0, Math.ceil((s.phaseUntil - snow()) / 1000)); const isHost0 = Kit.isHost();
+    const gkey = [G.track.name, G.carId, isHost0, !!(cm && cm.ready), Kit.room && Kit.room.hostId].join("|");
+    g.classList.remove("hidden");
+    if (g.dataset.key === gkey && g.firstChild) { const t = $("#gar-secs"); if (t) t.textContent = (isHost0 ? "Tu choisis la voiture de tout le monde" : nameOf(Kit.room.hostId) + " choisit la voiture de tout le monde") + " · départ dans " + secs + " s"; return; }
+    g.dataset.key = gkey; g.innerHTML = "";
+    const B = TR.BIOMES[G.track.biome];
     g.appendChild(el("div", { class: "garage__info" }, [el("b", { text: B.icon + " " + G.track.name }), el("span", { class: "small", text: B.name + " · " + Math.round(G.track.length) + " m · environ " + Math.round(G.track.length / 27) + " s de conduite" + (G.author ? " · temps de l'auteur " + fmtS(G.author) : "") })]));
-    const list = G.imposed ? [G.imposed] : cfg.cars; const cards = el("div", { class: "cars" });
-    list.forEach((id) => {
-      const c = CA.CARS[id]; const on = cm && cm.car === id; const bar = (v) => el("i", { style: { width: Math.round(clamp(v, 0.08, 1) * 80) + "px" } });
-      cards.appendChild(el("button", { class: "carcard" + (on ? " carcard--on" : ""), onclick: () => { if (!G.imposed) { Kit.socket.emit("z:car", { id }); sound.click(); } } }, [
+    const isHost = Kit.isHost(); const cards = el("div", { class: "cars" + (isHost ? "" : " cars--locked") });
+    CA.CAR_ORDER.forEach((id) => {
+      const c = CA.CARS[id]; const on = G.carId === id; const bar = (v) => el("i", { style: { width: Math.round(clamp(v, 0.08, 1) * 80) + "px" } });
+      cards.appendChild(el("button", { class: "carcard" + (on ? " carcard--on" : ""), onclick: () => { if (isHost) { Kit.socket.emit("z:car", { id }); sound.click(); } else toast("Le premier joueur, l'hôte, choisit la voiture de tout le monde.", "info"); } }, [
         el("b", {}, [el("span", { class: "ic", text: c.icon }), c.name]), el("p", { text: c.desc }),
         el("div", { class: "stat" }, [el("span", { text: "Vitesse" }), bar(c.vmax / 60)]), el("div", { class: "stat" }, [el("span", { text: "Accélération" }), bar(c.acc / 26)]),
         el("div", { class: "stat" }, [el("span", { text: "Adhérence" }), bar(c.grip / 7.6)]), el("div", { class: "stat" }, [el("span", { text: "Maniabilité" }), bar(c.turn / 2.8)]),
       ]));
     });
     g.appendChild(cards);
+    g.appendChild(el("div", { class: "legend" }, [el("kbd", { text: "↑" }), el("span", { text: "accélérer" }), el("kbd", { text: "↓" }), el("span", { text: "reculer" }), el("kbd", { text: "←" }), el("kbd", { text: "→" }), el("span", { text: "tourner" }), el("kbd", { text: "Entrée" }), el("span", { text: "recommencer" }), el("kbd", { text: "Maj" }), el("span", { text: "dernier point de contrôle" })]));
     const ready = !!(cm && cm.ready);
     g.appendChild(el("div", { class: "garage__row" }, [
-      el("span", { class: "pill", text: G.imposed ? "Voiture tirée au sort pour tout le monde" : "Départ dans " + secs + " s" }),
+      el("span", { class: "pill", id: "gar-secs", text: (isHost ? "Tu choisis la voiture de tout le monde" : nameOf(Kit.room.hostId) + " choisit la voiture de tout le monde") + " · départ dans " + secs + " s" }),
       el("button", { class: "btn " + (ready ? "btn--ghost" : "btn--green") + " btn--big", text: ready ? "Je ne suis plus prêt" : "Je suis prêt", onclick: () => Kit.socket.emit("z:ready") }),
     ]));
     if (cm && cm.car) { const c = V.ensureCar("me", cm.car, hexOf(cm.color), false, null); const st = G.track.start; V.setCarState("me", { x: st.x, y: st.y, z: st.z, h: st.h, p: 0, a: 0, b: 0, speed: 0 }, true); }
@@ -308,20 +322,22 @@
         const f = G.ghostFrames; const nF = f.length / 8; const idx = run.r.idx; let k = G.ghostPtr; while (k < nF - 1 && f[k * 8 + 7] < idx) k++; G.ghostPtr = k;
         if (k > 0 && k < nF) { const a = f[(k - 1) * 8 + 7], b = f[k * 8 + 7]; const u = b > a ? clamp((idx - a) / (b - a), 0, 1) : 0; const gT = (k - 1 + u) / 10; const d = shownTime - gT; subTxt = (d <= 0 ? "−" : "+") + fmt(Math.abs(d)) + " s"; cls = d <= 0 ? "z-delta--good" : "z-delta--bad"; }
       }
-    } else if (s && (s.phase === "turns" && s.turn && s.turn.pid !== myId() && s.turn.goAt)) { const t = Math.max(0, (snow() - s.turn.goAt) / 1000); timeTxt = fmt(t) + "<small>s</small>"; subTxt = nameOf(s.turn.pid) + " roule"; }
+    } else if (s && s.phase === "turns" && s.turn && s.turn.pid !== myId() && botClock()) { const bc = botClock(); timeTxt = bc.gap ? "" : fmt(bc.t) + "<small>s</small>"; subTxt = nameOf(s.turn.pid) + " essai " + (bc.idx + 1) + (S().botPace > 1 ? " · vitesse x" + S().botPace : ""); }
+    else if (s && (s.phase === "turns" && s.turn && s.turn.pid !== myId() && s.turn.goAt)) { const t = Math.max(0, (snow() - s.turn.goAt) / 1000); timeTxt = fmt(t) + "<small>s</small>"; subTxt = nameOf(s.turn.pid) + " roule"; }
     else timeTxt = "";
     if (G.lastDom.t !== timeTxt) { tEl.innerHTML = timeTxt; G.lastDom.t = timeTxt; }
     sub.textContent = subTxt; sub.className = "z-sub " + cls;
     // record
     const rec = $("#z-rec"); let rt = "", rs = "";
-    if (s && s.mode === "essence" && G.record) { rt = "Record " + fmtS(G.record.time); rs = nameOf(G.record.pid); } else if (s && s.mode === "chrono") { rt = G.myBest != null ? "Ton meilleur " + fmtS(G.myBest) : "Pas encore de temps"; rs = s.raceEnd ? "Il reste " + Math.max(0, Math.ceil((s.raceEnd - snow()) / 1000)) + " s" : ""; }
+    if (s && s.mode === "essence" && s.phase === "turns" && s.turn && s.turn.role === "setter") { rt = s.turn.pid === myId() ? "Pose le temps à battre" : nameOf(s.turn.pid) + " pose le temps"; rs = "Essai " + Math.min(S().refTries, s.turn.tries + 1) + " sur " + S().refTries; }
+    else if (s && s.mode === "essence" && G.record) { rt = "Record " + fmtS(G.record.time); rs = nameOf(G.record.pid) + (s.turn && s.turn.role === "challenger" ? " · essai " + (s.turn.pid === myId() && G.run ? "en cours" : "suivant") : ""); } else if (s && s.mode === "chrono") { rt = G.myBest != null ? "Ton meilleur " + fmtS(G.myBest) : "Pas encore de temps"; rs = s.raceEnd ? "Il reste " + Math.max(0, Math.ceil((s.raceEnd - snow()) / 1000)) + " s" : ""; }
     if (G.lastDom.r !== rt + rs) { rec.innerHTML = ""; rec.appendChild(el("b", { text: rt })); rec.appendChild(el("span", { text: rs })); G.lastDom.r = rt + rs; }
     $("#z-speed").style.visibility = run && !run.done ? "visible" : "hidden";
     $("#z-speed").innerHTML = "<b>" + Math.round(speed * 3.6) + "</b><span>km/h</span>";
     // essence
     const fu = $("#z-fuel");
     if (s && s.mode === "essence" && s.phase === "turns" && s.turn && s.turn.role === "challenger") {
-      let left = s.turn.fuelLeft; if (run && run.challenger && !run.done && run.countdown === 0) left = run.fuel0 - run.r.tick / 60; else if (s.turn.goAt && s.turn.pid !== myId()) left = s.turn.fuelLeft - Math.max(0, (snow() - s.turn.goAt) / 1000);
+      let left = s.turn.fuelLeft; if (run && run.challenger && !run.done && run.countdown === 0) left = run.fuel0 - run.r.tick / 60; else if (s.turn.pid !== myId() && botClock()) left = botClock().fuel; else if (s.turn.goAt && s.turn.pid !== myId()) left = s.turn.fuelLeft - Math.max(0, (snow() - s.turn.goAt) / 1000);
       left = Math.max(0, left); fu.classList.remove("hidden"); fu.classList.toggle("z-fuel--low", left < 10);
       const txt = "⛽ " + Math.ceil(left) + " s d'essence"; if (G.lastDom.f !== txt) { fu.innerHTML = ""; fu.appendChild(el("div", { text: txt })); fu.appendChild(el("div", { class: "bar" }, [el("i", { style: { width: clamp(left / s.turn.fuel, 0, 1) * 100 + "%" } })])); G.lastDom.f = txt; } else fu.querySelector("i").style.width = clamp(left / s.turn.fuel, 0, 1) * 100 + "%";
       if (run && run.out && !run.done && run.countdown === 0 && !G.noFuelBanner) { G.noFuelBanner = true; setBanner("Panne d'essence", "Franchis la ligne en roue libre, ou recommence", 2600); Kit.sound.fail(); }
@@ -336,7 +352,7 @@
     }
     // conseils
     const tip = $("#z-tip"); let tt = "";
-    if (s && canDrive()) tt = "Flèches ou ZQSD pour piloter · Entrée pour recommencer · Retour arrière pour revenir au point de contrôle · C pour la caméra";
+    if (s && canDrive()) tt = "↑ accélérer · ↓ reculer · ← → tourner · Entrée recommencer l'essai · Maj dernier point de contrôle · C caméra";
     else if (s && s.phase === "turns" && s.turn) tt = "Tu joueras dans " + Math.max(0, s.order.indexOf(myId()) - s.turn.idx) + " tour" + (s.order.indexOf(myId()) - s.turn.idx > 1 ? "s" : "") + (s.order.indexOf(myId()) <= s.turn.idx ? ", ton tour est passé." : ".");
     if (G.lastDom.tip !== tt) { tip.textContent = tt; G.lastDom.tip = tt; }
     if (G.sheet && G.sheet.kind === "end" && G.endInfo) { const left = Math.max(0, Math.ceil((G.endInfo.until - snow()) / 1000)); G.sheet.note.textContent = G.endInfo.last ? "C'est la dernière course, les résultats arrivent." : "Prochaine course dans " + left + " s."; }
@@ -369,9 +385,9 @@
     window.addEventListener("keydown", (e) => {
       if (document.body.dataset.screen !== "game") return; if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName || "")) return;
       const k = e.key.toLowerCase(); G.keys[k] = true; engineStart();
-      if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "backspace"].includes(k)) e.preventDefault();
+      if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "enter", "shift"].includes(k)) e.preventDefault();
       if (e.repeat) return;
-      if (k === "enter" || k === "r") restartAttempt(); else if (k === "backspace" || k === "x") G.rstReq = true; else if (k === "c") { const m = V.cycleCam(); toast(["Caméra poursuite", "Caméra haute", "Caméra capot"][m], "info"); }
+      if (k === "enter") restartAttempt(); else if (k === "shift") G.rstReq = true; else if (k === "c") { const m = V.cycleCam(); toast(["Caméra poursuite", "Caméra haute", "Caméra capot"][m], "info"); }
     });
     window.addEventListener("keyup", (e) => { G.keys[e.key.toLowerCase()] = false; });
     window.addEventListener("blur", () => { G.keys = {}; });
@@ -382,9 +398,9 @@
     const qbox = el("div", { class: "chips" }, qs.map(([v, l]) => el("button", { class: "chip" + (q === v ? " chip--on" : ""), text: l, onclick: (ev) => { store.set("zoom.quality", v); V.setQuality(v); ev.target.parentNode.querySelectorAll(".chip").forEach((c) => c.classList.remove("chip--on")); ev.target.classList.add("chip--on"); } })));
     const sbtn = el("button", { class: "btn btn--small btn--ghost", text: sound.enabled ? "Son activé" : "Son coupé", onclick: (ev) => { ev.target.textContent = sound.toggle() ? "Son activé" : "Son coupé"; } });
     const keys = el("div", { class: "keys" }, [
-      el("kbd", { text: "Flèches ou Z Q S D" }), el("span", { text: "Accélérer, freiner et marche arrière, tourner." }),
-      el("kbd", { text: "Entrée ou R" }), el("span", { text: "Recommencer l'essai. En mode essence, l'essence déjà brûlée est perdue." }),
-      el("kbd", { text: "Retour arrière ou X" }), el("span", { text: "Revenir au dernier point de contrôle, le chrono continue." }),
+      el("kbd", { text: "↑ ↓ ← →" }), el("span", { text: "Flèche du haut pour accélérer, flèche du bas pour freiner puis reculer, flèches de côté pour tourner." }),
+      el("kbd", { text: "Entrée" }), el("span", { text: "Recommencer l'essai depuis la ligne de départ. En mode essence, l'essence déjà brûlée est perdue." }),
+      el("kbd", { text: "Maj" }), el("span", { text: "Revenir au dernier point de contrôle franchi, le chrono continue." }),
       el("kbd", { text: "C" }), el("span", { text: "Changer de caméra." }),
       el("kbd", { text: "Manette" }), el("span", { text: "Stick gauche pour tourner, gâchette droite pour accélérer, gauche pour freiner, carré pour revenir au point de contrôle, triangle pour recommencer." }),
     ]);
@@ -443,7 +459,7 @@
       { title: "Le but", text: "Chaque course se joue sur un circuit généré au hasard. Il s'agit de franchir la ligne d'arrivée le plus vite possible, en passant par tous les points de contrôle." },
       { title: "Le mode essence", text: "Le premier pilote pose un temps. Ensuite chaque autre pilote, à son tour, a un réservoir limité pour le battre. Chaque essai consomme de l'essence, y compris ceux qu'on abandonne. S'il bat le record il devient le nouveau record à battre, sinon il tombe en panne et passe la main." },
       { title: "Le mode chrono", text: "Tout le monde roule en même temps pendant la durée choisie. On recommence autant qu'on veut, et le meilleur temps de chacun compte. Les voitures des autres sont transparentes et ne gênent jamais." },
-      { title: "Piloter", text: "Flèches ou Z Q S D pour piloter. Entrée recommence l'essai, Retour arrière ramène au dernier point de contrôle sans arrêter le chrono. Les tapis orange donnent un coup de turbo, et un long dérapage donne un petit turbo à la sortie, surtout avec la Toupie." },
+      { title: "Piloter", text: "Les quatre flèches pilotent, haut pour accélérer, bas pour freiner et reculer, côtés pour tourner. Entrée recommence l'essai à zéro, Maj ramène au dernier point de contrôle sans arrêter le chrono. Les tapis orange donnent un coup de turbo, et un long dérapage donne un petit turbo à la sortie, surtout avec la Toupie." },
       { title: "Les sols", text: "Le bitume accroche, la terre un peu moins, la glace très peu, et le sol collant ralentit. Chaque voiture réagit différemment, la Rallye-Pote adore la terre et la glace." },
       { title: "Les points", text: "En essence, la voiture qui détient le record à la fin gagne 3 points, et celle qui l'a détenu juste avant 1 point. En chrono, les points dépendent du classement des meilleurs temps." },
     ],

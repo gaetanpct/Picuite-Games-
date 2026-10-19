@@ -39,7 +39,9 @@
       const i = x - hole.ox, j = z - hole.oz; const col = hole.nx - i, row = hole.nz - j; // en cases, bord haut gauche à 0
       return [ox + (col - (hole.nx - 1 - b.maxI)) * sc, oy + (row - (hole.nz - 1 - b.maxJ)) * sc];
     };
-    return { b, sc, ox, oy, cw, ch, toPx };
+    // l'inverse, pour toucher la carte et viser
+    const fromPx = (px, py) => { const col = (px - ox) / sc + (hole.nx - 1 - b.maxI), row = (py - oy) / sc + (hole.nz - 1 - b.maxJ); return { x: hole.nx - col + hole.ox, z: hole.nz - row + hole.oz }; };
+    return { b, sc, ox, oy, cw, ch, toPx, fromPx };
   }
   function draw(canvas, hole, extra) {
     const g = canvas.getContext("2d"); const w = canvas.width, h = canvas.height; g.clearRect(0, 0, w, h);
@@ -63,7 +65,12 @@
     if (extra && extra.players) extra.players.forEach((p) => {
       if (p.hidden) return; const q = m.toPx(p.x, p.z); g.fillStyle = p.hex; g.strokeStyle = p.you ? "#ffffff" : "#0b3a2a"; g.lineWidth = p.you ? 3 : 2; g.beginPath(); g.arc(q[0], q[1], p.you ? 5.5 : 4.5, 0, 6.3); g.fill(); g.stroke();
     });
-    if (extra && extra.aim) { const q = m.toPx(extra.aim.x, extra.aim.z); const d = [-Math.sin(extra.aim.yaw), -Math.cos(extra.aim.yaw)]; g.strokeStyle = "#ffd84a"; g.lineWidth = 2; g.beginPath(); g.moveTo(q[0], q[1]); g.lineTo(q[0] + d[0] * 22, q[1] + d[1] * 22); g.stroke(); }
+    if (extra && extra.pred) {
+      const f = extra.pred.frames, n = f.length / 3; g.strokeStyle = extra.pred.warn ? "#ff6a5a" : "#ffffff"; g.lineWidth = 2.2; g.beginPath();
+      for (let i = 0; i < n; i += 2) { const q = m.toPx(f[i * 3] / 100, f[i * 3 + 2] / 100); if (i) g.lineTo(q[0], q[1]); else g.moveTo(q[0], q[1]); } g.stroke();
+      const e = m.toPx(f[(n - 1) * 3] / 100, f[(n - 1) * 3 + 2] / 100); g.fillStyle = extra.pred.warn ? "#ff6a5a" : "#ffd84a"; g.strokeStyle = "#0b3a2a"; g.lineWidth = 2; g.beginPath(); g.arc(e[0], e[1], 5, 0, 6.3); g.fill(); g.stroke();
+    }
+    if (extra && extra.aim && !extra.pred) { const q = m.toPx(extra.aim.x, extra.aim.z); const d = [-Math.sin(extra.aim.yaw), -Math.cos(extra.aim.yaw)]; g.strokeStyle = "#ffd84a"; g.lineWidth = 2; g.beginPath(); g.moveTo(q[0], q[1]); g.lineTo(q[0] + d[0] * 22, q[1] + d[1] * 22); g.stroke(); }
     return m;
   }
   window.GolfMini = { draw, mapper, base };

@@ -35,6 +35,16 @@
   };
   const POWER_ORDER = ["mur", "glu", "bourrasque", "brouillard", "inversion", "gel", "verglas", "echange", "turbo", "aimant", "bulle", "raccourci", "rembobine"];
 
+  // barème unique des points, utilisé par le serveur et par l'affichage
+  const SCORE = { place: [10, 7, 5, 3, 2, 1], underPar: 2, ace: 5 };
+  const placePts = (place) => (place >= 1 ? SCORE.place[Math.min(place - 1, SCORE.place.length - 1)] : 0);
+  function scoringText(s) {
+    const pl = SCORE.place.join(", ");
+    if (s.scoring === "coups") return "Pas de points. À la fin, celui qui a le moins de coups gagne. Un trou non fini compte ses coups plus " + s.unfinishedPenalty + " de pénalité. Eau, lave et sortie de terrain ajoutent un coup.";
+    const base = "Points d'arrivée " + pl + " selon l'ordre dans le trou, 0 si tu ne finis pas. Un trou en un rapporte " + SCORE.ace + " points de plus.";
+    if (s.scoring === "course") return base + " Le nombre de coups ne change rien d'autre.";
+    return base + " Chaque coup sous le par rapporte " + SCORE.underPar + " points de plus. Au par ou au-dessus il n'y a ni bonus ni malus.";
+  }
   const BIOME_OPTIONS = Course.BIOME_IDS.map((id) => ({ value: id, label: Course.BIOMES[id].name, icon: Course.BIOMES[id].icon }));
   const FEATURE_OPTIONS = [
     { value: "bumpers", label: "Bumpers", icon: "🔵", desc: "Des plots qui renvoient la balle plus fort qu'elle n'arrive." },
@@ -53,14 +63,14 @@
         { value: "tour", label: "Tour par tour", icon: "🔁", desc: "Le plus loin du trou joue. Plus calme et plus tactique." },
       ] },
       { id: "scoring", label: "Décompte des points", type: "cards", default: "mixte", options: [
-        { value: "course", label: "Arrivée", icon: "🥇", desc: "Des points selon l'ordre d'arrivée dans le trou. Les coups ne comptent pas." },
-        { value: "mixte", label: "Mixte", icon: "⚖️", desc: "Points d'arrivée, plus un bonus ou un malus selon le par du trou." },
-        { value: "coups", label: "Coups", icon: "🔢", desc: "Le moins de coups gagne, comme au vrai golf." },
+        { value: "course", label: "Arrivée", icon: "🥇", desc: "Seul l'ordre d'arrivée compte. Le premier dans le trou gagne 10 points, puis 7, 5, 3, 2 et 1. Un trou en un ajoute 5 points." },
+        { value: "mixte", label: "Arrivée et coups", icon: "⚖️", desc: "Les mêmes points d'arrivée, plus 2 points par coup sous le par du trou et 5 points pour un trou en un. Rapide et précis est récompensé." },
+        { value: "coups", label: "Coups", icon: "🔢", desc: "Pas de points, le moins de coups au total gagne, comme au vrai golf. L'ordre d'arrivée ne compte pas." },
       ] },
       { id: "finishGrace", label: "Temps accordé après le premier arrivé", type: "chips", default: 30, options: [{ value: 15, label: "15 s" }, { value: 30, label: "30 s" }, { value: 45, label: "45 s" }, { value: 60, label: "1 min" }, { value: 90, label: "1 min 30" }], showIf: { playMode: "course" }, info: "Quand quelqu'un met sa balle dans le trou, les autres ont ce temps pour finir. Passé ce délai, le trou se termine." },
       { id: "shotClock", label: "Temps pour jouer son coup", type: "chips", default: 30, options: [{ value: 20, label: "20 s" }, { value: 30, label: "30 s" }, { value: 45, label: "45 s" }, { value: 60, label: "1 min" }], showIf: { playMode: "tour" }, info: "Si tu hésites trop longtemps, le jeu tape un coup à ta place." },
       { id: "maxStrokes", label: "Coups maximum par trou", type: "chips", default: 8, options: [6, 8, 10, 12], info: "Au-delà de ce nombre de coups la balle est ramassée et le trou est terminé pour toi." },
-      { id: "unfinishedPenalty", label: "Coups ajoutés si le trou n'est pas fini", type: "chips", default: 2, options: [0, 1, 2, 3], info: "Compte dans le décompte aux coups et dans le bonus du mode mixte." },
+      { id: "unfinishedPenalty", label: "Coups ajoutés si le trou n'est pas fini", type: "chips", default: 2, options: [0, 1, 2, 3], info: "Ajoutés au total de coups d'un joueur qui ne finit pas un trou, uniquement dans le décompte aux coups." },
     ] },
     { category: "🗺️ Le terrain", rules: [
       { id: "biomes", label: "Biomes possibles", type: "multi", default: Course.BIOME_IDS.slice(), options: BIOME_OPTIONS, info: "Coche les décors que tu veux croiser. Chaque biome a ses pièges et ses obstacles." },
@@ -77,7 +87,7 @@
     { category: "🏌️ Les clubs", rules: [
       { id: "clubs", label: "Clubs autorisés", type: "multi", default: ["driver", "iron", "wedge", "lob", "putter", "ricochet", "rocket"], options: CLUB_ORDER.map((id) => ({ value: id, label: CLUBS[id].name, icon: CLUBS[id].icon, desc: CLUBS[id].desc })), info: "Le putter est toujours disponible pour ne jamais rester bloqué." },
       { id: "precision", label: "Précision des coups", type: "chips", default: 1, options: [{ value: 0.5, label: "Facile" }, { value: 1, label: "Normale" }, { value: 1.6, label: "Réaliste" }], info: "Facile réduit de moitié les erreurs de visée, réaliste les augmente." },
-      { id: "aimAssist", label: "Aide à la visée", type: "chips", default: "dots", options: [{ value: "none", label: "Aucune" }, { value: "dots", label: "Pointillés" }, { value: "traj", label: "Trajectoire" }], info: "Pointillés montre seulement la direction. Trajectoire dessine où ta balle va retomber sans l'erreur du coup, utile pour débuter. Valable pour tous les joueurs." },
+      { id: "aimAssist", label: "Aide à la visée", type: "chips", default: "traj", options: [{ value: "none", label: "Aucune" }, { value: "dots", label: "Direction seule" }, { value: "traj", label: "Trajectoire complète" }], info: "Trajectoire complète montre le vol de la balle, ses rebonds, où elle s'arrête, les obstacles touchés, l'eau et la lave, avec la zone où l'erreur du coup peut l'envoyer. Direction seule montre juste une flèche. Aucune est le mode des experts. Valable pour tous les joueurs." },
       { id: "cupSize", label: "Taille du trou", type: "chips", default: 1, options: [{ value: 1.5, label: "Grand" }, { value: 1, label: "Normal" }, { value: 0.75, label: "Petit" }], info: "Un grand trou avale aussi les balles un peu rapides." },
     ] },
     { category: "✨ Les pouvoirs", rules: [
@@ -123,5 +133,5 @@
     hole.cupR = 0.52 * s.cupSize;
     return hole;
   }
-  return { holeFor, SCHEMA, CLUBS, CLUB_ORDER, POWERS, POWER_ORDER, defaults, normalize, allRules };
+  return { holeFor, SCORE, placePts, scoringText, SCHEMA, CLUBS, CLUB_ORDER, POWERS, POWER_ORDER, defaults, normalize, allRules };
 });

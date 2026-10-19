@@ -13,7 +13,6 @@ const COUNTDOWN_MS = 5000 * TS;
 const BETWEEN_MS = 9000 * TS;
 const HARD_LIMIT_MS = 7 * 60 * 1000 * TS;
 const FREEZE_MS = 4000 * TS, FOG_MS = 12000 * TS, WALL_MS = 25000 * TS;
-const PLACE_PTS = [6, 4, 3, 2, 1, 1, 1, 1];
 const gauss = (r) => (r() + r() + r() - 1.5) * 1.6;
 const rng = Math.random;
 
@@ -27,7 +26,7 @@ function start(room, api) {
     players: {}, walls: [], orbs: [], turnPid: null, turnUntil: 0, nextWallId: 1, history: [], lastEmit: 0, over: false, timer: null, wind: [0, 0], finishCount: 0,
   };
   room.players.forEach((p) => {
-    g.players[p.id] = { id: p.id, strokes: 0, finished: false, place: 0, capped: false, moving: false, settleAt: 0, pending: null, powers: [], fx: {}, x: 0, y: 0, z: 0, lastRest: null, prevRest: null, rocketUsed: false, botNext: 0, pts: 0, totalStrokes: 0, holesWon: 0, aces: 0, lastOutcome: null, absentSince: 0 };
+    g.players[p.id] = { id: p.id, strokes: 0, finished: false, place: 0, capped: false, moving: false, settleAt: 0, pending: null, powers: [], fx: {}, x: 0, y: 0, z: 0, lastRest: null, prevRest: null, rocketUsed: false, botNext: 0, pts: 0, totalStrokes: 0, holesWon: 0, aces: 0, stats: { longest: 0, hostile: 0, targeted: 0, penalties: 0, orbs: 0 }, lastOutcome: null, absentSince: 0 };
   });
   api.sysChat(room, "Le parcours se joue avec la graine " + baseSeed + ".");
   g.timer = setInterval(() => { try { tick(room); } catch (e) { console.error("tick golf", e); } }, 100);
@@ -119,6 +118,7 @@ function shoot(room, pid, data) {
   if (s.powersOn) opts.orbs = g.orbs.filter((o) => !o.taken).map((o) => ({ id: o.id, x: o.x, z: o.z, taken: false }));
   const ball = { x: P.x, y: P.y, z: P.z };
   const res = Physics.simulate(g.hole, ball, { yaw, speed, loft: club.loft, lob: !!club.lob }, opts);
+  P.stats.longest = Math.max(P.stats.longest, Math.hypot(res.end.x - P.x, res.end.z - P.z));
   P.prevRest = P.lastRest; P.lastRest = null;
   P.strokes++; P.moving = true; P.lastClub = allowed;
   const usedFx = Object.keys(P.fx).filter((k) => k !== "frozenUntil" && k !== "fogUntil" && k !== "bubble");
@@ -139,14 +139,14 @@ function settle(room, P) {
   // pouvoirs gagnés
   if (s.powersOn && res.picked.length) {
     res.picked.forEach(() => {
-      if (P.powers.length >= s.powerSlots) return;
+      if (P.powers.length >= s.powerSlots) return; P.stats.orbs++;
       const pool = s.powerSet; if (!pool.length) return;
       const id = pool[Math.floor(rng() * pool.length)]; P.powers.push(id);
       g.api.emitAll(room, "golf:fx", { kind: "gain", pid: P.id, power: id });
     });
   }
   if (res.outcome === "sunk") {
-    P.finished = true; P.finishAt = Date.now(); P.place = ++g.finishCount; P.x = g.hole.cup.x; P.z = g.hole.cup.z;
+    P.finished = true; P.finishAt = P.settleAt || Date.now(); P.place = ++g.finishCount; P.x = g.hole.cup.x; P.z = g.hole.cup.z;
     const msg = P.strokes === 1 ? def.name + " réussit un trou en un" : def.name + " met la balle dans le trou en " + P.strokes + " coup" + (P.strokes > 1 ? "s" : "");
     g.api.sysChat(room, msg + ".");
     if (P.strokes === 1) P.aces++;
@@ -154,10 +154,10 @@ function settle(room, P) {
   } else {
     let pos;
     if (res.outcome === "water" || res.outcome === "lava") {
-      P.strokes++; pos = { x: res.lastDry.x, z: res.lastDry.z };
+      P.strokes++; P.stats.penalties++; pos = { x: res.lastDry.x, z: res.lastDry.z };
       g.api.sysChat(room, def.name + (res.outcome === "lava" ? " fait un barbecue de sa balle" : " fait plouf") + ", un coup de pénalité.");
     } else if (res.outcome === "ob") {
-      P.strokes++; pos = P.prevRest ? { x: P.prevRest.x, z: P.prevRest.z } : { x: g.hole.tee.x, z: g.hole.tee.z };
+      P.strokes++; P.stats.penalties++; pos = P.prevRest ? { x: P.prevRest.x, z: P.prevRest.z } : { x: g.hole.tee.x, z: g.hole.tee.z };
       g.api.sysChat(room, def.name + " sort du terrain, un coup de pénalité.");
     } else pos = { x: res.end.x, z: res.end.z };
     P.x = pos.x; P.z = pos.z; P.y = Physics.heightAt(g.hole, P.x, P.z) + Physics.BALL_R;
@@ -189,7 +189,7 @@ function usePower(room, pid, powerId, targetId) {
       g.api.sysChat(room, "La bulle de " + pName(room, T.id) + " bloque " + def.name + " de " + me.name + ".");
       emitState(room, true); return { ok: true };
     }
-    const tn = pName(room, T.id);
+    const tn = pName(room, T.id); P.stats.hostile++; T.stats.targeted++;
     if (powerId === "mur") {
       const hole = g.hole; let dx = hole.cup.x - T.x, dz = hole.cup.z - T.z; const d = Math.hypot(dx, dz) || 1; dx /= d; dz /= d;
       const dist = Math.min(4.5, Math.max(2.4, d - 2));
@@ -247,20 +247,32 @@ function endHole(room) {
     const done = P.finished && !P.capped;
     const eff = done ? P.strokes : Math.min(P.strokes, s.maxStrokes) + s.unfinishedPenalty;
     const place = done ? finishers.indexOf(P) + 1 : 0;
-    let pts = 0;
-    if (s.scoring === "course") pts = (done ? PLACE_PTS[Math.min(place - 1, PLACE_PTS.length - 1)] : 0) + (done && P.strokes === 1 ? 3 : 0);
-    else if (s.scoring === "mixte") pts = (done ? PLACE_PTS[Math.min(place - 1, PLACE_PTS.length - 1)] : 0) + (hole.par - eff);
-    P.pts += pts; P.totalStrokes += eff; if (place === 1) P.holesWon++;
-    return { id: P.id, strokes: P.strokes, eff, done, place, pts, total: P.pts, totalStrokes: P.totalStrokes };
+    let base = 0, bonus = 0, ace = 0;
+    if (s.scoring !== "coups" && done) {
+      base = Rules.placePts(place);
+      if (P.strokes === 1) ace = Rules.SCORE.ace;
+      if (s.scoring === "mixte") bonus = Math.max(0, hole.par - P.strokes) * Rules.SCORE.underPar;
+    }
+    const pts = base + bonus + ace;
+    P.pts += pts; P.totalStrokes += eff; P.parTotal = (P.parTotal || 0) + (eff - hole.par); if (place === 1) P.holesWon++;
+    return { id: P.id, strokes: P.strokes, eff, done, capped: P.capped, vsPar: eff - hole.par, place, base, bonus, ace, pts, total: P.pts, totalStrokes: P.totalStrokes, parTotal: P.parTotal };
   });
   g.history.push({ name: hole.name, biome: hole.biome, par: hole.par, rows });
   g.api.emitAll(room, "golf:holeEnd", { index: g.holeIndex, name: hole.name, par: hole.par, rows, until: g.phaseUntil, now: Date.now(), last: g.holeIndex + 1 >= g.total });
   emitState(room, true);
 }
 
+// petits trophées de fin de partie
+function awards(room) {
+  const g = room.g; const out = []; const ps = room.players.map((def) => ({ def, P: g.players[def.id] })).filter((x) => x.P);
+  const best = (key, min, label, unit) => { let b = null; ps.forEach((x) => { const v = x.P.stats[key]; if (v >= min && (!b || v > b.v)) b = { v, x }; }); if (b) out.push({ id: b.x.def.id, label, value: unit === "m" ? Math.round(b.v) + " m" : b.v + (unit || "") }); };
+  best("longest", 5, "Le plus long coup", "m"); best("hostile", 1, "Roi du chaos, pouvoirs lancés", ""); best("targeted", 1, "Cible favorite, pouvoirs reçus", ""); best("penalties", 1, "Plongeur de l'année, pénalités", ""); best("orbs", 1, "Collectionneur d'orbes", "");
+  const aces = ps.filter((x) => x.P.aces > 0).sort((a, b) => b.P.aces - a.P.aces)[0]; if (aces) out.push({ id: aces.def.id, label: "Trou en un", value: String(aces.P.aces) });
+  return out;
+}
 function standings(room) {
   const s = room.settings; const g = room.g;
-  const rows = room.players.map((def) => { const P = g.players[def.id]; return { id: def.id, name: def.name, color: def.color, isBot: def.isBot, pts: P.pts, totalStrokes: P.totalStrokes, holesWon: P.holesWon, aces: P.aces, left: !!def.left }; });
+  const rows = room.players.map((def) => { const P = g.players[def.id]; return { id: def.id, name: def.name, color: def.color, isBot: def.isBot, pts: P.pts, totalStrokes: P.totalStrokes, parTotal: P.parTotal || 0, holesWon: P.holesWon, aces: P.aces, left: !!def.left }; });
   if (s.scoring === "coups") rows.sort((a, b) => a.totalStrokes - b.totalStrokes || b.holesWon - a.holesWon);
   else rows.sort((a, b) => b.pts - a.pts || a.totalStrokes - b.totalStrokes);
   rows.forEach((r, i) => { r.rank = i + 1; });
@@ -269,7 +281,7 @@ function standings(room) {
 
 function finishMatch(room) {
   const g = room.g; g.phase = "over"; g.over = true;
-  g.api.emitAll(room, "golf:over", { rows: standings(room), history: g.history.map((h) => ({ name: h.name, biome: h.biome, par: h.par, rows: h.rows })), seed: g.baseSeed, scoring: room.settings.scoring, players: room.players.map((p) => ({ id: p.id, name: p.name, color: p.color })) });
+  g.api.emitAll(room, "golf:over", { awards: awards(room), rows: standings(room), history: g.history.map((h) => ({ name: h.name, biome: h.biome, par: h.par, rows: h.rows })), seed: g.baseSeed, scoring: room.settings.scoring, players: room.players.map((p) => ({ id: p.id, name: p.name, color: p.color })) });
   emitState(room, true);
 }
 
@@ -368,7 +380,7 @@ function sendTo(room, socket) {
   const g = room.g; if (!g) return;
   if (g.holeMsg && g.phase !== "over") socket.emit("golf:hole", Object.assign({ now: Date.now(), startAt: g.phaseUntil }, g.holeMsg));
   socket.emit("golf:state", publicState(room));
-  if (g.phase === "over") socket.emit("golf:over", { rows: standings(room), history: g.history, seed: g.baseSeed, scoring: room.settings.scoring, players: room.players.map((p) => ({ id: p.id, name: p.name, color: p.color })) });
+  if (g.phase === "over") socket.emit("golf:over", { awards: awards(room), rows: standings(room), history: g.history, seed: g.baseSeed, scoring: room.settings.scoring, players: room.players.map((p) => ({ id: p.id, name: p.name, color: p.color })) });
 }
 function onReconnect(room, p, api) {
   const g = room.g; if (!g) return; const def = p; def.absentAuto = false; def.absentAt = 0;

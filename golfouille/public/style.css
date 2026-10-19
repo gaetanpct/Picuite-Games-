@@ -9,12 +9,12 @@
 .pill { background: rgba(10, 30, 24, 0.66); backdrop-filter: blur(4px); border-radius: 16px; padding: 0.4rem 0.8rem; border: 2px solid rgba(255, 255, 255, 0.18); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25); }
 .hud-hole { position: absolute; left: 0.7rem; top: 0.7rem; max-width: 46vw; }
 .hud-hole b { font-family: var(--font-title); font-weight: 400; font-size: 1.25rem; letter-spacing: 0.02em; display: block; line-height: 1.1; }
-.hud-hole span { font-size: 0.85rem; opacity: 0.9; }
+.hud-hole span { font-size: 0.85rem; opacity: 0.9; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hud-wind { position: absolute; left: 0.7rem; top: 4.6rem; display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.7rem; font-size: 0.85rem; }
 .hud-wind i { display: inline-block; width: 26px; height: 26px; }
 .hud-wind svg { width: 26px; height: 26px; transition: transform 0.3s; }
 .hud-mini { position: absolute; left: 0.7rem; top: 7.9rem; padding: 4px; line-height: 0; }
-.hud-mini canvas { width: 118px; height: 196px; border-radius: 10px; background: rgba(0, 0, 0, 0.25); }
+.hud-mini canvas { width: 140px; height: 232px; cursor: crosshair; border-radius: 10px; background: rgba(0, 0, 0, 0.25); }
 .hud-board { position: absolute; right: 0.7rem; top: 0.7rem; min-width: 190px; max-width: 44vw; padding: 0.35rem 0.5rem; }
 .hud-board h4 { margin: 0 0 0.25rem; font-size: 0.78rem; font-weight: 500; opacity: 0.8; display: flex; justify-content: space-between; }
 .brow { display: flex; align-items: center; gap: 0.4rem; padding: 0.18rem 0.25rem; border-radius: 8px; font-size: 0.9rem; cursor: default; }
@@ -82,12 +82,32 @@
 .keys { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.8rem; font-size: 0.92rem; } .keys kbd { background: #fff; border: 2px solid var(--line); border-radius: 6px; padding: 0 0.4rem; font-family: inherit; font-weight: 700; white-space: nowrap; }
 @media (max-width: 700px) {
   .hud-board { min-width: 150px; font-size: 0.85rem; }
-  .hud-mini canvas { width: 78px; height: 130px; }
+  .hud-mini canvas { width: 92px; height: 152px; }
   .hud-mini { top: 7.4rem; }
   .hud-wind { top: 4.4rem; }
+  .chat-fab { right: auto; left: 0.7rem; bottom: 15.2rem; width: 44px; height: 44px; font-size: 1.25rem; }
   .club { min-width: 54px; font-size: 0.68rem; } .club span { font-size: 1.15rem; }
   .shootbtn { height: 46px; padding: 0 1rem; font-size: 1.1rem; }
   .hud-center { top: 14%; }
   .tip { display: none; }
   .hud-menu { bottom: auto; top: 11.2rem; right: 0.7rem; }
 }
+
+/* visée, clubs et aides */
+.club span.club__ic { font-size: 1.3rem; } .club span.club__nm { font-size: 0.74rem; font-weight: 700; } .club span.club__rg { font-size: 0.66rem; opacity: 0.85; font-variant-numeric: tabular-nums; } .club--on span.club__rg { opacity: 1; }
+.club { position: relative; min-width: 66px; } .club span.club__tag { position: absolute; bottom: -9px; font-size: 0.58rem; background: #7aff9a; color: #0b3a2a; border-radius: 99px; padding: 0 6px; font-weight: 800; letter-spacing: 0.02em; }
+.club { margin-bottom: 8px; }
+.round-btn--small { width: 38px; height: 38px; font-size: 1.3rem; flex: none; } .round-btn--lit { background: linear-gradient(180deg, var(--accent-1), var(--accent-2)); color: #3a2604; border-color: #fff; }
+.aiminfo { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; background: rgba(10, 30, 24, 0.82); border: 2px solid rgba(255, 255, 255, 0.3); color: #fff; border-radius: 16px; padding: 0.3rem 0.9rem; max-width: min(94vw, 600px); text-align: center; font-size: 0.86rem; }
+.aiminfo .muted { color: rgba(255, 255, 255, 0.75); } .aiminfo--bad { border-color: #ff8a7a; background: rgba(110, 18, 18, 0.85); } .aiminfo__warn { font-weight: 700; color: #ffd0c8; }
+.aiminfo.hidden { display: none; }
+.tuto { position: absolute; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgba(5, 25, 18, 0.62); padding: 1rem; overflow: auto; }
+.tuto .card { max-width: 520px; width: 100%; display: flex; flex-direction: column; gap: 0.7rem; }
+.tuto__step { display: flex; gap: 0.7rem; align-items: flex-start; } .tuto__step i { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--accent-2); color: #fff; font-style: normal; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.tuto__step p { margin: 0.1rem 0 0; }
+.awards { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; margin: 0.6rem 0; }
+.award { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; background: rgba(0, 0, 0, 0.07); border-radius: 12px; padding: 0.3rem 0.6rem; font-size: 0.82rem; }
+@media (max-width: 760px) { .aiminfo { font-size: 0.74rem; padding: 0.2rem 0.6rem; } .aiminfo .small { display: none; } .club { min-width: 58px; } .round-btn--small { width: 34px; height: 34px; } }
+
+.cupmark { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 0.3rem; background: rgba(255, 70, 90, 0.92); color: #fff; border: 2px solid #fff; border-radius: 99px; padding: 0.1rem 0.6rem; font-size: 0.85rem; z-index: 4; white-space: nowrap; }
+.cupmark__arr { font-size: 0.8rem; display: inline-block; } .cupmark--on .cupmark__arr { display: none; } .cupmark.hidden { display: none; }
