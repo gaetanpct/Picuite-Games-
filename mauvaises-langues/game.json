@@ -1,0 +1,17 @@
+{
+ "name": "Mauvaises Langues",
+ "order": 6,
+ "tagline": "Classe tes amis sans pitié, puis devine la question.",
+ "pitch": "Un jeu de soirée pour adultes. À chaque manche, un joueur reçoit en secret une question déplacée du genre qui est le plus susceptible de finir riche, et classe tout le monde, lui compris. Les autres voient le classement et doivent deviner laquelle de quatre questions l'a produit. Plus de sept cents questions sur la sexualité, les bêtises, l'argent, les soirées, l'ego et tout le reste.",
+ "tags": ["3 à 8 joueurs", "15 à 40 minutes", "Pour adultes"],
+ "steps": [
+  "Un joueur reçoit une question secrète et classe tout le monde.",
+  "Les autres devinent la vraie question parmi quatre.",
+  "On découvre qui a voté pour quoi et les egos prennent cher."
+ ],
+ "note": "Réservé aux adultes. Les questions sont volontairement déplacées, l'hôte règle le piment et les thèmes.",
+ "for": "Pour celles et ceux qui veulent toucher à l'ego de leurs amis et rire très fort.",
+ "colors": ["#ff4fa3", "#3b0a5e"],
+ "cta": "Jouer à Mauvaises Langues",
+ "logo": "logos/mauvaises-langues.svg"
+}

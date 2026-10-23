@@ -217,7 +217,7 @@ module.exports = function createRoomKit(server, prefix, game) {
       p.ready = !!ready; broadcastRoom(room);
     }));
     socket.on("room:addBot", safe(({ level }) => {
-      const room = ctx.room; if (!room || !isHost() || room.status !== "lobby") return;
+      const room = ctx.room; if (!room || !isHost() || room.status !== "lobby" || game.noBots) return;
       if (room.players.length >= game.maxPlayers) return toast("Le salon est complet.");
       const lv = game.botLevels.some((l) => l.id === level) ? level : game.botLevels[1].id;
       const used = new Set(room.players.map((p) => p.name));
@@ -247,7 +247,7 @@ module.exports = function createRoomKit(server, prefix, game) {
     }));
     socket.on("room:start", safe(() => {
       const room = ctx.room; if (!room || !isHost() || room.status !== "lobby") return;
-      if (room.players.length < game.minPlayers) return toast(game.minPlayers <= 1 ? "Il faut au moins un joueur." : "Il faut au moins " + game.minPlayers + " joueurs, tu peux ajouter un bot.");
+      if (room.players.length < game.minPlayers) return toast(game.minPlayers <= 1 ? "Il faut au moins un joueur." : "Il faut au moins " + game.minPlayers + " joueurs" + (game.noBots ? ", invite des amis avec le code." : ", tu peux ajouter un bot."));
       if (room.players.some((p) => !p.isBot && !p.ready && p.token !== ctx.token)) return toast("Tous les joueurs ne sont pas prêts.");
       room.settings = game.normalize(room.settings, room.players.length);
       room.status = "game";

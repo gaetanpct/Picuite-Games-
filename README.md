@@ -2,7 +2,7 @@
 
 Le site qui réunit tous les jeux, avec une page d'accueil pour choisir.
 
-Jeux inclus pour l'instant, Gaeboub-up (plateau à la Monopoly), Goliathicus (stratégie et bluff), Richissime Destiny (simulation de vie entre amis), Golfouille (golf en 3D sur des terrains générés) et Zoomalou (courses de voitures sur des circuits générés).
+Jeux inclus pour l'instant, Gaeboub-up (plateau à la Monopoly), Goliathicus (stratégie et bluff), Richissime Destiny (simulation de vie entre amis), Golfouille (golf en 3D sur des terrains générés) Zoomalou (courses de voitures sur des circuits générés) et Mauvaises Langues (jeu de soirée de classements déplacés, pour adultes).
 
 ## Lancer en local
 
@@ -19,13 +19,13 @@ Puis ouvrir localhost, port 3000, dans le navigateur.
 4. Start Command, npm start.
 5. Render fournit la variable PORT tout seul.
 
-Une seule adresse sert tout le site. Les jeux sont sur /gaeboub-up, /goliathicus, /richissime, /golfouille et /zoomalou. La route /health répond quand le serveur est vivant.
+Une seule adresse sert tout le site. Les jeux sont sur /gaeboub-up, /goliathicus, /richissime, /golfouille, /zoomalou et /mauvaises-langues. La route /health répond quand le serveur est vivant.
 
 ## Organisation
 
 - server.js, le serveur du site, il découvre et monte automatiquement chaque jeu.
 - public/, la page d'accueil (index.html, style.css, app.js), les logos dans public/logos et le petit bouton de retour pg-back.js.
-- gaeboub-up/, goliathicus/, richissime/, golfouille/ et zoomalou/, un dossier par jeu directement à la racine, sans dossier games. Chaque dossier contient son server.js, son dossier public, ses éventuels dossiers lib, et un fichier game.json qui sert à la présentation sur l'accueil. Tout dossier de la racine qui contient un server.js et un game.json est reconnu comme un jeu (sauf public et node_modules).
+- gaeboub-up/, goliathicus/, richissime/, golfouille/, zoomalou/ et mauvaises-langues/, un dossier par jeu directement à la racine, sans dossier games. Chaque dossier contient son server.js, son dossier public, ses éventuels dossiers lib, et un fichier game.json qui sert à la présentation sur l'accueil. Tout dossier de la racine qui contient un server.js et un game.json est reconnu comme un jeu (sauf public et node_modules).
 
 Pour envoyer le projet sur GitHub, il suffit de déposer chaque dossier séparément (gaeboub-up, goliathicus, richissime, public), puis les fichiers de la racine. Chaque envoi reste sous la limite de 100 fichiers.
 
@@ -216,3 +216,14 @@ Deux jeux arrivent sur l'accueil, Golfouille et Zoomalou. Ils partagent un petit
 - Les bots Gaillard, Champion et Prodige essaient eux aussi des tirs plus hauts ou plus bas selon les obstacles.
 - Aide, tutoriel et menu réécrits pour expliquer les clubs, la hauteur et la nouvelle aide.
 - Limites connues. Le bot Mou du genou ne règle pas la hauteur. Les tirs de la zone d'arrivée dépendent des moulins et barrières qui bougent, donc l'aide reste approximative par construction.
+
+## Dix-huitième mise à jour, nouveau jeu, Mauvaises Langues
+
+- Un jeu de soirée pour adultes, de 3 à 8 joueurs, sans bots puisqu'ils ne joueraient pas. À chaque manche, un joueur reçoit une question secrète du genre qui est le plus susceptible de finir riche, et classe tout le monde, lui compris. Les autres voient le classement et votent pour la vraie question parmi quatre.
+- Une base de 745 questions écrites pour le jeu, sur 13 thèmes, sexualité, bêtises et honte, hygiène de vie, amour et drague, soirées et alcool, mensonges et secrets, physique et ego, argent, téléphone et réseaux, boulot et études, personnalité, futur et chaos. Chaque question a un niveau de piment, taquin, épicé ou déplacé. Les questions vivent dans mauvaises-langues/questions, un fichier par thème, pour en ajouter facilement plus tard.
+- Réglages expliqués dans le salon. Niveau de piment (doux, équilibré, épicé, infernal), thèmes autorisés, changements de question par manche, type de questions leurres (mélangées, même thème, au hasard), temps pour classer, voter et lire le dévoilement, points pour une bonne réponse, points du classeur, affichage des votes nominatifs et réactions en emojis.
+- Dévoilement. On voit le classement, la vraie question, qui a voté pour quoi, les points gagnés et quelques phrases piquantes sur le premier et le dernier. Les joueurs peuvent envoyer des emojis qui montent à l'écran.
+- Fin de partie avec podium, tableau, titres (le chouchou, le bouc émissaire, le meilleur détective, l'énigme, le livre ouvert), champion et dernier de chaque thème, et résumé de toutes les manches.
+- Si un joueur ne classe pas à temps ou quitte la partie, la manche est annulée sans points. Le jeu s'arrête s'il reste moins de trois joueurs.
+- Le socle commun accepte maintenant les jeux sans bots, avec le réglage noBots.
+- Limites connues. La base ne bouge pas toute seule, il faudra demander de nouvelles questions pour la compléter. Le jeu n'a pas été testé avec de vrais joueurs sur plusieurs téléphones, seulement avec des navigateurs de test.

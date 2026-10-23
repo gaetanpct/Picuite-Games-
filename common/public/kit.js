@@ -100,7 +100,7 @@
           el("label", { class: "field" }, [el("span", { class: "field__label", text: "Ton nom" }), el("input", { id: "input-name", type: "text", maxlength: "16", placeholder: "Ex. Pupuce", autocomplete: "off" })]),
           el("div", { class: "home-actions" }, [
             el("button", { id: "btn-create", class: "btn btn--accent btn--big", text: cfg.createLabel }),
-            el("button", { id: "btn-solo", class: "btn btn--green btn--big", text: cfg.soloLabel }),
+            cfg.noBots ? null : el("button", { id: "btn-solo", class: "btn btn--green btn--big", text: cfg.soloLabel }),
           ]),
           el("div", { class: "home-or" }, [el("span", { text: "ou rejoindre des amis" })]),
           el("div", { class: "join-row" }, [
@@ -173,7 +173,7 @@
     $("#input-name").value = store.get(pre + ".name", "");
     const myName = () => { const v = ($("#input-name").value || "").trim(); if (v) store.set(pre + ".name", v); return v || "Joueur"; };
     $("#btn-create").onclick = () => { sound.click(); socket.emit("room:create", { name: myName(), token: Kit.token }); };
-    $("#btn-solo").onclick = () => { sound.click(); pendingSolo = true; socket.emit("room:create", { name: myName(), token: Kit.token }); };
+    if ($("#btn-solo")) $("#btn-solo").onclick = () => { sound.click(); pendingSolo = true; socket.emit("room:create", { name: myName(), token: Kit.token }); };
     const join = () => {
       const code = ($("#input-code").value || "").trim().toUpperCase();
       if (code.length !== 4) return toast("Le code du salon fait 4 lettres.", "error");
@@ -261,7 +261,7 @@
       }
     });
     const bots = $("#add-bot-row"); bots.innerHTML = "";
-    if (host && r.players.length < cfg.maxPlayers) {
+    if (host && !cfg.noBots && r.players.length < cfg.maxPlayers) {
       const sel = el("select", { id: "bot-level", class: "mini-select" }, cfg.botLevels.map((l, i) => el("option", { value: l.id, text: l.label, selected: i === 1 })));
       bots.appendChild(el("button", { class: "btn btn--green btn--small", text: "Ajouter un bot", onclick: () => Kit.socket.emit("room:addBot", { level: sel.value }) }));
       bots.appendChild(sel);
@@ -276,7 +276,7 @@
     if (host) {
       const others = r.players.filter((p) => !p.isBot && !p.you);
       const notReady = others.filter((p) => !p.ready).length;
-      st.textContent = r.players.length < cfg.minPlayers ? "Ajoute un bot ou invite un ami avec le code." : notReady ? notReady + " joueur(s) pas encore prêt(s)." : "Tout le monde est prêt, lance la partie.";
+      st.textContent = r.players.length < cfg.minPlayers ? (cfg.noBots ? "Il faut au moins " + cfg.minPlayers + " joueurs, invite des amis avec le code." : "Ajoute un bot ou invite un ami avec le code.") : notReady ? notReady + " joueur(s) pas encore prêt(s)." : "Tout le monde est prêt, lance la partie.";
       foot.appendChild(el("button", { class: "btn btn--accent btn--big", text: cfg.startLabel, onclick: () => { sound.click(); Kit.socket.emit("room:start"); } }));
     } else {
       st.textContent = meP && meP.ready ? "Tu es prêt, l'hôte lancera la partie." : "Clique sur prêt quand tu veux commencer.";
