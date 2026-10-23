@@ -42,16 +42,29 @@ const lineCache = new WeakMap();
 function baseLine(tr, clear) {
   let m = lineCache.get(tr); if (!m) { m = new Map(); lineCache.set(tr, m); }
   const key = Math.round(clear * 10); if (m.has(key)) return m.get(key);
-  const n = tr.n, X = tr.x, Z = tr.z, H = tr.h, W = tr.w; const nx = new Float64Array(n), nz = new Float64Array(n), lim = new Float64Array(n), u = new Float64Array(n), px = Float64Array.from(X), pz = Float64Array.from(Z);
-  for (let i = 0; i < n; i++) { nx[i] = -Math.cos(H[i]); nz[i] = Math.sin(H[i]); lim[i] = Math.max(0, W[i] - Car.HALF_W - clear); }
+  const n = tr.n, X = tr.x, Z = tr.z, H = tr.h, W = tr.w; const nx = new Float64Array(n), nz = new Float64Array(n), lo = new Float64Array(n), hi = new Float64Array(n), u = new Float64Array(n), px = Float64Array.from(X), pz = Float64Array.from(Z);
+  const FL = Track.FLAG;
+  for (let i = 0; i < n; i++) {
+    nx[i] = -Math.cos(H[i]); nz[i] = Math.sin(H[i]);
+    const c = (tr.flags[i] & FL.NOWALL) ? Math.max(clear, 1.0) : clear; const L = Math.max(0, W[i] - Car.HALF_W - c); lo[i] = -L; hi[i] = L;
+    if (tr.flags[i] & FL.MAG) { lo[i] = 0; hi[i] = 0; }
+    const ln = Track.laneAt(tr, i); if (ln) { lo[i] = Math.max(lo[i], ln[0]); hi[i] = Math.min(hi[i], ln[1]); if (lo[i] > hi[i]) { const mid = (lo[i] + hi[i]) / 2; lo[i] = hi[i] = mid; } }
+  }
+  // entonnoir. Avant et après un obstacle le couloir se resserre progressivement, pour avoir le temps de se placer
+  { const lo0 = Float64Array.from(lo), hi0 = Float64Array.from(hi);
+    for (let i = 0; i < n; i++) {
+      const L = Math.max(0, W[i] - Car.HALF_W - clear); if (!(lo0[i] > -L + 0.05 || hi0[i] < L - 0.05) || (tr.flags[i] & FL.MAG)) continue; if (!Track.laneAt(tr, i)) continue;
+      for (let d = 1; d <= 16; d++) for (const j of [i - d, i + d]) { if (j < 0 || j >= n || (tr.flags[j] & FL.MAG)) continue; lo[j] = Math.max(lo[j], lo0[i] - 0.4 * d); hi[j] = Math.min(hi[j], hi0[i] + 0.4 * d); }
+    }
+    for (let i = 0; i < n; i++) if (lo[i] > hi[i]) { const mid = (lo[i] + hi[i]) / 2; lo[i] = hi[i] = mid; } }
   const iters = n > 1500 ? 140 : 220;
   for (let it = 0; it < iters; it++) {
     for (let i = 2; i < n - 2; i++) {
       const dx = (4 * (px[i - 1] + px[i + 1]) - (px[i - 2] + px[i + 2])) / 6, dz = (4 * (pz[i - 1] + pz[i + 1]) - (pz[i - 2] + pz[i + 2])) / 6;
-      let t = (dx - X[i]) * nx[i] + (dz - Z[i]) * nz[i]; t = clamp(t, -lim[i], lim[i]); u[i] = u[i] * 0.4 + t * 0.6; px[i] = X[i] + nx[i] * u[i]; pz[i] = Z[i] + nz[i] * u[i];
+      let t = (dx - X[i]) * nx[i] + (dz - Z[i]) * nz[i]; t = clamp(t, lo[i], hi[i]); u[i] = u[i] * 0.4 + t * 0.6; u[i] = clamp(u[i], lo[i], hi[i]); px[i] = X[i] + nx[i] * u[i]; pz[i] = Z[i] + nz[i] * u[i];
     }
   }
-  const res = { u, nx, nz, lim }; m.set(key, res); return res;
+  const res = { u, nx, nz, lo, hi }; m.set(key, res); return res;
 }
 
 // inspiration. transforme les images enregistrées d'une course en profil latéral et en vitesse selon l'indice du circuit
@@ -62,7 +75,7 @@ function refFromFrames(tr, frames) {
     while (k < nF - 1 && frames[(k + 1) * 8 + 7] < i) k++; if (k >= nF - 1) break;
     const a = frames[k * 8 + 7], b = frames[(k + 1) * 8 + 7]; if (b < a || b - a > 12) continue; const t = b > a ? clamp((i - a) / (b - a), 0, 1) : 0;
     const x = frames[k * 8] + (frames[(k + 1) * 8] - frames[k * 8]) * t, z = frames[k * 8 + 2] + (frames[(k + 1) * 8 + 2] - frames[k * 8 + 2]) * t;
-    const hh = tr.h[i]; u[i] = (x - tr.x[i]) * -Math.cos(hh) + (z - tr.z[i]) * Math.sin(hh);
+    if (tr.flags[i] & Track.FLAG.MAG) continue; const hh = tr.h[i]; u[i] = (x - tr.x[i]) * -Math.cos(hh) + (z - tr.z[i]) * Math.sin(hh);
     v[i] = Math.hypot(frames[(k + 1) * 8] - frames[k * 8], frames[(k + 1) * 8 + 2] - frames[k * 8 + 2]) / 0.1; ok[i] = 1; cnt++;
   }
   if (cnt < n * 0.5) return null;
@@ -77,7 +90,8 @@ function buildPlan(tr, car, th, ref) {
   const lx = new Float64Array(n), lz = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     let u = base.u[i] * th.lineK;
-    if (ref && th.refBlend > 0 && ref.ok[i]) { const lim = base.lim[i] + th.clear * 0.5; u = u * (1 - th.refBlend) + clamp(ref.u[i], -lim, lim) * th.refBlend; }
+    if (ref && th.refBlend > 0 && ref.ok[i]) { u = u * (1 - th.refBlend) + clamp(ref.u[i], base.lo[i] - th.clear * 0.5, base.hi[i] + th.clear * 0.5) * th.refBlend; }
+    u = clamp(u, base.lo[i], base.hi[i]);
     lx[i] = X[i] + base.nx[i] * u; lz[i] = Z[i] + base.nz[i] * u;
   }
   // courbure de la ligne sur 4 m de chaque côté
@@ -88,12 +102,15 @@ function buildPlan(tr, car, th, ref) {
     kap[i] = d > 1e-6 ? 2 * cross / d : 0;
   }
   const ks = new Float64Array(n); for (let i = 0; i < n; i++) { const a = kap[Math.max(0, i - 1)], b = kap[i], c = kap[Math.min(n - 1, i + 1)]; ks[i] = (a + 2 * b + c) / 4; }
+  // dans une zone sans gravité la ligne en plan ne veut rien dire, on ne freine pas pour elle
+  for (let i = 0; i < n; i++) { if (tr.flags[i] & Track.FLAG.MAG) { for (let q = Math.max(0, i - 2); q <= Math.min(n - 1, i + 2); q++) ks[q] = 0; } }
   const vlimA = new Float64Array(n), vlimB = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     const s = tr.surf[i]; let cap = car.vmax; let cf = 1;
     if (s === 1) { cap *= 0.93; cf = clamp(th.dirtK * (0.72 + 0.3 * car.dirt), 0.4, 1.2); } else if (s === 4) { cap *= 0.62; cf = 0.9; } else if (s === 2) cf = clamp(th.iceK * (0.35 + 1.1 * car.ice), 0.3, 1.1);
     const vc = ks[i] > 1e-4 ? speedForRadius(car, 1 / ks[i]) * th.corner * cf : 1e9;
     let vr = 1e9; if (ref && th.refSpeed > 0 && ref.ok[i]) vr = th.refSpeed * ref.v[i];
+    if (tr.flags[i] & Track.FLAG.NOWALL) cap *= 0.72;
     vlimA[i] = Math.min(cap * 1.02, Math.max(vc, Math.min(vr, vc * 1.35))); vlimB[i] = Math.min(cap * 1.3, Math.max(vc, Math.min(vr, vc * 1.35)));
   }
   const dec = car.brake * th.brake; const profA = new Float64Array(n), profB = new Float64Array(n);
@@ -101,7 +118,10 @@ function buildPlan(tr, car, th, ref) {
     prof[n - 1] = lim[n - 1];
     for (let i = n - 2; i >= 0; i--) { const d = Math.hypot(lx[i + 1] - lx[i], lz[i + 1] - lz[i]); prof[i] = Math.min(lim[i], Math.sqrt(prof[i + 1] * prof[i + 1] + 2 * dec * d)); }
   }
-  return { lx, lz, profA, profB };
+  // un saut demande une vitesse minimale au bord. Le pilote ne freine jamais avant la réception
+  const gapMin = new Float64Array(n);
+  (tr.gaps || []).forEach((g) => { const need = Math.min(car.vmax * 0.97, g.vreq * 1.1 + 1.5); for (let i = Math.max(0, g.cp - 1); i <= Math.min(n - 1, g.land + 8); i++) { gapMin[i] = need; } });
+  return { lx, lz, profA, profB, gapMin };
 }
 
 // ---------- pilotage ----------
@@ -114,17 +134,21 @@ function drive(r, L, th, lv, rnd, mem) {
   const dx = T[0] - r.x, dz = T[1] - r.z; const dist = Math.max(2, Math.hypot(dx, dz)); const ang = Math.atan2(dx, dz);
   const hA = wrap(ang - r.hd); const vA = spd > 6 && vf > 0 ? wrap(ang - Math.atan2(r.vx, r.vz)) : hA; const alpha = hA * (1 - th.slipMix) + vA * th.slipMix;
   let steer;
-  if (vf < 7) steer = clamp(-alpha * 2.2, -1, 1);
+  if (r.rail) { const u = -r.ux; const psiT = clamp(0.12 * u, -0.3, 0.3); steer = clamp(-(psiT - r.hd) * 3, -1, 1); mem.sat = false; }
+  else if (vf < 7) steer = clamp(-alpha * 2.2, -1, 1);
   else { const omega = 2 * vf * Math.sin(alpha) / dist; const wmax = car.turn * fallOf(car, vf); steer = -th.sg * omega / Math.max(0.15, wmax); mem.sat = Math.abs(steer) > 1.08; steer = clamp(steer, -1, 1); }
   mem.noise = mem.noise * 0.96 + (rnd() - 0.5) * lv.noise * 0.5; steer = clamp(steer + mem.noise, -1, 1);
   const ia = Math.min(n - 2, idx + Math.max(0, vf) * 0.12 / STEP); const prof = r.boostT > 0 ? L.profB : L.profA; const k0 = Math.floor(ia); const vt0 = prof[k0] + (prof[k0 + 1] - prof[k0]) * (ia - k0);
-  let vt = vt0 * mem.pace; if (mem.sat) vt *= 0.93;
+  let vt = vt0 * mem.pace; if (mem.sat) vt *= 0.93; if (L.gapMin[k0] > vt) vt = L.gapMin[k0];
   let thr = 0, brk = 0;
   if (mem.lapse > 0) { mem.lapse--; thr = 0; } else if (lv.lapse && rnd() < lv.lapse) mem.lapse = 12 + Math.floor(rnd() * 30);
   else { if (vf < vt - 0.25) thr = 1; else if (vf > vt + th.dvHi) brk = 1; }
   if (vf < 1.5 && r.tick < 20) thr = 1;
-  if (spd < 1.2 && r.tick > 90) mem.stuck++; else mem.stuck = 0;
-  let rst = 0; if (mem.stuck > 110) { rst = 1; mem.stuck = 0; }
+  if (spd < 1.2 && r.tick > 90) mem.stuck++; else if (!mem.rev) mem.stuck = 0;
+  // coincé contre un obstacle ou un mur. On recule un instant en braquant de l'autre côté avant de renoncer
+  if (mem.rev > 0) { mem.rev--; thr = 0; brk = 1; steer = -mem.revSteer; if (mem.rev === 0) mem.stuck = 20; }
+  else if (mem.stuck > 50 && mem.tries < 3) { mem.rev = 50; mem.revSteer = steer; mem.tries++; mem.stuck = 0; }
+  let rst = 0; if (mem.stuck > 110) { rst = 1; mem.stuck = 0; mem.tries = 0; }
   return { steer, thr, brk, rst };
 }
 
@@ -137,7 +161,7 @@ const gauss = (rnd) => { let s = 0; for (let i = 0; i < 4; i++) s += rnd(); retu
 function run(tr, carId, th, lv, seed, opts) {
   opts = opts || {}; const car = Car.CARS[carId] || Car.CARS.bolide; const rnd = Track.mulberry32(Track.hashSeed("bot" + seed));
   const L = opts.plan || buildPlan(tr, car, th, opts.ref); const r = Car.newRun(tr, carId, { slot: opts.slot || 0 });
-  const mem = { noise: 0, stuck: 0, lapse: 0, sat: false, pace: opts.pace == null ? 1 : opts.pace }; const maxT = Math.floor((opts.maxSeconds || 240) * 60); const bytes = opts.noBytes ? null : [];
+  const mem = { noise: 0, stuck: 0, lapse: 0, sat: false, rev: 0, revSteer: 0, tries: 0, pace: opts.pace == null ? 1 : opts.pace }; const maxT = Math.floor((opts.maxSeconds || 240) * 60); const bytes = opts.noBytes ? null : [];
   while (!r.finished && r.tick < maxT) { const inp = Car.quant(drive(r, L, th, lv, rnd, mem)); if (bytes) bytes.push(Car.packInput(inp)); Car.step(r, inp); }
   return { r, bytes };
 }

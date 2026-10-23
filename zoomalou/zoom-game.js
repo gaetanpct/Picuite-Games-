@@ -16,6 +16,8 @@ const CHRONO_PTS = [6, 4, 3, 2, 1, 1, 1, 1];
 const BOT_GAP = 1.5; // secondes de jeu entre deux essais d'un automate
 const BOT_LAG = { debutant: 26, moyen: 18, champion: 13, prodige: 9 }, BOT_REACT = { debutant: 1.6, moyen: 1.0, champion: 0.6, prodige: 0.35 };
 const rng = Math.random;
+// durée maximale calculée pour un essai d'automate. Un circuit géant avec la voiture la plus lente dépasse 4 minutes
+const capOf = (tr) => Math.max(240, Math.ceil(tr.length / 11));
 const pName = (room, id) => { const p = room.players.find((x) => x.id === id); return p ? p.name : "?"; };
 const defOf = (room, id) => room.players.find((p) => p.id === id);
 const fix1 = (v) => Math.round(v * 10) / 10;
@@ -42,7 +44,8 @@ function startRound(room) {
   g.track = Rules.trackFor(s, g.baseSeed, g.roundIdx); g.author = 0;
   g.trackMsg = Object.assign({}, g.track); delete g.trackMsg.spec;
   g.turn = null; g.record = null; g.results = null; g.raceEnd = 0;
-  Object.values(g.players).forEach((P) => { if (P.best != null && (P.bestAll == null || P.best < P.bestAll)) P.bestAll = P.best; P.ready = false; P.best = null; P.bestBytes = null; P.pos = null; P.att = null; P.tries = 0; P.finishes = 0; P.feed = null; P.car = g.car; P.tryCount = 0; });
+  Object.values(g.players).forEach((P) => { if (P.best != null && (P.bestAll == null || P.best < P.bestAll)) P.bestAll = P.best; P.ready = false; P.best = null; P.bestBytes = null; P.pos = null; P.att = null; P.tries = 0; P.finishes = 0; P.feed = null; P.car = g.car; P.tryCount = 0; P.bestFrames = null; P.bestCar = null; P.fuel = 0; P.out = false; });
+  g.elim = []; g.stage = "open"; g.turnSeq = 0; g.target = null;
   const seats = room.players.map((p) => p.id);
   if (s.mode === "essence") {
     if (s.order === "retard") { const st = standings(room); const byRank = st.slice().reverse().map((r) => r.id); g.order = byRank.length === seats.length ? byRank : seats; }
@@ -59,7 +62,7 @@ function prepareBots(room) {
   const g = room.g, track = g.track, car = g.car; const levels = new Set(["prodige"]); room.players.forEach((d) => { if (d.isBot) levels.add(botLevelOf(d)); });
   levels.forEach((lv) => Bot.prepare(track, car, lv, null, "", () => {
     if (lv !== "prodige" || g.track !== track || g.car !== car) return;
-    const r = Bot.simulateRun(track, car, "prodige", "author" + g.roundIdx, 240); g.author = r.finished ? +r.time.toFixed(2) : 0; g.api.emitAll(room, "z:author", { time: g.author, car });
+    const r = Bot.simulateRun(track, car, "prodige", "author" + g.roundIdx, capOf(track)); g.author = r.finished ? +r.time.toFixed(2) : 0; g.api.emitAll(room, "z:author", { time: g.author, car });
   }));
 }
 
@@ -86,7 +89,7 @@ function planBotAttempt(room, def) {
   const use = rf && (P.best == null || rf.t < P.best) ? rf : null; const tag = use ? use.pid + ":" + use.t.toFixed(2) : ""; const k = P.botN || 0; const slot = g.slots[def.id] || 0;
   Bot.prepare(track, P.car, lvl, use && use.frames, tag, () => {
     P.planning = false; if (g.track !== track || g.phase !== "race") return;
-    const r = Bot.simulateRun(track, P.car, lvl, g.baseSeed + def.id + g.roundIdx + "k" + k, 240, { slot, ref: use && use.frames, refTag: tag, push: k }); P.botN = k + 1;
+    const r = Bot.simulateRun(track, P.car, lvl, g.baseSeed + def.id + g.roundIdx + "k" + k, capOf(track), { slot, ref: use && use.frames, refTag: tag, push: k }); P.botN = k + 1;
     const now = Date.now(); const at = Math.max(g.goAt, P.nextAt || 0, now + 50);
     if (!r.finished) { P.nextAt = now + 6000; return; }
     const rp = Car.replay(track, P.car, r.bytes, null, { slot });
@@ -99,7 +102,7 @@ function tickBots(room, now) {
     if (!isAuto(room, def)) return; const P = g.players[def.id]; const pl = P.plan;
     if (pl && !pl.done) {
       if (now >= pl.at + pl.dur) { pl.done = true; P.feed = null; P.nextAt = pl.at + pl.dur + NEXT_GO_MS; if (pl.at + pl.dur <= g.raceEnd + 500) acceptTime(room, def.id, pl.time, pl.bytes, pl.car, pl.frames); }
-      else if (now >= pl.at) { const n = pl.frames.length / 8; const k = Math.min(n - 1, Math.floor(((now - pl.at) / pl.dur) * (n - 1))); const f = pl.frames; P.feed = { x: f[k * 8], y: f[k * 8 + 1], z: f[k * 8 + 2], h: f[k * 8 + 3], p: f[k * 8 + 4], a: f[k * 8 + 5], b: f[k * 8 + 6], car: pl.car }; } else P.feed = null;
+      else if (now >= pl.at) { const n = pl.frames.length / 8; const k = Math.min(n - 1, Math.floor(((now - pl.at) / pl.dur) * (n - 1))); const f = pl.frames; P.feed = { x: f[k * 8], y: f[k * 8 + 1], z: f[k * 8 + 2], h: f[k * 8 + 3], p: f[k * 8 + 4], a: f[k * 8 + 5], b: f[k * 8 + 6], i: f[k * 8 + 7], car: pl.car }; } else P.feed = null;
       return;
     }
     P.feed = null;
@@ -118,47 +121,85 @@ function acceptTime(room, pid, time, bytes, carId, frames) {
 }
 
 // ---------- mode essence ----------
+// Au début de la course chaque pilote pose un temps, sans limite d'essence. Ensuite le dernier du classement joue avec toute son essence
+// pour battre l'avant-dernier. Tant qu'il reste dernier c'est encore à lui. Sans essence il est éliminé. Le dernier survivant gagne.
+const timeOf = (P) => (P.best == null ? 1e9 : P.best);
+function aliveRank(room) {
+  const g = room.g; const seats = room.players.map((p) => p.id);
+  return seats.filter((id) => !g.players[id].out).sort((a, b) => timeOf(g.players[a]) - timeOf(g.players[b]) || seats.indexOf(a) - seats.indexOf(b));
+}
+function recordOf(room, id) { const g = room.g; const P = g.players[id]; if (!P || P.best == null) return null; return { time: P.best, pid: id, car: P.bestCar || P.car, frames: P.bestFrames || (P.bestBytes ? Car.replay(g.track, P.bestCar || P.car, P.bestBytes).frames : null) }; }
+function setRecord(room, rec) {
+  const g = room.g; g.record = rec; if (rec) g.api.emitAll(room, "z:record", { time: rec.time, pid: rec.pid, car: rec.car, frames: rec.frames });
+}
+function eliminate(room, pid, why) {
+  const g = room.g; const P = g.players[pid]; if (!P || P.out) return; P.out = true; P.fuel = 0; g.elim.push(pid);
+  g.api.sysChat(room, pName(room, pid) + (why === "quit" ? " abandonne et sort de la course." : " n'a plus d'essence et sort de la course."));
+}
+function startDuel(room) {
+  const g = room.g, s = room.settings; g.stage = "duel";
+  const times = room.players.map((p) => g.players[p.id].best).filter((v) => v != null); const tmin = times.length ? Math.min.apply(null, times) : (g.author || 30);
+  const tank = s.tankMode === "fixe" ? s.tankSeconds : fix1(Math.max(5, s.tankFactor * tmin));
+  Object.values(g.players).forEach((P) => { P.fuel = tank; });
+  g.api.sysChat(room, "Tout le monde a posé un temps. Le dernier joue maintenant avec " + Math.round(tank) + " secondes d'essence pour battre l'avant-dernier.");
+}
+function makeTurn(room, pid, role, fuel) {
+  const g = room.g; const P = g.players[pid]; g.turnSeq++;
+  g.turn = { idx: g.turnSeq, pid, role, fuel, fuelLeft: fuel, introUntil: Date.now() + INTRO_MS, lastActive: Date.now() + INTRO_MS, att: null, tries: 0, bestTime: null, bestBytes: null, bestFrames: null, car: P.car, ended: false, auto: null, attempts: 0, result: "" };
+  P.pos = null; P.att = null; g.phase = "turns";
+}
 function nextTurn(room) {
   const g = room.g, s = room.settings;
-  g.turnIdx++;
-  if (g.turnIdx >= g.order.length) return endRound(room);
-  const pid = g.order[g.turnIdx]; const role = g.turnIdx === 0 ? "setter" : "challenger"; const P = g.players[pid];
-  let fuel = 0;
-  if (role === "challenger") fuel = s.tankMode === "fixe" ? s.tankSeconds : fix1(Math.max(5, s.tankFactor * g.record.time));
-  const def = defOf(room, pid);
-  g.turn = { idx: g.turnIdx, pid, role, fuel, fuelLeft: fuel, introUntil: Date.now() + INTRO_MS, lastActive: Date.now() + INTRO_MS, att: null, tries: 0, bestTime: null, bestBytes: null, bestFrames: null, car: P.car, ended: false, auto: null, attempts: 0, result: "" };
-  P.pos = null; P.att = null;
-  g.phase = "turns";
-  g.api.emitAll(room, "z:turn", turnMsg(room));
-  g.api.sysChat(room, role === "setter" ? def.name + " pose le temps à battre." : def.name + " tente de battre " + fmt(g.record.time) + " avec " + fuel.toFixed(0) + " secondes d'essence.");
-  emitState(room);
+  if (g.endAfterGap) { g.endAfterGap = false; return endRound(room); }
+  if (g.stage === "open") {
+    g.turnIdx++;
+    if (g.turnIdx < g.order.length) {
+      const pid = g.order[g.turnIdx]; makeTurn(room, pid, "open", 0);
+      g.api.emitAll(room, "z:turn", turnMsg(room));
+      g.api.sysChat(room, pName(room, pid) + (g.turnIdx === 0 ? " ouvre la course et pose un temps." : " pose son temps."));
+      emitState(room); return;
+    }
+    startDuel(room);
+  }
+  for (;;) {
+    const alive = aliveRank(room);
+    if (alive.length <= 1) return endRound(room);
+    const worst = alive[alive.length - 1], tgt = alive[alive.length - 2]; const P = g.players[worst];
+    if (P.fuel <= 0.05) { eliminate(room, worst, "dry"); continue; }
+    setRecord(room, recordOf(room, tgt) || { time: 999, pid: tgt, car: g.car, frames: null });
+    makeTurn(room, worst, "duel", fix1(P.fuel));
+    g.api.emitAll(room, "z:turn", turnMsg(room));
+    g.api.sysChat(room, pName(room, worst) + " est dernier. Il a " + Math.round(P.fuel) + " secondes d'essence pour battre " + pName(room, tgt) + " et ses " + fmt(g.record.time) + ".");
+    emitState(room); return;
+  }
 }
 function turnMsg(room) {
   const g = room.g, t = g.turn; if (!t) return null;
-  return { now: Date.now(), idx: t.idx, count: g.order.length, pid: t.pid, role: t.role, fuel: t.fuel, fuelLeft: t.fuelLeft, introUntil: t.introUntil, refTries: room.settings.refTries, tries: t.tries,
+  return { now: Date.now(), idx: t.idx, count: g.order.length, pid: t.pid, role: t.role, fuel: t.fuel, fuelLeft: t.fuelLeft, introUntil: t.introUntil, refTries: room.settings.refTries, tries: t.tries, alive: aliveRank(room).length,
     record: g.record ? { time: g.record.time, pid: g.record.pid, car: g.record.car, frames: g.record.frames } : null };
 }
-function recordFrom(room, pid, time, bytes, carId, frames) {
-  const g = room.g; const rp = frames ? { frames } : Car.replay(g.track, carId, bytes); return { time, pid, car: carId, frames: rp.frames };
-}
 function finishTurn(room, result) {
-  const g = room.g, t = g.turn; if (!t || t.ended) return; t.ended = true; t.result = result;
+  const g = room.g, s = room.settings, t = g.turn; if (!t || t.ended) return; t.ended = true; t.result = result;
   const P = g.players[t.pid]; const def = defOf(room, t.pid);
-  if (t.role === "setter") {
+  if (t.role === "open") {
     if (t.bestTime != null) {
-      const fr = t.bestFrames; g.record = recordFrom(room, t.pid, t.bestTime, t.bestBytes, t.car, fr); g.firstRecordPid = t.pid; g.record.setter = true;
-      g.api.emitAll(room, "z:record", { time: g.record.time, pid: g.record.pid, car: g.record.car, frames: g.record.frames });
+      P.best = t.bestTime; P.bestBytes = t.bestBytes; P.bestFrames = t.bestFrames; P.bestCar = t.car;
+      if (!g.record || t.bestTime < g.record.time) setRecord(room, recordFrom(room, t.pid, t.bestTime, t.bestBytes, t.car, t.bestFrames));
     }
-  } else if (result === "beat") {
-    g.prevHolder = g.record ? g.record.pid : null;
-    g.record = recordFrom(room, t.pid, t.bestTime, t.bestBytes, t.car, t.bestFrames);
-    g.api.emitAll(room, "z:record", { time: g.record.time, pid: g.record.pid, car: g.record.car, frames: g.record.frames });
-    g.api.sysChat(room, def.name + " bat le record avec " + fmt(t.bestTime) + ".");
-  } else g.api.sysChat(room, def.name + " tombe en panne d'essence.");
-  if (t.bestTime != null && (P.best == null || t.bestTime < P.best)) { P.best = t.bestTime; P.bestBytes = t.bestBytes; }
+  } else {
+    P.fuel = Math.max(0, t.fuelLeft);
+    if (result === "beat") {
+      const tgt = g.record ? pName(room, g.record.pid) : "?";
+      P.best = t.bestTime; P.bestBytes = t.bestBytes; P.bestFrames = t.bestFrames; P.bestCar = t.car;
+      g.api.sysChat(room, def.name + " bat " + tgt + " avec " + fmt(t.bestTime) + " et n'est plus dernier.");
+    } else { eliminate(room, t.pid, result === "quit" ? "quit" : "dry"); if (result === "quit" && s.giveUp === "fin") g.endAfterGap = true; }
+  }
   g.api.emitAll(room, "z:turnEnd", { pid: t.pid, result, time: t.bestTime, role: t.role });
   g.phase = "turnGap"; g.phaseUntil = Date.now() + 2200 * TS; g.gapNext = true;
   emitState(room);
+}
+function recordFrom(room, pid, time, bytes, carId, frames) {
+  const g = room.g; const rp = frames ? { frames } : Car.replay(g.track, carId, bytes); return { time, pid, car: carId, frames: rp.frames };
 }
 
 // un automate joue son tour en direct, essai après essai, avec une vraie consommation d'essence.
@@ -168,7 +209,7 @@ function finishTurn(room, result) {
 const recIdxAt = (frames, t) => { const n = frames.length / 8; const k = Math.min(n - 1, Math.max(0, Math.round(t * 10))); return frames[k * 8 + 7]; };
 function botAttempt(room, P, lvl, seed, fuelLeft, k) {
   const g = room.g; const rec = g.record; const tag = rec ? "rec" + rec.pid + rec.time.toFixed(2) : "";
-  const r = Bot.simulateRun(g.track, P.car, lvl, seed, 240, { ref: rec && rec.frames, refTag: tag, push: k });
+  const r = Bot.simulateRun(g.track, P.car, lvl, seed, capOf(g.track), { ref: rec && rec.frames, refTag: tag, push: k });
   const rp = Car.replay(g.track, P.car, r.bytes); const fr = rp.frames; const nF = fr.length / 8;
   const lag = (BOT_LAG[lvl] || 18) * (0.8 + rng() * 0.5), react = (BOT_REACT[lvl] || 1) * (0.6 + rng() * 0.8);
   let abandon = null; const rtime = rec ? rec.time : Infinity;
@@ -182,26 +223,28 @@ function botAttempt(room, P, lvl, seed, fuelLeft, k) {
 }
 function botTurn(room) {
   const g = room.g, s = room.settings, t = g.turn; const def = defOf(room, t.pid); const P = g.players[t.pid]; const lvl = botLevelOf(def);
-  const segs = []; let clock = 0; let result = "dry"; let n = 0;
-  if (t.role === "setter") {
+  const segs = []; let clock = 0; let result = "dry"; let n = 0; let fuelEnd = 0;
+  if (t.role === "open") {
     for (let k = 0; k < s.refTries; k++) {
-      const r = Bot.simulateRun(g.track, P.car, lvl, g.baseSeed + t.pid + g.roundIdx + "s" + k, 240); if (!r.finished) continue;
+      const r = Bot.simulateRun(g.track, P.car, lvl, g.baseSeed + t.pid + g.roundIdx + "s" + k, capOf(g.track)); if (!r.finished) continue;
       const rp = Car.replay(g.track, P.car, r.bytes); segs.push({ t0: clock, dur: r.time, burn: 0, kind: "set", frames: rp.frames }); clock += r.time + BOT_GAP;
       if (t.bestTime == null || r.time < t.bestTime) { t.bestTime = r.time; t.bestBytes = r.bytes; t.bestFrames = rp.frames; }
     }
-    if (t.bestTime == null) { const fb = Bot.simulateRun(g.track, P.car, "debutant", "x", 400); const rp = Car.replay(g.track, P.car, fb.bytes); t.bestTime = g.author * 1.6 + 20; t.bestBytes = fb.bytes; t.bestFrames = rp.frames; segs.push({ t0: 0, dur: Math.min(t.bestTime, 60), burn: 0, kind: "set", frames: rp.frames }); clock = Math.min(t.bestTime, 60) + BOT_GAP; }
+    if (t.bestTime == null) { const fb = Bot.simulateRun(g.track, "bolide", "debutant", "x", Math.max(400, capOf(g.track) + 100)); const rp = Car.replay(g.track, "bolide", fb.bytes); t.bestTime = (fb.finished ? fb.time : g.author * 1.6 + 20); t.bestBytes = fb.bytes; t.bestFrames = rp.frames; t.car = "bolide"; segs.push({ t0: 0, dur: Math.min(t.bestTime, 60), burn: 0, kind: "set", frames: rp.frames }); clock = Math.min(t.bestTime, 60) + BOT_GAP; }
     result = "set";
   } else {
     let fuel = t.fuel;
     while (fuel > 0.5 && n < 15) {
-      const at = botAttempt(room, P, lvl, g.baseSeed + t.pid + g.roundIdx + "c" + n, fuel, n); n++;
+      const at = botAttempt(room, P, lvl, g.baseSeed + t.pid + g.roundIdx + "c" + n + "d" + g.turnSeq, fuel, n); n++;
       segs.push({ t0: clock, dur: at.dur, burn: at.burn, kind: at.kind, frames: at.frames }); clock += at.dur + BOT_GAP; fuel -= at.burn;
+      if (at.time != null && (P.best == null || at.time < P.best) && at.kind !== "beat") { /* temps meilleur que le sien mais pas assez */ }
       if (at.kind === "beat") { result = "beat"; t.bestTime = at.time; t.bestBytes = at.bytes; t.bestFrames = at.frames; break; }
     }
+    fuelEnd = Math.max(0, fuel);
   }
   t.attempts = segs.length;
   const rate = Math.max(1, Number(s.botPace) || 1) / TS;
-  t.auto = { startAt: Date.now() + 700 * TS, rate, segs, total: clock, result, fuel: t.fuel };
+  t.auto = { startAt: Date.now() + 700 * TS, rate, segs, total: clock, result, fuel: t.fuel, fuelEnd };
   g.api.emitAll(room, "z:botTurn", { pid: t.pid, now: Date.now(), startAt: t.auto.startAt, rate, fuel: t.fuel, total: clock, result, role: t.role, segs: segs.map((x) => ({ t0: x.t0, dur: x.dur, burn: x.burn, kind: x.kind })) });
 }
 // l'automate étudie d'abord le circuit et le record, puis joue son tour
@@ -216,14 +259,14 @@ function tickTurn(room, now) {
   if (now < t.introUntil) return;
   if (t.auto) {
     const a = t.auto; const e = (now - a.startAt) / 1000 * a.rate;
-    if (e >= a.total) { P.feed = null; t.fuelLeft = Math.max(0, a.result === "dry" ? 0 : t.fuelLeft); finishTurn(room, a.result); return; }
+    if (e >= a.total) { P.feed = null; t.fuelLeft = a.result === "dry" ? 0 : Math.max(0, a.fuelEnd || 0); finishTurn(room, a.result); return; }
     if (e < 0) { P.feed = null; return; }
     let seg = a.segs[a.segs.length - 1], idx = a.segs.length - 1, burned = 0;
     for (let i = 0; i < a.segs.length; i++) { const sg = a.segs[i]; if (e < sg.t0 + sg.dur + BOT_GAP) { seg = sg; idx = i; break; } burned += sg.burn; }
     const local = e - seg.t0; const f = seg.frames; const nF = f.length / 8 - 1;
     const k = Math.max(0, Math.min(nF, Math.floor(Math.min(local, seg.dur) * 10)));
-    P.feed = { x: f[k * 8], y: f[k * 8 + 1], z: f[k * 8 + 2], h: f[k * 8 + 3], p: f[k * 8 + 4], a: f[k * 8 + 5], b: f[k * 8 + 6], car: P.car };
-    if (a.fuel > 0) t.fuelLeft = Math.max(0, fix1(a.fuel - burned - (local > 0 ? Math.min(local, seg.dur) * (seg.burn > 0 ? 1 : 0) : 0)));
+    P.feed = { x: f[k * 8], y: f[k * 8 + 1], z: f[k * 8 + 2], h: f[k * 8 + 3], p: f[k * 8 + 4], a: f[k * 8 + 5], b: f[k * 8 + 6], i: f[k * 8 + 7], car: P.car };
+    if (a.fuel > 0) t.fuelLeft = Math.max(0, fix1(a.fuel - burned - (local > 0 ? Math.min(local, seg.burn > 0 ? seg.burn : 0, seg.dur) : 0)));
     t.tries = idx + 1; return;
   }
   if (isAuto(room, def) || (!t.att && now - t.lastActive > IDLE_MS)) {
@@ -233,7 +276,7 @@ function tickTurn(room, now) {
   if (t.att) {
     const elapsed = (now - t.att.goAt) / 1000;
     // réservoir vide en plein essai. On laisse finir l'essai, sauf s'il ne peut plus battre le record
-    if (t.role === "challenger" && g.record && elapsed > (t.att.fuelLeft || 0) && elapsed > g.record.time + 1.5) { t.fuelLeft = 0; t.att = null; P.att = null; P.pos = null; finishTurn(room, "dry"); return; }
+    if (t.role === "duel" && g.record && elapsed > (t.att.fuelLeft || 0) && elapsed > g.record.time + 1.5) { t.fuelLeft = 0; t.att = null; P.att = null; P.pos = null; finishTurn(room, "dry"); return; }
     if (elapsed > 600) { t.att = null; P.att = null; }
   }
 }
@@ -247,17 +290,17 @@ function endRound(room) {
   let winner = null, second = null;
   const pts = {}; ps.forEach((P) => { pts[P.id] = 0; });
   if (isChrono(s)) { timed.forEach((P, i) => { pts[P.id] = CHRONO_PTS[Math.min(i, CHRONO_PTS.length - 1)]; }); winner = timed[0] ? timed[0].id : null; }
-  else if (g.record) {
-    winner = g.record.pid; pts[winner] = 3;
-    second = g.record.setter ? (timed.filter((P) => P.id !== winner)[0] || {}).id : g.prevHolder;
+  else {
+    const alive = aliveRank(room); winner = alive[0] || (timed[0] && timed[0].id) || null; if (winner) pts[winner] = 3;
+    second = g.elim.length ? g.elim[g.elim.length - 1] : (alive[1] || null);
     if (second && second !== winner) pts[second] = 1;
   }
   if (winner) g.players[winner].wins++;
   ps.forEach((P) => { P.pts += pts[P.id] || 0; });
   const rows = ps.map((P) => ({ id: P.id, best: P.best, car: P.car, tries: P.tryCount || 0, pts: pts[P.id] || 0, total: P.pts, finishes: P.finishes, winner: P.id === winner })).sort((a, b) => (a.best == null) - (b.best == null) || a.best - b.best);
   g.history.push({ track: g.track.name, biome: g.track.biome, rows: rows.map((r) => ({ id: r.id, best: r.best, pts: r.pts })) });
-  g.api.emitAll(room, "z:roundEnd", { index: g.roundIdx, track: g.track.name, author: g.author, rows, winner, last: g.roundIdx + 1 >= g.total, until: g.phaseUntil, now: Date.now(), mode: s.mode, recordTime: g.record ? g.record.time : null });
-  g.firstRecordPid = null; g.prevHolder = null;
+  g.api.emitAll(room, "z:roundEnd", { index: g.roundIdx, track: g.track.name, author: g.author, rows, winner, last: g.roundIdx + 1 >= g.total, until: g.phaseUntil, now: Date.now(), mode: s.mode, recordTime: winner && g.players[winner].best != null ? g.players[winner].best : null });
+  
   emitState(room);
 }
 function standings(room) {
@@ -296,7 +339,7 @@ function tick(room) {
     room.players.forEach((def) => {
       const P = g.players[def.id]; const f = P.feed || (P.pos && now - P.pos.t < 1500 ? P.pos : null); if (!f) return;
       if (g.phase === "turns" && (!g.turn || g.turn.pid !== def.id)) return;
-      cars.push({ id: def.id, x: f.x, y: f.y, z: f.z, h: f.h, p: f.p, a: f.a, b: f.b, car: f.car || P.car });
+      cars.push({ id: def.id, x: f.x, y: f.y, z: f.z, h: f.h, p: f.p, a: f.a, b: f.b, i: f.i || 0, car: f.car || P.car });
     });
     if (cars.length) g.api.emitAll(room, "z:snap", { t: now, cars });
   }
@@ -308,9 +351,10 @@ function publicState(room) {
   const g = room.g, s = room.settings, t = g.turn;
   return {
     now: Date.now(), phase: g.phase, phaseUntil: g.phaseUntil, roundIdx: g.roundIdx, total: g.total, mode: s.mode, raceEnd: g.raceEnd, goAt: g.goAt || 0, order: g.order, car: g.car, slots: g.slots,
-    turn: t ? { idx: t.idx, pid: t.pid, role: t.role, fuel: t.fuel, fuelLeft: t.fuelLeft, introUntil: t.introUntil, goAt: t.att ? t.att.goAt : 0, tries: t.tries, auto: !!t.auto, ended: t.ended } : null,
+    turn: t ? { idx: t.idx, pid: t.pid, role: t.role, fuel: t.fuel, fuelLeft: t.fuelLeft, introUntil: t.introUntil, goAt: t.att ? t.att.goAt : 0, tries: t.tries, auto: !!t.auto, ended: t.ended, stage: g.stage } : null,
+    stage: g.stage, elim: g.elim,
     record: g.record ? { time: g.record.time, pid: g.record.pid, car: g.record.car } : null,
-    players: room.players.map((def) => { const P = g.players[def.id]; return { id: def.id, name: def.name, color: def.color, isBot: def.isBot, auto: !!def.absentAuto, left: !!def.left, connected: def.connected, car: P.car, ready: P.ready, best: P.best, pts: P.pts, wins: P.wins, finishes: P.finishes }; }),
+    players: room.players.map((def) => { const P = g.players[def.id]; return { id: def.id, name: def.name, color: def.color, isBot: def.isBot, auto: !!def.absentAuto, left: !!def.left, connected: def.connected, car: P.car, ready: P.ready, best: P.best, pts: P.pts, wins: P.wins, finishes: P.finishes, fuel: P.fuel == null ? 0 : fix1(P.fuel), out: !!P.out }; }),
   };
 }
 function emitState(room) { const g = room.g; if (!g) return; g.lastEmit = Date.now(); g.api.emitAll(room, "z:state", publicState(room)); }
@@ -333,9 +377,14 @@ function bind(socket, h, api) {
   socket.on("z:pos", safe((d) => {
     if (!inGame() || !d) return; const g = ctx.room.g; const P = g.players[pid()]; if (!P) return;
     const n = (v) => (typeof v === "number" && isFinite(v) ? v : 0);
-    P.pos = { x: n(d.x), y: n(d.y), z: n(d.z), h: n(d.h), p: n(d.p), a: d.a ? 1 : 0, b: d.b ? 1 : 0, car: P.car, t: Date.now() };
+    P.pos = { x: n(d.x), y: n(d.y), z: n(d.z), h: n(d.h), p: n(d.p), a: Number(d.a) === 2 ? 2 : d.a ? 1 : 0, b: d.b ? 1 : 0, i: n(d.i), car: P.car, t: Date.now() };
   }));
   socket.on("z:end", safe((d) => { if (!inGame()) return; endAttempt(ctx.room, pid(), d || {}, toast); }));
+  socket.on("z:giveup", safe(() => {
+    if (!inGame()) return; const g = ctx.room.g, t = g.turn; if (g.phase !== "turns" || !t || t.pid !== pid() || t.ended || t.role !== "duel") return;
+    if (t.att) { burn(ctx.room, t, (Date.now() - t.att.goAt) / 1000); t.att = null; } const P = g.players[t.pid]; P.att = null; P.pos = null; P.feed = null; t.auto = null;
+    finishTurn(ctx.room, "quit");
+  }));
   socket.on("z:sync", safe(() => { if (inGame()) sendTo(ctx.room, socket); }));
 }
 function arm(room, id, toast) {
@@ -351,16 +400,16 @@ function arm(room, id, toast) {
   if (g.phase !== "turns" || !t || t.pid !== id) return toast("Ce n'est pas ton tour.");
   if (t.ended || t.auto) return;
   if (Date.now() < t.introUntil) return toast("Patiente un instant, le tour va commencer.");
-  if (t.role === "challenger" && t.fuelLeft <= 0.05) return toast("Plus une goutte d'essence.");
-  if (t.role === "setter" && t.tries >= s.refTries) return;
-  if (t.att) { /* un redémarrage arrive avant la fin envoyée, on le traite comme un abandon */ burn(room, t, (Date.now() - t.att.goAt) / 1000); t.att = null; if (t.role === "challenger" && t.fuelLeft <= 0.05) { finishTurn(room, "dry"); return; } }
+  if (t.role === "duel" && t.fuelLeft <= 0.05) return toast("Plus une goutte d'essence.");
+  if (t.role === "open" && t.tries >= s.refTries) return;
+  if (t.att) { /* un redémarrage arrive avant la fin envoyée, on le traite comme un abandon */ burn(room, t, (Date.now() - t.att.goAt) / 1000); t.att = null; if (t.role === "duel" && t.fuelLeft <= 0.05) { finishTurn(room, "dry"); return; } }
   const first = t.attempts === 0; t.attempts++; P.tryCount = (P.tryCount || 0) + 1; t.lastActive = Date.now();
   t.att = { goAt: Date.now() + (first ? FIRST_GO_MS : NEXT_GO_MS), car: P.car, fuelLeft: t.fuelLeft };
   P.att = t.att; P.car = P.car;
-  g.api.io.to(defOf(room, id).socketId).emit("z:go", { now: Date.now(), goAt: t.att.goAt, fuelLeft: t.role === "challenger" ? t.fuelLeft : 0, car: P.car, slot: 0 });
+  g.api.io.to(defOf(room, id).socketId).emit("z:go", { now: Date.now(), goAt: t.att.goAt, fuelLeft: t.role === "duel" ? t.fuelLeft : 0, car: P.car, slot: 0 });
   emitState(room);
 }
-function burn(room, t, secs) { if (t.role !== "challenger") return; t.fuelLeft = Math.max(0, fix1(t.fuelLeft - Math.max(0, secs)) ); }
+function burn(room, t, secs) { if (t.role !== "duel") return; t.fuelLeft = Math.max(0, fix1(t.fuelLeft - Math.max(0, secs)) ); }
 
 function endAttempt(room, id, d, toast) {
   const g = room.g, s = room.settings; const P = g.players[id]; if (!P) return; const def = defOf(room, id);
@@ -375,19 +424,19 @@ function endAttempt(room, id, d, toast) {
   const elapsed = Math.max(0, (Date.now() - att.goAt) / 1000);
   if (kind === "restart") {
     burn(room, t, elapsed);
-    if (t.role === "challenger" && t.fuelLeft <= 0.05) return finishTurn(room, "dry");
+    if (t.role === "duel" && t.fuelLeft <= 0.05) return finishTurn(room, "dry");
     emitState(room); return;
   }
   const ok = verify(room, P, att, d, toast, null);
-  if (!ok) { burn(room, t, elapsed); if (t.role === "challenger" && t.fuelLeft <= 0.05) return finishTurn(room, "dry"); emitState(room); return; }
+  if (!ok) { burn(room, t, elapsed); if (t.role === "duel" && t.fuelLeft <= 0.05) return finishTurn(room, "dry"); emitState(room); return; }
   g.api.emitAll(room, "z:result", { pid: id, time: ok.time, role: t.role });
-  if (t.role === "setter") {
+  if (t.role === "open") {
     t.tries++; if (t.bestTime == null || ok.time < t.bestTime) { t.bestTime = ok.time; t.bestBytes = ok.bytes; t.bestFrames = ok.frames; t.car = att.car; }
     g.api.sysChat(room, def.name + " signe " + fmt(ok.time) + " (essai " + t.tries + " sur " + s.refTries + ").");
     if (t.tries >= s.refTries) finishTurn(room, "set"); else emitState(room);
     return;
   }
-  burn(room, t, ok.time); if (P.best == null || ok.time < P.best) P.best = ok.time;
+  burn(room, t, ok.time);
   if (ok.time < g.record.time) { t.bestTime = ok.time; t.bestBytes = ok.bytes; t.bestFrames = ok.frames; t.car = att.car; return finishTurn(room, "beat"); }
   g.api.sysChat(room, def.name + " termine en " + fmt(ok.time) + ", il faut faire mieux que " + fmt(g.record.time) + ".");
   if (t.fuelLeft <= 0.05) return finishTurn(room, "dry");

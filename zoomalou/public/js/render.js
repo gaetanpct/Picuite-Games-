@@ -73,6 +73,11 @@
     for (let i = 0; i < 3; i++) { const y = 112 - i * 40; g.beginPath(); g.moveTo(22, y); g.lineTo(64, y - 30); g.lineTo(106, y); g.stroke(); }
     return new T.CanvasTexture(c);
   }
+  function hazardTexture() {
+    const c = document.createElement("canvas"); c.width = 256; c.height = 48; const g = c.getContext("2d"); g.fillStyle = "#ffcf33"; g.fillRect(0, 0, 256, 48); g.fillStyle = "#1c1c22";
+    for (let i = -2; i < 12; i++) { g.beginPath(); g.moveTo(i * 28, 48); g.lineTo(i * 28 + 14, 48); g.lineTo(i * 28 + 62, 0); g.lineTo(i * 28 + 48, 0); g.closePath(); g.fill(); }
+    return new T.CanvasTexture(c);
+  }
   function labelTexture(text) {
     const c = document.createElement("canvas"); c.width = 256; c.height = 64; const g = c.getContext("2d"); g.fillStyle = "rgba(0,0,0,0.55)"; const r = 24; g.beginPath(); g.moveTo(r, 4); g.arcTo(252, 4, 252, 60, r); g.arcTo(252, 60, 4, 60, r); g.arcTo(4, 60, 4, 4, r); g.arcTo(4, 4, 252, 4, r); g.fill();
     g.fillStyle = "#fff"; g.font = "700 32px Fredoka, Trebuchet MS, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(text, 128, 34); return new T.CanvasTexture(c);
@@ -88,41 +93,59 @@
     View.track = tr; const B = Track.BIOMES[tr.biome]; clearTrack();
     document.getElementById("gl-host").style.background = "linear-gradient(180deg," + B.sky[0] + "," + B.sky[1] + " 78%)";
     scene.fog = new T.Fog(col(B.fog), 90, B.stars ? 420 : 380); hemi.color.set(B.amb); hemi.groundColor.set(B.ground); sun.color.set(B.sun);
-    const n = tr.n, X = tr.x, Y = tr.y, Z = tr.z, H = tr.h, W = tr.w;
-    const rx = (i) => -Math.cos(H[i]), rz = (i) => Math.sin(H[i]);
+    const n = tr.n, X = tr.x, Y = tr.y, Z = tr.z, H = tr.h, W = tr.w, FL = tr.flags, FG = Track.FLAG;
+    // repère de chaque point. Au sol la droite est horizontale et le haut est vertical. Dans une zone sans gravité on prend le vrai repère 3D
+    const MM = Track.magMap(tr).id; const RX = new Float32Array(n), RY = new Float32Array(n), RZ = new Float32Array(n), UX = new Float32Array(n), UY = new Float32Array(n), UZ = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const k = MM[i];
+      if (k >= 0) { const fr = Track.frameAt(tr, tr.mags[k], i); RX[i] = fr.rx; RY[i] = fr.ry; RZ[i] = fr.rz; UX[i] = fr.ux; UY[i] = fr.uy; UZ[i] = fr.uz; }
+      else { RX[i] = -Math.cos(H[i]); RY[i] = 0; RZ[i] = Math.sin(H[i]); UX[i] = 0; UY[i] = 1; UZ[i] = 0; }
+    }
+    const hole = (i) => (FL[i] | FL[i + 1]) & FG.GAP, bare = (i) => (FL[i] | FL[i + 1]) & FG.NOWALL, inMag = (i) => MM[i] >= 0 || MM[i + 1] >= 0;
     const roadCol = [col(B.road), col(B.road).multiplyScalar(1.2).lerp(col("#9a6a3a"), 0.55), col("#9fdcff"), col("#ff9a1a"), col(B.id === "bonbons" ? "#ffb347" : "#7a6a3a")];
+    const magCol = col("#6a5ae0");
     const pos = [], cols = []; const quad = (a, b, c, d, color, arr, carr) => { arr.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], c[0], c[1], c[2], b[0], b[1], b[2], d[0], d[1], d[2]); for (let k = 0; k < 6; k++) carr.push(color.r, color.g, color.b); };
-    const L = (i, o) => [X[i] + rx(i) * W[i] * o, Y[i], Z[i] + rz(i) * W[i] * o];
+    const L = (i, o, up) => [X[i] + RX[i] * W[i] * o + UX[i] * (up || 0), Y[i] + RY[i] * W[i] * o + UY[i] * (up || 0), Z[i] + RZ[i] * W[i] * o + UZ[i] * (up || 0)];
     const cc = new T.Color();
     for (let i = 0; i < n - 1; i++) {
+      if (hole(i)) continue;
       const s = tr.surf[i]; const base = roadCol[s]; cc.copy(base).multiplyScalar(0.95 + 0.07 * (i % 2)); if (s === 3) cc.copy(i % 4 < 2 ? col("#ff9a1a") : col("#ffd84a"));
-      // droite a gauche. rx pointe vers la gauche du conducteur car le cap croissant tourne à gauche
+      if (inMag(i)) cc.lerp(magCol, 0.38).multiplyScalar(i % 6 < 3 ? 1.12 : 0.9);
+      // droite a gauche. Le cap croissant tourne à gauche
       quad(L(i, 1), L(i + 1, 1), L(i, -1), L(i + 1, -1), cc.clone(), pos, cols);
     }
     const geo = new T.BufferGeometry(); geo.setAttribute("position", new T.Float32BufferAttribute(pos, 3)); geo.setAttribute("color", new T.Float32BufferAttribute(cols, 3)); geo.computeVertexNormals();
-    const road = new T.Mesh(geo, new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true })); road.receiveShadow = true; group.add(road);
+    const road = new T.Mesh(geo, new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true, side: tr.mags && tr.mags.length ? T.DoubleSide : T.FrontSide })); road.receiveShadow = true; group.add(road);
     // lignes de bord et ligne centrale
-    const lp = [], lc = []; const white = col("#ffffff"); const lift = (p) => [p[0], p[1] + 0.03, p[2]];
+    const lp = [], lc = []; const white = col("#ffffff");
     for (let i = 0; i < n - 1; i++) {
-      if (tr.surf[i] === 3) continue; [0.93, -0.93].forEach((o) => { const a = lift(L(i, o)), b = lift(L(i + 1, o)); const a2 = lift(L(i, o - Math.sign(o) * 0.05)), b2 = lift(L(i + 1, o - Math.sign(o) * 0.05)); quad(a, b, a2, b2, white, lp, lc); });
-      if (i % 4 < 2) { const o = 0.012; const a = lift(L(i, o)), b = lift(L(i + 1, o)), a2 = lift(L(i, -o)), b2 = lift(L(i + 1, -o)); quad(a, b, a2, b2, white, lp, lc); }
+      if (tr.surf[i] === 3 || hole(i)) continue; [0.93, -0.93].forEach((o) => { const a = L(i, o, 0.03), b = L(i + 1, o, 0.03); const a2 = L(i, o - Math.sign(o) * 0.05, 0.03), b2 = L(i + 1, o - Math.sign(o) * 0.05, 0.03); quad(a, b, a2, b2, white, lp, lc); });
+      if (i % 4 < 2) { const o = 0.012; quad(L(i, o, 0.03), L(i + 1, o, 0.03), L(i, -o, 0.03), L(i + 1, -o, 0.03), white, lp, lc); }
     }
     const lg = new T.BufferGeometry(); lg.setAttribute("position", new T.Float32BufferAttribute(lp, 3)); lg.setAttribute("color", new T.Float32BufferAttribute(lc, 3));
     group.add(new T.Mesh(lg, new T.MeshBasicMaterial({ vertexColors: true, side: T.DoubleSide, transparent: true, opacity: 0.7, depthWrite: false })));
-    // murs de bord, jupes sous la route
-    const wp = [], wc = []; const WH = 0.95; const skirt = col(B.road).multiplyScalar(0.55);
+    // murs de bord, jupes sous la route, dessous des ponts
+    const wp = [], wc = []; const WH = 0.95; const skirt = col(B.road).multiplyScalar(0.55); const deck = col(B.road).multiplyScalar(0.42);
     for (let i = 0; i < n - 1; i++) {
-      const cA = col(B.curb[Math.floor(i / 2) % 2]);
+      if (hole(i)) continue;
+      const cA = col(B.curb[Math.floor(i / 2) % 2]); const mag = inMag(i);
+      if (bare(i)) { // pont sans rebord, on voit juste l'épaisseur de la dalle
+        const e1 = L(i, 1), e2 = L(i + 1, 1), f1 = L(i, -1), f2 = L(i + 1, -1), e1d = L(i, 1, -0.8), e2d = L(i + 1, 1, -0.8), f1d = L(i, -1, -0.8), f2d = L(i + 1, -1, -0.8);
+        quad(e1d, e2d, e1, e2, deck, wp, wc); quad(f2d, f1d, f2, f1, deck, wp, wc); quad(f1d, f2d, e1d, e2d, deck.clone().multiplyScalar(0.8), wp, wc);
+        continue;
+      }
       [1, -1].forEach((o) => {
-        const a = L(i, o), b = L(i + 1, o), a2 = [a[0], a[1] + WH, a[2]], b2 = [b[0], b[1] + WH, b[2]];
-        const oa = L(i, o * 1.04), ob = L(i + 1, o * 1.04), oa2 = [oa[0], oa[1] + WH, oa[2]], ob2 = [ob[0], ob[1] + WH, ob[2]];
+        const a = L(i, o), b = L(i + 1, o), a2 = L(i, o, WH), b2 = L(i + 1, o, WH);
+        const oa = L(i, o * 1.04), ob = L(i + 1, o * 1.04), oa2 = L(i, o * 1.04, WH), ob2 = L(i + 1, o * 1.04, WH);
         if (o > 0) { quad(a, b, a2, b2, cA, wp, wc); quad(a2, b2, oa2, ob2, cA.clone().multiplyScalar(1.15), wp, wc); } else { quad(b, a, b2, a2, cA, wp, wc); quad(b2, a2, ob2, oa2, cA.clone().multiplyScalar(1.15), wp, wc); }
-        const gnd = [oa[0], tr.groundY, oa[2]], gnd2 = [ob[0], tr.groundY, ob[2]];
-        if (o > 0) quad(oa, ob, gnd, gnd2, skirt, wp, wc); else quad(ob, oa, gnd2, gnd, skirt, wp, wc);
+        if (!mag) { const gnd = [oa[0], tr.groundY, oa[2]], gnd2 = [ob[0], tr.groundY, ob[2]]; if (o > 0) quad(oa, ob, gnd, gnd2, skirt, wp, wc); else quad(ob, oa, gnd2, gnd, skirt, wp, wc); }
       });
+      if (mag) { quad(L(i, -1.04, -0.5), L(i + 1, -1.04, -0.5), L(i, 1.04, -0.5), L(i + 1, 1.04, -0.5), skirt, wp, wc); }
     }
     const wg = new T.BufferGeometry(); wg.setAttribute("position", new T.Float32BufferAttribute(wp, 3)); wg.setAttribute("color", new T.Float32BufferAttribute(wc, 3)); wg.computeVertexNormals();
     const walls = new T.Mesh(wg, new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, flatShading: true, side: T.DoubleSide })); walls.castShadow = View.quality !== "low"; group.add(walls);
+    // piliers sous les ponts
+    { const pm = mat("#8a8a96"); for (let i = 4; i < n - 4; i += 9) { if (!(FL[i] & FG.NOWALL) || hole(i) || MM[i] >= 0) continue; const hh = Y[i] - tr.groundY - 0.8; if (hh < 2) continue; const p = mesh(G.cyl(0.9, 1.1, hh, 8), pm, X[i], tr.groundY + hh / 2, Z[i]); group.add(p); } }
     // sol
     const ground = new T.Mesh(new T.PlaneGeometry(4000, 4000), new T.MeshStandardMaterial({ color: col(B.ground), roughness: 1 })); ground.rotation.x = -Math.PI / 2; ground.position.set(0, tr.groundY, 0); ground.receiveShadow = true; group.add(ground);
     // pastilles turbo
@@ -137,12 +160,41 @@
       g.position.set(tr.x[idx], tr.y[idx], tr.z[idx]); g.rotation.y = tr.h[idx] + Math.PI / 2 * 0; group.add(g); return g;
     };
     // les arches sont orientées pour que leur axe x soit la droite de la route
-    const place = (g, idx) => { g.rotation.y = Math.atan2(-Math.cos(tr.h[idx]) * -1, Math.sin(tr.h[idx])) ; g.rotation.y = tr.h[idx]; };
+    const place = (g, idx) => { g.rotation.y = tr.h[idx]; };
     place(arch(tr.start.idx, "DÉPART", "#ffffff", "#222222", "#ffffff", false), tr.start.idx);
     place(arch(tr.n - 3, "ARRIVÉE", "#ffffff", "#222222", "#ffffff", false), tr.n - 3);
     tr.cps.forEach((c, k) => { const g = arch(c, "", "", "", "#33e0ff", true); place(g, c); g.userData.cp = k; gates.push(g); });
     // lignes peintes au départ et à l'arrivée
     { const ck = checkerTexture(); [tr.start.idx, tr.n - 3].forEach((idx) => { const pl = new T.Mesh(new T.PlaneGeometry(tr.w[idx] * 2 - 0.2, 3.2), new T.MeshBasicMaterial({ map: ck, transparent: true, opacity: 0.92 })); pl.rotation.x = -Math.PI / 2; const wr = new T.Object3D(); wr.position.set(tr.x[idx], tr.y[idx] + 0.07, tr.z[idx]); wr.rotation.y = tr.h[idx]; wr.add(pl); group.add(wr); }); }
+    // obstacles posés sur la route
+    (tr.obs || []).forEach((o) => {
+      const g = new T.Group(); const ty = Track.OBS_IDS[o.t];
+      if (ty === "cone") { g.add(mesh(G.cone(0.75, 1.5, 10), mat("#ff7a1a"), 0, 0.75, 0)); g.add(mesh(G.cyl(0.42, 0.5, 0.25, 10), mat("#ffffff"), 0, 0.62, 0)); g.add(mesh(G.box(1.5, 0.12, 1.5), mat("#2a2a30"), 0, 0.06, 0)); }
+      else if (ty === "barrel") { g.add(mesh(G.cyl(1.0, 1.0, 1.7, 14), mat("#d93a3a"), 0, 0.85, 0)); [0.35, 1.35].forEach((y) => g.add(mesh(G.cyl(1.04, 1.04, 0.14, 14), mat("#f2f2f2"), 0, y, 0))); }
+      else if (ty === "crate") { const sd = o.r * 1.3; g.add(mesh(G.box(sd, 2.0, sd), mat("#b07a3a"), 0, 1.0, 0)); g.add(mesh(G.box(sd + 0.12, 0.2, sd + 0.12), mat("#7a5224"), 0, 0.1, 0)); g.add(mesh(G.box(sd + 0.12, 0.2, sd + 0.12), mat("#7a5224"), 0, 1.9, 0)); g.add(mesh(G.box(0.2, 2.0, sd + 0.12), mat("#7a5224"), 0, 1.0, 0)); }
+      else { g.add(mesh(G.cyl(0.95, 1.05, 5, 10), mat("#9aa0aa"), 0, 2.5, 0)); g.add(mesh(G.cyl(1.2, 1.2, 0.5, 10), mat("#6a707a"), 0, 5.1, 0)); g.add(mesh(G.cyl(0.97, 1.07, 0.35, 10), mat("#ffcf33"), 0, 1.0, 0)); g.add(mesh(G.cyl(0.97, 1.07, 0.35, 10), mat("#ffcf33"), 0, 2.4, 0)); }
+      g.position.set(o.x, o.y, o.z); g.rotation.y = (o.i * 1.7) % 6.28; group.add(g);
+    });
+    // trous à franchir. Un portique d'avertissement avant l'élan et un tapis vert à la réception
+    { const hz = hazardTexture();
+      (tr.gaps || []).forEach((gp) => {
+        const w = tr.w[gp.lip] + 0.6; const g = new T.Group();
+        [1, -1].forEach((o) => g.add(mesh(G.box(0.6, 6.4, 0.6), mat("#ffcf33"), o * w, 3.2, 0)));
+        g.add(mesh(G.box(w * 2, 1.1, 0.3), new T.MeshBasicMaterial({ map: hz }), 0, 6.4, 0));
+        g.position.set(tr.x[gp.lip - 3], tr.y[gp.lip - 3], tr.z[gp.lip - 3]); g.rotation.y = tr.h[gp.lip - 3]; group.add(g);
+        const pl = new T.Mesh(new T.PlaneGeometry(tr.w[gp.land] * 1.9, 7), new T.MeshBasicMaterial({ color: col("#4cff7a"), transparent: true, opacity: 0.4, depthWrite: false })); pl.rotation.x = -Math.PI / 2; const wr = new T.Object3D(); wr.position.set(tr.x[gp.land + 3], tr.y[gp.land + 3] + 0.08, tr.z[gp.land + 3]); wr.rotation.y = tr.h[gp.land + 3]; wr.add(pl); group.add(wr);
+      }); }
+    // entrées et sorties des zones sans gravité, avec des anneaux lumineux le long du parcours
+    { const ringMat = new T.MeshStandardMaterial({ color: col("#b57aff"), emissive: col("#8a4aff"), emissiveIntensity: 0.9 }); const m4 = new T.Matrix4();
+      (tr.mags || []).forEach((mg) => {
+        const step = mg.k === "roll" ? 5 : 6;
+        for (let i = mg.a; i <= mg.b; i += step) {
+          const edge = i === mg.a || i + step > mg.b; const ring = new T.Mesh(new T.TorusGeometry(tr.w[i] + 0.9, edge ? 0.3 : 0.12, 6, 28), edge ? ringMat : new T.MeshStandardMaterial({ color: col("#7a6aff"), emissive: col("#5a4aff"), emissiveIntensity: 0.55, transparent: true, opacity: 0.8 }));
+          const fr = Track.frameAt(tr, mg, i);
+          const left = new T.Vector3(fr.ux, fr.uy, fr.uz).cross(new T.Vector3(fr.tx, fr.ty, fr.tz)).normalize(); m4.makeBasis(left, new T.Vector3(fr.ux, fr.uy, fr.uz), new T.Vector3(fr.tx, fr.ty, fr.tz));
+          ring.quaternion.setFromRotationMatrix(m4); ring.position.set(tr.x[i], tr.y[i], tr.z[i]); group.add(ring);
+        }
+      }); }
     group.add(bakeDecor(tr.decor, tr.biome)); buildSky(B, tr);
     if (B.stars) { const m = 500, p = new Float32Array(m * 3); for (let k = 0; k < m; k++) { const a = Math.random() * 6.28, b = Math.random() * 1.2 + 0.05, r = 600; p[k * 3] = Math.cos(a) * Math.cos(b) * r; p[k * 3 + 1] = Math.sin(b) * r; p[k * 3 + 2] = Math.sin(a) * Math.cos(b) * r; } const g = new T.BufferGeometry(); g.setAttribute("position", new T.BufferAttribute(p, 3)); stars = new T.Points(g, new T.PointsMaterial({ color: 0xffffff, size: 1.6, fog: false, sizeAttenuation: false })); group.add(stars); } else stars = null;
     camInit = false; View.resetFollow();
@@ -201,9 +253,9 @@
   View.setCarState = function (id, s, snap) {
     const c = View.cars[id]; if (!c) return; c.root.visible = true;
     if (snap || !c.init) { c.st = { x: s.x, y: s.y, z: s.z, h: s.h, p: s.p || 0 }; c.init = true; } else { c.st = { x: s.x, y: s.y, z: s.z, h: s.h, p: s.p || 0 }; }
-    c.air = !!s.a; c.boost = !!s.b; c.speed = s.speed || 0; c.steer = s.steer || 0; c.skid = s.skid || 0;
+    const rl = s.a === 2; if (rl !== !!c.rail) { c.rail = rl; c.st.h = s.h; } c.st.i = s.i || 0; c.air = s.a === 1 || s.a === true; c.boost = !!s.b; c.speed = s.speed || 0; c.steer = s.steer || 0; c.skid = s.skid || 0;
   };
-  View.setCarTarget = function (id, s) { const c = View.cars[id]; if (!c) return; c.tgt = s; if (!c.init) { c.st = { x: s.x, y: s.y, z: s.z, h: s.h, p: s.p || 0 }; c.init = true; } c.root.visible = true; c.air = !!s.a; c.boost = !!s.b; };
+  View.setCarTarget = function (id, s) { const c = View.cars[id]; if (!c) return; c.tgt = s; const rl = s.a === 2; if (!c.init || rl !== !!c.rail) { c.st = { x: s.x, y: s.y, z: s.z, h: s.h, p: s.p || 0, i: s.i || 0 }; c.init = true; } c.rail = rl; c.root.visible = true; c.air = s.a === 1 || s.a === true; c.boost = !!s.b; };
   View.hideCar = function (id) { const c = View.cars[id]; if (c) { c.root.visible = false; c.init = false; if (c.shadow) c.shadow.visible = false; } };
 
   // ---------- particules ----------
@@ -219,6 +271,15 @@
   View.puff = puff;
   View.shake = (a) => { shake = Math.max(shake, a || 0.4); };
 
+  // ---------- orientation dans une zone sans gravité ----------
+  const _m = new T.Matrix4(), _fw = new T.Vector3(), _up = new T.Vector3(), _lf = new T.Vector3();
+  // calcule l'avant, le haut et la gauche de la voiture au point idx avec le cap relatif hd, et remplit _m. Faux hors zone
+  function railBasis(idx, hd) {
+    const tr = View.track; if (!tr || !tr.mags) return false; const ids = Track.magMap(tr).id; const k = ids[Math.floor(clamp(idx, 0, tr.n - 2))]; if (k < 0) return false;
+    const fr = Track.frameAt(tr, tr.mags[k], idx); const ch = Math.cos(hd), sh = Math.sin(hd);
+    _fw.set(fr.tx * ch - fr.rx * sh, fr.ty * ch - fr.ry * sh, fr.tz * ch - fr.rz * sh).normalize(); _up.set(fr.ux, fr.uy, fr.uz); _lf.crossVectors(_up, _fw).normalize(); _m.makeBasis(_lf, _up, _fw); return true;
+  }
+  const _wantUp = new T.Vector3(); let wasRail = false;
   // ---------- caméra ----------
   View.follow = (id) => { followId = id; };
   View.resetFollow = () => { camInit = false; };
@@ -227,11 +288,23 @@
   View.camMode = () => camMode;
   function updateCamera(dt) {
     const c = followId && View.cars[followId];
-    if (orbit) { // vue de garage, la caméra tourne autour du départ
+    if (orbit) { camera.up.set(0, 1, 0); // vue de garage, la caméra tourne autour du départ
       const t = time * 0.35; const s = View.track.start; camera.position.set(s.x + Math.sin(t) * 14, s.y + 5.2, s.z + Math.cos(t) * 14); camera.lookAt(s.x, s.y + 0.8, s.z); camera.fov = 52; camera.updateProjectionMatrix(); return;
     }
     if (!c || !c.init) return;
     const st = c.st; const spd = c.speed || 0;
+    if (c.rail && railBasis(st.i, st.h)) { // la caméra suit la voiture et tourne avec elle, même la tête en bas
+      const dist = camMode === 0 ? 8.2 : camMode === 1 ? 15 : 0.2, hgt = camMode === 0 ? 3.3 : camMode === 1 ? 7.5 : 1.7;
+      const tx = st.x - _fw.x * dist + _up.x * hgt, ty = st.y - _fw.y * dist + _up.y * hgt, tz = st.z - _fw.z * dist + _up.z * hgt;
+      if (!camInit || !wasRail) { camPos.set(tx, ty, tz); camInit = true; } const kk = Math.min(1, dt * (camMode === 2 ? 30 : 9));
+      camPos.x += (tx - camPos.x) * kk; camPos.y += (ty - camPos.y) * kk; camPos.z += (tz - camPos.z) * kk;
+      camera.up.lerp(_up, Math.min(1, dt * 5)).normalize(); camera.position.copy(camPos);
+      camera.lookAt(st.x + _fw.x * 6 + _up.x * 1.3, st.y + _fw.y * 6 + _up.y * 1.3, st.z + _fw.z * 6 + _up.z * 1.3); wasRail = true;
+      const wf = 62 + clamp(spd / 60, 0, 1) * 20; fov += (wf - fov) * Math.min(1, dt * 4); if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
+      return;
+    }
+    if (wasRail) { wasRail = false; camHd = st.h; camPos.set(st.x - Math.sin(st.h) * 8, st.y + 3.3, st.z - Math.cos(st.h) * 8); }
+    if (camera.up.y < 0.999) { _wantUp.set(0, 1, 0); camera.up.lerp(_wantUp, Math.min(1, dt * 6)).normalize(); }
     if (!camInit) { camHd = st.h; camInit = true; camPos.set(st.x - Math.sin(st.h) * 9, st.y + 4, st.z - Math.cos(st.h) * 9); }
     camHd += wrap(st.h - camHd) * Math.min(1, dt * (camMode === 2 ? 20 : 4.5));
     const dist = camMode === 0 ? 8.2 : camMode === 1 ? 15 : 0.2; const hgt = camMode === 0 ? 3.3 : camMode === 1 ? 7.5 : 1.7;
@@ -253,13 +326,14 @@
     if (View.onFrame) View.onFrame(dt);
     const B = Track.BIOMES[View.track.biome];
     Object.values(View.cars).forEach((c) => {
-      if (c.tgt) { const k = 1 - Math.exp(-14 * dt); c.st.x += (c.tgt.x - c.st.x) * k; c.st.y += (c.tgt.y - c.st.y) * k; c.st.z += (c.tgt.z - c.st.z) * k; c.st.h += wrap(c.tgt.h - c.st.h) * k; c.st.p += ((c.tgt.p || 0) - c.st.p) * k; }
-      const s = c.st; c.root.position.set(s.x, s.y, s.z); c.root.rotation.order = "YXZ"; c.root.rotation.y = s.h; c.root.rotation.x = -s.p * (c.air ? 0.4 : 1); c.root.rotation.z = -(c.steer || 0) * 0.06 * clamp((c.speed || 0) / 30, 0, 1);
+      if (c.tgt) { const k = 1 - Math.exp(-14 * dt); c.st.x += (c.tgt.x - c.st.x) * k; c.st.y += (c.tgt.y - c.st.y) * k; c.st.z += (c.tgt.z - c.st.z) * k; c.st.h += wrap(c.tgt.h - c.st.h) * k; c.st.p += ((c.tgt.p || 0) - c.st.p) * k; if (c.rail) c.st.i += ((c.tgt.i || 0) - c.st.i) * k; }
+      const s = c.st; c.root.position.set(s.x, s.y, s.z);
+      if (c.rail && railBasis(s.i, s.h)) c.root.quaternion.setFromRotationMatrix(_m); else { c.root.rotation.order = "YXZ"; c.root.rotation.y = s.h; c.root.rotation.x = -s.p * (c.air ? 0.4 : 1); c.root.rotation.z = -(c.steer || 0) * 0.06 * clamp((c.speed || 0) / 30, 0, 1); }
       if (c.label) { const d = camera.position.distanceTo(c.root.position); c.label.visible = d > 9 && d < 170; const sc = 2.6 + d * 0.02; c.label.scale.set(sc, sc * 0.25, 1); c.label.position.y = 3.1; }
       c.flame.visible = !!c.boost; if (c.boost) c.flame.scale.set(0.8 + Math.random() * 0.3, 0.8 + Math.random() * 0.5, 0.8 + Math.random() * 0.3);
       c.spin += (c.speed || 0) * dt / 0.5; c.spin = c.spin % (Math.PI * 2); c.wheels.forEach((w) => { w.holder.rotation.x = c.spin; w.holder.rotation.y = w.front ? -(c.steer || 0) * 0.45 : 0; });
-      if (c.shadow) { c.shadow.visible = c.root.visible && !c.air; c.shadow.position.set(s.x, s.y + 0.06, s.z); c.shadow.rotation.z = s.h; }
-      if (c.skid > 0.5 && !c.air && Math.random() < 0.6) puff(s.x - Math.sin(s.h) * 1.6, s.y + 0.3, s.z - Math.cos(s.h) * 1.6, c.skidCol || "#dddddd", 1, 1.4, 0.8, 1);
+      if (c.shadow) { c.shadow.visible = c.root.visible && !c.air && !c.rail; c.shadow.position.set(s.x, s.y + 0.06, s.z); c.shadow.rotation.z = s.h; }
+      if (c.skid > 0.5 && !c.air && !c.rail && Math.random() < 0.6) puff(s.x - Math.sin(s.h) * 1.6, s.y + 0.3, s.z - Math.cos(s.h) * 1.6, c.skidCol || "#dddddd", 1, 1.4, 0.8, 1);
     });
     particles.forEach((p) => { if (!p.alive) return; p.life -= dt; if (p.life <= 0) { p.alive = false; p.mesh.visible = false; return; } p.v.y += 1.2 * dt; p.v.multiplyScalar(1 - dt * 1.5); p.mesh.position.addScaledVector(p.v, dt); p.mesh.material.opacity = clamp(p.life / p.max, 0, 1) * 0.8; p.mesh.scale.multiplyScalar(1 + dt * 0.8); });
     gates.forEach((g) => { if (g.userData.flash > 0) { g.userData.flash -= dt * 0.6; if (g.userData.flash <= 0 && g.userData.ring) { g.userData.ring.material.emissive.set("#33e0ff"); g.userData.ring.material.color.set("#33e0ff"); } } });

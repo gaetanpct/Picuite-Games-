@@ -167,8 +167,8 @@ Deux jeux arrivent sur l'accueil, Golfouille et Zoomalou. Ils partagent un petit
 - Courses de voitures sur des circuits générés à l'infini, inspirées de Trackmania Turbo, avec des graphismes volontairement simples.
 - Sept biomes (côte, désert, neige, forêt, volcan, bonbons, néon), des sols différents (bitume, terre, glace, sol collant), des tapis turbo, des bosses à sauter et des points de contrôle.
 - Cinq voitures, Bolide, Rallye-Pote, Pétard, Toupie et Bouboule, chacune avec ses forces. Le premier joueur, l'hôte, choisit la voiture de tout le monde au garage avant chaque course, pour que la course reste équitable.
-- Mode essence. Le premier pilote pose un temps, puis chaque autre pilote a un réservoir limité pour le battre et retente tant qu'il lui reste de l'essence. Le réservoir se règle de deux façons, relatif au record ou fixe en secondes. Un essai abandonné coûte l'essence déjà brûlée.
-- Ordre des pilotes. Le réglage propose À tour de rôle ou Le dernier d'abord, où le pilote le moins bien classé pose le temps et le leader joue en dernier.
+- Mode essence. Chaque pilote pose d'abord un temps. Ensuite le dernier du classement joue avec toute son essence pour battre l'avant-dernier. Tant qu'il reste dernier c'est encore à lui, et sans essence il est éliminé. Dès qu'il passe devant, le nouveau dernier joue à son tour. La manche s'arrête quand il ne reste que le meilleur temps, qui gagne, ou quand un pilote abandonne si le réglage le demande.
+- Réservoir. Il se règle de deux façons, en multiple du meilleur temps posé ou en secondes fixes. Chaque pilote a son propre réservoir pour toute la manche et il ne se remplit pas. Un essai abandonné coûte l'essence déjà brûlée.
 - Deux modes chrono. Dans le chrono fantôme tout le monde part en même temps depuis la même ligne, les voitures des autres sont transparentes, et le meilleur temps de chacun compte. Dans le chrono contact les voitures sont solides et se gênent.
 - Fantôme du record avec écart en direct, retour au dernier point de contrôle, caméras multiples, commandes clavier, tactiles et manette.
 - Les temps sont rejoués par le serveur à partir des touches envoyées, sauf si l'on choisit de faire confiance aux joueurs dans les réglages.
@@ -227,3 +227,31 @@ Deux jeux arrivent sur l'accueil, Golfouille et Zoomalou. Ils partagent un petit
 - Si un joueur ne classe pas à temps ou quitte la partie, la manche est annulée sans points. Le jeu s'arrête s'il reste moins de trois joueurs.
 - Le socle commun accepte maintenant les jeux sans bots, avec le réglage noBots.
 - Limites connues. La base ne bouge pas toute seule, il faudra demander de nouvelles questions pour la compléter. Le jeu n'a pas été testé avec de vrais joueurs sur plusieurs téléphones, seulement avec des navigateurs de test.
+
+## Dix-neuvième mise à jour, Zoomalou, nouvelle règle d'essence et circuits beaucoup plus variés
+
+### Règle de l'essence corrigée
+
+- Chaque pilote pose d'abord un temps, avec autant d'essais que le réglage le permet et sans limite d'essence. Ensuite le pilote au plus mauvais temps reçoit toute son essence pour battre au moins l'avant-dernier. Tant qu'il reste dernier c'est encore à lui. S'il n'a plus d'essence il est éliminé. Quand quelqu'un le dépasse, c'est le nouveau dernier qui joue.
+- Exemple avec trois pilotes à 35, 34 et 38 secondes. Le troisième joue d'abord et fait 33 secondes. Le premier devient dernier et rejoue jusqu'à battre le deuxième, puis le deuxième rejoue à son tour.
+- La manche se termine quand il ne reste que le meilleur temps, qui gagne 3 points, ou quand un pilote abandonne et que le réglage La manche s'arrête a été choisi. Le dernier éliminé gagne 1 point.
+- Nouveau bouton Abandonner pendant son tour, avec une confirmation. Nouveau réglage Quand un pilote abandonne, avec les choix Il est éliminé ou La manche s'arrête.
+- Le classement à droite montre pour chacun son meilleur temps et son essence restante, les éliminés sont barrés.
+- Le réservoir de chacun vaut un multiple du meilleur temps posé, ou une durée fixe, au choix. Il ne se remplit pas entre deux tours de jeu.
+
+### Nouveaux éléments de circuit
+
+- Trous à sauter. Un trou dans la route à franchir en l'air. Le tremplin est calculé pour que le saut soit toujours possible, même avec la voiture la plus lente, avec un point de contrôle juste avant l'élan et une longue réception derrière. Un portique jaune et noir prévient avant le trou et un tapis vert marque la réception.
+- Côtes et descentes raides, avec des pentes allant jusqu'à 50 pour cent.
+- Obstacles posés sur la route (plots, tonneaux, caisses, piliers) en série, avec un passage toujours laissé libre.
+- Route large ou étroite. La largeur change beaucoup, avec des goulots et de grandes arènes.
+- Ponts sans rebord, surélevés, où une sortie de route fait tomber la voiture au dernier point de contrôle.
+- Zones sans gravité. Looping, vrille, mur à grimper et plafond. La voiture reste collée à la route même la tête en bas, et la caméra tourne avec elle. La route n'est jamais à l'envers ailleurs que dans ces zones, que des anneaux violets marquent à l'entrée et le long du parcours.
+- Chaque élément se coche ou se décoche dans les réglages du circuit, dans Animations du circuit. L'aperçu du salon liste ce que contient le circuit.
+- Les automates savent franchir tous ces éléments. Sur 1500 courses de test, une seule n'a pas fini dans le temps de calcul prévu, sur un circuit géant avec la voiture la plus lente. Ce temps de calcul est maintenant allongé pour les grands circuits.
+
+### Limites connues
+
+- Les zones sans gravité sont testées par des automates et par des captures d'écran du rendu, pas par de vrais joueurs. Les sensations de conduite dans un looping ou une vrille restent à juger à la manette ou au clavier.
+- Les pilotes automatiques ne tentent pas d'abandonner volontairement, ils jouent jusqu'à la panne d'essence.
+- Les temps de calcul des automates sur les circuits géants peuvent se sentir au début d'un tour.

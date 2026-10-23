@@ -65,6 +65,7 @@
         el("button", { class: "round-btn", id: "btn-restart", title: "Recommencer l'essai", text: "↺" }),
         el("button", { class: "round-btn", id: "btn-respawn", title: "Revenir au dernier point de contrôle", text: "📍" }),
       ]),
+      el("button", { class: "btn btn--danger btn--small z-giveup hidden", id: "btn-giveup", text: "Abandonner" }),
       el("div", { class: "touch touch--l" }, [el("button", { id: "t-left", text: "◀" }), el("button", { id: "t-right", text: "▶" })]),
       el("div", { class: "touch touch--r" }, [el("button", { id: "t-gas", text: "⛽" }), el("button", { id: "t-brake", text: "🛑" })]),
       el("div", { id: "garage", class: "garage hidden" }),
@@ -89,8 +90,8 @@
   function onTurn(m) {
     if (!m) return; clock(m.now); G.turn = m; G.run = null; G.wantArm = false; G.armedAt = 0; G.waiting = false;
     if (m.record) { G.record = m.record; G.ghostFrames = m.record.frames; G.ghostCar = m.record.car; G.ghostPtr = 0; }
-    if (m.pid === myId()) { setBanner("À toi de jouer", m.role === "setter" ? "Pose le temps à battre" : "Bats " + fmtS(m.record.time) + " avec " + Math.round(m.fuel) + " s d'essence", 2800); sound.tone(660, 0.15, "triangle", 0.1); sound.tone(880, 0.2, "triangle", 0.1, 0.12); }
-    else setBanner("Au tour de " + nameOf(m.pid), m.role === "setter" ? "Il pose le temps à battre" : "Il a " + Math.round(m.fuel) + " s d'essence", 2600);
+    if (m.pid === myId()) { setBanner("À toi de jouer", m.role === "open" ? "Pose ton temps" : "Tu es dernier. Bats " + nameOf(m.record.pid) + " et ses " + fmtS(m.record.time) + " avec " + Math.round(m.fuel) + " s d'essence", 2800); sound.tone(660, 0.15, "triangle", 0.1); sound.tone(880, 0.2, "triangle", 0.1, 0.12); }
+    else setBanner("Au tour de " + nameOf(m.pid), m.role === "open" ? "Il pose son temps" : "Il est dernier et a " + Math.round(m.fuel) + " s d'essence", 2600);
     V.resetGates();
   }
 
@@ -146,7 +147,7 @@
     const run = G.run;
     // armement automatique
     if (s.phase === "race" && G.wantArm && !run && !G.waiting) { arm(); }
-    if (myTurnActive() && !run && !G.waiting && now > (s.turn.introUntil || 0) && (s.turn.role === "setter" ? s.turn.tries < S().refTries : s.turn.fuelLeft > 0.05) && !s.turn.goAt) { G.autoArm = G.autoArm || performance.now(); if (performance.now() - G.autoArm > 300) { arm(); G.autoArm = 0; } }
+    if (myTurnActive() && !run && !G.waiting && now > (s.turn.introUntil || 0) && (s.turn.role === "open" ? s.turn.tries < S().refTries : s.turn.fuelLeft > 0.05) && !s.turn.goAt) { G.autoArm = G.autoArm || performance.now(); if (performance.now() - G.autoArm > 300) { arm(); G.autoArm = 0; } }
     // simulation locale
     let speed = 0, shownTime = null, active = false;
     if (run && !run.done) {
@@ -158,7 +159,7 @@
           if (run.challenger && r.tick / 60 >= run.fuel0) run.out = true;
           if (G.mode === "contact") contacts(run, r);
           const inp = inputNow(); const q = CA.quant(inp); run.bytes.push(CA.packInput(q)); CA.step(r, q); n++;
-          if (r.tick % 6 === 1) run.frames.push(r.x, r.y, r.z, r.hd, r.pitch, r.air ? 1 : 0, r.boostT > 0 ? 1 : 0, r.idx);
+          if (r.tick % 6 === 1) run.frames.push(r.x, r.y, r.z, r.hd, r.pitch, r.rail ? 2 : r.air ? 1 : 0, r.boostT > 0 ? 1 : 0, r.idx);
           if (r.cpEvt === r.tick) { V.flashGate(r.cp); Kit.sound.tone(880, 0.12, "triangle", 0.1); G.cpBanner = performance.now(); setBanner("Point de contrôle " + r.cp + " sur " + tr.cps.length, fmtS(r.tick / 60), 1100); }
           if (r.wallHit > 5) { V.shake(Math.min(0.6, r.wallHit * 0.03)); Kit.sound.noise(0.12, 0.08, 0, 900); }
           if (r.landed > 3 && r.tick - (run.lastLand || 0) > 10) { run.lastLand = r.tick; V.puff(r.x, r.y + 0.3, r.z, "#dddddd", 6, 3, 1, 1.2); r.landed = 0; }
@@ -176,7 +177,7 @@
       const r = myRun; const car = V.ensureCar("me", run.car, hexOf(cm ? cm.color : 0), false, null);
       const inp = G.keys; const steer = ((inp.arrowright || G.touch.right) ? 1 : 0) - ((inp.arrowleft || G.touch.left) ? 1 : 0);
       const fx = Math.sin(r.hd), fz = Math.cos(r.hd); const vf = r.vx * fx + r.vz * fz, vl = r.vx * -Math.cos(r.hd) + r.vz * Math.sin(r.hd);
-      V.setCarState("me", { x: r.x, y: r.y, z: r.z, h: r.hd, p: r.pitch, a: r.air, b: r.boostT > 0, speed: vf, steer: -r.steerV, skid: Math.abs(vl) > 4 && !r.air ? 1 : 0 }, false);
+      V.setCarState("me", { x: r.x, y: r.y, z: r.z, h: r.hd, p: r.pitch, a: r.rail ? 2 : r.air ? 1 : 0, i: r.idx, b: r.boostT > 0, speed: vf, steer: -r.steerV, skid: Math.abs(vl) > 4 && !r.air ? 1 : 0 }, false);
       car.skidCol = r.onSurf === 1 ? "#a07a50" : r.onSurf === 2 ? "#e0f4ff" : "#dddddd";
       if (r.onSurf === 1 && !r.air && vf > 15 && Math.random() < 0.3) V.puff(r.x - Math.sin(r.hd) * 1.6, r.y + 0.3, r.z - Math.cos(r.hd) * 1.6, "#b08a5a", 1, 1.5, 1, 1.1);
     } else if (cm && (s.phase === "garage" || s.phase === "race" || myTurnActive())) {
@@ -205,7 +206,7 @@
       if (run && !run.done && run.countdown === 0) gt = run.r.tick / 60; else if (spectating) { const bc = botClock(); if (bc) gt = bc.gap ? null : bc.t; else if (s.turn.goAt) gt = (now - s.turn.goAt) / 1000; }
       if (gt != null && gt >= 0) { const nF = frames.length / 8 - 1; const f = gt * 10; const k = Math.min(nF - 1, Math.floor(f)); const u = clamp(f - k, 0, 1);
         if (f <= nF + 20) { const o = Math.min(nF - 1, k) * 8, o2 = o + 8; const L = (a, b) => a + (b - a) * u; const hd = frames[o + 3] + ((((frames[o2 + 3] - frames[o + 3]) % 6.2832) + 9.4248) % 6.2832 - 3.1416) * u;
-          V.ensureCar("ghost", G.ghostCar, "#9fe8ff", true, "Record"); V.setCarState("ghost", { x: L(frames[o], frames[o2]), y: L(frames[o + 1], frames[o2 + 1]), z: L(frames[o + 2], frames[o2 + 2]), h: hd, p: frames[o + 4], a: frames[o + 5], b: frames[o + 6], speed: 20 }, false); ghostOn = true; } }
+          V.ensureCar("ghost", G.ghostCar, "#9fe8ff", true, "Record"); V.setCarState("ghost", { x: L(frames[o], frames[o2]), y: L(frames[o + 1], frames[o2 + 1]), z: L(frames[o + 2], frames[o2 + 2]), h: hd, p: frames[o + 4], a: frames[o + 5], i: L(frames[o + 7], frames[o2 + 7]), b: frames[o + 6], speed: 20 }, false); ghostOn = true; } }
     }
     if (!ghostOn) V.hideCar("ghost");
     // interface
@@ -258,8 +259,10 @@
   const gridPose = (slot) => { const st = G.track.start; return { x: st.x - Math.cos(st.h) * slot, y: st.y, z: st.z + Math.sin(st.h) * slot, h: st.h, p: 0, a: 0, b: 0, speed: 0 }; };
   function onTurnEnd(m) {
     const nm = nameOf(m.pid);
-    if (m.role === "setter") feed(nm + " pose " + fmtS(m.time));
-    else if (m.result === "beat") { setBanner("Record battu", nm + " signe " + fmtS(m.time), 2600); sound.win(); } else { setBanner("Panne d'essence", nm + " n'a pas réussi", 2200); sound.fail(); }
+    if (m.role === "open") feed(nm + " pose " + (m.time != null ? fmtS(m.time) : "aucun temps"));
+    else if (m.result === "beat") { setBanner("Il passe devant", nm + " signe " + fmtS(m.time) + " et n'est plus dernier", 2600); sound.win(); }
+    else if (m.result === "quit") { setBanner("Abandon", nm + " sort de la course", 2400); sound.fail(); }
+    else { setBanner("Panne d'essence", nm + " est éliminé", 2400); sound.fail(); }
     if (m.pid === myId()) { G.run = null; G.waiting = false; }
   }
   function onResult(m) { if (m.pid !== myId()) feed(nameOf(m.pid) + " termine en " + fmtS(m.time)); }
@@ -280,7 +283,7 @@
       el("tbody", {}, m.rows.map((r) => { const p = stP(r.id) || {}; const car = CA.CARS[r.car]; return el("tr", {}, [el("td", {}, [el("span", { class: "dotc", style: { background: hexOf(p.color) } }), (r.winner ? "🏆 " : "") + (p.name || "?") + (car ? " " + car.icon : "")]), el("td", { class: "r", text: r.best == null ? "-" : fmtS(r.best) }), el("td", { class: "r", text: String(r.tries || 0) }), el("td", { class: "r", text: "+" + r.pts }), el("td", { class: "r", text: String(r.total) })]); })),
     ]);
     const note = el("p", { id: "sheet-next", class: "muted small", text: "" });
-    const info = el("p", { class: "muted", text: m.track + (m.author ? " · temps de l'auteur " + fmtS(m.author) : "") + (m.recordTime ? " · record final " + fmtS(m.recordTime) : "") });
+    const info = el("p", { class: "muted", text: m.track + (m.author ? " · temps de l'auteur " + fmtS(m.author) : "") + (m.recordTime && m.mode === "essence" ? " · temps du vainqueur " + fmtS(m.recordTime) : "") });
     openSheet([el("h2", { text: "Course " + (m.index + 1) + " terminée" }), info, tbl, note]); G.sheet = { kind: "end", note };
   }
   function onOver(m) {
@@ -336,14 +339,19 @@
   }
   function renderBoard() {
     const s = G.st; if (!s) return; const box = $("#z-board"); box.innerHTML = "";
-    box.appendChild(el("h4", {}, [el("span", { text: (s.mode === "essence" ? "Essence" : s.mode === "contact" ? "Contact" : "Fantôme") + " · course " + Math.min(s.total, s.roundIdx + 1) }), el("span", { text: s.mode === "essence" ? "temps · pts" : "meilleur · pts" })]));
+    const ess = s.mode === "essence";
+    box.appendChild(el("h4", {}, [el("span", { text: (ess ? "Essence" : s.mode === "contact" ? "Contact" : "Fantôme") + " · course " + Math.min(s.total, s.roundIdx + 1) }), el("span", { text: ess ? "temps · essence" : "meilleur · pts" })]));
     let list = s.players.slice();
-    if (s.mode === "essence" && s.order && s.order.length) list.sort((a, b) => s.order.indexOf(a.id) - s.order.indexOf(b.id)); else list.sort((a, b) => (a.best == null) - (b.best == null) || a.best - b.best);
+    if (ess && s.stage !== "open") list.sort((a, b) => (!!a.out - !!b.out) || (a.best == null) - (b.best == null) || a.best - b.best);
+    else if (ess && s.order && s.order.length) list.sort((a, b) => s.order.indexOf(a.id) - s.order.indexOf(b.id));
+    else list.sort((a, b) => (a.best == null) - (b.best == null) || a.best - b.best);
     list.forEach((p) => {
-      const turn = s.mode === "essence" && s.turn && s.turn.pid === p.id && s.phase === "turns"; const holder = s.record && s.record.pid === p.id;
-      box.appendChild(el("div", { class: "brow" + (p.id === myId() ? " brow--you" : "") + (turn ? " brow--turn" : "") }, [
-        el("i", { style: { background: hexOf(p.color) } }), el("span", { class: "nm", text: (holder ? "🏆 " : "") + p.name + (p.isBot || p.auto ? " 🤖" : !p.connected ? " 💤" : "") }),
-        el("span", { class: "st", text: p.best == null ? "-" : fmt(p.best) }), el("span", { class: "pt", text: String(p.pts) })]));
+      const turn = ess && s.turn && s.turn.pid === p.id && s.phase === "turns"; const holder = ess && s.record && s.record.pid === p.id && s.stage === "duel" && !p.out;
+      let right = String(p.pts);
+      if (ess) right = p.out ? "éliminé" : s.stage === "duel" ? Math.round(turn && s.turn.fuelLeft != null ? s.turn.fuelLeft : p.fuel) + " s" : "-";
+      box.appendChild(el("div", { class: "brow" + (p.id === myId() ? " brow--you" : "") + (turn ? " brow--turn" : "") + (ess && p.out ? " brow--out" : "") }, [
+        el("i", { style: { background: hexOf(p.color) } }), el("span", { class: "nm", text: (holder ? "🎯 " : "") + p.name + (p.isBot || p.auto ? " 🤖" : !p.connected ? " 💤" : "") }),
+        el("span", { class: "st", text: p.best == null ? "-" : fmt(p.best) }), el("span", { class: "pt", text: right })]));
     });
   }
   function updateHud(dt, run, speed, shownTime, gt) {
@@ -363,15 +371,16 @@
     sub.textContent = subTxt; sub.className = "z-sub " + cls;
     // record
     const rec = $("#z-rec"); let rt = "", rs = "";
-    if (s && s.mode === "essence" && s.phase === "turns" && s.turn && s.turn.role === "setter") { rt = s.turn.pid === myId() ? "Pose le temps à battre" : nameOf(s.turn.pid) + " pose le temps"; rs = "Essai " + Math.min(S().refTries, s.turn.tries + 1) + " sur " + S().refTries; }
-    else if (s && s.mode === "essence" && G.record) { rt = "Record " + fmtS(G.record.time); rs = nameOf(G.record.pid) + (s.turn && s.turn.role === "challenger" ? " · essai " + (s.turn.pid === myId() && G.run ? "en cours" : "suivant") : ""); } else if (s && isChrono(s.mode)) { rt = G.myBest != null ? "Ton meilleur " + fmtS(G.myBest) : "Pas encore de temps"; rs = s.raceEnd ? (snow() < s.goAt ? "Départ dans " + Math.max(0, Math.ceil((s.goAt - snow()) / 1000)) + " s" : "Il reste " + Math.max(0, Math.ceil((s.raceEnd - snow()) / 1000)) + " s") : ""; }
+    if (s && s.mode === "essence" && s.phase === "turns" && s.turn && s.turn.role === "open") { rt = s.turn.pid === myId() ? "Pose ton temps" : nameOf(s.turn.pid) + " pose son temps"; rs = "Essai " + Math.min(S().refTries, s.turn.tries + 1) + " sur " + S().refTries; }
+    else if (s && s.mode === "essence" && G.record && s.stage === "duel") { rt = "À battre " + fmtS(G.record.time); rs = nameOf(G.record.pid) + " · " + nameOf(s.turn ? s.turn.pid : "") + " est dernier"; } else if (s && s.mode === "essence" && s.stage === "duel") { rt = ""; rs = ""; } else if (s && isChrono(s.mode)) { rt = G.myBest != null ? "Ton meilleur " + fmtS(G.myBest) : "Pas encore de temps"; rs = s.raceEnd ? (snow() < s.goAt ? "Départ dans " + Math.max(0, Math.ceil((s.goAt - snow()) / 1000)) + " s" : "Il reste " + Math.max(0, Math.ceil((s.raceEnd - snow()) / 1000)) + " s") : ""; }
     if (G.lastDom.r !== rt + rs) { rec.innerHTML = ""; rec.appendChild(el("b", { text: rt })); rec.appendChild(el("span", { text: rs })); G.lastDom.r = rt + rs; }
     { const fx = $("#z-fx"); const kmh = speed * 3.6; fx.style.opacity = run && !run.done ? clamp((kmh - 110) / 150, 0, 0.7) : 0; fx.classList.toggle("z-fx--boost", !!(run && !run.done && run.r.boostT > 0)); }
     $("#z-speed").style.visibility = run && !run.done ? "visible" : "hidden";
     $("#z-speed").innerHTML = "<b>" + Math.round(speed * 3.6) + "</b><span>km/h</span>";
+    { const gb = $("#btn-giveup"); const show = !!(s && s.mode === "essence" && s.phase === "turns" && s.turn && s.turn.role === "duel" && s.turn.pid === myId() && !s.turn.ended); gb.classList.toggle("hidden", !show); }
     // essence
     const fu = $("#z-fuel");
-    if (s && s.mode === "essence" && s.phase === "turns" && s.turn && s.turn.role === "challenger") {
+    if (s && s.mode === "essence" && s.phase === "turns" && s.turn && s.turn.role === "duel") {
       let left = s.turn.fuelLeft; if (run && run.challenger && !run.done && run.countdown === 0) left = run.fuel0 - run.r.tick / 60; else if (s.turn.pid !== myId() && botClock()) left = botClock().fuel; else if (s.turn.goAt && s.turn.pid !== myId()) left = s.turn.fuelLeft - Math.max(0, (snow() - s.turn.goAt) / 1000);
       left = Math.max(0, left); fu.classList.remove("hidden"); fu.classList.toggle("z-fuel--low", left < 10);
       const txt = "⛽ " + Math.ceil(left) + " s d'essence"; if (G.lastDom.f !== txt) { fu.innerHTML = ""; fu.appendChild(el("div", { text: txt })); fu.appendChild(el("div", { class: "bar" }, [el("i", { style: { width: clamp(left / s.turn.fuel, 0, 1) * 100 + "%" } })])); G.lastDom.f = txt; } else fu.querySelector("i").style.width = clamp(left / s.turn.fuel, 0, 1) * 100 + "%";
@@ -403,9 +412,11 @@
     const pad = o.pad || 10; const sc = Math.min((W - pad * 2) / Math.max(1, maxX - minX), (H - pad * 2) / Math.max(1, maxZ - minZ)); const ox = (W - (maxX - minX) * sc) / 2, oz = (H - (maxZ - minZ) * sc) / 2;
     const P = (x, z) => [ox + (maxX - x) * sc, oz + (maxZ - z) * sc + 0]; // +z vers le haut, +x vers la gauche comme à l'écran
     const colr = ["#c8ccd8", "#c49a6a", "#9fdcff", "#ff9a1a", "#e0a0ff"]; g.lineCap = "round"; g.lineWidth = o.lw || 5;
-    for (let i = 0; i < tr.n - 1; i++) { const a = P(tr.x[i], tr.z[i]), b = P(tr.x[i + 1], tr.z[i + 1]); g.strokeStyle = colr[tr.surf[i]] || "#c8ccd8"; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+    for (let i = 0; i < tr.n - 1; i++) { const a = P(tr.x[i], tr.z[i]), b = P(tr.x[i + 1], tr.z[i + 1]); g.strokeStyle = (tr.flags[i] & 4) ? "#b57aff" : colr[tr.surf[i]] || "#c8ccd8"; if (tr.flags[i] & 8) { g.setLineDash([2, 6]); } else g.setLineDash([]); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
     const dot = (p, c, r) => { g.fillStyle = c; g.strokeStyle = "#14172b"; g.lineWidth = 2; g.beginPath(); g.arc(p[0], p[1], r, 0, 6.3); g.fill(); g.stroke(); };
+    g.setLineDash([]);
     for (let i = 0; i < tr.n; i++) if (tr.flags[i] & 2) dot(P(tr.x[i], tr.z[i]), "#ff6a8a", 3);
+    (tr.obs || []).forEach((ob) => dot(P(ob.x, ob.z), "#ffb347", 1.8));
     tr.cps.forEach((c) => dot(P(tr.x[c], tr.z[c]), "#33e0ff", 3));
     dot(P(tr.x[tr.start.idx], tr.z[tr.start.idx]), "#7aff7a", 5); dot(P(tr.x[tr.n - 3], tr.z[tr.n - 3]), "#ffffff", 5);
     (o.dots || []).forEach((d) => dot(P(d.x, d.z), d.hex, d.big ? 6 : 5));
@@ -414,6 +425,7 @@
   // ---------- entrées ----------
   function wireInput() {
     $("#btn-menu").onclick = openMenu; $("#btn-cam").onclick = () => { const m = V.cycleCam(); toast(["Caméra poursuite", "Caméra haute", "Caméra capot"][m], "info"); };
+    $("#btn-giveup").onclick = () => Kit.confirm("Abandonner ? Tu sors de la course et tu ne pourras plus rejouer cette manche.", () => { if (G.run && !G.run.finishSent) G.run = null; Kit.socket.emit("z:giveup"); });
     $("#btn-restart").onclick = restartAttempt; $("#btn-respawn").onclick = () => { G.rstReq = true; };
     const hold = (id, key) => { const b = $("#" + id); const on = (e) => { e.preventDefault(); G.touch[key] = true; b.classList.add("on"); engineStart(); }; const off = (e) => { e.preventDefault(); G.touch[key] = false; b.classList.remove("on"); }; b.addEventListener("pointerdown", on); b.addEventListener("pointerup", off); b.addEventListener("pointerleave", off); b.addEventListener("pointercancel", off); };
     hold("t-left", "left"); hold("t-right", "right"); hold("t-gas", "gas"); hold("t-brake", "brake");
@@ -445,6 +457,12 @@
       el("button", { class: "btn btn--danger btn--small", style: { marginTop: "0.8rem" }, text: "Quitter la partie", onclick: () => Kit.confirm("Quitter la partie et revenir à l'accueil ?", () => { $("#modal").classList.add("hidden"); Kit.leave(); }) })]);
   }
 
+  function elementsText(t) {
+    const st = t.stats || {}; const parts = []; const pl = (n, a, b) => n + " " + (n > 1 ? b : a);
+    if (st.loops) parts.push(pl(st.loops, "looping", "loopings")); if (st.rolls) parts.push(pl(st.rolls, "vrille", "vrilles")); if (st.walls) parts.push(pl(st.walls, "mur à grimper", "murs à grimper")); if (st.ceilings) parts.push(pl(st.ceilings, "plafond", "plafonds"));
+    if (st.gaps) parts.push(pl(st.gaps, "trou à sauter", "trous à sauter")); if (st.steep) parts.push(pl(st.steep, "côte raide", "côtes raides")); if (st.bridges) parts.push(pl(st.bridges, "pont sans rebord", "ponts sans rebord")); if (st.necks) parts.push(pl(st.necks, "passage étroit ou large", "passages étroits ou larges")); if (st.obstacles) parts.push(pl(st.obstacles, "série d'obstacles", "séries d'obstacles"));
+    return parts.length ? "Au programme " + parts.join(", ") + "." : "Un circuit sans élément spécial.";
+  }
   // ---------- aperçu dans le salon ----------
   function renderPreview(box, room) {
     const s = room.settings; const host = Kit.isHost(); const seeded = !!(s.seed && s.seed.trim());
@@ -457,6 +475,7 @@
     const jumps = t.flags.filter((f) => f & 2).length, boosts = (() => { let c = 0, p = false; for (let i = 0; i < t.n; i++) { const b = !!(t.flags[i] & 1); if (b && !p) c++; p = b; } return c; })();
     const info = el("div", { style: { flex: 1, minWidth: "140px" } }, [
       el("div", { class: "meta", text: B.icon + " " + t.name }), el("p", { class: "small", text: B.name + " · " + Math.round(t.length) + " m · environ " + Math.round(t.length / 27) + " s de conduite" }),
+      el("p", { class: "small muted", text: elementsText(t) }),
       el("p", { class: "small muted", text: (jumps ? jumps + " bosse" + (jumps > 1 ? "s" : "") + " à sauter. " : "") + (boosts ? boosts + " tapis turbo. " : "") + (t.surf.some((v) => v === 2) ? "De la glace. " : "") + (t.surf.some((v) => v === 1) ? "De la terre. " : "") + (t.surf.some((v) => v === 4) ? "Un sol collant. " : "") }),
       el("p", { class: "small muted", text: seeded ? "Parcours fixé par la graine " + seed + (s.rounds > 1 ? ". Course " + (idx + 1) + " sur " + s.rounds + "." : ".") : "Simple aperçu d'un circuit possible. Fixe la graine pour jouer exactement celui-ci." }),
       el("div", { class: "row" }, [
@@ -479,7 +498,7 @@
     so.on("z:turnEnd", onTurnEnd); so.on("z:result", onResult); so.on("z:botTurn", onBotTurn); so.on("z:roundEnd", onRoundEnd); so.on("z:over", onOver);
   }
   // envoi régulier de la position pendant un essai
-  const sendPos = () => { const r = G.run; if (!r || r.done || !Kit.socket || r.countdown > 0 || !canDrive()) return; const a = r.r; const fx = Math.sin(a.hd), fz = Math.cos(a.hd); Kit.socket.emit("z:pos", { x: +a.x.toFixed(2), y: +a.y.toFixed(2), z: +a.z.toFixed(2), h: +a.hd.toFixed(3), p: +a.pitch.toFixed(3), a: a.air ? 1 : 0, b: a.boostT > 0 ? 1 : 0 }); };
+  const sendPos = () => { const r = G.run; if (!r || r.done || !Kit.socket || r.countdown > 0 || !canDrive()) return; const a = r.r; const fx = Math.sin(a.hd), fz = Math.cos(a.hd); Kit.socket.emit("z:pos", { x: +a.x.toFixed(2), y: +a.y.toFixed(2), z: +a.z.toFixed(2), h: +a.hd.toFixed(3), p: +a.pitch.toFixed(3), a: a.rail ? 2 : a.air ? 1 : 0, i: +a.idx.toFixed(2), b: a.boostT > 0 ? 1 : 0 }); };
   setInterval(() => { if (G.mode !== "contact") sendPos(); }, 100); setInterval(() => { if (G.mode === "contact") sendPos(); }, 50);
   Kit.on("screen", (name) => { V.paused = name !== "game"; if (name === "game") setTimeout(() => { if (G.viewInit) V.resize(); }, 50); });
   Kit.on("reset", () => { G.st = null; G.track = null; G.run = null; closeSheet(); G.prev.key = ""; });
