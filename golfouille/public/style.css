@@ -1,9 +1,9 @@
 /* Golfouille — interface de jeu par-dessus la scène 3D */
 #screen-game { overflow: hidden; background: #0b3a2a; }
-#screen-game.screen--active { position: fixed; inset: 0; height: auto; min-height: 0; }
-#gl-host { position: absolute; inset: 0; touch-action: none; }
+#screen-game.screen--active { position: fixed; top: 0; right: 0; bottom: 0; left: 0; height: auto; min-height: 0; }
+#gl-host { position: absolute; top: 0; right: 0; bottom: 0; left: 0; touch-action: none; }
 .gl-canvas { width: 100%; height: 100%; display: block; }
-.hud { position: absolute; inset: 0; pointer-events: none; font-family: var(--font); color: #fff; }
+.hud { position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; font-family: var(--font); color: #fff; }
 .hud > * { pointer-events: auto; }
 .hud .nopoint, .hud .nopoint * { pointer-events: none; }
 .pill { background: rgba(10, 30, 24, 0.66); backdrop-filter: blur(4px); border-radius: 16px; padding: 0.4rem 0.8rem; border: 2px solid rgba(255, 255, 255, 0.18); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25); }
@@ -40,8 +40,8 @@
 .shootrow { display: flex; gap: 0.6rem; align-items: center; width: min(94vw, 560px); }
 .power { flex: 1; height: 38px; border-radius: 19px; background: rgba(10, 30, 24, 0.75); border: 2px solid rgba(255, 255, 255, 0.4); position: relative; overflow: hidden; touch-action: none; cursor: ew-resize; }
 .power__fill { position: absolute; left: 0; top: 0; bottom: 0; width: 50%; background: linear-gradient(90deg, #5ad06a, #ffd84a 65%, #ff5a3a); }
-.power__txt { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
-.power__ticks { position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), rgba(0, 0, 0, 0.3) calc(10% - 2px) 10%); }
+.power__txt { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+.power__ticks { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), rgba(0, 0, 0, 0.3) calc(10% - 2px) 10%); }
 .shootbtn { height: 50px; padding: 0 1.4rem; font-size: 1.25rem; font-family: var(--font-title); letter-spacing: 0.04em; user-select: none; -webkit-user-select: none; touch-action: none; }
 .powers { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; justify-content: center; }
 .pw { display: flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.7rem 0.25rem 0.4rem; border-radius: 99px; border: 2px solid rgba(255, 255, 255, 0.4); background: rgba(10, 30, 24, 0.75); color: #fff; font-size: 0.85rem; font-weight: 600; }
@@ -51,13 +51,13 @@
 .pick p { margin: 0; font-size: 0.9rem; max-width: 280px; text-align: center; }
 .pick .row { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: center; }
 .tip { font-size: 0.82rem; text-align: center; opacity: 0.95; max-width: 520px; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8); }
-.overlay-fx { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.4s; }
+.overlay-fx { position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; opacity: 0; transition: opacity 0.4s; }
 .overlay-fx--fog { background: radial-gradient(circle at 50% 55%, rgba(235, 240, 245, 0.55), rgba(235, 240, 245, 0.97) 70%); }
 .overlay-fx--ice { background: radial-gradient(circle at 50% 50%, rgba(160, 220, 255, 0.05), rgba(120, 190, 255, 0.55)); box-shadow: inset 0 0 90px rgba(255, 255, 255, 0.7); }
 .overlay-fx--on { opacity: 1; }
 .fxchips { position: absolute; left: 50%; top: 4.1rem; transform: translateX(-50%); display: flex; gap: 0.35rem; flex-wrap: wrap; justify-content: center; max-width: 60vw; }
 .fxchips .pill { padding: 0.15rem 0.6rem; font-size: 0.82rem; }
-.sheet { position: absolute; inset: 0; background: rgba(6, 22, 16, 0.78); display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 20; overflow: auto; }
+.sheet { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: rgba(6, 22, 16, 0.78); display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 20; overflow: auto; }
 .sheet .card { width: min(100%, 640px); max-height: 94%; overflow: auto; color: var(--ink); }
 .sheet h2 { font-size: 1.7rem; }
 .tbl { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
@@ -99,7 +99,7 @@
 .aiminfo { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; background: rgba(10, 30, 24, 0.82); border: 2px solid rgba(255, 255, 255, 0.3); color: #fff; border-radius: 16px; padding: 0.3rem 0.9rem; max-width: min(94vw, 600px); text-align: center; font-size: 0.86rem; }
 .aiminfo .muted { color: rgba(255, 255, 255, 0.75); } .aiminfo--bad { border-color: #ff8a7a; background: rgba(110, 18, 18, 0.85); } .aiminfo__warn { font-weight: 700; color: #ffd0c8; }
 .aiminfo.hidden { display: none; }
-.tuto { position: absolute; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgba(5, 25, 18, 0.62); padding: 1rem; overflow: auto; }
+.tuto { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgba(5, 25, 18, 0.62); padding: 1rem; overflow: auto; }
 .tuto .card { max-width: 520px; width: 100%; display: flex; flex-direction: column; gap: 0.7rem; }
 .tuto__step { display: flex; gap: 0.7rem; align-items: flex-start; } .tuto__step i { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--accent-2); color: #fff; font-style: normal; font-weight: 800; display: flex; align-items: center; justify-content: center; }
 .tuto__step p { margin: 0.1rem 0 0; }

@@ -24,7 +24,7 @@
   View.init = function (container, quality) {
     host = container; View.quality = quality || "medium";
     canvas = document.createElement("canvas"); canvas.className = "gl-canvas"; host.appendChild(canvas);
-    renderer = new T.WebGLRenderer({ canvas, antialias: View.quality !== "low", alpha: true, powerPreference: "high-performance" });
+    renderer = PicuiteGL.create(T, canvas, View.quality); PicuiteGL.watch(canvas);
     renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, View.quality === "high" ? 2 : 1.5));
     renderer.shadowMap.enabled = View.quality !== "low"; renderer.shadowMap.type = T.PCFSoftShadowMap;
@@ -447,8 +447,8 @@
 
   // ---------- boucle ----------
   let last = performance.now(); let clothT = 0;
-  function loop(now) {
-    requestAnimationFrame(loop);
+  function loop(now) { requestAnimationFrame(loop); PicuiteGL.frame(() => loopBody(now)); }
+  function loopBody(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (!View.hole || !renderer || View.paused) { return; }
     const tr = Math.max(0, tRel());
@@ -493,7 +493,7 @@
     // lumière qui suit la caméra pour des ombres nettes
     const fm = followId && View.balls[followId]; if (fm) { sun.target.position.set(fm.x, fm.y, fm.z); sun.position.set(fm.x + 40, fm.y + 70, fm.z - 20); }
     updateCamera(dt);
-    renderer.render(scene, camera);
+    PicuiteGL.frame(() => { renderer.render(scene, camera); PicuiteGL.verify(renderer); });
   }
 
   function handleEvent(b, ev) {

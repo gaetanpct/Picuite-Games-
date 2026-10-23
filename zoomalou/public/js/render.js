@@ -16,7 +16,7 @@
   View.init = function (container, quality) {
     host = container; View.quality = quality || "medium";
     const canvas = document.createElement("canvas"); canvas.className = "gl-canvas"; host.appendChild(canvas);
-    renderer = new T.WebGLRenderer({ canvas, antialias: View.quality !== "low", alpha: true, powerPreference: "high-performance" });
+    renderer = PicuiteGL.create(T, canvas, View.quality); PicuiteGL.watch(canvas);
     renderer.setClearColor(0x000000, 0); renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, View.quality === "high" ? 2 : 1.5));
     renderer.shadowMap.enabled = View.quality !== "low"; renderer.shadowMap.type = T.PCFSoftShadowMap;
     scene = new T.Scene(); camera = new T.PerspectiveCamera(62, 1, 0.3, 900);
@@ -319,8 +319,8 @@
 
   // ---------- boucle ----------
   let last = performance.now();
-  function loop(now) {
-    requestAnimationFrame(loop);
+  function loop(now) { requestAnimationFrame(loop); PicuiteGL.frame(() => loopBody(now)); }
+  function loopBody(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now; time += dt;
     if (!View.track || !renderer || View.paused) return;
     if (View.onFrame) View.onFrame(dt);
@@ -342,7 +342,7 @@
     if (amb) { const A = amb.userData, a = amb.geometry.attributes.position; for (let i = 0; i < a.count; i++) { let y = a.getY(i) + A.vy * dt, x = a.getX(i) + (Math.sin(time * 0.4 + i) * A.drift) * dt + A.drift * 0.4 * dt, z = a.getZ(i); if (y < 0) y += 36; if (y > 36) y -= 36; if (x > 45) x -= 90; if (x < -45) x += 90; a.setXYZ(i, x, y, z); } a.needsUpdate = true; amb.position.set(camera.position.x, camera.position.y - 14, camera.position.z); }
     const f = followId && View.cars[followId]; if (f) { sun.target.position.set(f.st.x, f.st.y, f.st.z); sun.position.set(f.st.x + 50, f.st.y + 90, f.st.z - 30); }
     updateCamera(dt);
-    renderer.render(scene, camera);
+    PicuiteGL.frame(() => { renderer.render(scene, camera); PicuiteGL.verify(renderer); });
   }
   View.carState = (id) => (View.cars[id] ? View.cars[id].st : null);
   View.screenReady = () => !!View.track;

@@ -345,3 +345,29 @@ Les vies de Richissime partaient trop souvent vers la scène ou le stade. Sur 15
 
 - Les textes adaptés couvrent les options les plus décalées. D'autres options de bureau et de métiers manuels gardent un texte général.
 - Les chances de rencontrer un métier précis dépendent encore beaucoup des goûts et des qualités du personnage.
+
+## Treizième mise à jour, écran noir sur Mac et parties qui survivent aux pannes
+
+### Écran vide sur Mac pour Golfouille et Zoomalou
+
+- Cause la plus probable, l'écran du jeu était placé avec un réglage de style que les anciens Safari ne comprennent pas. La zone 3D n'avait alors aucune taille et restait vide, alors que les menus s'affichaient. Ce réglage est remplacé partout, dans tous les jeux, par des positions classiques.
+- Le rendu 3D essaie maintenant plusieurs réglages de plus en plus prudents avant d'abandonner, et une erreur sur une image ne casse plus tout l'affichage.
+- Si le terrain reste vide ou si la 3D est impossible, un message s'affiche en haut de l'écran avec la cause et un bouton pour réessayer en mode compatibilité.
+
+### Richissime Destiny, parties protégées contre les coupures
+
+- Le serveur sauvegarde les parties toutes les vingt secondes, et à chaque arrêt demandé par l'hébergeur. Au redémarrage il les remonte tout seul, les joueurs reviennent sans rien perdre.
+- Chaque joueur garde aussi dans son navigateur une copie compressée de la partie. Si le serveur a tout oublié, la page remonte la partie à l'identique avec le même code, et les autres joueurs se rattachent seuls.
+- Pendant la reprise, un écran explique ce qui se passe au lieu de renvoyer à l'accueil.
+- Un message dans le salon annonce que la partie a été remontée.
+
+### Serveur du site
+
+- Une erreur dans un jeu est maintenant enregistrée sans arrêter le site, les autres parties continuent.
+- Golfouille et Zoomalou affichent un message clair quand un salon a disparu après un redémarrage.
+
+### Limites connues
+
+- Je n'ai pas de Mac sous la main. Le correctif vise la cause la plus probable et l'écran de secours dira la vraie cause si ce n'est pas la bonne.
+- Sur l'hébergement gratuit, les fichiers du serveur sont effacés à chaque redémarrage complet. C'est pour cela que la copie dans le navigateur existe. La copie ne couvre que Richissime.
+- Les parties de Golfouille et de Zoomalou en cours ne sont pas sauvegardées, seul le message est amélioré.

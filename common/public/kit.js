@@ -154,7 +154,7 @@
       store.sset(pre + ".room", code); store.sset(pre + ".token", Kit.token);
       if (pendingSolo) { pendingSolo = false; socket.emit("room:addBot", { level: cfg.botLevels[1].id }); }
     });
-    socket.on("room:gone", () => { clearSession(); Kit.showScreen("home"); });
+    socket.on("room:gone", () => { clearSession(); toast("Cette partie n'existe plus, le serveur a sans doute redémarré. Recrée un salon ou rejoins-en un.", "error"); Kit.showScreen("home"); });
     socket.on("room:kicked", () => { toast("Tu as été expulsé du salon.", "error"); clearSession(); fire("reset"); Kit.showScreen("home"); });
     socket.on("room:lobbyAgain", () => { fire("reset"); Kit.showScreen("lobby"); });
     socket.on("toast", ({ text, type }) => toast(text, type || "error"));
@@ -347,4 +347,73 @@
     if (cfg.onInit) cfg.onInit(Kit);
   };
   window.Kit = Kit;
+})();
+
+// ============================================================
+// Garde-fous du rendu 3D. Certains ordinateurs (Mac anciens, Safari, cartes graphiques partagées) refusent
+// une option du rendu et l'écran reste vide. On essaie donc plusieurs réglages, on survit aux erreurs d'image
+// et on affiche la cause à l'écran pour qu'un joueur puisse la montrer.
+// ============================================================
+(function () {
+  const GL = { info: "", errors: 0, level: 0 };
+  GL.banner = function (msg) {
+    try {
+      let b = document.getElementById("gl-diag");
+      if (!b) {
+        b = document.createElement("div"); b.id = "gl-diag";
+        b.style.cssText = "position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:99999;max-width:92vw;background:rgba(40,10,10,0.92);color:#fff;border:2px solid #ffb84a;border-radius:14px;padding:10px 14px;font:14px/1.35 sans-serif;text-align:center";
+        document.body.appendChild(b);
+      }
+      b.textContent = "";
+      const t = document.createElement("div"); t.textContent = msg; b.appendChild(t);
+      const bt = document.createElement("button"); bt.textContent = "Réessayer en mode compatibilité";
+      bt.style.cssText = "margin-top:8px;padding:6px 12px;border-radius:10px;border:0;background:#ffb84a;font-weight:700;cursor:pointer";
+      bt.onclick = () => { try { localStorage.setItem("gl.compat", "1"); localStorage.setItem("golf.quality", "low"); localStorage.setItem("zoom.quality", "low"); } catch (e) {} location.reload(); };
+      b.appendChild(bt);
+    } catch (e) {}
+  };
+  GL.compat = function () { try { return localStorage.getItem("gl.compat") === "1"; } catch (e) { return false; } };
+  // essaie des réglages de plus en plus prudents
+  GL.create = function (T, canvas, quality) {
+    const tries = [
+      { canvas, antialias: quality !== "low", alpha: true, powerPreference: "high-performance" },
+      { canvas, antialias: quality !== "low", alpha: true },
+      { canvas, antialias: false, alpha: true },
+      { canvas, antialias: false, alpha: false, precision: "mediump", failIfMajorPerformanceCaveat: false },
+    ];
+    let first = GL.compat() ? 2 : 0, last = null;
+    for (let i = first; i < tries.length; i++) {
+      try { const r = new T.WebGLRenderer(tries[i]); GL.level = i; return r; } catch (e) { last = e; }
+    }
+    GL.banner("Ton navigateur ne peut pas afficher le jeu en 3D. Vérifie que l'accélération graphique est activée dans les réglages, ou essaie un autre navigateur. Détail " + (last && last.message ? String(last.message).slice(0, 140) : "inconnu"));
+    throw last || new Error("WebGL indisponible");
+  };
+  GL.watch = function (canvas, onRestore) {
+    canvas.addEventListener("webglcontextlost", (e) => { e.preventDefault(); GL.banner("L'affichage 3D a été interrompu par ton ordinateur. Il devrait reprendre tout seul."); }, false);
+    canvas.addEventListener("webglcontextrestored", () => { const b = document.getElementById("gl-diag"); if (b) b.remove(); if (onRestore) onRestore(); }, false);
+  };
+  // dessine une image sans jamais casser la boucle
+  GL.frame = function (fn) {
+    try { fn(); } catch (e) {
+      GL.errors++;
+      if (GL.errors === 3) GL.banner("Une erreur d'affichage 3D se répète. Détail " + String(e && e.message || e).slice(0, 160));
+      if (GL.errors > 400) return;
+    }
+  };
+  // Vérifie que quelque chose s'affiche vraiment. Sinon l'écran est vide pour une raison propre à cet ordinateur.
+  let frames = 0, blank = 0;
+  GL.verify = function (renderer) {
+    frames++;
+    if (frames !== 90 && frames !== 150 && frames !== 240) return;
+    try {
+      const gl = renderer.getContext(); const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight; if (!w || !h) { blank++; }
+      else {
+        const px = new Uint8Array(4); let seen = false;
+        [[0.5, 0.5], [0.3, 0.6], [0.7, 0.6], [0.5, 0.75], [0.5, 0.35], [0.2, 0.8], [0.8, 0.8]].forEach((q) => { gl.readPixels(Math.floor(w * q[0]), Math.floor(h * q[1]), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); if (px[3] > 0) seen = true; });
+        if (!seen) blank++;
+      }
+      if (blank >= 3) GL.banner("Le terrain 3D ne s'affiche pas sur cet ordinateur. On peut essayer un affichage plus simple.");
+    } catch (e) { /* lecture impossible, on ne dit rien */ }
+  };
+  window.PicuiteGL = GL;
 })();

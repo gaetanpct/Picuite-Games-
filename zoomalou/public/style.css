@@ -1,9 +1,9 @@
 /* Zoomalou — interface de course par-dessus la scène 3D */
 #screen-game { overflow: hidden; background: #14172b; }
-#screen-game.screen--active { position: fixed; inset: 0; height: auto; min-height: 0; }
-#gl-host { position: absolute; inset: 0; touch-action: none; }
+#screen-game.screen--active { position: fixed; top: 0; right: 0; bottom: 0; left: 0; height: auto; min-height: 0; }
+#gl-host { position: absolute; top: 0; right: 0; bottom: 0; left: 0; touch-action: none; }
 .gl-canvas { width: 100%; height: 100%; display: block; }
-.hud { position: absolute; inset: 0; pointer-events: none; font-family: var(--font); color: #fff; user-select: none; -webkit-user-select: none; }
+.hud { position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; font-family: var(--font); color: #fff; user-select: none; -webkit-user-select: none; }
 .hud > * { pointer-events: auto; }
 .nopoint, .nopoint * { pointer-events: none !important; }
 .pill { background: rgba(14, 16, 36, 0.68); backdrop-filter: blur(4px); border-radius: 16px; padding: 0.4rem 0.8rem; border: 2px solid rgba(255, 255, 255, 0.18); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25); }
@@ -55,7 +55,7 @@
 .carcard p { margin: 0.2rem 0 0.3rem; font-size: 0.74rem; opacity: 0.85; line-height: 1.2; }
 .stat { display: flex; align-items: center; gap: 0.3rem; font-size: 0.68rem; margin-top: 2px; } .stat span { width: 62px; opacity: 0.85; } .stat i { display: block; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #5ad06a, #ffd84a); }
 .garage__row { display: flex; gap: 0.7rem; align-items: center; flex-wrap: wrap; justify-content: center; }
-.sheet { position: absolute; inset: 0; background: rgba(8, 10, 24, 0.78); display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 20; overflow: auto; }
+.sheet { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: rgba(8, 10, 24, 0.78); display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 20; overflow: auto; }
 .sheet .card { width: min(100%, 640px); max-height: 94%; overflow: auto; color: var(--ink); }
 .sheet h2 { font-size: 1.7rem; }
 .tbl { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
@@ -83,7 +83,7 @@
 .legend kbd { background: #fff; color: #222; border-radius: 6px; padding: 1px 7px; font-family: inherit; font-weight: 700; box-shadow: 0 2px 0 rgba(0,0,0,0.35); }
 .cars--locked .carcard { cursor: default; }
 
-.z-fx { position: absolute; inset: 0; opacity: 0; transition: opacity 0.2s; background: radial-gradient(ellipse at center, rgba(255,255,255,0) 52%, rgba(255,255,255,0.42) 100%); }
+.z-fx { position: absolute; top: 0; right: 0; bottom: 0; left: 0; opacity: 0; transition: opacity 0.2s; background: radial-gradient(ellipse at center, rgba(255,255,255,0) 52%, rgba(255,255,255,0.42) 100%); }
 .z-fx--boost { background: radial-gradient(ellipse at center, rgba(255,160,40,0) 45%, rgba(255,150,30,0.55) 100%); }
 .brow--out { opacity: 0.45; text-decoration: line-through; }
 .z-giveup { position: absolute; right: 0.7rem; top: 15rem; z-index: 5; }

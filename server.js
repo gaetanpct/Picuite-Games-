@@ -12,6 +12,10 @@ const http = require("http");
 const express = require("express");
 
 const PORT = process.env.PORT || 3000;
+
+// Une erreur dans un jeu ne doit jamais faire tomber le site et les parties des autres.
+process.on("uncaughtException", (e) => { console.error("Erreur non rattrapée", e && e.stack ? e.stack : e); });
+process.on("unhandledRejection", (e) => { console.error("Promesse refusée", e && e.stack ? e.stack : e); });
 const app = express();
 const server = http.createServer(app);
 
@@ -19,6 +23,7 @@ const server = http.createServer(app);
 const GAMES_DIR = __dirname;
 const NOT_GAMES = new Set(["node_modules", "public"]);
 const games = [];
+const flushers = [];
 fs.readdirSync(GAMES_DIR, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith(".") && !NOT_GAMES.has(d.name)).forEach((d) => {
   const dir = path.join(GAMES_DIR, d.name);
   const metaFile = path.join(dir, "game.json");
@@ -28,6 +33,7 @@ fs.readdirSync(GAMES_DIR, { withFileTypes: true }).filter((d) => d.isDirectory()
     const meta = JSON.parse(fs.readFileSync(metaFile, "utf8"));
     meta.id = d.name;
     const router = require(serverFile)(server, "/" + d.name);
+    if (router && typeof router.flush === "function") flushers.push(router.flush);
     app.get("/" + d.name, (req, res, next) => {
       if (req.originalUrl.split("?")[0].endsWith("/")) return next();
       const q = req.originalUrl.indexOf("?");
@@ -42,5 +48,15 @@ games.sort((a, b) => (a.order || 99) - (b.order || 99));
 app.get("/health", (req, res) => res.json({ ok: true, games: games.map((g) => g.id) }));
 app.get("/api/games", (req, res) => res.json(games));
 app.use(express.static(path.join(__dirname, "public"), { maxAge: 0 }));
+
+// Quand l'hébergeur arrête le serveur (mise à jour, veille), on écrit les parties avant de partir.
+let stopping = false;
+function stopNow() {
+  if (stopping) return; stopping = true;
+  flushers.forEach((f) => { try { f(); } catch (e) { /* ignore */ } });
+  setTimeout(() => process.exit(0), 300);
+}
+process.on("SIGTERM", stopNow);
+process.on("SIGINT", stopNow);
 
 server.listen(PORT, () => console.log("Picuite Games écoute sur le port " + PORT + " avec " + games.length + " jeux"));

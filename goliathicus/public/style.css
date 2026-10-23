@@ -104,8 +104,8 @@ input[type="text"]:focus { border-color: var(--plum-3); box-shadow: 0 0 0 4px rg
    ACCUEIL
    ============================================================ */
 #screen-home { position: relative; overflow: hidden; min-height: 100vh; }
-.sky { position: absolute; inset: 0; background: linear-gradient(180deg, #170d2a 0%, #2f1b52 35%, #7a3f8e 62%, #f08a6a 88%, #ffc27a 100%); overflow: hidden; }
-.stars { position: absolute; inset: 0 0 45% 0; background-image: radial-gradient(2px 2px at 10% 20%, #fff, transparent), radial-gradient(1.5px 1.5px at 30% 60%, #fff, transparent), radial-gradient(2px 2px at 55% 15%, #ffe9a8, transparent), radial-gradient(1.5px 1.5px at 75% 45%, #fff, transparent), radial-gradient(2px 2px at 90% 25%, #fff, transparent), radial-gradient(1.5px 1.5px at 18% 80%, #fff, transparent), radial-gradient(1.5px 1.5px at 66% 75%, #ffe9a8, transparent), radial-gradient(2px 2px at 44% 38%, #fff, transparent); animation: twinkle 4s ease-in-out infinite alternate; }
+.sky { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: linear-gradient(180deg, #170d2a 0%, #2f1b52 35%, #7a3f8e 62%, #f08a6a 88%, #ffc27a 100%); overflow: hidden; }
+.stars { position: absolute; top: 0; right: 0; bottom: 45%; left: 0; background-image: radial-gradient(2px 2px at 10% 20%, #fff, transparent), radial-gradient(1.5px 1.5px at 30% 60%, #fff, transparent), radial-gradient(2px 2px at 55% 15%, #ffe9a8, transparent), radial-gradient(1.5px 1.5px at 75% 45%, #fff, transparent), radial-gradient(2px 2px at 90% 25%, #fff, transparent), radial-gradient(1.5px 1.5px at 18% 80%, #fff, transparent), radial-gradient(1.5px 1.5px at 66% 75%, #ffe9a8, transparent), radial-gradient(2px 2px at 44% 38%, #fff, transparent); animation: twinkle 4s ease-in-out infinite alternate; }
 @keyframes twinkle { from { opacity: 0.55; } to { opacity: 1; } }
 .sun { position: absolute; left: 50%; bottom: 14%; width: 340px; height: 340px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(circle, #ffe9a8 0%, rgba(255, 190, 110, 0.65) 35%, rgba(255, 150, 90, 0) 70%); filter: blur(4px); }
 .cloud { position: absolute; height: 46px; border-radius: 46px; background: rgba(255, 220, 240, 0.22); filter: blur(1px); animation: drift linear infinite; }
@@ -146,7 +146,7 @@ input[type="text"]:focus { border-color: var(--plum-3); box-shadow: 0 0 0 4px rg
    SALON
    ============================================================ */
 #screen-lobby { position: relative; min-height: 100vh; }
-.lobby-bg { position: fixed; inset: 0; background: radial-gradient(1200px 700px at 20% 0%, #5a2f8c 0%, transparent 60%), radial-gradient(900px 600px at 100% 100%, #7b2f5b 0%, transparent 55%), linear-gradient(180deg, #2a1646, #1d1230); z-index: 0; }
+.lobby-bg { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: radial-gradient(1200px 700px at 20% 0%, #5a2f8c 0%, transparent 60%), radial-gradient(900px 600px at 100% 100%, #7b2f5b 0%, transparent 55%), linear-gradient(180deg, #2a1646, #1d1230); z-index: 0; }
 .lobby { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 14px 16px 24px; }
 .lobby__head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.6rem; margin-bottom: 0.9rem; }
 .lobby__head .btn:last-child { justify-self: end; }
@@ -257,7 +257,7 @@ input[type="text"]:focus { border-color: var(--plum-3); box-shadow: 0 0 0 4px rg
 @keyframes shake { 20% { transform: translate(-6px, 3px) rotate(-0.4deg); } 40% { transform: translate(6px, -3px) rotate(0.4deg); } 60% { transform: translate(-4px, 2px); } 80% { transform: translate(3px, -2px); } }
 .board { position: relative; }
 .board-fx { position: absolute; left: 14px; top: 14px; pointer-events: none; z-index: 8; }
-.layer { position: absolute; inset: 0; }
+.layer { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
 .layer--marks { pointer-events: none; z-index: 2; }
 .layer--pieces { pointer-events: none; z-index: 3; }
 .tile { position: absolute; display: grid; place-items: center; background: #a6d577; box-shadow: inset 0 0 0 1px rgba(40, 80, 30, 0.18); user-select: none; overflow: hidden; }
@@ -296,10 +296,10 @@ input[type="text"]:focus { border-color: var(--plum-3); box-shadow: 0 0 0 4px rg
 .slow-mode .piece { transition: transform 0.65s cubic-bezier(0.3, 0.8, 0.3, 1), opacity 0.3s; }
 .piece__inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 0.55s; }
 .piece.is-up .piece__inner { transform: rotateY(180deg); }
-.piece__face { position: absolute; inset: 0; border-radius: 50%; backface-visibility: hidden; -webkit-backface-visibility: hidden; display: grid; place-items: center; border: 3px solid var(--hd); box-shadow: 0 3px 0 var(--hd), 0 6px 10px rgba(0, 0, 0, 0.35), inset 0 -5px 0 rgba(0, 0, 0, 0.14); }
+.piece__face { position: absolute; top: 0; right: 0; bottom: 0; left: 0; border-radius: 50%; backface-visibility: hidden; -webkit-backface-visibility: hidden; display: grid; place-items: center; border: 3px solid var(--hd); box-shadow: 0 3px 0 var(--hd), 0 6px 10px rgba(0, 0, 0, 0.35), inset 0 -5px 0 rgba(0, 0, 0, 0.14); }
 .piece__front { transform: rotateY(180deg); background: radial-gradient(circle at 32% 25%, #fff 0%, var(--hl) 35%, color-mix(in srgb, var(--hc) 45%, #fff) 100%); }
 .piece__back { background: repeating-conic-gradient(from 0deg at 50% 50%, var(--hc) 0deg 20deg, color-mix(in srgb, var(--hc) 70%, #000) 20deg 40deg); }
-.piece__back::before { content: ""; position: absolute; inset: 15%; border-radius: 50%; background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55), transparent 55%), var(--hc); border: 2px solid rgba(255, 255, 255, 0.55); }
+.piece__back::before { content: ""; position: absolute; top: 15%; right: 15%; bottom: 15%; left: 15%; border-radius: 50%; background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55), transparent 55%), var(--hc); border: 2px solid rgba(255, 255, 255, 0.55); }
 .piece__emblem { position: relative; font-size: 0.8em; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.4)); }
 .piece__q { position: absolute; bottom: -2%; right: 8%; font-size: 0.5em; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7); }
 .piece__ico { font-size: 1em; line-height: 1; filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.3)); }
@@ -359,7 +359,7 @@ input[type="text"]:focus { border-color: var(--plum-3); box-shadow: 0 0 0 4px rg
 .pcard__stats { display: flex; gap: 0.7rem; font-size: 0.82rem; color: var(--ink-soft); font-weight: 500; }
 .pcard__stats .is-spent { opacity: 0.4; text-decoration: line-through; }
 .relic-bar { position: relative; height: 16px; background: rgba(0, 0, 0, 0.12); border-radius: 8px; overflow: hidden; margin-top: 3px; }
-.relic-bar i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #ffd66b, #e8a21c); }
+.relic-bar i { position: absolute; top: 0; right: auto; bottom: 0; left: 0; background: linear-gradient(90deg, #ffd66b, #e8a21c); }
 .relic-bar span { position: relative; font-size: 0.72rem; font-weight: 700; padding-left: 6px; color: #4a2c05; }
 .action-panel { display: flex; flex-direction: column; gap: 0.5rem; }
 .btn-row { display: flex; gap: 0.4rem; flex-wrap: wrap; }
@@ -395,7 +395,7 @@ input[type="text"]:focus { border-color: var(--plum-3); box-shadow: 0 0 0 4px rg
 .menu-pop__item--danger { color: #b3362f; }
 
 /* ---- overlays ---- */
-.overlay { position: fixed; inset: 0; background: rgba(12, 5, 24, 0.7); backdrop-filter: blur(4px); z-index: 100; display: grid; place-items: center; padding: 16px; overflow-y: auto; }
+.overlay { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(12, 5, 24, 0.7); backdrop-filter: blur(4px); z-index: 100; display: grid; place-items: center; padding: 16px; overflow-y: auto; }
 .end { width: min(94vw, 600px); text-align: center; overflow: hidden; padding-top: 1.6rem; animation: duelIn2 0.5s cubic-bezier(0.3, 1.3, 0.5, 1); }
 @keyframes duelInM { from { opacity: 0; translate: 0 -20px; } to { opacity: 1; translate: 0 0; } }
 @keyframes duelIn2 { from { opacity: 0; transform: scale(0.8) translateY(30px); } }
@@ -412,7 +412,7 @@ input[type="text"]:focus { border-color: var(--plum-3); box-shadow: 0 0 0 4px rg
 .stat-table tr.is-winner td { background: #fff3c4; }
 .dotc { display: inline-block; width: 11px; height: 11px; border-radius: 50%; }
 .end__btns { display: flex; justify-content: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 1rem; }
-.end__confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.end__confetti { position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; overflow: hidden; }
 .end__confetti i { position: absolute; top: -12px; width: 9px; height: 15px; border-radius: 2px; animation: confetti linear infinite; }
 @keyframes confetti { to { transform: translateY(520px) rotate(720deg); } }
 .rules { width: min(96vw, 860px); max-height: 92vh; overflow-y: auto; padding: 1.4rem 1.5rem; }
