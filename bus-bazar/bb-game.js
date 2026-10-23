@@ -1,17 +1,16 @@
 // ============================================================
 // BUS BAZAR — Partie côté serveur (salon, postes, robots, réseau)
 // ============================================================
-const D = require("./public/game/data.js");
-const Rules = require("./public/game/rules.js");
+const L = require("./public/game/layout.js");
+const Road = require("./public/game/road.js");
 const Sim = require("./bb-sim.js");
-const { view } = require("./bb-view.js");
-const { act } = require("./bb-actions.js");
+const Act = require("./bb-act.js");
 const Bots = require("./bb-bots.js");
-const Rd = require("./public/game/road.js");
 
 const TS = Math.max(0.001, Number(process.env.BB_TIME_SCALE) || 1);
-const SEND_EVERY = 0.1;
-const roleIds = D.ROLE_IDS;
+const SEND_EVERY = 1 / 14;
+const roleIds = L.ROLE_IDS;
+const r2 = (v) => Math.round(v * 100) / 100;
 
 function bbOf(room) { if (!room.bb) room.bb = { assign: {} }; return room.bb; }
 function cleanAssign(room) {
@@ -19,135 +18,103 @@ function cleanAssign(room) {
   Object.keys(bb.assign).forEach((id) => { if (!ids.has(id) || used.has(bb.assign[id]) || !roleIds.includes(bb.assign[id])) delete bb.assign[id]; else used.add(bb.assign[id]); });
   return bb.assign;
 }
-function crewPublic(room) {
-  const a = cleanAssign(room); const out = {}; roleIds.forEach((r) => { out[r] = null; }); Object.keys(a).forEach((id) => { out[a[id]] = id; }); return out;
-}
+function crewPublic(room) { const a = cleanAssign(room); const out = {}; roleIds.forEach((r) => { out[r] = null; }); Object.keys(a).forEach((id) => { out[a[id]] = id; }); return out; }
 function emitCrew(room, api) { const crew = crewPublic(room); room.players.forEach((p) => { if (!p.isBot && p.socketId) api.io.to(p.socketId).emit("bb:crew", { crew }); }); }
 
-// ---------- démarrage ----------
 function start(room, api) {
   const humans = room.players.filter((p) => !p.isBot && !p.left); const assign = cleanAssign(room);
   const taken = new Set(Object.values(assign)); const free = roleIds.filter((r) => !taken.has(r));
   humans.forEach((p) => { if (!assign[p.id]) { const r = free.shift(); if (r) assign[p.id] = r; } });
-  const S = Sim.create(room.settings);
-  const rng = Rd.rngOf(S.seed + "|bots");
-  const brains = {}; roleIds.forEach((r) => { brains[r] = Bots.makeBrain(r, S.cfg.botSkill, rng); });
-  const g = room.g = { api, S, brains, acc: 0, last: Date.now(), sendT: 0, aid: {}, bucket: {}, over: false, rotated: 0, lastPhase: S.phase, vote: null, timer: null };
-  api.sysChat(room, "La mission commence, graine " + S.seed + ". Les postes sans joueur sont tenus par des robots.");
+  const ents = [];
+  humans.forEach((p) => { if (assign[p.id]) ents.push({ id: p.id, name: p.name, color: p.color, role: assign[p.id], bot: false }); });
+  const have = new Set(ents.map((e) => e.role));
+  roleIds.forEach((r) => { if (have.has(r)) return; if (r === "driver" || room.settings.fillAbsent) ents.push({ id: "bot-" + r, name: "Robot " + L.ROLES.find((x) => x.id === r).label.split(" ")[0], color: roleIds.indexOf(r), role: r, bot: true }); });
+  const S = Sim.create(room.settings, ents);
+  const g = room.g = { api, S, acc: 0, last: Date.now(), sendT: 0, reg: {}, over: false, timer: null, away: {} };
+  api.sysChat(room, "Le voyage commence, graine " + S.seed + ". Les postes sans joueur sont tenus par des robots.");
   g.timer = setInterval(() => { try { loop(room); } catch (e) { console.error("bb loop", e); } }, 50);
-  sendAll(room, true);
+  initAll(room); sendAll(room);
 }
 function onDestroy(room) { if (room.g && room.g.timer) { clearInterval(room.g.timer); room.g.timer = null; } }
-
-function playerOfRole(room, role) {
-  const a = cleanAssign(room); const id = Object.keys(a).find((k) => a[k] === role); return id ? room.players.find((p) => p.id === id) : null;
-}
-function roleOfPlayer(room, p) { return cleanAssign(room)[p.id] || null; }
-// un poste est contrôlé par un humain connecté, sinon par un robot si le salon le permet
-function humanAt(room, role) { const p = playerOfRole(room, role); return p && p.connected && !p.left ? p : null; }
-function botAt(room, role) { if (humanAt(room, role)) return false; const p = playerOfRole(room, role); if (!p) return true; return !!room.settings.fillAbsent; }
+function canReturn(room) { return true; }
+function roleOf(room, p) { return cleanAssign(room)[p.id] || (room.g && room.g.S.players[p.id] ? room.g.S.players[p.id].role : null); }
 
 function loop(room) {
-  const g = room.g; if (!g || g.over) return; const S = g.S;
-  const now = Date.now(); let dt = Math.min(0.5, (now - g.last) / 1000) * TS; g.last = now; g.acc += dt;
+  const g = room.g; if (!g) return; const S = g.S; const now = Date.now(); const dt = Math.min(0.5, (now - g.last) / 1000) * TS; g.last = now; g.acc += dt;
+  // joueurs absents, remplacés par un robot au bout de quelques secondes
+  room.players.forEach((p) => { const e = S.players[p.id]; if (!e || p.isBot) return; const away = p.left || !p.connected; if (away) { g.away[p.id] = (g.away[p.id] || 0) + dt; if (g.away[p.id] > 12 && !e.bot) { e.bot = true; e.awayBot = true; } } else { g.away[p.id] = 0; if (e.awayBot) { e.bot = false; e.awayBot = false; e.task = null; } } });
   let steps = 0;
-  while (g.acc >= Sim.DT && steps < 400 && !S.end) {
+  while (g.acc >= Sim.DT && steps < 400 && !S.over) {
     g.acc -= Sim.DT; steps++;
-    roleIds.forEach((r) => { if (botAt(room, r)) Bots.think(S, g.brains[r], Sim.DT); else if (!humanAt(room, r) && r === "driver") { S.bus.thr = 0; S.bus.brk = 0.25; S.bus.steer = 0; } });
-    Sim.step(S, Sim.DT);
-    if (g.vote && S.t > g.vote.until) resolveVote(room);
-    if (S.phase === "stop" && g.lastPhase === "drive") onStop(room);
-    g.lastPhase = S.phase;
+    const drv = Object.values(S.players).find((p) => p.role === "driver");
+    if (!drv || drv.bot) Bots.drive(S, Sim.DT); else if (S.phase === "stop") { S.bus.thr = 0; S.bus.brk = 1; S.bus.steer = 0; }
+    Bots.think(S, Sim.DT); Sim.step(S, Sim.DT);
   }
-  if (S.end && !g.over) { g.over = true; sendAll(room, true); room.status = "game"; return; }
-  g.sendT += (now - (g.lastSend || now)) / 1000; g.lastSend = now;
-  if (g.sendT >= SEND_EVERY) { g.sendT = 0; sendAll(room, false); }
+  if (S.over && !g.over) { g.over = true; sendAll(room); flushEvents(room); return; }
+  flushEvents(room);
+  g.sendT += dt; if (g.sendT >= SEND_EVERY) { g.sendT = 0; sendAll(room); }
+}
+function flushEvents(room) {
+  const g = room.g; const S = g.S; if (!S.events.length) return; const evs = S.events.splice(0, S.events.length);
+  const all = evs.filter((e) => !e.to); const mine = {}; evs.forEach((e) => { if (e.to) (mine[e.to] = mine[e.to] || []).push(e); });
+  room.players.forEach((p) => { if (p.isBot || !p.socketId) return; const l = all.concat(mine[p.id] || []); if (l.length) g.api.io.to(p.socketId).emit("bb:ev", l); });
+}
+function initPayload(room, p) {
+  const S = room.g.S; return { seed: S.seed, legs: S.road.legs, difficulty: S.cfg.difficulty, biomes: S.cfg.biomes, traffic: S.cfg.traffic, weather: S.cfg.weather, assist: S.cfg.assist, eject: S.cfg.eject, you: p.id, role: roleOf(room, p), players: Object.values(S.players).map((e) => ({ id: e.id, name: e.name, color: e.color, role: e.role, bot: e.bot })), t0: S.t };
+}
+function initAll(room) { room.players.forEach((p) => { if (!p.isBot && p.socketId) { room.g.reg[p.id] = {}; room.g.api.io.to(p.socketId).emit("bb:init", initPayload(room, p)); } }); }
+
+function buildView(S) {
+  const B = S.bus; const R = S.road; const ns = R.stops[S.nextStop];
+  const v = {
+    t: r2(S.t), ph: S.phase,
+    b: { s: r2(B.s), e: r2(B.e), psi: +B.psi.toFixed(3), v: r2(B.v), w: +B.w.toFixed(3), sh: r2(B.sh), tp: Math.round(B.temp), hl: Math.round(B.hull), tr: B.tire ? 1 : 0, lk: B.leak ? 1 : 0, dr: B.door ? 1 : 0, rr: B.rear ? 1 : 0, al: r2(B.al), ay: r2(B.ay), sl: B.slip ? 1 : 0, of: B.off ? 1 : 0, sk: B.stuck > 0 ? 1 : 0, hn: B.horn > 0 ? 1 : 0, th: r2(B.thr), bk: r2(B.brk), gu: r2(B.gust) },
+    st: { i: S.stopIdx, nx: S.nextStop, nm: ns ? ns.name : "", d: ns ? Math.round(ns.s - B.s) : 0, T: Math.round(S.stopT), cur: R.stops[S.stopIdx].name, ann: S.announce ? Math.max(0, Math.round(S.announce - S.t)) : -1 },
+    p: Object.values(S.players).map((e) => ({ i: e.id, x: r2(e.x), z: r2(e.z), y: +e.yaw.toFixed(2), vx: r2(e.vx), vz: r2(e.vz), h: e.held ? e.held.t + e.held.id : "", ro: e.role, tm: e.tum > 0 ? 1 : 0, bt: e.bot ? 1 : 0, hp: e.hold ? Math.round((e.hold.prog || 0) * 100) : 0 })),
+    n: S.npcs.filter((n) => n.st !== "gone").map((n) => ({ i: n.id, x: r2(n.x), z: r2(n.z), y: +n.yaw.toFixed(2), s: n.st, m: Math.round(n.mood), nd: n.need ? n.need.type : "", nf: n.need ? +(n.need.t / n.need.t0).toFixed(2) : 0, tr: n.trouble ? 1 : 0, sl: n.seat == null ? -1 : n.seat, wk: n.walking ? 1 : 0, pg: +(n.prog || 0).toFixed(2), as: n.asleep ? 1 : 0, o: n.outside ? 1 : 0 })),
+    it: S.items.filter((i) => !i.gone).map((i) => ({ i: i.id, t: i.t, x: r2(i.x), y: r2(i.y || 0), z: r2(i.z), h: i.holder || "", c: i.cargo || "", hp: Math.round(i.hp || 0), sl: i.slot == null ? -1 : i.slot, s: i.state || "", d: i.dest == null ? -1 : i.dest, tg: i.tag == null ? -1 : i.tag, ow: i.owner || 0, op: i.opened ? 1 : 0, dy: i.dirty ? 1 : 0 })),
+    hz: S.haz.map((h) => ({ i: h.id, t: h.t, x: r2(h.x), z: r2(h.z), sz: r2(h.sz) })),
+    go: Object.keys(S.gone).map(Number), mv: S.moved || {},
+    sc: { m: Math.round(S.money), r: Math.round(S.rep), c: S.stats.carried, dl: S.stats.delivered },
+    ov: S.over,
+  };
+  return v;
+}
+function sendAll(room) {
+  const g = room.g; if (!g) return; const S = g.S; const v = buildView(S);
+  const npcInfo = {}; S.npcs.forEach((n) => { npcInfo[n.id] = { id: n.id, nm: n.name, k: n.kind, lk: n.look, d: n.dest, f: n.fare }; });
+  room.players.forEach((p) => {
+    if (p.isBot || !p.socketId || p.left) return; const sock = g.api.io.sockets.sockets.get(p.socketId); if (!sock) return;
+    const reg = g.reg[p.id] = g.reg[p.id] || {}; const fresh = []; v.n.forEach((n) => { if (!reg[n.i]) { reg[n.i] = 1; fresh.push(npcInfo[n.i]); } });
+    const e = S.players[p.id];
+    if (fresh.length) sock.emit("bb:reg", fresh);
+    sock.volatile.emit("bb:state", Object.assign({}, v, { ps: e ? { x: e.x, z: e.z } : null }));
+  });
 }
 
-function onStop(room) {
-  const g = room.g, S = g.S; if (S.si >= S.nSeg - 1) return;
-  if (S.cfg.rotation !== "releve") return;
-  const a = cleanAssign(room); const ids = Object.keys(a); if (!ids.length) return;
-  const next = {}; ids.forEach((id) => { const i = roleIds.indexOf(a[id]); next[id] = roleIds[(i + 1) % roleIds.length]; });
-  room.bb.assign = next; g.rotated++;
-  const lines = ids.map((id) => { const p = room.players.find((q) => q.id === id); const r = D.ROLES.filter((x) => x.id === next[id])[0]; return p.name + " passe " + r.label.toLowerCase(); });
-  Sim.addLog(S, "info", "🔁", "Relève à l'arrêt. " + lines.join(", ") + ".");
-  g.api.emitAll(room, "bb:rotate", { crew: crewPublic(room) });
-}
-
-function sendAll(room, force) {
-  const g = room.g; if (!g) return; const S = g.S;
-  room.players.forEach((p) => { if (p.isBot || !p.socketId || p.left) return; sendTo(room, g.api.io.sockets.sockets.get(p.socketId), p); });
-}
-function sendTo(room, socket, p) {
-  const g = room.g; if (!g || !socket) return; const role = roleOfPlayer(room, p);
-  const v = view(g.S, role || "cabin"); v.you = role; v.spectator = !role; v.crew = crewPublic(room); v.crewNames = {}; roleIds.forEach((r) => { const q = v.crew[r] ? room.players.find((x) => x.id === v.crew[r]) : null; v.crewNames[r] = q ? q.name : "Robot"; v.crewBot = v.crewBot || {}; v.crewBot[r] = !q || !q.connected; });
-  v.vote = g.vote ? { until: Math.round(g.vote.until - g.S.t), by: g.vote.by, yes: g.vote.yes.size, no: g.vote.no.size, mine: g.vote.yes.has(p.id) || g.vote.no.has(p.id) } : null;
-  v.rotated = g.rotated; v.rotation = g.S.cfg.rotation;
-  socket.emit("bb:state", v);
-}
-
-// ---------- vote d'urgence ----------
-function startVote(room, p, role) {
-  const g = room.g, S = g.S; if (S.cfg.sabotage !== "total") return "Le vote d'urgence n'est pas activé dans ce salon.";
-  if (g.vote) return "Un vote est déjà en cours."; if (S.phase !== "drive") return "Le bus est déjà à l'arrêt.";
-  if ((g.voteCd || 0) > S.t) return "Patiente avant un nouveau vote.";
-  g.vote = { until: S.t + 8, by: p.name, yes: new Set([p.id]), no: new Set() }; g.voteCd = S.t + 60;
-  Sim.addLog(S, "prank", "🗳️", p.name + " demande un arrêt d'urgence et lance un vote."); 
-  const hs = room.players.filter((q) => !q.isBot && !q.left && q.connected); if (hs.length <= 1) resolveVote(room);
-  return null;
-}
-function castVote(room, p, yes) {
-  const g = room.g; if (!g || !g.vote) return; if (g.vote.yes.has(p.id) || g.vote.no.has(p.id)) return;
-  (yes ? g.vote.yes : g.vote.no).add(p.id);
-  const hs = room.players.filter((q) => !q.isBot && !q.left && q.connected).length; if (g.vote.yes.size + g.vote.no.size >= hs) resolveVote(room);
-}
-function resolveVote(room) {
-  const g = room.g, S = g.S; const v = g.vote; if (!v) return; g.vote = null;
-  const hs = room.players.filter((q) => !q.isBot && !q.left && q.connected).length;
-  if (v.yes.size * 2 > Math.max(1, hs)) { S.em = 4; Sim.moodAll(S, 2); Sim.addLog(S, "good", "🛑", "Le vote passe, le bus freine d'urgence et chacun reprend son souffle."); }
-  else Sim.addLog(S, "info", "🗳️", "Le vote d'arrêt d'urgence est rejeté, on continue.");
-}
-
-// ---------- réseau ----------
 function bind(socket, helpers, api) {
   const { ctx, me, safe, toast } = helpers;
   const cur = () => { const room = ctx.room; const p = me(); return room && p ? { room, p } : null; };
   socket.on("bb:crewGet", safe(() => { const c = cur(); if (!c) return; socket.emit("bb:crew", { crew: crewPublic(c.room) }); }));
   socket.on("bb:role", safe((d) => {
-    const c = cur(); if (!c || c.room.status !== "lobby") return;
-    const role = d && d.role; const a = cleanAssign(c.room);
+    const c = cur(); if (!c || c.room.status !== "lobby") return; const role = d && d.role; const a = cleanAssign(c.room);
     if (role == null) { delete a[c.p.id]; return emitCrew(c.room, api); }
-    if (!roleIds.includes(role)) return;
-    const holderId = Object.keys(a).find((k) => a[k] === role);
-    if (holderId && holderId !== c.p.id) return toast("Ce poste est déjà pris par un autre joueur.");
+    if (!roleIds.includes(role)) return; const holder = Object.keys(a).find((k) => a[k] === role && k !== c.p.id);
+    if (holder) return toast("Ce poste est déjà pris par un autre joueur.");
     a[c.p.id] = role; emitCrew(c.room, api);
   }));
-  socket.on("bb:act", safe((m) => {
-    const c = cur(); if (!c || !c.room.g) return; const g = c.room.g; const p = c.p;
-    if (!m || typeof m !== "object") return;
-    let raw; try { raw = JSON.stringify(m); } catch (e) { return; } if (raw.length > 400) return;
-    // débit maximal par joueur
-    const now = Date.now(); const bk = g.bucket[p.id] || (g.bucket[p.id] = { t: now, n: 40 }); bk.n = Math.min(60, bk.n + (now - bk.t) / 1000 * 50); bk.t = now; if (bk.n < 1) return; bk.n -= 1;
-    const role = roleOfPlayer(c.room, p); const aid = Number(m.aid);
-    const reply = (r) => { if (isFinite(aid)) socket.emit("bb:ack", Object.assign({ aid }, r)); };
-    if (!role) return reply({ ok: false, err: "Tu n'as pas de poste dans cette mission." });
-    if (m.t !== "drive") { if (!isFinite(aid) || aid <= (g.aid[p.id] || 0)) return; g.aid[p.id] = aid; }
-    if (m.t === "voteStart") { const e = startVote(c.room, p, role); return reply(e ? { ok: false, err: e } : { ok: true }); }
-    if (m.t === "voteCast") { castVote(c.room, p, !!m.yes); return reply({ ok: true }); }
-    const r = act(g.S, role, m); if (m.t !== "drive") reply(r);
+  if (process.env.BB_DEBUG === "1") socket.on("bb:dbg", safe((d) => { const c = cur(); if (!c || !c.room.g) return; const S = c.room.g.S; if (d.k === "fire") Sim.spawnFire(S, d.x || 0, d.z || -3, "Un feu se déclare."); else if (d.k === "puddle") Sim.spawnPuddle(S, d.x || 0, d.z || 0, "Une flaque se forme."); else if (d.k === "leak") S.bus.leak = true; else if (d.k === "tire") S.bus.tire = true; else if (d.k === "win") { S.over = { win: true, stars: 4, money: Math.round(S.money), rep: Math.round(S.rep), hull: Math.round(S.bus.hull), stats: S.stats, t: Math.round(S.t) }; S.phase = "end"; } else if (d.k === "need") { const n = S.npcs.find((x) => ["seat", "stand"].includes(x.st)); if (n) n.need = { type: d.type || "peur", t: 60, t0: 60 }; } }));
+  socket.on("bb:regReq", safe(() => { const c = cur(); if (c && c.room.g) c.room.g.reg[c.p.id] = {}; }));
+  socket.on("bb:ready", safe(() => { const c = cur(); if (!c || !c.room.g) return; const e = c.room.g.S.players[c.p.id]; socket.emit("bb:init", initPayload(c.room, c.p)); c.room.g.reg[c.p.id] = {}; if (e && e.awayBot) { e.bot = false; e.awayBot = false; } }));
+  socket.on("bb:pos", safe((d) => { const c = cur(); if (!c || !c.room.g || !d) return; const S = c.room.g.S; const e = S.players[c.p.id]; if (!e || e.bot) return; Sim.setPos(S, e, d); }));
+  socket.on("bb:drive", safe((d) => {
+    const c = cur(); if (!c || !c.room.g || !d) return; const S = c.room.g.S; const e = S.players[c.p.id]; if (!e || e.bot || e.role !== "driver") return;
+    const n = (v, lo, hi) => Math.max(lo, Math.min(hi, Number(v) || 0)); const B = S.bus;
+    B.steer = n(d.steer, -1, 1); B.thr = n(d.thr, 0, 1); B.brk = S.phase === "stop" ? 1 : n(d.brk, 0, 1); B.reverse = !!d.rev && B.v < 0.6;
   }));
+  socket.on("bb:act", safe((m) => { const c = cur(); if (!c || !c.room.g || !m) return; const S = c.room.g.S; const e = S.players[c.p.id]; if (!e || e.bot || S.over) return; Act.apply(S, e, m); }));
 }
-function onReconnect(room, p, api) {
-  const g = room.g; if (!g) return; g.aid[p.id] = 0; const s = api.io.sockets.sockets.get(p.socketId); if (s) { s.emit("bb:crew", { crew: crewPublic(room) }); sendTo(room, s, p); }
-  const role = roleOfPlayer(room, p); if (role) Sim.addLog(g.S, "info", "🔌", p.name + " reprend son poste de " + D.ROLES.filter((x) => x.id === role)[0].label.toLowerCase() + ".");
-}
-function onDisconnect(room, p) {
-  const g = room.g; if (!g) return; const role = roleOfPlayer(room, p);
-  if (role) Sim.addLog(g.S, "info", "📴", p.name + " a perdu la connexion" + (room.settings.fillAbsent ? ", un robot prend le volant du poste en attendant." : ", son poste reste vide.").replace("prend le volant du poste", "reprend le poste"));
-}
-function onLeave(room, p) {
-  const g = room.g; if (!g) return; const a = cleanAssign(room); delete a[p.id];
-  if (!room.players.some((x) => !x.isBot && !x.left)) onDestroy(room);
-}
-module.exports = { start, bind, onReconnect, onDisconnect, onLeave, onDestroy, canReturn: (room) => !!(room.g && room.g.over), crewPublic, cleanAssign, loop, roleOfPlayer };
+function onReconnect(room, p, api) { if (!room.g) return; const e = room.g.S.players[p.id]; if (e && e.awayBot) { e.bot = false; e.awayBot = false; e.task = null; } room.g.reg[p.id] = {}; const sock = api.io.sockets.sockets.get(p.socketId); if (sock) sock.emit("bb:init", initPayload(room, p)); }
+function onDisconnect() {}
+function onLeave(room, p) { const g = room.g; if (!g) return; const e = g.S.players[p.id]; if (e) { e.bot = true; e.awayBot = true; if (e.held) Sim.dropHeld(g.S, e); } }
+module.exports = { start, bind, onReconnect, onDisconnect, onLeave, onDestroy, canReturn, buildView };

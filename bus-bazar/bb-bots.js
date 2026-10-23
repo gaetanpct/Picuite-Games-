@@ -1,175 +1,143 @@
 // ============================================================
-// BUS BAZAR — Robots d'équipage
-// Chaque robot ne lit que la vue de son poste, comme un joueur. Il agit avec un temps de réaction.
+// BUS BAZAR — Robots pour les postes vides (conduite et équipage)
 // ============================================================
-const D = require("./public/game/data.js");
-const Rd = require("./public/game/road.js");
-const { view } = require("./bb-view.js");
-const { act } = require("./bb-actions.js");
-const { clamp } = D;
-
-const SKILL = {
-  debutant: { id: "debutant", label: "Débutant", react: 0.9, noise: 0.14, look: 45, err: 0.25, margin: 0.7 },
-  habile: { id: "habile", label: "Habile", react: 0.5, noise: 0.06, look: 70, err: 0.1, margin: 0.85 },
-  expert: { id: "expert", label: "Expert", react: 0.3, noise: 0.02, look: 100, err: 0.02, margin: 0.95 },
-};
-function makeBrain(role, skillId, rng) { const sk = SKILL[skillId] || SKILL.habile; return { role, sk, rng: rng || Math.random, timer: sk.react * Math.random(), seenInc: {}, noteT: 0 }; }
-
-function dilemmas(S, brain, v) {
-  (v.inc || []).forEach((i) => {
-    if (!i.dilemma || !i.botc || brain.seenInc[i.id] || !i.who.includes(brain.role)) return; brain.seenInc[i.id] = 1;
-    const c = (i.choices || []).find((x) => x.id === i.botc); const alt = (i.choices || []).find((x) => x.id === "non") || (i.choices || [])[1];
-    act(S, brain.role, { t: "decide", inc: i.id, choice: c && c.ok ? c.id : alt ? alt.id : i.botc });
-  });
-}
-function think(S, brain, dt) {
-  if (!S || S.end) return;
-  brain.timer -= dt; const v0 = brain.role === "driver" ? null : null;
-  if (brain.role === "driver") { const vd = view(S, "driver"); driver(S, brain, vd); dilemmas(S, brain, vd); return; }
-  if (brain.timer > 0) return; brain.timer = brain.sk.react * (0.7 + brain.rng() * 0.6);
-  const v = view(S, brain.role); dilemmas(S, brain, v);
-  if (brain.role === "mech") mech(S, brain, v); else if (brain.role === "nav") nav(S, brain, v); else cabin(S, brain, v);
-}
+const L = require("./public/game/layout.js");
+const Sim = require("./bb-sim.js");
+const Act = require("./bb-act.js");
+const Road = require("./public/game/road.js");
+const SK = { lent: { spd: 0.72, drive: 0.78, react: 1.4 }, normal: { spd: 1, drive: 0.9, react: 0.8 }, vif: { spd: 1.4, drive: 1.0, react: 0.35 } };
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
 // ---------- conducteur ----------
-function driver(S, br, v) {
-  const sk = br.sk;
-  if (v.phase === "stop") {
-    if (!v.canDepart) return;
-    br.ctl = null; if (S.chosen && S.stopT > 9 && !S.job && S.hp.engine > 0 && !S.stalled && v.fuel > 0) act(S, "driver", { t: "depart" });
-    else if (!S.chosen && S.stopT > 40 && !S.job) act(S, "driver", { t: "depart" });
+function drive(S, dt) {
+  const B = S.bus, R = S.road, sk = SK[S.cfg.botSkill] || SK.normal;
+  if (S.phase === "stop") {
+    B.thr = 0; B.brk = 1; B.steer = 0; B.reverse = false; S.dwell += dt;
+    const waiting = S.npcs.some((n) => n.st === "wait"); const moving = S.npcs.some((n) => (n.st === "board" && n.outside === false) || (n.st === "leave" && n.x < L.BUS.x1 + 0.3) || (n.st === "board"));
+    const humansOut = Object.values(S.players).some((q) => !q.bot && q.out);
+    const patience = waiting ? 70 : 28; const leavers = S.npcs.some((n) => n.st === "leave" && !n.relief);
+    if (S.dwell > patience && !moving && !leavers && !humansOut) { if (!S.announce) { S.announce = S.t + 6; Sim.say(S, "Le bus repart dans quelques secondes.", "info", "📣"); } else if (S.t > S.announce) { S.announce = null; Sim.departNow(S); } }
+    else S.announce = null;
     return;
   }
-  if (v.phase !== "drive" || !v.seg) return;
-  br.n = (br.n || 0) + 1;
-  const seg = Rd.makeSegmentCached ? Rd.makeSegmentCached(v.seg) : cacheSeg(br, v.seg);
-  const b = v.bus; const B = D.BIOMES.filter((q) => q.id === v.seg.biome)[0];
-  const grip = v.driver.grip; const auth = 1.25 * grip * (1 - clamp(b.v / 45, 0, 0.4)) * clamp(b.v / 5, 0.2, 1);
-  // vitesse cible selon les virages
-  let maxC = 0; const look = sk.look * (v.fog ? 0.6 : 1);
-  for (let d = 0; d <= look + b.v * 1.5; d += 12) maxC = Math.max(maxC, Math.abs(Rd.curveAt(seg, b.s + d)));
-  let vt = B.speed * (v.lights.engine === "crit" ? 0.6 : 1) * (v.temp > 110 ? 0.6 : 1);
-  if (maxC > 0.0008) vt = Math.min(vt, Math.sqrt(sk.margin * 1.25 * grip * 0.8 / (0.2 * maxC)) * 1.0);
-  if (v.slip) vt = Math.min(vt, 12); if (v.fog) vt = Math.min(vt, B.speed * 0.7); if (v.driver.vis < 160) vt = Math.min(vt, B.speed * 0.8);
-  // approche de l'arrêt
-  const toStop = Math.max(0, b.len - 70 - b.s); vt = Math.min(vt, Math.sqrt(2 * 3.2 * toStop) + 0.6);
-  if (b.s > b.len - 130 && b.v > 6) vt = Math.min(vt, 6);
+  const at = R.at(B.s); const W = Road.WEATHER[at.wx], SU = Road.SURF[at.surf]; const grip = W.grip * SU.grip;
+  let maxc = 0; for (let d = 0; d <= 80; d += 8) maxc = Math.max(maxc, Math.abs(R.at(B.s + d).curv));
+  let vt = Math.min(22 * sk.spd, maxc > 0.0004 ? Math.sqrt(0.5 * 8.2 * grip / maxc) * sk.drive : 99);
+  if (B.tire) vt = Math.min(vt, 8); if (B.temp > 100) vt = Math.min(vt, 12);
+  const surfv = at.surf === 3 ? 9 : at.surf === 2 ? 12 : 99; vt = Math.min(vt, surfv * sk.spd);
   // obstacles
-  let xt = 0; let danger = null; const reach = Math.min(look, 40 + b.v * 3);
-  v.obs.forEach((o) => { const d = o.s - b.s; if (d < 2 || d > reach || o.scared) return; if (Math.abs(o.x - b.x) < 0.25 + o.w + 0.25 || Math.abs(o.x) < 0.25 + o.w) { if (!danger || d < danger.d) danger = { o, d }; } });
-  if (v.blind) { vt = Math.min(vt, 6); }
-  if (danger) {
-    const o = danger.o; const side = o.x >= 0 ? -1 : 1; xt = clamp(o.x + side * (0.25 + o.w + 0.28), -0.85, 0.85);
-    if ((o.kind === "animal" || o.kind === "pieton") && danger.d < 75 && !br.hornT) { if (act(S, "driver", { t: "horn" }).ok) br.hornT = 1.5; }
-    if (o.kind === "slowcar") vt = Math.min(vt, o.v ? o.v : 7, Math.max(6, vt)); 
-    if (danger.d < 14 + b.v * 0.5 && b.v > 9 && Math.abs(b.x - xt) > 0.45 && sk.id !== "debutant") act(S, "driver", { t: "dodge", dir: xt > b.x ? 1 : -1 });
-    if (danger.d < 11 && b.v > 11 && Math.abs(b.x - xt) > 0.5 && sk.id === "expert") act(S, "driver", { t: "emergency" });
-    if (o.kind !== "oil" && o.kind !== "pothole" && danger.d < 30) vt = Math.min(vt, 13);
+  let et = 0, slowObs = false; const ahead = R.obstacles.filter((o) => !S.gone[o.id] && o.s - B.s > 0 && o.s - B.s < 55);
+  for (const o of ahead) { const OB = Road.OBST[o.type]; const oe = S.moved && S.moved[o.id] != null ? S.moved[o.id] : o.e; if (o.type === "ralent") { vt = Math.min(vt, 7 + (o.s - B.s) * 0.1); continue; } if (Math.abs(B.e - oe) < OB.w / 2 + 2.4 || Math.abs(et - oe) < OB.w / 2 + 2.4) { et = oe > 0 ? oe - OB.w / 2 - 2.4 : oe + OB.w / 2 + 2.4; if (OB.mobile) { B.horn = Math.max(B.horn, 0.5); vt = Math.min(vt, 9); } if (o.s - B.s < 22) vt = Math.min(vt, 10); slowObs = true; } }
+  et = clamp(et, -3.4, 3.4);
+  // arrêt
+  const ns = R.stops[S.nextStop]; if (ns) { const d = ns.s - 12 - B.s; const e0 = 3.0; et = clamp(et * 0 + e0, -4, 4) * (d < 60 ? 1 : 0) + (d < 60 ? 0 : et); if (d < 140) vt = Math.min(vt, Math.max(0, Math.sqrt(2 * 3.4 * Math.max(0, d)) * 0.9)); if (d < 25 && B.v < 3) vt = 0; if (B.s > ns.s - 30) vt = Math.min(vt, B.v > 1 ? 3 : 0); }
+  const err = vt - B.v; if (err > 0) { B.thr = clamp(err * 0.7, 0, 1); B.brk = 0; } else { B.thr = 0; B.brk = clamp(-err * 0.6, 0, 1); } if (vt === 0 && B.v < 0.6) { B.brk = 1; B.thr = 0; }
+  const kd = R.at(B.s + 6 + B.v * 0.4).curv - (B.e - et) * 0.0055 - B.psi * 0.28; const gain = 0.042 / (1 + B.v / 38);
+  B.steer = clamp(kd / gain, -1, 1); B.reverse = false;
+  if (B.stuck > 0) { B.thr = 0; }
+}
+
+// ---------- équipage ----------
+function claim(S, key, p) { S.claims = S.claims || {}; const c = S.claims[key]; if (c && c.until > S.t && c.id !== p.id) return false; S.claims[key] = { id: p.id, until: S.t + 25 }; return true; }
+function free(S, key, p) { S.claims = S.claims || {}; const c = S.claims[key]; return !(c && c.until > S.t && c.id !== p.id); }
+function route(S, p, tx, tz) {
+  const open = S.phase === "stop" && S.bus.door; const outT = tx > 1.6, outP = p.x > 1.6;
+  if (outT !== outP) {
+    if (!open) return null;
+    if (!outP) { if (Math.abs(p.z - L.DOOR.z) <= 0.45) return { x: 3.0, z: L.DOOR.z }; if (Math.abs(p.x) > 0.4) return { x: 0.1, z: p.z }; return { x: 0.1, z: L.DOOR.z }; }
+    return { x: 1.0, z: L.DOOR.z };
   }
-  if (br.hornT) br.hornT = Math.max(0, br.hornT - 0.05);
-  if (v.blind) act(S, "driver", { t: "wipe" });
-  // direction
-  const curve = Rd.curveAt(seg, b.s); const comp = (curve * b.v * b.v * 0.2 * -1 * -1 - v.wind - v.driver.pull) / Math.max(0.3, auth);
-  let steer = (xt - b.x) * 1.8 - b.vx * 0.55 + comp; steer += (Math.sin((S.t + (br.n % 7)) * 2.3) * sk.noise);
-  steer = clamp(steer, -1, 1);
-  // vitesse
-  const err = vt - b.v; let thr = clamp(err * 0.35, 0, 1), brk = err < -0.6 ? clamp(-err * 0.3, 0, 1) : 0;
-  if (v.stalled || S.fuel <= 0) { thr = 0; }
-  act(S, "driver", { t: "drive", steer, thr, brk });
+  if (outT) return { x: tx, z: tz };
+  if (Math.abs(p.z - tz) > 0.7 && Math.abs(p.x) > 0.35) return { x: 0.05, z: p.z };
+  if (Math.abs(p.z - tz) > 0.5 && Math.abs(p.x) <= 0.4) return { x: 0.05, z: tz };
+  return { x: tx, z: tz };
 }
-function cacheSeg(br, d) { const key = d.seed + "|" + d.index + "|" + d.kind + "|" + d.biome; if (br.segKey !== key) { br.segKey = key; br.seg = Rd.makeSegment({ seed: d.seed, index: d.index, kind: d.kind, biome: d.biome, difficulty: d.difficulty, biomes: d.biomes }); } return br.seg; }
-
-// ---------- mécanicien ----------
-const REPAIRABLE = ["engine", "cooling", "brakes", "tires", "electric", "tank", "body"];
-function mech(S, br, v) {
-  if (v.job) return; const hp = v.hp; const sk = br.sk;
-  if (v.fake && v.hp[v.fake] > 60) { act(S, "mech", { t: "wrench", sys: v.fake }); return; }
-  const stopped = v.bus.v < 3;
-  if (v.inc.some((i) => i.defId === "feu_cuisine") && v.hasExt) { act(S, "mech", { t: "extinguish" }); return; }
-  if (v.stuckHorn) { if (v.hasHammer && act(S, "mech", { t: "hammer", sys: "electric" }).ok) return; if (act(S, "mech", { t: "wrench", sys: "electric" }).ok) return; }
-  if (v.temp > 104 && v.inv.coolant > 0) { act(S, "mech", { t: "repair", sys: "engine", kind: "refroidir" }); return; }
-  if (v.temp > 118 && v.hasExt) { act(S, "mech", { t: "extinguish" }); return; }
-  const thr = v.phase === "stop" ? 75 : 50;
-  const order = REPAIRABLE.filter((k) => (k === "tank" ? v.leak : hp[k] < (k === "body" ? 55 : thr))).sort((a, b) => (a === "tank" ? -1 : b === "tank" ? 1 : hp[a] - hp[b]));
-  let pick = order[0]; if (!pick) return;
-  if (br.rng() < sk.err && order.length > 1) pick = order[1];
-  const spare = v.inv.spares, tape = v.inv.tape; const needStop = pick === "brakes" || pick === "tires";
-  if (spare > 0 && (!needStop || stopped) && (spare > 1 || hp[pick] < 25 || v.phase === "stop") && act(S, "mech", { t: "repair", sys: pick, kind: "propre" }).ok) return;
-  if (tape > 0 && act(S, "mech", { t: "repair", sys: pick, kind: "ruban" }).ok) return;
-  if (v.hasHammer && act(S, "mech", { t: "hammer", sys: pick }).ok) return;
-  act(S, "mech", { t: "wrench", sys: pick });
+function walkTo(S, p, tx, tz, reach, dt, sk) {
+  if (dist(p, { x: tx, z: tz }) < reach) return true;
+  const wp = route(S, p, tx, tz); if (!wp) return false; const dx = wp.x - p.x, dz = wp.z - p.z, d = Math.hypot(dx, dz); if (d < 0.05) return false;
+  const spd = 2.5 * sk.spd; const st = Math.min(d, spd * dt); p.x += dx / d * st; p.z += dz / d * st; p.yaw = Math.atan2(dx, dz); p.vx = dx / d * spd; p.vz = dz / d * spd;
+  const c = L.collide(p.x, p.z, 0.28, S.phase === "stop" && S.bus.door); p.x = c.x; p.z = c.z; p.out = p.x > L.BUS.x1 + 0.3; return dist(p, { x: tx, z: tz }) < reach;
 }
+const heldItem = (S, p) => (p.held && p.held.t === "item" ? S.items.find((x) => x.id === p.held.id) : null);
+function stationPos(id) { return L.stations.find((s) => s.id === id); }
 
-// ---------- navigateur ----------
-function nav(S, br, v) {
-  const sk = br.sk;
-  if (v.radioOn) act(S, "nav", { t: "radio_off" });
-  v.inc.forEach((i) => { if (!i.dilemma || br.seenInc[i.id]) return; br.seenInc[i.id] = 1; decideDilemma(S, br, v, i); });
-  if (v.phase !== "stop") return;
-  if (!v.canDepart) return;
-  // courses
-  const m = () => v.inv.money; const P = v.prices || {};
-  const buy = (w, cond, keep) => { if (cond && m() - (P[w] || 0) >= (keep || 0)) act(S, "nav", { t: "buy", what: w }); };
-  if (!br.stopDone || br.stopDone !== v.si) {
-    if (v.fuel < 60) buy("fuel", true, 0); if (v.fuel < 35) buy("fuel", true, 0);
-    buy("spares", v.inv.spares < 2, 20); buy("tape", v.inv.tape < 2, 15); buy("coolant", v.inv.coolant < 1, 15); buy("medkit", v.inv.medkit < 1, 30); buy("snacks", v.inv.snacks < 3, 40);
-    if (v.hasGps) act(S, "nav", { t: "gps" });
-    if (v.fuel < 85) buy("fuel", m() > 90, 60);
+function chooseTask(S, p) {
+  const role = p.role; const stop = S.phase === "stop"; const lst = [];
+  const fire = S.haz.find((h) => h.t === "fire" && free(S, "f" + h.id, p));
+  if (fire && (role === "mechanic" || !S.hasHuman.mechanic)) lst.push({ pr: 95, t: "fire", id: fire.id });
+  const B = S.bus;
+  if (role === "mechanic") {
+    if ((B.leak || (B.tire && (stop || B.v < 2)) || B.temp > 92) && free(S, "rep", p)) lst.push({ pr: 80, t: "repair" });
+    const pd = S.haz.find((h) => h.t === "puddle" && free(S, "p" + h.id, p)); if (pd) lst.push({ pr: 40, t: "puddle", id: pd.id });
   }
-  if (!v.options || v.chosen) { return; }
-  br.stopDone = v.si;
-  const hurt = v.body < 60 || v.lights.engine !== "ok" || v.lights.brakes === "crit" || v.lights.tires === "crit";
-  const late = v.delay > 25;
-  let best = null, bs = -1e9;
-  v.options.forEach((o) => {
-    if (o.blocked) return; const Bm = D.BIOMES.filter((q) => q.id === o.biome)[0] || D.BIOMES[0];
-    let sc = -Bm.curve * 2 - Bm.density * 1.2 + Bm.grip * 3 - o.len / 900;
-    if (o.kind === "direct") sc += late && !hurt ? 2.6 : -0.6; if (o.kind === "sure") sc += hurt ? 2.5 : 0.8; if (o.kind === "pittoresque") sc += v.mode === "tourisme" ? 2.5 : 0;
-    if (v.gpsHint === o.kind) sc += 0.7; if (v.tip && v.tip.kind === o.kind) sc += v.tip.good ? 0.4 : -0.4;
-    sc += (br.rng() - 0.5) * sk.err * 6; if (sc > bs) { bs = sc; best = o; }
-  });
-  if (best) act(S, "nav", { t: "route", kind: best.kind });
-}
-function decideDilemma(S, br, v, i) {
-  const choose = (c) => act(S, "nav", { t: "decide", inc: i.id, choice: c });
-  if (i.defId === "prime") choose(v.delay <= 5 && v.body > 50 ? "oui" : "non");
-  else if (i.defId === "champ") choose(v.lights.tires === "ok" && v.body > 60 && br.rng() < 0.5 ? "oui" : "non");
-  else if (i.defId === "autostoppeur") choose(v.bus.v < 3 ? "oui" : "non");
-}
-
-// ---------- responsable de cabine ----------
-function cabin(S, br, v) {
-  const sk = br.sk; const pax = v.pax; if (!pax) return; const can = (a) => !v.cds["cabin:" + a];
-  if (v.cds["cabin:any"]) return;
-  const incs = v.inc;
-  const doIt = (a, p, item) => act(S, "cabin", { t: "cabin", action: a, pid: p ? p.id : undefined, item }).ok;
-  const sick = pax.find((p) => p.state === "malaise"); if (sick && v.inv.medkit > 0 && can("soigner") && doIt("soigner", sick)) return;
-  if (sick && v.bus.v < 2 && can("parler") && doIt("parler", sick)) return;
-  if (incs.some((i) => i.defId === "bagarre")) { if (can("discours_autoritaire") && doIt("discours_autoritaire")) return; if (can("sifflet") && doIt("sifflet")) return; }
-  const fx = pax.find((p) => p.arch === "fauxchauffeur"); if (incs.some((i) => i.defId === "prise_volant") && fx) { if (can("sifflet") && doIt("sifflet")) return; if (doIt("parler", fx)) return; }
-  const col = pax.find((p) => p.arch === "colis"); if (incs.some((i) => i.defId === "colis_suspect") && col && can("confisquer") && doIt("confisquer", col)) return;
-  const an = pax.find((p) => p.arch === "animal"); if (incs.some((i) => i.defId === "animal_libre") && an) { if (v.inv.snacks > 0 && can("snack") && doIt("snack", an)) return; if (can("parler") && doIt("parler", an)) return; }
-  if (incs.some((i) => ["ovni", "fantome", "greve"].includes(i.defId)) && can("discours_rassurant") && doIt("discours_rassurant")) return;
-  if (incs.some((i) => i.defId === "karaoke")) { if (can("chanson") && doIt("chanson")) return; if (can("sifflet") && doIt("sifflet")) return; }
-  if (incs.some((i) => i.defId === "mouette") && can("sifflet") && doIt("sifflet")) return;
-  const cook = pax.find((p) => p.arch === "cuisinier"); if (incs.some((i) => i.defId === "feu_cuisine") && cook && can("confisquer") && doIt("confisquer", cook)) return;
-  const vip = pax.find((p) => p.vip); if (vip && vip.mood < 45) { if (vip.req && vip.req.type === "snack" && v.inv.snacks > 0 && can("snack") && doIt("snack", vip)) return; if (can("parler") && doIt("parler", vip)) return; }
-  // demandes les plus pressantes
-  const wants = pax.filter((p) => p.req).sort((a, b) => a.req.left - b.req.left);
-  if (v.sat < 35 && can("discours_rassurant") && doIt("discours_rassurant")) return;
-  for (const p of wants) {
-    const t = p.req.type;
-    if (t === "snack" && v.inv.snacks > 0 && can("snack") && doIt("snack", p)) return;
-    if (t === "canard" && v.cabinItems.includes("canardplastique") && can("cadeau") && doIt("cadeau", p, "canardplastique")) return;
-    if (t === "annonce" && can("discours_absurde") && wants.filter((q) => q.req.type === "annonce").length >= 1 && doIt("discours_absurde")) return;
-    if (t === "silence" && can("sifflet") && wants.filter((q) => q.req.type === "silence").length >= 2 && doIt("sifflet")) return;
-    if (can("parler") && doIt("parler", p)) return;
+  if (role === "steward") {
+    if (stop) { const c = S.npcs.find((n) => n.st === "wait" && free(S, "c" + n.id, p) && (n.x < 5)); if (c) lst.push({ pr: 90, t: "cand", id: c.id }); }
+    S.npcs.forEach((n) => {
+      if (!n.need || n.st === "gone" || n.st === "wait" || n.st === "leave" || n.st === "board") return; if (!free(S, "n" + n.id, p)) return; const N = L.NEEDS[n.need.type]; const urg = 70 + (1 - n.need.t / n.need.t0) * 20;
+      if (N.item === "snack" || N.item === "drink" || N.item === "bucket") lst.push({ pr: urg, t: "serve", id: n.id, item: N.item });
+      else if (N.hold) lst.push({ pr: urg - 5, t: "hold", id: n.id }); else if (N.seat) lst.push({ pr: 60, t: "seat", id: n.id });
+    });
+    S.npcs.forEach((n) => { if (n.trouble && n.st !== "carried" && free(S, "n" + n.id, p) && !(S.hasHuman.porter === undefined)) lst.push({ pr: 65, t: "hold", id: n.id }); });
+    const pd = S.haz.find((h) => h.t === "puddle" && free(S, "p" + h.id, p)); if (pd) lst.push({ pr: 45, t: "puddle", id: pd.id });
   }
-  const panicky = pax.filter((p) => p.state === "panique");
-  if (panicky.length >= 3 && can("discours_rassurant") && doIt("discours_rassurant")) return;
-  if (sk.id === "expert" && panicky.length === 1 && v.slapsOn && can("baffe") && br.rng() < 0.15 && doIt("baffe", panicky[0])) return;
-  const low = pax.slice().sort((a, b) => a.mood - b.mood)[0]; if (low && low.mood < 45 && can("parler") && doIt("parler", low)) return;
-  if (v.sat < 62 && !wants.length) { for (const a of ["tombola", "quiz", "ola", "selfie"]) { if (can(a) && doIt(a)) return; } }
+  if (role === "porter") {
+    if (stop) {
+      const cr = S.items.find((i) => i.t === "crate" && i.state === "wait" && free(S, "i" + i.id, p) && L.CARGO[i.cargo].risk < 0.62); if (cr && S.items.filter((i) => i.t === "crate" && i.state === "slot").length < L.slots.length - 1) lst.push({ pr: 85, t: "crate", id: cr.id });
+      const out = S.items.find((i) => i.t === "crate" && i.state === "slot" && i.dest <= S.stopIdx && free(S, "i" + i.id, p)); if (out) lst.push({ pr: 88, t: "deliver", id: out.id });
+    }
+    const loose = S.items.find((i) => i.t === "crate" && i.state === "free" && !i.holder && free(S, "i" + i.id, p)); if (loose) lst.push({ pr: 70, t: "stow", id: loose.id });
+    const ch = S.items.find((i) => i.t === "chick" && !i.holder && free(S, "i" + i.id, p)); if (ch) lst.push({ pr: 60, t: "chick", id: ch.id });
+    S.npcs.forEach((n) => { if (n.need && n.need.type === "valise" && free(S, "n" + n.id, p)) { const bag = S.items.find((i) => i.t === "bag" && i.owner === n.id && !i.holder); if (bag) lst.push({ pr: 72, t: "bag", id: n.id, bag: bag.id }); } });
+    S.npcs.forEach((n) => { if (n.trouble && n.mood < 7 && free(S, "n" + n.id, p)) lst.push({ pr: 66, t: S.cfg.eject && stop ? "eject" : "hold", id: n.id }); });
+    S.haz.forEach((h) => { if (h.t === "puddle" && free(S, "p" + h.id, p) && !S.hasHuman.steward) lst.push({ pr: 35, t: "puddle", id: h.id }); });
+    const rr = S.bus.rear && S.phase === "stop"; if (rr && !S.hasHuman.mechanic) lst.push({ pr: 50, t: "rear" });
+  }
+  if (S.bus.rear && S.phase === "drive" && free(S, "rear", p)) lst.push({ pr: 75, t: "rear" });
+  lst.sort((a, b) => b.pr - a.pr); return lst[0] || null;
 }
-
-module.exports = { SKILL, makeBrain, think };
+function crew(S, p, dt) {
+  const sk = SK[S.cfg.botSkill] || SK.normal; p.cd = (p.cd || 0) - dt; if (p.cd > 0) return;
+  if (!p.task || S.t > p.task.until) { if (p.task) { dropAll(S, p); } p.task = chooseTask(S, p); if (p.task) { p.task.step = 0; p.task.until = S.t + 40; claim(S, key(p.task), p); p.cd = sk.react; } else { idle(S, p, dt, sk); return; } }
+  const T = p.task; claim(S, key(T), p); const done = run(S, p, T, dt, sk); if (done) { p.task = null; p.cd = sk.react * 0.5; }
+}
+function key(T) { return T.t === "cand" ? "c" + T.id : T.t === "fire" ? "f" + T.id : T.t === "puddle" ? "p" + T.id : T.t === "repair" ? "rep" : T.t === "rear" ? "rear" : (T.t === "crate" || T.t === "deliver" || T.t === "stow" || T.t === "chick") ? "i" + T.id : "n" + T.id; }
+function dropAll(S, p) { if (p.held) { Act.drop(S, p, false); } p.hold = null; }
+function idle(S, p, dt, sk) { const home = p.role === "steward" ? { x: 0.1, z: 3.6 } : p.role === "mechanic" ? { x: 0, z: -5.8 } : { x: 0.1, z: -3.9 }; walkTo(S, p, home.x, home.z, 0.5, dt, sk); }
+function getItem(S, p, kind, stId, dt, sk) { // va chercher un objet à une station
+  if (heldItem(S, p) && heldItem(S, p).t === kind) return true; if (p.held) { Act.drop(S, p, false); return false; }
+  const st = stationPos(stId); if (walkTo(S, p, st.x * 0.4, st.z, 0.35 + st.r * 0.55, dt, sk)) { Act.station(S, p, stId, kind); return !!heldItem(S, p); } return false;
+}
+function run(S, p, T, dt, sk) {
+  const keepHold = (type, obj) => { if (!p.hold || p.hold.t !== type || p.hold.id !== obj) p.hold = { t: type, id: obj }; p.holdAt = S.t; };
+  if (T.t === "cand") { const n = S.npcs.find((x) => x.id === T.id); if (!n || n.st !== "wait" || S.phase !== "stop") return true; if (walkTo(S, p, 2.6, n.z, 1.2, dt, sk)) { const K = L.KINDS[n.kind]; const cap = Act.onboardCount(S) >= Act.CAP; const ok = !cap && (K.risk <= 0.42 || S.rng() < 0.3); Act.accept(S, p, n.id, !ok); return true; } return false; }
+  if (T.t === "fire") { const f = S.haz.find((h) => h.id === T.id); if (!f) { dropAll(S, p); return true; } if (!getItem(S, p, "ext", "ext", dt, sk)) return false; if (walkTo(S, p, f.x * 0.7, f.z + (f.z > -3 ? -0.9 : 0.9), 1.4, dt, sk)) { keepHold("fire", f.id); } return false; }
+  if (T.t === "repair") { const B = S.bus; if (!(B.leak || B.tire || B.temp > 80)) { dropAll(S, p); return true; } if (B.tire && S.phase === "drive" && B.v > 2) return false; if (!getItem(S, p, "tools", "bench", dt, sk)) return false; if (walkTo(S, p, -0.5, -6.6, 1.1, dt, sk)) keepHold("hatch", "hatch"); return false; }
+  if (T.t === "puddle") { const f = S.haz.find((h) => h.id === T.id); if (!f) { dropAll(S, p); return true; } if (walkTo(S, p, f.x, f.z, 0.9, dt, sk)) keepHold("puddle", f.id); return false; }
+  if (T.t === "rear") { if (!S.bus.rear) return true; if (walkTo(S, p, 0, -7.0, 1.0, dt, sk)) { Act.rear(S, p); return true; } return false; }
+  const n = T.id && S.npcs.find((x) => x.id === T.id);
+  if (T.t === "serve") { if (!n || !n.need) { dropAll(S, p); return true; } if (!getItem(S, p, T.item, T.item === "bucket" ? "bucketstand" : "cart", dt, sk)) return false; if (walkTo(S, p, n.x * 0.5, n.z, 1.2, dt, sk)) { Act.press(S, p, { t: "npc", id: n.id }); return true; } return false; }
+  if (T.t === "hold") { if (!n || n.st === "gone" || !(n.trouble || n.asleep || (n.need && L.NEEDS[n.need.type].hold))) { p.hold = null; return true; } if (p.held) { Act.drop(S, p, false); return false; } if (walkTo(S, p, n.x * 0.5, n.z, 1.3, dt, sk)) keepHold("npc", n.id); return false; }
+  if (T.t === "seat") { if (!n || !n.need) return true; if (walkTo(S, p, n.x * 0.5, n.z, 1.4, dt, sk)) { Act.press(S, p, { t: "npc", id: n.id }); return true; } return false; }
+  if (T.t === "crate" || T.t === "stow") {
+    const c = S.items.find((x) => x.id === T.id);
+    if (!p.held) { if (!c || c.holder) return true; if (walkTo(S, p, c.x, c.z, 1.1, dt, sk)) Act.pickup(S, p, c.id); return false; }
+    const it = heldItem(S, p); if (!it) return true;
+    const sl = L.slots.find((s) => !S.items.some((i) => i.state === "slot" && i.slot === s.id)); if (!sl) { Act.drop(S, p, false); return true; }
+    if (walkTo(S, p, sl.x * 0.35, sl.z, 1.2, dt, sk)) { Act.slot(S, p, sl.id); return true; } return false;
+  }
+  if (T.t === "deliver") {
+    const c = S.items.find((x) => x.id === T.id); if (!p.held) { if (!c || c.holder) return true; if (walkTo(S, p, c.x * 0.4, c.z, 1.5, dt, sk)) { Act.slot(S, p, c.slot); } return false; }
+    if (S.phase !== "stop") { Act.drop(S, p, false); return true; } if (walkTo(S, p, 3.4, 1.6, 0.5, dt, sk)) { p.yaw = 1.2; Act.drop(S, p, false); return true; } return false;
+  }
+  if (T.t === "chick") { const c = S.items.find((x) => x.id === T.id); if (!p.held) { if (!c || c.holder) return true; if (walkTo(S, p, c.x, c.z, 0.9, dt, sk)) Act.pickup(S, p, c.id); return false; }
+    const cr = S.items.find((x) => x.t === "crate" && x.cargo === "poulets" && !x.gone); const tgt = cr ? { x: cr.x * 0.5, z: cr.z } : { x: 0, z: -5 }; if (walkTo(S, p, tgt.x, tgt.z, 1.4, dt, sk)) { const it = heldItem(S, p); if (it) { it.gone = true; p.held = null; S.events.push({ k: "fixed" }); } return true; } return false; }
+  if (T.t === "bag") { if (!n || !n.need) { dropAll(S, p); return true; } if (!p.held) { const bag = S.items.find((x) => x.id === T.bag); if (!bag || bag.holder) return true; if (walkTo(S, p, bag.x * 0.5, bag.z, 1.3, dt, sk)) Act.pickup(S, p, bag.id); return false; } if (walkTo(S, p, n.x * 0.5, n.z, 1.3, dt, sk)) { Act.press(S, p, { t: "npc", id: n.id }); return true; } return false; }
+  if (T.t === "eject") { if (!n || !n.trouble) return true; if (S.phase !== "stop") return true; if (!p.held) { if (walkTo(S, p, n.x * 0.6, n.z, 1.2, dt, sk)) Act.grab(S, p, n.id); return false; } if (walkTo(S, p, 1.15, L.DOOR.z, 0.35, dt, sk)) { p.yaw = Math.PI / 2; p.x = Math.max(p.x, 1.1); Act.drop(S, p, false); return true; } return false; }
+  return true;
+}
+function think(S, dt) {
+  S.hasHuman = {}; Object.values(S.players).forEach((p) => { if (!p.bot) S.hasHuman[p.role] = true; });
+  Object.values(S.players).forEach((p) => { if (!p.bot) return; if (p.role === "driver") return; crew(S, p, dt); });
+}
+module.exports = { drive, think };

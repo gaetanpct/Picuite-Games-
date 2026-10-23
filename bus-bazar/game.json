@@ -1,19 +1,19 @@
 {
  "name": "Bus Bazar",
  "order": 6,
- "tagline": "Quatre postes, un bus, et zéro contrôle.",
- "pitch": "Un jeu coopératif où quatre postes se partagent un bus absurde. Le conducteur tient un volant qui a de l'inertie, le mécanicien rafistole avec du ruban, le navigateur choisit les routes et jongle avec l'argent, et la responsable de cabine gère des passagers pires que le bus lui-même. Les routes, les pannes et les incidents en chaîne sont générés à partir d'une graine. Seul ou à quatre, avec des robots pour les postes vides.",
+ "tagline": "Un bus en 3D, quatre postes, et des passagers qui n'en font qu'à leur tête.",
+ "pitch": "Un jeu coopératif en 3D, à la première personne, inspiré des jeux de bus où l'on s'occupe des voyageurs. Chacun tient un poste et marche dans le bus. Le conducteur conduit et ouvre la porte, l'hôtesse ou steward sert et rassure, le mécano répare et éteint les feux, le bagagiste range les colis et sort les fauteurs de trouble. À chaque arrêt on choisit qui monte et quels colis chargent, puis il faut tenir le voyage malgré la pluie, les vaches, les poulets en fuite et les passagers affamés. Seul ou à quatre, avec des robots pour les postes vides.",
  "tags": [
   "1 à 4 joueurs",
-  "8 à 25 minutes",
-  "Coopération et chaos"
+  "10 à 25 minutes",
+  "Coopération en 3D"
  ],
  "steps": [
-  "Choisis ton poste, conducteur, mécanicien, navigateur ou responsable de cabine.",
-  "Faites rouler le bus de station en station, en réparant, en décidant et en calmant les passagers.",
-  "Arrivez au terminus avant que le bus, le carburant ou le retard ne vous lâchent."
+  "Choisis ton poste, conducteur, hôtesse ou steward, mécano ou bagagiste.",
+  "Aux arrêts, choisissez les passagers et les colis qui montent, puis rangez-les dans le bus.",
+  "En route, nourrissez, rassurez, réparez et gardez le bus sur la route jusqu'au terminus."
  ],
- "for": "Pour celles et ceux qui aiment crier des ordres contradictoires dans un bus qui fume.",
+ "for": "Pour celles et ceux qui aiment se répartir le travail dans un bus qui tremble et s'organiser en criant.",
  "colors": [
   "#f2b705",
   "#7a4b00"

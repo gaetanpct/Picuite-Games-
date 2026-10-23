@@ -26,9 +26,14 @@
     reflet: { id: "reflet", name: "Reflet", short: "Reflet", icon: "🪞", rank: 4, cost: 6, mobile: true, mirror: true, special: true, max: 2, desc: "Quand on l'attaque, il renvoie le coup. Les deux pièces disparaissent, quelle que soit la force de l'attaquant. Aussi fort qu'un Garde quand il attaque." },
     chauvesouris: { id: "chauvesouris", name: "Chauve-souris Géante", short: "Chauve-souris", icon: "🦇", rank: 5, cost: 8, mobile: true, reach: 3, fly: true, special: true, max: 2, desc: "Vole jusqu'à trois cases en ligne droite, par-dessus les lacs et les ruines, et peut attaquer au bout. Aussi forte qu'une Archère." },
     golem: { id: "golem", name: "Golem de Pierre", short: "Golem", icon: "🗿", rank: 8, cost: 8, mobile: true, slow: true, special: true, max: 2, desc: "Presque aussi fort qu'un Sorcier mais très lent. Après chaque déplacement, il se repose pendant son prochain tour." },
+    bombardier: { id: "bombardier", name: "Gobelin Bombardier", short: "Bombardier", icon: "💣", rank: 2, cost: 7, mobile: true, bomber: true, special: true, max: 2, desc: "Quand il attaque, il explose. Lui et sa cible disparaissent, et selon le réglage le souffle emporte aussi les pièces voisines, amies comme ennemies. Le Roi et l'Œuf de Dragon résistent au souffle." },
+    etendard: { id: "etendard", name: "Porte-Étendard", short: "Étendard", icon: "🚩", rank: 3, cost: 7, mobile: true, banner: true, special: true, max: 2, desc: "Les pièces alliées juste à côté de lui gagnent de la force dans les combats. Ça ne change pas les règles spéciales comme les tartes, le Rat ou l'Assassin." },
+    sentinelle: { id: "sentinelle", name: "Sentinelle", short: "Sentinelle", icon: "🦉", rank: 4, cost: 6, mobile: true, sentinel: true, special: true, max: 2, desc: "Toute pièce ennemie qui passe à côté d'elle est démasquée pour toujours, mais seulement pour ton camp. Les ennemis ne savent pas qui les a repérés." },
+    phenix: { id: "phenix", name: "Phénix", short: "Phénix", icon: "🐦‍🔥", rank: 7, cost: 12, mobile: true, phoenix: true, special: true, max: 1, desc: "La première fois qu'il est éliminé, il renaît face cachée dans ton camp, endormi un tour. Le nombre de renaissances se règle dans les options." },
+    messagere: { id: "messagere", name: "Messagère", short: "Messagère", icon: "🕊️", rank: 2, cost: 6, mobile: true, messenger: true, special: true, max: 2, desc: "Quand elle se déplace sans combattre, tu rejoues tout de suite une seconde pièce. Une seule fois par tour." },
   };
 
-  const ORDER = ["oeuf", "tarte", "rat", "lutin", "nain", "garde", "archere", "chevalier", "troll", "sorcier", "dragon", "roi", "fantome", "cavalier", "assassin", "reflet", "chauvesouris", "golem"];
+  const ORDER = ["oeuf", "tarte", "rat", "lutin", "nain", "garde", "archere", "chevalier", "troll", "sorcier", "dragon", "roi", "fantome", "cavalier", "assassin", "reflet", "chauvesouris", "golem", "bombardier", "etendard", "sentinelle", "phenix", "messagere"];
 
   // Les quatre maisons. Chacune a un pouvoir à usage limité.
   const HOUSES = [
@@ -79,11 +84,15 @@
       ombre: { name: "Ombre", icon: "🥷", desc: "Des assassins et des reflets, pour piéger les gros bras.", counts: { assassin: 2, reflet: 2, fantome: 2 } },
       rempart: { name: "Rempart", icon: "🗿", desc: "Des golems et des reflets, lent mais solide.", counts: { golem: 2, reflet: 2, cavalier: 2 } },
       mixte: { name: "Mixte", icon: "🌟", desc: "Un peu de tout.", counts: { golem: 1, cavalier: 1, assassin: 1, reflet: 1, chauvesouris: 1, fantome: 1 } },
+      mystique: { name: "Mystique", icon: "🐦‍🔥", desc: "Un Phénix, une Sentinelle et un Porte-Étendard pour une armée qui voit et qui renaît.", counts: { phenix: 1, sentinelle: 2, etendard: 2, messagere: 1 } },
+      chaos: { name: "Chaos", icon: "💣", desc: "Des Bombardiers et des Messagères, pour tout faire sauter et jouer deux fois.", counts: { bombardier: 2, messagere: 2, cavalier: 1, assassin: 1 } },
     },
     12: {
       aerienne: { name: "Aérienne", icon: "🦇", desc: "Vitesse et vol.", counts: { chauvesouris: 1, cavalier: 2 } },
       ombre: { name: "Ombre", icon: "🥷", desc: "Un assassin et un reflet.", counts: { assassin: 1, reflet: 1, fantome: 1 } },
       mixte: { name: "Mixte", icon: "🌟", desc: "Un peu de tout.", counts: { cavalier: 1, assassin: 1, golem: 1 } },
+      mystique: { name: "Mystique", icon: "🐦‍🔥", desc: "Phénix et Sentinelle.", counts: { phenix: 1, sentinelle: 1, etendard: 1 } },
+      chaos: { name: "Chaos", icon: "💣", desc: "Bombardier et Messagère.", counts: { bombardier: 1, messagere: 1, cavalier: 1 } },
     },
   };
   function legionSlots(size) { const L = LEGION[size] || LEGION[24]; return size - 1 - countsTotal(L.core); }

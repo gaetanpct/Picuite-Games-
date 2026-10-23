@@ -371,3 +371,52 @@ Les vies de Richissime partaient trop souvent vers la scène ou le stade. Sur 15
 - Je n'ai pas de Mac sous la main. Le correctif vise la cause la plus probable et l'écran de secours dira la vraie cause si ce n'est pas la bonne.
 - Sur l'hébergement gratuit, les fichiers du serveur sont effacés à chaque redémarrage complet. C'est pour cela que la copie dans le navigateur existe. La copie ne couvre que Richissime.
 - Les parties de Golfouille et de Zoomalou en cours ne sont pas sauvegardées, seul le message est amélioré.
+
+## Quatorzième mise à jour, écran blanc sur Mac, essai unique et chocs entre voitures
+
+### Mode compatibilité pour Golfouille et Zoomalou
+
+- Un nouveau mode d'affichage 3D ultra simple, sans ombres, sans reflets, sans lissage, sur le rendu graphique le plus ancien et le plus répandu. Le ciel devient une image dans la scène au lieu d'un dégradé derrière un canevas transparent.
+- Il s'active tout seul sur Safari. Il s'active aussi tout seul, une seule fois, si une erreur de compilation graphique ou un écran resté d'une seule couleur est détecté.
+- Il se règle à la main dans le menu des jeux, ligne Mode compatibilité, ou avec ?safe=1 à la fin de l'adresse du jeu.
+- Toute erreur de script s'affiche maintenant en bas de l'écran avec le nom du fichier et la ligne, pour savoir ce qui bloque.
+- Une page de diagnostic existe à l'adresse du jeu suivie de /common/diag.html. Elle teste chaque type d'affichage et liste ce qui marche. Une capture d'écran de cette page dira exactement ce qui pose problème sur le Mac.
+
+### Zoomalou, un seul essai et chocs plus vrais
+
+- En mode fantôme et en mode contact, chaque pilote n'a droit qu'à un seul essai par course. Plus de remise à zéro du chrono, abandonner demande une confirmation. La course se termine dès que tout le monde a fini.
+- En mode contact, un choc est maintenant élastique. La voiture percutée est déviée et se met à tourner selon l'endroit touché, la vitesse des deux voitures est prise en compte et les voitures ne se collent plus.
+- Le serveur rejoue chaque choc pour vérifier les temps, la vérification a été testée.
+
+### Limites connues
+
+- Je n'ai toujours pas de Mac. Les tests ont été faits sur un navigateur de bureau avec écran Retina, avec le rendu ancien forcé, avec un faux Safari et avec un affichage volontairement cassé pour vérifier que le mode compatibilité se déclenche seul.
+
+## Vingt-et-unième mise à jour, Bus Bazar en vraie 3D et nouveaux pions pour Goliathicus
+
+### Bus Bazar, refait de zéro en 3D
+
+- Tout est en 3D. Tu marches dans le bus à la première personne, avec la souris et le clavier ou avec les commandes tactiles. Chaque rôle a sa vraie place dans le bus.
+- Le chauffeur conduit pour de vrai, avec le volant, la vitesse conseillée et les virages de la route. Le contrôleur accepte ou refuse les voyageurs à la porte et sur le quai. Le mécanicien éteint les feux, répare sous la trappe et bouche les fuites. Le porteur ramasse les caisses et les range.
+- Les voyageurs se baladent, s'assoient, dorment, râlent et paniquent selon leurs besoins. Les rôles vides sont tenus par des robots, le chauffeur compris.
+- La météo, le brouillard, la pluie et la nuit se voient dans le décor.
+- Le menu règle la sensibilité de la souris, la vitesse du volant, le son et le mode compatibilité.
+
+### Goliathicus
+
+- Le signe zzz au dessus du Golem n'apparaît plus quand il se repose après un déplacement. Les adversaires ne peuvent plus le deviner. Le signe reste visible pour les pièces endormies par le marais ou par le pouvoir Sommeil, puisque cela se voit de toute façon.
+- Cinq nouvelles pièces spéciales, disponibles en Légion des merveilles et en armée sur mesure, avec deux nouveaux modèles de Légion, Mystique et Chaos.
+  - Gobelin Bombardier 💣, force 2. Quand il attaque, il explose et emporte sa cible. Selon le réglage, le souffle emporte aussi les pièces voisines, amies comme ennemies. Le Roi et l'Œuf de Dragon résistent.
+  - Porte-Étendard 🚩, force 3. Les alliés voisins gagnent de la force dans les combats, sans cumul.
+  - Sentinelle 🦉, force 4. Les ennemis proches sont démasqués pour toujours, mais seulement pour ton camp.
+  - Phénix 🐦‍🔥, force 7. Il renaît face cachée dans ton camp après son élimination, endormi un tour.
+  - Messagère 🕊️, force 2. Un déplacement sans combat te donne un second déplacement, une fois par tour.
+- Nouveaux réglages dans le salon, chacun avec son explication. Souffle du Bombardier, force de l'étendard, portée de la Sentinelle, renaissances du Phénix, bonus de la Messagère.
+- L'IA sait jouer et composer avec les nouvelles pièces.
+
+### Limites connues
+
+- Bus Bazar n'a pas été testé sur une vraie carte graphique, sur un vrai Mac ni sur un vrai téléphone. Les essais ont eu lieu sur un navigateur de bureau avec rendu logiciel, donc lent.
+- Avec un trafic dense et une météo capricieuse, le chauffeur robot fait parfois des accidents.
+- L'IA de Goliathicus ne calcule pas le bonus de l'étendard quand elle évalue un combat, elle joue donc un peu en dessous de son niveau contre cette pièce.
+- Le Phénix 🐦‍🔥 est un emoji récent, sur un appareil ancien il peut s'afficher en deux symboles.

@@ -60,6 +60,7 @@
     if (mode === "kinghunt" && a === "roi" && d === "roi") return "win";
     if (D.bomb) return A.miner ? "win" : "lose";
     if (d === "oeuf") return "win";
+    if (A.bomber) return d === "roi" ? "lose" : "tie";
     if (a === "rat" && d === "roi") return "win";
     if (a === "roi" && d === "rat") return "lose";
     if (D.mirror) return "tie";
@@ -934,8 +935,8 @@
     } else guard.forEach((b) => put(b, pick([...free], (x) => depthKey(x) * 2)));
     lures.forEach((b) => put(b, pick([...free], (x) => -Math.abs(depthKey(x) - 0.45) * 3 + (rng() < 0.3 ? 1 : 0))));
     // préférence de profondeur par type (0 = ligne de front, 1 = fond)
-    const pref = { lutin: 0.0, rat: 0.25, garde: 0.2, archere: 0.3, fantome: 0.2, cavalier: 0.3, assassin: 0.5, reflet: 0.35, chauvesouris: 0.2, golem: 0.6, chevalier: 0.4, troll: 0.5, nain: 0.55, sorcier: 0.65, dragon: 0.7, roi: 0.8 };
-    const order = ["roi", "dragon", "sorcier", "golem", "nain", "troll", "chevalier", "cavalier", "assassin", "reflet", "rat", "archere", "chauvesouris", "garde", "fantome", "lutin"];
+    const pref = { lutin: 0.0, rat: 0.25, garde: 0.2, archere: 0.3, fantome: 0.2, cavalier: 0.3, assassin: 0.5, reflet: 0.35, chauvesouris: 0.2, golem: 0.6, bombardier: 0.3, etendard: 0.4, sentinelle: 0.35, phenix: 0.6, messagere: 0.25, chevalier: 0.4, troll: 0.5, nain: 0.55, sorcier: 0.65, dragon: 0.7, roi: 0.8 };
+    const order = ["roi", "dragon", "sorcier", "phenix", "golem", "nain", "sentinelle", "etendard", "troll", "chevalier", "cavalier", "assassin", "reflet", "rat", "archere", "chauvesouris", "bombardier", "messagere", "garde", "fantome", "lutin"];
     rest.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
     rest.forEach((p) => {
       const want = pref[p.type] != null ? pref[p.type] : 0.4;
@@ -962,7 +963,7 @@
     const special = state.settings.specialPieces;
     if (info.legion) {
       const slots = info.legion.slots;
-      const seqL = (levelId === "hard" || levelId === "expert" || level.master) ? ["golem", "assassin", "reflet", "cavalier", "chauvesouris", "fantome", "golem", "cavalier"] : ["cavalier", "fantome", "reflet", "chauvesouris", "assassin", "golem", "cavalier", "fantome"];
+      const seqL = (levelId === "hard" || levelId === "expert" || level.master) ? ["golem", "phenix", "sentinelle", "assassin", "etendard", "reflet", "cavalier", "chauvesouris", "messagere", "bombardier", "fantome", "golem", "cavalier"] : ["cavalier", "fantome", "reflet", "bombardier", "chauvesouris", "messagere", "assassin", "golem", "sentinelle", "cavalier", "fantome"];
       const pickL = {};
       let got = 0;
       const start = Math.floor(rng() * seqL.length);

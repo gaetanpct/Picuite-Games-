@@ -1,6 +1,6 @@
 // ============================================================
 // BUS BAZAR — Serveur (Express + Socket.io)
-// Un jeu coopératif où quatre postes font rouler un bus absurde.
+// Un jeu coopératif en 3D, à la première personne, dans un bus absurde.
 // ============================================================
 const createRoomKit = require("../common/room-kit.js");
 const Rules = require("./public/game/rules.js");

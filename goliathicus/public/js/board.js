@@ -318,15 +318,18 @@
     T(380, () => {
       setPieceFace(ga, a.type);
       if (d.type) setPieceFace(gd, d.type);
-      UI.Sound[ev.result === "exploded" ? "boom" : "clash"]();
-      puff(d.at.r, d.at.c, ev.result === "exploded" ? "💥" : "✨", "puff--hit");
+      const big = ev.result === "exploded" || ev.result === "blast";
+      UI.Sound[big ? "boom" : "clash"]();
+      puff(d.at.r, d.at.c, big ? "💥" : "✨", "puff--hit");
+      (ev.splash || []).forEach((x) => puff(x.at.r, x.at.c, "💥", "puff--hit"));
     });
     T(1050, () => {
-      const loseA = ["exploded", "defWins", "ratGuard", "tie"].includes(ev.result);
-      const loseD = ["defused", "flag", "ratKing", "attWins", "tie"].includes(ev.result);
+      const loseA = ["exploded", "defWins", "ratGuard", "tie", "blast"].includes(ev.result);
+      const loseD = ["defused", "flag", "ratKing", "attWins", "tie", "blast"].includes(ev.result);
       if (loseA) ga.classList.add("piece--dying");
       if (loseD) gd.classList.add("piece--dying");
       if (ev.result === "defused") puff(d.at.r, d.at.c, "🔧", "puff--small");
+      (ev.rebirth || []).forEach((x) => puff(x.to.r, x.to.c, "🐦‍🔥", "puff--small"));
     });
     T(1650, () => { ga.remove(); gd.remove(); });
     lockPieces([a.id, d.id], total);

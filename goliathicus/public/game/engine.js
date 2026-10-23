@@ -278,6 +278,7 @@
       this.current = 0;
       this.round = 1;
       this.turn = 1;
+      this.pieces.forEach((p) => { p.origin = { r: p.r, c: p.c }; p.reborn = 0; });
       this._pushEvent({ kind: "start", text: "⚔️ La bataille commence ! Que le plus rusé l'emporte." });
       this._beginTurn();
     }
@@ -374,17 +375,69 @@
       const target = this.grid[r][c];
       if (!target) {
         this._recordMove(p, r, c);
-        if (this.terrain[r][c] === "marsh" || PIECES[p.type].slow) p.frozen = 2;
+        if (this.terrain[r][c] === "marsh") { p.frozen = 2; p.pubFreeze = true; } else if (PIECES[p.type].slow) { p.frozen = 2; p.pubFreeze = false; }
         this._pushEvent({
           kind: "move", pieceId: p.id, owner: pi, from, to: { r, c }, cells: [from, { r, c }],
           text: this.pname(pi) + " avance une pièce.",
         });
+        if (PIECES[p.type].messenger && this.settings.messengerBonus && !this.messengerUsed) {
+          this.messengerUsed = true;
+          if (!(pl.bonus > 0)) pl.bonus = 1;
+        }
         this._afterAction();
         return;
       }
       this._combat(p, target, from);
-      if (p.alive && PIECES[p.type].slow) p.frozen = Math.max(p.frozen, 2);
+      if (p.alive && PIECES[p.type].slow) { p.frozen = Math.max(p.frozen, 2); if (this.terrain[p.r][p.c] !== "marsh") p.pubFreeze = false; }
       this._afterAction();
+    }
+
+    // Force en combat, avec le bonus des étendards alliés voisins (jamais cumulé)
+    _effRank(p) {
+      const base = PIECES[p.type].rank;
+      if (!this.settings.specialPieces || PIECES[p.type].banner) return base;
+      const near = DIRS.some(([dr, dc]) => {
+        const q = this.inBounds(p.r + dr, p.c + dc) ? this.grid[p.r + dr][p.c + dc] : null;
+        return q && q.alive && q.owner === p.owner && PIECES[q.type].banner;
+      });
+      return near ? base + (Number(this.settings.bannerBoost) || 1) : base;
+    }
+
+    // Renaissance du Phénix, retourne true si la pièce renaît
+    _rebirth(piece) {
+      const maxLives = Number(this.settings.phoenixLives) || 1;
+      if (!PIECES[piece.type].phoenix || (piece.reborn || 0) >= maxLives || this.players[piece.owner].eliminated) return false;
+      const cells = this._armCells(piece.owner);
+      const o = piece.origin || { r: piece.r, c: piece.c };
+      let best = null, bd = 1e9;
+      cells.forEach((cell) => {
+        const r = Array.isArray(cell) ? cell[0] : cell.r, c = Array.isArray(cell) ? cell[1] : cell.c;
+        if (this.grid[r][c] || !this.passable(r, c) || this.terrain[r][c] === "marsh") return;
+        const d = Math.abs(r - o.r) + Math.abs(c - o.c);
+        if (d < bd) { bd = d; best = { r, c }; }
+      });
+      if (!best) return false;
+      this.grid[piece.r][piece.c] = null;
+      piece.r = best.r; piece.c = best.c; piece.alive = true; piece.moved = false; piece.hist = [];
+      piece.revealedAll = false; piece.revealedTo = new Set(); piece.frozen = 2; piece.pubFreeze = false;
+      piece.reborn = (piece.reborn || 0) + 1;
+      this.grid[best.r][best.c] = piece;
+      return true;
+    }
+
+    // Les Sentinelles démasquent les ennemis proches, pour leur camp seulement
+    _sentinels() {
+      if (!this.settings.specialPieces) return;
+      const range = Number(this.settings.sentinelRange) || 1;
+      this.pieces.forEach((s) => {
+        if (!s.alive || !PIECES[s.type].sentinel) return;
+        const team = this.players[s.owner].team;
+        this.pieces.forEach((q) => {
+          if (!q.alive || !this.isEnemy(s.owner, q.owner)) return;
+          if (Math.abs(q.r - s.r) + Math.abs(q.c - s.c) > range) return;
+          this.players.forEach((pl, pi) => { if (pl.team === team) q.revealedTo.add(pi); });
+        });
+      });
     }
 
     _combat(att, def, from) {
@@ -395,17 +448,20 @@
       let result;
       if (Dd.bomb) result = A.miner ? "defused" : "exploded";
       else if (def.type === "oeuf") result = "flag";
+      else if (A.bomber && def.type === "roi") result = "defWins"; // le Roi résiste à la bombe
+      else if (A.bomber) result = "blast";
       else if (att.type === "rat" && def.type === "roi") result = "ratKing";
       else if (att.type === "roi" && def.type === "rat") result = "ratGuard"; // le Rat bat le Roi même quand il se défend
       else if (att.type === "roi" && def.type === "roi" && this.settings.mode === "kinghunt") result = "attWins"; // duel de rois : l'attaquant l'emporte
       else if (Dd.mirror) result = "tie"; // le Reflet renvoie le coup, les deux disparaissent
       else if (A.assassin && Dd.rank <= 9) result = "attWins"; // l'Assassin frappe n'importe qui sauf le Roi
-      else if (A.rank > Dd.rank) result = "attWins";
-      else if (A.rank < Dd.rank) result = "defWins";
-      else result = "tie";
+      else {
+        const ra = this._effRank(att), rd = this._effRank(def);
+        result = ra > rd ? "attWins" : ra < rd ? "defWins" : "tie";
+      }
       const attWon = ["defused", "flag", "ratKing", "attWins"].includes(result);
-      const defDies = attWon || result === "tie";
-      const attDies = result === "exploded" || result === "defWins" || result === "ratGuard" || result === "tie";
+      const defDies = attWon || result === "tie" || result === "blast";
+      const attDies = result === "exploded" || result === "defWins" || result === "ratGuard" || result === "tie" || result === "blast";
 
       const pa = this.players[pi], pd = this.players[di];
       pa.stats.attacks++;
@@ -429,12 +485,15 @@
         case "ratKing": ev.text = `🐀 Coup de théâtre ! Le Rat Espion de ${na} terrasse le Roi de ${nd} !`; pa.stats.kingsSlain++; break;
         case "attWins": ev.text = A.assassin && Dd.rank > 1 ? `🥷 ${la} de ${na} frappe dans l'ombre et élimine ${defHidden ? "une pièce" : ld} de ${nd} !` : `${la} de ${na} bat ${defHidden ? "une pièce" : ld} de ${nd}.`; break;
         case "defWins": ev.text = defHidden ? `${la} de ${na} se casse les dents sur une pièce cachée dans la forêt de ${nd}.` : `${la} de ${na} se fait battre par ${ld} de ${nd}.`; break;
+        case "blast": ev.text = `💣 ${la} de ${na} se jette sur ${defHidden ? "une pièce" : ld} de ${nd} et explose !`; break;
         case "tie": ev.text = Dd.mirror ? `🪞 ${la} de ${na} frappe un Reflet de ${nd}. Le coup est renvoyé, les deux pièces disparaissent !` : `${la} de ${na} et ${ld} de ${nd} s'éliminent mutuellement.`; break;
       }
 
       // application
       const reveal = (piece) => { piece.revealedAll = true; };
+      const reborn = [];
       const toGrave = (piece, by) => {
+        if (this._rebirth(piece)) { reborn.push(piece); return; }
         piece.alive = false; this.grid[piece.r][piece.c] = null;
         const g = { id: piece.id, owner: piece.owner, type: piece.type, evSeq: this.seq + 1 };
         if (this.settings.bombsHidden && PIECES[piece.type].bomb && by) g.hideTeams = [this.players[by.owner].team, this.players[piece.owner].team];
@@ -462,13 +521,31 @@
         toGrave(def, att);
         this._recordMove(att, at.r, at.c);
         if (keepRevealed) reveal(att);
-        if (this.terrain[at.r][at.c] === "marsh") att.frozen = 2;
+        if (this.terrain[at.r][at.c] === "marsh") { att.frozen = 2; att.pubFreeze = true; }
       } else if (result === "exploded" || result === "defWins" || result === "ratGuard") {
         toGrave(att, def);
         if (!inForest || result === "exploded") { /* révélé via event */ }
         if ((result === "defWins" || result === "ratGuard") && keepRevealed && !inForest) reveal(def);
       } else {
         toGrave(att, def); toGrave(def, att);
+      }
+      if (result === "blast" && this.settings.blastRadius !== "off") {
+        const victims = [];
+        DIRS.forEach(([dr, dc]) => {
+          const rr = at.r + dr, cc = at.c + dc;
+          const q = this.inBounds(rr, cc) ? this.grid[rr][cc] : null;
+          if (q && q.alive && q.type !== "roi" && q.type !== "oeuf") victims.push(q);
+        });
+        if (victims.length) {
+          ev.splash = victims.map((q) => ({ id: q.id, owner: q.owner, type: q.type, at: { r: q.r, c: q.c } }));
+          ev.splash.forEach((x) => ev.cells.push(x.at));
+          ev.text += " Le souffle emporte " + victims.map((q) => PIECES[q.type].icon + " de " + this.pname(q.owner)).join(", ") + " !";
+          victims.forEach((q) => { this.players[q.owner].stats.lost++; toGrave(q, att); });
+        }
+      }
+      if (reborn.length) {
+        ev.text += " " + reborn.map((q) => "🐦‍🔥 Le Phénix de " + this.pname(q.owner) + " renaît de ses cendres, caché dans son camp !").join(" ");
+        ev.rebirth = reborn.map((q) => ({ id: q.id, owner: q.owner, to: { r: q.r, c: q.c } }));
       }
       if (this.settings.bombsHidden && (result === "exploded" || result === "defused")) {
         // seuls les camps du combat savent que c'était une tarte
@@ -557,7 +634,7 @@
       } else if (pid === "sieste") {
         const t = find(data.target);
         if (!t || this.players[t.owner].team === pl.team || !this.canSeePiece(pi, t)) return { ok: false, error: "Choisis une pièce ennemie visible." };
-        t.frozen = Math.max(t.frozen, 2);
+        t.frozen = Math.max(t.frozen, 2); t.pubFreeze = true;
         this._pushEvent({ kind: "power", power: pid, owner: pi, target: { r: t.r, c: t.c, id: t.id }, cells: [{ r: t.r, c: t.c }], text: `😴 ${pl.name} endort une pièce de ${this.pname(t.owner)} pour deux tours !` });
       } else if (pid === "ruee") {
         pl.bonus = 1;
@@ -594,6 +671,7 @@
     // ---------- gestion du tour ----------
     _afterAction() {
       if (this.phase === "finished") return;
+      this._sentinels();
       if (this._checkLastStanding()) return;
       const pl = this.players[this.current];
       if (pl.eliminated) { this._advance(); return; }
@@ -692,6 +770,7 @@
       while (this.phase === "playing" && guard++ < 12) {
         const pl = this.players[this.current];
         this.turnPowerUsed = false;
+        this.messengerUsed = false;
         if (this.settings.mode === "conquest") {
           let gain = 0;
           this.relics.forEach(({ r, c }) => { const o = this.grid[r][c]; if (o && o.owner === this.current) gain++; });
@@ -822,7 +901,7 @@
         if (fog && !mine && !vis.has(K(p.r, p.c))) return;
         const known = this.knows(viewer, p);
         pieces.push({
-          id: p.id, owner: p.owner, r: p.r, c: p.c, moved: p.moved, frozen: p.frozen,
+          id: p.id, owner: p.owner, r: p.r, c: p.c, moved: p.moved, frozen: (mine || known || p.pubFreeze) ? p.frozen : 0,
           type: known ? p.type : null,
           secret: known && !mine && !p.revealedAll && this.phase !== "finished", // connu par un pouvoir
           unknown: !known,
@@ -911,7 +990,10 @@
       switch (ev.kind) {
         case "move": out.owner = ev.owner; out.pieceId = ev.pieceId; out.from = ev.from; out.to = ev.to; break;
         case "combat":
-          out.result = ev.result; out.attacker = ev.attacker; out.defender = ev.defender; break;
+          out.result = ev.result; out.attacker = ev.attacker; out.defender = ev.defender;
+          if (ev.splash) out.splash = ev.splash;
+          if (ev.rebirth) out.rebirth = ev.rebirth;
+          break;
         case "power":
           out.power = ev.power; out.owner = ev.owner;
           if (ev.power === "theatre") out.swap = ev.swap;

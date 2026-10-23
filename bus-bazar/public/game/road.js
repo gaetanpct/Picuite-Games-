@@ -1,53 +1,84 @@
 // ============================================================
-// BUS BAZAR — Route générée (serveur et client)
-// Une étape est une route déterminée par une graine. Le serveur et le client la reconstruisent à l'identique.
+// BUS BAZAR — Route générée à partir d'une graine (serveur et client, identique)
 // ============================================================
 (function (root, factory) {
-  if (typeof module !== "undefined" && module.exports) module.exports = factory(require("./data.js"));
-  else root.BBRoad = factory(root.BBData);
-})(typeof window !== "undefined" ? window : globalThis, function (D) {
+  if (typeof module !== "undefined" && module.exports) module.exports = factory();
+  else root.BBRoad = factory();
+})(typeof window !== "undefined" ? window : globalThis, function () {
   function hashSeed(str) { let h = 2166136261 >>> 0; str = String(str); for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h >>> 0; }
   function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   const rngOf = (seed) => mulberry32(hashSeed(seed));
-  const STEP = 20; // un point de courbure tous les 20 m
-  const KINDS = {
-    direct: { label: "Route directe", icon: "⚡", lenMul: 0.86, curveMul: 1.18, bias: ["etroit", "montagne", "chantier", "industrie"], note: "Plus courte, mais plus serrée et plus risquée." },
-    sure: { label: "Route sûre", icon: "🛡️", lenMul: 1.12, curveMul: 0.8, bias: ["campagne", "cote", "ville"], note: "Plus longue, plus calme et plus facile à conduire." },
-    pittoresque: { label: "Route pittoresque", icon: "🌄", lenMul: 1.0, curveMul: 1.0, bias: ["cote", "montagne", "campagne"], note: "Des points d'intérêt pour les passagers, au prix d'un trajet moyen." },
+  const STEP = 2;
+  const BIOMES = [
+    { id: "campagne", label: "Campagne", icon: "🌾", surf: [0, 0, 0, 1], curve: 1, hill: 1 },
+    { id: "desert", label: "Désert", icon: "🌵", surf: [0, 0, 1, 1], curve: 0.8, hill: 0.8 },
+    { id: "neige", label: "Montagne enneigée", icon: "🏔️", surf: [0, 0, 3, 3], curve: 1.5, hill: 1.4 },
+    { id: "ville", label: "Banlieue", icon: "🏘️", surf: [0, 0, 0, 0], curve: 1.1, hill: 0.4 },
+    { id: "cote", label: "Route côtière", icon: "🌊", surf: [0, 0, 2, 0], curve: 1.3, hill: 1 },
+  ];
+  const BIOME_IDS = BIOMES.map((b) => b.id);
+  const WEATHER = [{ id: "clair", label: "Grand soleil", icon: "☀️", grip: 1 }, { id: "pluie", label: "Pluie", icon: "🌧️", grip: 0.75 }, { id: "brouillard", label: "Brouillard", icon: "🌫️", grip: 0.9 }, { id: "orage", label: "Orage", icon: "⛈️", grip: 0.7 }, { id: "vent", label: "Grand vent", icon: "🌬️", grip: 0.85 }];
+  const SURF = [{ id: "asphalte", label: "Asphalte", grip: 1, bump: 0 }, { id: "gravier", label: "Gravier", grip: 0.8, bump: 0.5 }, { id: "boue", label: "Boue", grip: 0.55, bump: 0.35 }, { id: "verglas", label: "Verglas", grip: 0.38, bump: 0.05 }];
+  const STOP_NAMES = ["Gare de Trifouilly", "Place du Marché Boiteux", "Carrefour des Oies", "Les Trois Platanes", "Auberge du Gros Moteur", "Parking de la Grande Poule", "Saint-Canard-sur-Mer", "Hameau des Courants d'Air", "Pont de la Baguette", "Fontaine des Râleurs", "Zone industrielle des Rêves"];
+  const OBST = {
+    vache: { label: "Vache", w: 1.5, dmg: 14, mobile: true }, mouton: { label: "Moutons", w: 1.7, dmg: 10, mobile: true }, roche: { label: "Rocher", w: 1.2, dmg: 20 },
+    trou: { label: "Nid de poule", w: 1.5, dmg: 4, bump: 1 }, cone: { label: "Cônes", w: 0.7, dmg: 2 }, ralent: { label: "Ralentisseur", w: 12, dmg: 0, bump: 0.8 },
   };
-  const POI_NAMES = ["le Pont des Soupirs", "la Vache Monumentale", "le Rond-point Fleuri", "le Moulin Penché", "la Cascade du Bus", "le Panneau Qui Tourne", "la Grande Baguette", "le Belvédère des Mouettes", "l'Usine Rigolote", "le Champ de Citrouilles"];
-  const STOP_NAMES = ["Gare de Trifouilly", "Place du Marché Boiteux", "Carrefour des Oies", "Station Les Trois Platanes", "Auberge du Gros Moteur", "Parking de la Grande Poule", "Arrêt Saint-Canard", "Dépôt de Bourg-les-Nids", "Rond-Point du Fromage", "Halte de la Dernière Chance", "Terminus de Grand-Pétaouchnoque", "Gare de Plouc-sur-Mer"];
-  const stopName = (seed, k) => { const r = rngOf(seed + "stopn" + k); const a = STOP_NAMES.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a[k % a.length]; };
 
-  // choisit un type de route pour une variante
-  function pickBiome(rng, allowed, kind) {
-    const ids = allowed && allowed.length ? allowed : D.BIOME_IDS; const bias = KINDS[kind].bias;
-    const w = ids.map((id) => 1 + (bias.indexOf(id) >= 0 ? 3 : 0)); let tot = w.reduce((a, b) => a + b, 0); let r = rng() * tot;
-    for (let i = 0; i < ids.length; i++) { r -= w[i]; if (r <= 0) return ids[i]; }
-    return ids[0];
-  }
-  // fabrique une étape. opts contient seed, index, kind, biome (optionnel), difficulty
-  function makeSegment(opts) {
-    const rng = rngOf(opts.seed + "|seg" + opts.index + "|" + opts.kind);
-    const biomeId = opts.biome || pickBiome(rng, opts.biomes, opts.kind); const B = D.BIOMES.filter((b) => b.id === biomeId)[0] || D.BIOMES[0]; const K = KINDS[opts.kind] || KINDS.sure;
-    const diff = 0.7 + (opts.difficulty || 3) * 0.12; // 0.82 à 1.3
-    const len = Math.round((2200 + rng() * 500) * K.lenMul / 10) * 10; const n = Math.ceil(len / STEP) + 8;
-    const curve = new Array(n).fill(0), hill = new Array(n).fill(0);
-    const amp = 0.0105 * B.curve * K.curveMul * diff;
-    const turns = Math.max(3, Math.round(len / 330 * (0.7 + B.curve * 0.5)));
-    for (let t = 0; t < turns; t++) {
-      const sc = 220 + rng() * (len - 520), hw = 35 + rng() * 85, pk = (0.35 + rng() * 0.65) * amp * (rng() < 0.5 ? -1 : 1);
-      for (let i = 0; i < n; i++) { const s = i * STEP; const d = (s - sc) / hw; if (d > -3 && d < 3) curve[i] += pk * Math.exp(-d * d * 1.2); }
+  function make(seed, o) {
+    o = o || {};
+    const legs = Math.max(2, Math.min(10, o.legs || 5)); const diff = 0.6 + (o.difficulty || 3) * 0.16; const rng = rngOf(seed + "|road"); const trafficN = o.traffic == null ? 2 : o.traffic;
+    const biomes = (o.biomes && o.biomes.length ? o.biomes : BIOME_IDS).filter((b) => BIOME_IDS.includes(b));
+    const legLen = 640 + Math.round((o.legLen || 0)); const lead = 50; const len = lead + legs * legLen + 60;
+    const n = Math.ceil(len / STEP) + 4;
+    const curv = new Float32Array(n), surf = new Uint8Array(n), wx = new Uint8Array(n), bio = new Uint8Array(n), hill = new Float32Array(n);
+    const stops = [{ s: lead, name: "Départ du dépôt", biome: biomes[0], leg: 0 }];
+    for (let k = 1; k <= legs; k++) stops.push({ s: lead + k * legLen, name: k === legs ? "Terminus " + STOP_NAMES[Math.floor(rng() * STOP_NAMES.length)] : STOP_NAMES[Math.floor(rng() * STOP_NAMES.length)], leg: k });
+    // une météo et un décor par étape
+    const legWeather = [], legBiome = [];
+    const calm = o.weather === "calme" ? 0 : o.weather === "capricieux" ? 2 : 1;
+    for (let k = 0; k < legs; k++) {
+      legBiome.push(biomes[Math.floor(rng() * biomes.length)]);
+      const r = rng(); let w = 0;
+      if (calm === 0) w = r < 0.85 ? 0 : 1; else if (calm === 1) w = r < 0.45 ? 0 : r < 0.65 ? 1 : r < 0.78 ? 2 : r < 0.9 ? 4 : 3; else w = r < 0.12 ? 0 : r < 0.35 ? 1 : r < 0.55 ? 2 : r < 0.75 ? 3 : 4;
+      legWeather.push(w);
     }
-    for (let i = 0; i < n; i++) { const s = i * STEP; let c = curve[i]; if (s < 120 || s > len - 150) c *= Math.max(0, Math.min(1, s < 120 ? s / 120 : (len - s) / 150)); curve[i] = Math.max(-0.021, Math.min(0.021, c)); }
-    const h1 = rng() * 6, h2 = rng() * 6, hAmp = 0.05 * B.hill;
-    for (let i = 0; i < n; i++) { const s = i * STEP; let g = hAmp * (Math.sin(s / 260 + h1) * 0.65 + Math.sin(s / 97 + h2) * 0.35); if (s > len - 160) g *= Math.max(0, (len - s) / 160); hill[i] = Math.max(-0.1, Math.min(0.1, g)); }
-    const pois = []; if (opts.kind === "pittoresque" || rng() < 0.35) { const count = opts.kind === "pittoresque" ? 2 : 1; for (let q = 0; q < count; q++) pois.push({ s: Math.round(len * (0.25 + 0.4 * rng() + q * 0.25) / 10) * 10, name: POI_NAMES[Math.floor(rng() * POI_NAMES.length)] }); }
-    let curv = 0; for (let i = 0; i < n; i++) curv += Math.abs(curve[i]); curv = curv / n / 0.01;
-    return { seed: opts.seed, index: opts.index, kind: opts.kind, biome: B.id, len, step: STEP, curve: curve.map((v) => +v.toFixed(5)), hill: hill.map((v) => +v.toFixed(4)), pois, decor: Math.floor(rng() * 1e9), curvIdx: +curv.toFixed(2), stopZone: 130 };
+    stops[0].biome = legBiome[0]; for (let k = 1; k <= legs; k++) stops[k].biome = legBiome[Math.min(legs - 1, k)];
+    const legOf = (s) => Math.max(0, Math.min(legs - 1, Math.floor((s - lead) / legLen)));
+    for (let i = 0; i < n; i++) { const s = i * STEP; const lg = legOf(s); bio[i] = BIOME_IDS.indexOf(legBiome[lg]); wx[i] = legWeather[lg]; }
+    // virages. Aucune courbe près des arrêts pour garder l'approche lisible
+    const nearStop = (s) => stops.some((st) => s > st.s - 70 && s < st.s + 40);
+    for (let lg = 0; lg < legs; lg++) {
+      const B = BIOMES[BIOME_IDS.indexOf(legBiome[lg])] || BIOMES[0]; const a0 = lead + lg * legLen + 90, a1 = lead + (lg + 1) * legLen - 90;
+      let s = a0; const maxC = 0.011 * B.curve * diff;
+      while (s < a1) {
+        const segL = 50 + rng() * 120; const sign = rng() < 0.5 ? -1 : 1; const amp = (rng() < 0.3 ? 0 : (0.25 + rng() * 0.75)) * maxC * sign;
+        for (let x = s; x < Math.min(a1, s + segL); x += STEP) { const i = Math.round(x / STEP); const t = (x - s) / segL; const e = Math.sin(Math.PI * Math.min(1, t * 1.0)) ; curv[i] += amp * Math.min(1, e * 1.6); }
+        s += segL + 10;
+      }
+      // revêtement
+      let sx = a0; while (sx < a1) { const L = 80 + rng() * 160; const sf = B.surf[Math.floor(rng() * B.surf.length)]; for (let x = sx; x < Math.min(a1, sx + L); x += STEP) surf[Math.round(x / STEP)] = rng() < 0.0 ? 0 : sf; sx += L; }
+    }
+    for (let i = 0; i < n; i++) { const s = i * STEP; if (nearStop(s)) { curv[i] = 0; surf[i] = 0; } }
+    // lissage de la courbure
+    for (let pass = 0; pass < 3; pass++) for (let i = 1; i < n - 1; i++) curv[i] = (curv[i - 1] + curv[i] * 2 + curv[i + 1]) / 4;
+    // relief pour les chocs (simple bruit lent)
+    for (let i = 0; i < n; i++) hill[i] = Math.sin(i * 0.031 + 1.3) * 0.5 + Math.sin(i * 0.011) * 0.5;
+    // pose du centre de la route, th est le cap, la direction est (sin th, cos th)
+    const px = new Float32Array(n), pz = new Float32Array(n), th = new Float32Array(n);
+    for (let i = 1; i < n; i++) { th[i] = th[i - 1] + curv[i - 1] * STEP; px[i] = px[i - 1] + Math.sin(th[i - 1] + curv[i - 1] * STEP / 2) * STEP; pz[i] = pz[i - 1] + Math.cos(th[i - 1] + curv[i - 1] * STEP / 2) * STEP; }
+    // obstacles
+    const obstacles = []; let oid = 1; const orng = rngOf(seed + "|obst");
+    const kinds = { campagne: ["vache", "mouton", "roche", "trou", "cone"], desert: ["roche", "trou", "vache", "cone"], neige: ["roche", "trou", "cone"], ville: ["cone", "trou", "ralent"], cote: ["roche", "trou", "mouton", "cone"] };
+    for (let lg = 0; lg < legs; lg++) {
+      const cnt = Math.round((2 + lg * 0.3 + trafficN * 2.3) * (0.6 + diff * 0.4)); const a0 = lead + lg * legLen + 110, a1 = lead + (lg + 1) * legLen - 110; const list = kinds[legBiome[lg]] || kinds.campagne;
+      for (let k = 0; k < cnt; k++) { const s = a0 + (a1 - a0) * ((k + 0.2 + orng() * 0.6) / cnt); const type = list[Math.floor(orng() * list.length)]; const e = type === "ralent" ? 0 : (orng() * 2 - 1) * 3.4; obstacles.push({ id: oid++, s: Math.round(s), e: +e.toFixed(1), type, gone: false }); }
+    }
+    stops.forEach((st) => { if (st.leg > 0) obstacles.push({ id: oid++, s: st.s - 55, e: 0, type: "ralent", gone: false }); });
+    obstacles.sort((a, b) => a.s - b.s);
+    const idx = (s) => Math.max(0, Math.min(n - 2, Math.floor(s / STEP)));
+    function at(s) { const i = idx(s); const f = Math.max(0, Math.min(1, (s - i * STEP) / STEP)); const l = (a) => a[i] + (a[i + 1] - a[i]) * f; return { curv: l(curv), th: l(th), px: l(px), pz: l(pz), surf: surf[i], wx: wx[i], bio: bio[i], hill: l(hill) }; }
+    return { seed, legs, legLen, len, lead, stops, obstacles, at, half: 5.2, legWeather, legBiome, n };
   }
-  const idx = (seg, s) => Math.max(0, Math.min(seg.curve.length - 2, s / seg.step));
-  function curveAt(seg, s) { const f = idx(seg, s), i = Math.floor(f), u = f - i; return seg.curve[i] * (1 - u) + seg.curve[i + 1] * u; }
-  function hillAt(seg, s) { const f = idx(seg, s), i = Math.floor(f), u = f - i; return seg.hill[i] * (1 - u) + seg.hill[i + 1] * u; }
-  return { hashSeed, mulberry32, rngOf, STEP, KINDS, makeSegment, curveAt, hillAt, stopName, pickBiome, POI_NAMES };
+  return { make, rngOf, hashSeed, mulberry32, BIOMES, BIOME_IDS, WEATHER, SURF, OBST, STEP };
 });

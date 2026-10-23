@@ -1,251 +1,442 @@
 // ============================================================
-// BUS BAZAR — Interface générale, réseau, salon, panneaux partagés (client)
+// BUS BAZAR — Jeu côté navigateur, vue à la première personne
 // ============================================================
-const BB = { v: null, role: null, keys: {}, shake: 0, routeHist: [], aid: 0, acks: {}, crew: {}, last: {}, t: 0 };
 (function () {
-  const { el, $, toast, sound, store } = Kit;
-  const D = BBData, R = BBRules, Dr = BBDraw;
+  "use strict";
+  const T = THREE; const L = BBL; const R = BBRules; const P = BBPeople;
+  const { $, el, toast, sound, store } = Kit;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const wrap = (a) => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
   const COLORS = [{ name: "Jaune bus", hex: "#f2b705" }, { name: "Rouge sirène", hex: "#e8453c" }, { name: "Bleu route", hex: "#2f78d1" }, { name: "Vert canard", hex: "#3aa653" }];
-  const hexOf = (c) => COLORS[(c || 0) % COLORS.length].hex;
-  const ST = BBStations; const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-  const roleInfo = (id) => D.ROLES.filter((r) => r.id === id)[0];
-  const CAT = { route: "🛣️ Route", meca: "🔧 Mécanique", nav: "🧭 Navigation", cabin: "📣 Cabine", chaos: "🌪️ Chaos" };
-  let ui = {}; let built = false; let station = null; let tab = "station";
-
-  // ---------- envoi ----------
-  BB.rawSend = (m) => { if (Kit.socket && Kit.socket.connected) Kit.socket.emit("bb:act", m); };
-  BB.send = (m, cb) => { m = Object.assign({}, m); m.aid = ++BB.aid; if (cb) BB.acks[m.aid] = cb; if (!Kit.socket || !Kit.socket.connected) { toast("Connexion perdue, reconnexion en cours.", "error"); return; } Kit.socket.emit("bb:act", m); };
-  BB.pop = (node, text) => { const p = el("div", { class: "pop", text }); node.appendChild(p); setTimeout(() => p.remove(), 900); };
-
-  // ---------- sons ----------
-  const S2 = {
-    horn() { sound.tone(310, 0.16, "square", 0.08); sound.tone(392, 0.2, "square", 0.08, 0.06); },
-    crash() { sound.noise(0.35, 0.22, 0, 900); sound.tone(110, 0.25, "sawtooth", 0.1, 0, 50); },
-    good() { sound.tone(660, 0.1, "triangle", 0.08); sound.tone(880, 0.14, "triangle", 0.08, 0.08); },
-    bad() { sound.tone(240, 0.22, "sawtooth", 0.06, 0, 120); },
-    slap() { sound.noise(0.1, 0.2, 0, 3000); sound.tone(180, 0.1, "square", 0.08); },
-    radio() { sound.tone(800, 0.05, "square", 0.04); sound.tone(1100, 0.06, "square", 0.04, 0.07); sound.noise(0.25, 0.04, 0.14, 4000); },
-    alert() { sound.tone(520, 0.12, "square", 0.05); sound.tone(390, 0.18, "square", 0.05, 0.14); },
-  };
-  const eng = { ctx: null };
-  function engStart() {
-    if (eng.ctx || !sound.enabled) return;
-    try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const o = ctx.createOscillator(); o.type = "sawtooth"; const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 500; const g = ctx.createGain(); g.gain.value = 0; o.connect(f); f.connect(g); g.connect(ctx.destination); o.start(); eng.ctx = ctx; eng.o = o; eng.f = f; eng.g = g; } catch (e) { /* pas de son */ }
-  }
-  function engUpdate(v) { if (!eng.ctx) return; const t = eng.ctx.currentTime; const sp = v ? v.bus.v : 0; eng.o.frequency.setTargetAtTime(38 + sp * 3.2, t, 0.08); eng.f.frequency.setTargetAtTime(300 + sp * 16, t, 0.08); eng.g.gain.setTargetAtTime(sound.enabled && v && v.phase === "drive" ? 0.012 + Math.min(0.02, sp / 40 * 0.02) : 0, t, 0.15); }
-
-  // ---------- squelette du jeu ----------
-  function buildGame() {
-    const sc = $("#screen-game"); sc.innerHTML = "";
-    ui.top = el("header", { class: "bb-top" });
-    ui.station = el("main", { class: "bb-station", id: "bb-station" });
-    ui.busCv = el("canvas", { id: "bb-bus", width: 330, height: 150, class: "bb-buscv" });
-    ui.crew = el("div", { class: "bb-crew" }); ui.alerts = el("div", { class: "bb-alerts" }); ui.prank = el("div", { class: "bb-prank" }); ui.journal = el("div", { class: "bb-journal" });
-    ui.side = el("aside", { class: "bb-side" }, [
-      el("div", { class: "card-lite bb-busbox" }, [ui.busCv, ui.crew]),
-      el("div", { class: "card-lite bb-p-alerts" }, [el("h3", { text: "Alertes et incidents" }), ui.alerts]),
-      el("div", { class: "card-lite bb-p-prank" }, [el("h3", { text: "Blagues entre équipiers" }), ui.prank]),
-      el("div", { class: "card-lite bb-p-journal" }, [el("h3", { text: "Journal de bord" }), ui.journal]),
-    ]);
-    ui.tabs = el("nav", { class: "bb-tabs" }, [["station", "Mon poste"], ["alerts", "Alertes"], ["journal", "Journal"]].map(([k, l]) => el("button", { class: "tab", "data-tab": k, text: l, onclick: () => { tab = k; applyTab(); } })));
-    ui.banner = el("div", { class: "bb-banner hidden" }); ui.end = el("div", { class: "bb-end hidden" }); ui.fx = el("div", { class: "bb-fx" });
-    sc.appendChild(el("div", { class: "bb-root", id: "bb-root" }, [ui.top, el("div", { class: "bb-body" }, [ui.station, ui.side]), ui.tabs, ui.banner, ui.end, ui.fx]));
-    built = true; station = null; BB.role = null; applyTab();
-  }
-  function applyTab() { const root = $("#bb-root"); if (!root) return; root.dataset.tab = tab; Array.from(document.querySelectorAll(".bb-tabs .tab")).forEach((b) => b.classList.toggle("on", b.dataset.tab === tab)); }
-
-  function enterRole(v) {
-    const role = v.you || null; if (BB.role === role && station) return; BB.role = role; ui.station.innerHTML = ""; station = role ? ST[role] : null; BB.routeHist = BB.routeHist || [];
-    if (station) { station.build(ui.station); const info = roleInfo(role); ui.station.dataset.role = role; if (store.get("bb.intro." + role, "") !== "1") { store.set("bb.intro." + role, "1"); setTimeout(() => showRoleHelp(role), 400); } }
-    else ui.station.appendChild(el("div", { class: "card-lite" }, [el("h3", { text: "Tu regardes la partie" }), el("p", { text: "Tu n'as pas de poste dans cette mission. Observe l'équipage ou rejoue plus tard avec un poste." })]));
-  }
-  const ROLE_TIPS = {
-    driver: ["Tu tiens le volant. Les flèches tournent, haut accélère, bas freine.", "Dans les virages serrés, ralentis avant d'entrer, sinon le bus glisse vers l'extérieur.", "Klaxon (espace) pour disperser vaches et piétons. Esquive (A ou E) en cas de danger, essuie-glace (R) si le pare-brise est sale.", "À l'arrêt, attends le navigateur et donne le départ."],
-    mech: ["Tu gardes le bus en vie. Choisis un système, puis une réparation.", "Pièce de rechange pour du solide, ruban pour dépanner en roulant, coup de clé gratuit mais capricieux.", "Surveille la température du moteur et réagis aux alertes de l'équipe.", "Freins et pneus se réparent proprement seulement à l'arrêt."],
-    nav: ["Tu décides de la route et de l'horaire. À chaque arrêt, choisis entre directe, sûre ou pittoresque.", "Fais le plein et les courses à la boutique, tu es le seul à gérer l'argent.", "Pendant le trajet, lis les prévisions et préviens le conducteur par la radio de blague ou en parlant.", "Tranche les dilemmes de la compagnie, ils ont tous un prix."],
-    cabin: ["Tu t'occupes des passagers. Clique sur l'un d'eux puis choisis une action.", "Les pourcentages montrent tes chances de réussir. Certaines actions sont dangereuses ou mal vues de certains.", "Les demandes ont un compte à rebours. Ignorées, elles fâchent.", "Les baffes cartoon fonctionnent sur les paniqués, jamais comme solution miracle."],
-  };
-  function showRoleHelp(role) {
-    const info = roleInfo(role); Kit.showModal(info.icon + " Poste de " + info.label.toLowerCase(), [el("p", { text: info.blurb })].concat(ROLE_TIPS[role].map((t) => el("p", { class: "mtip", text: "• " + t }))));
-  }
-
-  // ---------- barre du haut ----------
-  function updateTop(v) {
-    const B = v.seg ? D.BIOMES.filter((b) => b.id === v.seg.biome)[0] : null; const pct = v.phase === "drive" && v.seg ? clamp(v.bus.s / v.seg.len * 100, 0, 100) : v.phase === "stop" ? 100 : 0;
-    const chip = (ic, label, val, cls, tip) => el("div", { class: "tchip " + (cls || ""), title: tip || label }, [el("small", { text: label }), el("b", { text: ic + " " + val })]);
-    const lat = v.delay;
-    ui.top.innerHTML = "";
-    ui.top.appendChild(el("div", { class: "t-main" }, [
-      el("div", { class: "t-step" }, [el("b", { text: v.phase === "drive" ? "Étape " + (v.si + 1) + " sur " + v.nSeg : v.last ? "Terminus" : "À l'arrêt, étape " + (v.si + 2) + " sur " + v.nSeg }), el("small", { text: B && v.phase === "drive" ? B.icon + " " + B.label : v.stopName || "" })]),
-      el("div", { class: "t-prog", title: "Avancement sur l'étape" }, [el("i", { style: { width: pct + "%" } })]),
-    ]));
-    const chips = el("div", { class: "t-chips" });
-    chips.appendChild(chip("🚌", "Vitesse", Math.round(v.bus.v * 3.6) + " km/h")); chips.appendChild(chip("⛽", "Carburant", v.fuel + " %", v.fuel < 20 ? "bad" : "", "Niveau du réservoir")); chips.appendChild(chip("🌡️", "Moteur", v.temp + " °", v.temp > 118 ? "bad" : v.temp > 104 ? "warn" : ""));
-    chips.appendChild(chip("🛡️", "Carrosserie", v.body + " %", v.body < 30 ? "bad" : v.body < 60 ? "warn" : "", "Si elle tombe à zéro, c'est l'accident majeur")); chips.appendChild(chip("😀", "Humeur", v.sat + " %", v.sat < 30 ? "bad" : v.sat < 50 ? "warn" : "good", "Humeur moyenne des passagers"));
-    chips.appendChild(chip("⏱️", "Horaire", lat <= 0 ? Math.abs(lat) + " s d'avance" : lat + " s de retard", lat > 40 ? "bad" : lat > 0 ? "warn" : "good")); chips.appendChild(chip("💰", "Argent", String(v.inv.money)));
-    chips.appendChild(chip("🧰", "Stock", v.inv.spares + " pièces, " + v.inv.tape + " ruban, " + v.inv.snacks + " snacks"));
-    ui.top.appendChild(chips);
-    ui.top.appendChild(el("div", { class: "t-btns" }, [el("button", { class: "btn btn--ghost btn--tiny", title: "Aide du poste", text: "?", onclick: () => v.you && showRoleHelp(v.you) }), el("button", { class: "btn btn--ghost btn--tiny", title: "Son", id: "bb-snd", text: sound.enabled ? "🔊" : "🔇", onclick: (e) => { sound.toggle(); e.target.textContent = sound.enabled ? "🔊" : "🔇"; } })]));
-  }
-
-  // ---------- panneaux partagés ----------
-  function updateCrew(v) {
-    if (!ui.crewBuilt) { ui.crewBuilt = {}; ui.crew.innerHTML = ""; D.ROLE_IDS.forEach((r) => { const cv = el("canvas", { width: 70, height: 66 }); const c = el("div", { class: "cm", "data-role": r }, [cv, el("b"), el("small")]); c.cv = cv; ui.crewBuilt[r] = c; ui.crew.appendChild(c); }); }
-    D.ROLE_IDS.forEach((r) => { const c = ui.crewBuilt[r]; const info = roleInfo(r); c.querySelector("b").textContent = v.crewNames[r]; c.querySelector("small").textContent = info.label + (v.crewBot[r] ? " (robot)" : ""); c.classList.toggle("me", v.you === r); c.classList.toggle("bot", !!v.crewBot[r]); c.title = info.blurb; });
-  }
-  function drawCrew(t) {
-    if (!BB.v || !ui.crewBuilt) return; const v = BB.v; const hot = {}; v.inc.forEach((i) => i.who.forEach((r) => { hot[r] = Math.max(hot[r] || 0, i.sev); }));
-    D.ROLE_IDS.forEach((r) => { const c = ui.crewBuilt[r]; const cx = c.cv.getContext("2d"); cx.clearRect(0, 0, 70, 66); let emo = "ok"; if (hot[r] >= 2) emo = "panic"; else if (hot[r] >= 1) emo = "sad"; else if (v.sat > 60) emo = "happy"; if (r === "driver" && v.startle) emo = "panic"; Dr.crew(cx, r, 35, 64, 0.58, emo, t); });
-  }
-  function updateAlerts(v) {
-    const box = ui.alerts; const sig = JSON.stringify(v.inc.map((i) => [i.id, i.sev, i.left, i.desc, i.choices && i.choices.map((c) => c.ok)])) + v.you; if (sig === ui.alertSig) return; ui.alertSig = sig; box.innerHTML = "";
-    if (!v.inc.length) { box.appendChild(el("p", { class: "muted", text: "Tout est calme pour l'instant." })); return; }
-    v.inc.slice().sort((a, b) => b.sev - a.sev).forEach((i) => {
-      const mine = i.who.includes(v.you); const c = el("div", { class: "inc inc--s" + i.sev + (mine ? " mine" : "") }, [
-        el("div", { class: "inc-h" }, [el("span", { class: "inc-ic", text: i.icon }), el("b", { text: i.title }), el("small", { text: CAT[i.cat] || "" }), el("span", { class: "inc-t", text: i.left + " s" })]),
-        el("p", { text: i.desc }), i.hint ? el("small", { class: "muted", text: i.hint }) : null,
-        el("small", { class: "inc-who", text: "Concerne " + i.who.map((r) => roleInfo(r).label.toLowerCase()).join(" et ") }),
-      ]);
-      if (i.dilemma) { const row = el("div", { class: "inc-ch" }); i.choices.forEach((ch) => { const b = el("button", { class: "btn btn--small " + (ch.id === "oui" ? "btn--accent" : "btn--ghost"), title: ch.info, disabled: !mine || !ch.ok, onclick: () => BB.send({ t: "decide", inc: i.id, choice: ch.id }) }, [ch.label]); row.appendChild(b); if (!mine) { /* seul son poste décide */ } row.appendChild(el("small", { class: "muted", text: ch.ok ? ch.info : ch.why })); }); c.appendChild(row); if (!mine) c.appendChild(el("small", { class: "muted", text: "C'est à " + i.who.map((r) => roleInfo(r).label.toLowerCase()).join(" ou à ") + " de décider." })); }
-      box.appendChild(c);
-    });
-  }
-  function updatePrank(v) {
-    const box = ui.prank; const sab = v.sab; const sig = sab + "|" + v.you + "|" + (v.vote ? JSON.stringify(v.vote) : "") + "|" + [cd(v, "prank:" + v.you)].join(",");
-    function cd(v2, k) { return (v2.cds && v2.cds[k]) || 0; }
-    if (sig === ui.prankSig) return; ui.prankSig = sig; box.innerHTML = "";
-    if (sab === "aucune" || !v.you) { box.appendChild(el("p", { class: "muted", text: sab === "aucune" ? "Les blagues entre équipiers sont désactivées par l'hôte." : "Tu regardes la partie." })); return; }
-    const l = cd(v, "prank:" + v.you); const note = l > 0 ? "Prêt dans " + Math.ceil(l) + " s" : "";
-    const sel = el("select", { class: "mini-select", id: "bb-radio-sel", "aria-label": "Message radio" }, ["Mayday, le bus est en danger de tomber en panne de café", "Ici la tour de contrôle, vous êtes très en retard et très beau", "Attention, canard en vue", "Ceci n'est pas un exercice, ceci est un bus", "Alerte générale, quelqu'un a mangé le dernier biscuit"].map((t, i) => el("option", { value: i, text: t })));
-    const b1 = el("button", { class: "btn btn--small btn--plum", text: "📻 Radio dramatique", title: "Un message radio que tout le monde entend. Fait rire certains passagers, énerve les amateurs de silence.", onclick: () => BB.send({ t: "radio", i: Number(sel.value) }) }); b1.disabled = l > 0;
-    const b2 = el("button", { class: "btn btn--small btn--plum", text: "🙊 Annonce déplacée", title: "Une annonce complètement hors sujet dans le micro du bus.", onclick: () => BB.send({ t: "prank", kind: "annonce_mal" }) }); b2.disabled = l > 0;
-    box.appendChild(el("div", { class: "prow" }, [sel, b1])); box.appendChild(el("div", { class: "prow" }, [b2]));
-    if (sab === "total") {
-      const b3 = el("button", { class: "btn btn--small btn--plum", text: "🕷️ Faux insecte sur le conducteur", title: "Le conducteur sursaute et le volant part de travers une seconde.", onclick: () => BB.send({ t: "prank", kind: "insecte" }) }); b3.disabled = l > 0 || v.phase !== "drive";
-      const b4 = el("button", { class: "btn btn--small btn--plum", text: "🚨 Fausse alerte moteur (5 pièces d'amende)", title: "Affiche une alerte rouge sur le tableau de bord. La compagnie facture 5 pièces d'amende.", onclick: () => BB.send({ t: "prank", kind: "fausse_alerte" }) }); b4.disabled = l > 0;
-      const b5 = el("button", { class: "btn btn--small btn--danger", text: "🗳️ Vote d'arrêt d'urgence", title: "Les humains votent pour un freinage d'urgence immédiat. Rassure les passagers mais coûte du temps.", onclick: () => BB.send({ t: "voteStart" }) }); b5.disabled = v.phase !== "drive" || !!v.vote;
-      box.appendChild(el("div", { class: "prow" }, [b3])); box.appendChild(el("div", { class: "prow" }, [b4])); box.appendChild(el("div", { class: "prow" }, [b5]));
-    }
-    if (v.vote) { const vb = el("div", { class: "vote" }, [el("b", { text: "Vote d'arrêt d'urgence lancé par " + v.vote.by }), el("small", { text: "Pour " + v.vote.yes + ", contre " + v.vote.no + ", il reste " + Math.max(0, v.vote.until) + " s." })]); if (!v.vote.mine) { vb.appendChild(el("button", { class: "btn btn--small btn--green", text: "Pour", onclick: () => BB.send({ t: "voteCast", yes: true }) })); vb.appendChild(el("button", { class: "btn btn--small btn--danger", text: "Contre", onclick: () => BB.send({ t: "voteCast", yes: false }) })); } box.appendChild(vb); }
-    if (note) box.appendChild(el("small", { class: "muted", text: note }));
-  }
-  function updateJournal(v) {
-    const last = v.log.length ? v.log[v.log.length - 1].id : 0; if (ui.logLast === last && !ui.logForce) return; ui.logLast = last; ui.logForce = false; const box = ui.journal; box.innerHTML = "";
-    v.log.slice().reverse().forEach((e) => box.appendChild(el("div", { class: "lg lg--" + e.kind }, [el("span", { class: "lg-ic", text: e.icon }), el("span", { class: "lg-tx", text: e.text })])));
-  }
-  function drawBus(t) {
-    const v = BB.v; if (!v) return; const cv = ui.busCv; const cx = cv.getContext("2d"); BB.dist = (BB.dist || 0) + v.bus.v * 0.016;
-    Dr.bus(cx, cv.width, cv.height, { bus: v.bus, lights: v.lights, body: v.body, temp: v.temp, leak: v.leak, stuckHorn: v.stuckHorn, flick: v.flick, nPax: v.nPax }, t, { jolt: v.jolt, dist: BB.dist, pax: v.pax || v.paxLite, tourBags: v.tour, driverEmo: v.inc.some((i) => i.sev >= 2) ? "panic" : "ok" });
-  }
-
-  // ---------- réactions aux événements ----------
-  function reactions(v, prev) {
-    const s = v.seq, p = prev ? prev.seq : s; if (!prev) return;
-    if (s.hits > p.hits) { S2.crash(); BB.shake = 1; setTimeout(() => (BB.shake = 0), 350); flash("BOUM !", "#e8453c"); }
-    if (s.horns > p.horns) { S2.horn(); if (v.you === "driver") ST.driver.horn(); }
-    if (s.slaps > p.slaps) { S2.slap(); flash("PAF !", "#f08a24"); }
-    if (s.inc > p.inc) S2.alert(); if (s.solved > p.solved) S2.good(); if (s.radio > p.radio) S2.radio();
-    if (v.radioMsg && (!prev.radioMsg || prev.radioMsg.id !== v.radioMsg.id)) { const b = ui.banner; b.textContent = "📻 " + v.radioMsg.text; b.classList.remove("hidden"); clearTimeout(ui.bt); ui.bt = setTimeout(() => b.classList.add("hidden"), 5500); }
-    if (v.phase === "stop" && prev.phase === "drive" && !v.end) { S2.good(); }
-    if (v.rotated !== prev.rotated) { toast("Relève ! Chacun passe au poste suivant.", "info"); BB.role = null; }
-  }
-  function flash(t, col) { const f = el("div", { class: "onoma", text: t, style: { color: col } }); ui.fx.appendChild(f); setTimeout(() => f.remove(), 900); }
-
-  // ---------- fin de mission ----------
-  function showEnd(v) {
-    const e = v.end; const box = ui.end; if (box.dataset.shown === "1") return; box.dataset.shown = "1"; box.classList.remove("hidden"); box.innerHTML = "";
-    const parts = [["Satisfaction des passagers", e.parts.satisfaction], ["Ponctualité", e.parts.ponctualite], ["État du bus", e.parts.vehicule], ["Objectifs", e.parts.objectifs], ["Ressources restantes", e.parts.ressources]];
-    const c = el("div", { class: "card end-card " + (e.win ? "win" : "lose") }, [
-      el("div", { class: "end-emoji", text: e.win ? (e.honors ? "🏆" : "🚌") : "💥" }), el("h2", { text: e.title }), el("p", { class: "end-text", text: e.text }),
-      el("div", { class: "end-score" }, [el("b", { text: String(e.total) }), el("small", { text: "points sur 100" })]),
-      el("div", { class: "end-parts" }, parts.map(([l, n]) => el("div", { class: "ep" }, [el("span", { text: l }), el("b", { text: "+" + n })])).concat(e.style ? [el("div", { class: "ep" }, [el("span", { text: "Points de style" }), el("b", { text: "+" + e.style })])] : []).concat(e.complaints ? [el("div", { class: "ep bad" }, [el("span", { text: "Réclamations (" + e.complaints + ")" }), el("b", { text: "-" + e.complaints * 2 })])] : [])),
-      e.objectives.length ? el("div", { class: "end-obj" }, e.objectives.map((o) => el("p", { text: (o.status === "ok" ? "✅ " : o.status === "fail" ? "❌ " : "▫️ ") + o.label }))) : null,
-      e.trophies.length ? el("div", { class: "end-troph" }, [el("h3", { text: "Trophées" })].concat(e.trophies.map((t) => el("p", { text: "🏅 " + t.label + ". " + t.info })))) : null,
-      el("div", { class: "end-facts" }, [el("span", { text: "Durée " + Math.floor(e.time / 60) + " min " + String(e.time % 60).padStart(2, "0") }), el("span", { text: "Étapes " + e.segments + " sur " + e.nSeg }), el("span", { text: "Incidents " + e.stats.incidents + ", réglés " + e.stats.solved })]),
-      el("div", { class: "end-seed" }, [el("span", { text: "Graine " }), el("b", { text: e.seed }), el("button", { class: "btn btn--ghost btn--tiny", text: "Copier", onclick: () => { try { navigator.clipboard.writeText(e.seed); toast("Graine copiée.", "info"); } catch (er) { /* rien */ } } })]),
-      el("div", { class: "end-btns" }, [Kit.isHost() ? el("button", { class: "btn btn--accent btn--big", id: "bb-again", text: "Retour au salon pour rejouer", onclick: () => Kit.backToLobby() }) : el("p", { class: "muted", text: "L'hôte peut ramener tout le monde au salon pour une nouvelle mission." }), el("button", { class: "btn btn--ghost", text: "Quitter", onclick: () => Kit.leave() })]),
-    ]);
-    box.appendChild(c); if (e.win) S2.good(); else S2.bad();
-  }
-
-  // ---------- état reçu ----------
-  function onState(v) {
-    if (!built) buildGame(); engStart(); const prev = BB.v; BB.v = v;
-    if (v.you !== BB.role || !station) enterRole(v);
-    // historique des routes pour le fil de la mission
-    if (v.seg && v.phase === "drive") { const B = D.BIOMES.filter((b) => b.id === v.seg.biome)[0]; BB.routeHist[v.si] = { icon: B.icon }; }
-    if (prev && prev.seed !== v.seed) { BB.routeHist = []; }
-    reactions(v, prev);
-    updateTop(v); updateCrew(v); updateAlerts(v); updatePrank(v); updateJournal(v);
-    if (station) station.update(v);
-    if (v.end) showEnd(v); else { ui.end.classList.add("hidden"); ui.end.dataset.shown = ""; }
-    BB.last.t = performance.now(); engUpdate(v);
-    document.body.classList.toggle("bb-night", !!(v.seg && v.seg.biome === "nuit"));
-  }
-  function attach() {
-    const s = Kit.socket; if (!s || s.__bb) return; s.__bb = true;
-    s.on("bb:state", onState);
-    s.on("bb:ack", (a) => { const cb = BB.acks[a.aid]; delete BB.acks[a.aid]; if (!a.ok && a.err) toast(a.err, "error"); else if (a.msg && a.result === "fail") toast(a.msg, "info"); if (cb) cb(a); });
-    s.on("bb:crew", (d) => { BB.crew = d.crew || {}; if (Kit.room && Kit.room.status === "lobby") renderPreview($("#lobby-preview"), Kit.room); });
-    s.on("bb:rotate", () => { });
-  }
-
-  // ---------- boucle d'affichage et saisie ----------
-  let lastT = 0;
-  function loop(ts) {
-    requestAnimationFrame(loop); const dt = Math.min(0.1, (ts - lastT) / 1000 || 0.016); lastT = ts; BB.t = ts / 1000;
-    if (!built || document.body.dataset.screen !== "game" || !BB.v) return;
-    if (station && station.input) station.input(dt);
-    if (station && station.frame) station.frame(dt, BB.t);
-    drawBus(BB.t); drawCrew(BB.t);
-    if (BB.shake > 0) BB.shake = Math.max(0, BB.shake - dt * 2.5);
-  }
-  setInterval(() => { if (station && station.sendDrive && BB.v && BB.v.you === "driver" && !BB.v.end) station.sendDrive(); }, 60);
-  const typing = (e) => { const t = e.target; return t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT"); };
-  document.addEventListener("keydown", (e) => { if (typing(e) || document.body.dataset.screen !== "game") return; BB.keys[e.key] = true; if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key) && BB.role === "driver") e.preventDefault(); if (station && station.key) station.key(e); });
-  document.addEventListener("keyup", (e) => { delete BB.keys[e.key]; });
-  window.addEventListener("blur", () => { BB.keys = {}; });
+  const WX = BBRoad.WEATHER; const SURF = BBRoad.SURF;
+  const BB = { init: null, v: null, tb: null, age: 0, npc: {}, crew: {}, keys: {}, me: null, role: null, pos: { x: 0, z: 0, yaw: 0, pitch: 0, vx: 0, vz: 0 }, bus: null, feed: [], held: "", hold: null, sel: { cart: 0 }, tumble: 0, roll: 0, sens: Number(store.get("bb.sens", "1")) || 1, wheel: Number(store.get("bb.wheel", "1")) || 1, steerV: 0, assist: true, locked: false, last: 0, over: null, shake: 0, flash: 0, hurt: 0, nextSend: 0, nextDrive: 0, nextHold: 0, hudT: 0, touch: false, mobile: { mx: 0, mz: 0, sx: 0 } };
+  let renderer = null, scene = null, camera = null, W = null, bus = null, busG = null, flip = null, E = null, handG = null, host = null, canvas = null, hud = {}, built = false, platG = null, platFor = -1;
+  const ZONE = (z) => (z > 2.5 ? "à l'avant" : z < -2.5 ? "au fond" : "au milieu");
+  const pick = (id) => document.getElementById(id);
 
   // ---------- salon, choix des postes ----------
   function renderPreview(box, room) {
-    if (!box) return; box.innerHTML = ""; const me = Kit.me(); const crew = BB.crew || {}; const host = Kit.isHost();
-    const wrap = el("div", { class: "bb-lobby" }, [el("h3", { text: "Les quatre postes du bus" }), el("p", { class: "muted small", text: "Choisis ton poste. Les postes sans joueur sont tenus par des robots, tu peux donc jouer seul ou à quatre. Un joueur sans choix recevra un poste libre au départ." })]);
+    if (!box) return; box.innerHTML = ""; const crew = BB.crew || {}; const host = Kit.isHost();
+    const wrapEl = el("div", { class: "bb-lobby" }, [el("h3", { text: "Les quatre postes du bus" }), el("p", { class: "muted small", text: "Chacun a un rôle et marche dans le bus en vue à la première personne. Les postes sans joueur sont tenus par des robots, tu peux donc jouer seul ou à quatre. Un joueur sans choix reçoit un poste libre au départ." })]);
     const grid = el("div", { class: "bb-roles" });
-    D.ROLES.forEach((r) => {
+    L.ROLES.forEach((r) => {
       const holderId = crew[r.id]; const holder = holderId ? room.players.find((p) => p.id === holderId) : null; const mine = holder && holder.you;
-      const cv = el("canvas", { width: 90, height: 84 }); const cx = cv.getContext("2d"); Dr.crew(cx, r.id, 45, 82, 0.72, holder ? "happy" : "ok", 0.3);
       const btn = el("button", { class: "btn btn--small " + (mine ? "btn--ghost" : "btn--accent"), text: mine ? "Libérer ce poste" : holder ? "Poste pris" : "Prendre ce poste", onclick: () => { sound.click(); Kit.socket.emit("bb:role", { role: mine ? null : r.id }); } }); btn.disabled = !!holder && !mine;
-      grid.appendChild(el("div", { class: "bb-role" + (mine ? " me" : "") + (holder ? " taken" : "") }, [cv, el("div", { class: "br-main" }, [el("b", { text: r.icon + " " + r.label }), el("small", { text: r.blurb }), el("small", { class: "who", text: holder ? "Tenu par " + holder.name : "Robot, si personne ne le prend" })]), btn]));
+      grid.appendChild(el("div", { class: "bb-roleCard" + (mine ? " me" : "") + (holder ? " taken" : "") }, [el("div", { class: "ic", text: r.icon }), el("div", { class: "main" }, [el("b", { text: r.label }), el("small", { text: r.desc }), el("small", { text: holder ? "Tenu par " + holder.name : "Tenu par un robot si personne ne le prend" })]), btn]));
     });
-    wrap.appendChild(grid);
-    const seedRow = el("div", { class: "bb-seed" }, [el("b", { text: "Graine du parcours" }), el("code", { text: room.settings.seed ? room.settings.seed : "au hasard à chaque mission" }),
+    wrapEl.appendChild(grid);
+    const seedRow = el("div", { class: "bb-seed" }, [el("b", { text: "Graine du voyage" }), el("code", { text: room.settings.seed ? room.settings.seed : "au hasard à chaque voyage" }),
       host ? el("button", { class: "btn btn--small btn--plum", text: "🎲 Tirer une graine", onclick: () => { const w = ["canard", "moulin", "baguette", "tracteur", "citrouille", "fanfare", "moustache", "gomme", "ruban", "klaxon", "patate", "nuage", "tuba", "biscotte", "lama"]; const g = w[Math.floor(Math.random() * w.length)] + Math.floor(Math.random() * 90 + 10); Kit.socket.emit("room:settings", { settings: { seed: g } }); } }) : null,
-      room.settings.seed ? el("button", { class: "btn btn--small btn--ghost", text: "Copier", onclick: () => { try { navigator.clipboard.writeText(room.settings.seed); toast("Graine copiée.", "info"); } catch (e) { /* rien */ } } }) : null,
-      el("small", { class: "muted", text: "Même graine et mêmes réglages, même trajet, mêmes passagers et mêmes objets de départ." })]);
-    wrap.appendChild(seedRow); box.appendChild(wrap);
+      el("small", { class: "muted", text: "Même graine et mêmes réglages, même route, même météo et mêmes candidats au voyage." })]);
+    wrapEl.appendChild(seedRow); box.appendChild(wrapEl);
     if (!renderPreview.t) renderPreview.t = setTimeout(() => { renderPreview.t = null; if (Kit.socket) Kit.socket.emit("bb:crewGet"); }, 150);
   }
 
-  Kit.on("reset", () => { BB.v = null; BB.role = null; built = false; ui = {}; station = null; BB.routeHist = []; });
-  Kit.on("room", (r) => { if (r.status === "lobby") { BB.v = null; BB.role = null; if (built) { built = false; ui = {}; station = null; } } });
-  Kit.on("screen", (name) => { if (name === "game" && !built) buildGame(); });
+  // ---------- construction de l'interface ----------
+  function buildGame() {
+    const sc = $("#screen-game"); sc.innerHTML = ""; built = true;
+    host = el("div", { id: "bb-host" }); canvas = document.createElement("canvas"); host.appendChild(canvas); sc.appendChild(host);
+    const H = el("div", { class: "bb-hud", id: "bb-hud" }); sc.appendChild(H);
+    const add = (cls, id, kids, extra) => { const d = el("div", Object.assign({ class: cls, id }, extra || {}), kids || []); H.appendChild(d); hud[id] = d; return d; };
+    add("bb-hurt", "hurt"); add("bb-flash", "flash");
+    add("bb-role pill", "role"); add("bb-stats pill", "stats"); add("bb-top pill", "top"); add("bb-alerts", "alerts"); add("bb-feed", "feed");
+    add("bb-cross", "cross"); add("bb-prompt", "prompt"); add("bb-dash pill", "dash"); add("bb-held pill", "heldbox"); add("bb-help pill", "help"); add("bb-center", "center");
+    add("bb-click", "click", [el("div", { class: "pill", text: "Clique ici pour regarder avec la souris. Échap pour la libérer." })]);
+    const menu = add("bb-menu", "menu", [el("button", { class: "btn btn--small btn--ghost", text: "Réglages", onclick: () => openMenu() })]);
+    add("bb-end hidden", "end");
+    hud.click.onclick = () => { try { canvas.requestPointerLock(); } catch (e) { /* tant pis */ } hud.click.style.display = "none"; };
+    buildTouch(H);
+    window.addEventListener("resize", resize);
+  }
+  function resize() { if (!renderer || !host) return; const w = host.clientWidth || window.innerWidth, h = host.clientHeight || window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w / h < 1 ? 82 : 72; camera.updateProjectionMatrix(); }
+
+  // ---------- scène ----------
+  function startScene(init) {
+    if (!renderer) {
+      renderer = PicuiteGL.create(T, canvas, "medium"); PicuiteGL.watch(canvas);
+      BB.gl = renderer; renderer.setClearColor(0x000000, 1); renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    }
+    scene = new T.Scene(); camera = new T.PerspectiveCamera(72, 1, 0.05, 720); scene.add(camera);
+    flip = new T.Group(); flip.scale.x = -1; scene.add(flip);
+    W = BBWorld.build(scene, init, pick("bb-host")); W.fogRef = scene.fog; flip.add(W.group);
+    bus = BBBus.build(); busG = bus.g; busG.rotation.order = "YXZ"; flip.add(busG);
+    E = BBEnt.create(busG); handG = new T.Group(); handG.position.set(0.27, -0.3, -0.55); camera.add(handG); BB.handKey = "";
+    platG = null; platFor = -1; resize();
+    const b = init.t0 !== undefined && BB.v ? BB.v.b : null; BB.bus = b ? Object.assign({}, b) : null;
+  }
+  function stopScene() { if (E) BBEnt.clear(E); scene = null; W = null; bus = null; busG = null; E = null; }
+
+  // ---------- réseau ----------
+  function attach() {
+    const so = Kit.socket; if (!so || so._bb) return; so._bb = true;
+    so.on("bb:crew", (d) => { BB.crew = d.crew || {}; if (Kit.room && Kit.room.status === "lobby") renderPreview($("#lobby-preview"), Kit.room); });
+    so.on("bb:init", (d) => {
+      BB.init = d; BB.me = d.you; BB.role = d.role; document.body.classList.toggle("bb-driver", d.role === "driver"); BB.npc = {}; BB.v = null; BB.tb = null; BB.feed = []; BB.over = null; BB.held = "";
+      BB.players = {}; d.players.forEach((p) => { BB.players[p.id] = p; });
+      BB.assist = d.assist !== false;
+      const spawn = d.role === "driver" ? { x: L.DRIVER.x, z: L.DRIVER.z } : { x: 0.2, z: 3.8 }; BB.pos.x = spawn.x; BB.pos.z = spawn.z; BB.pos.yaw = 0; BB.pos.pitch = 0; BB.pos.vx = BB.pos.vz = 0;
+      if (!built) buildGame();
+      stopScene(); try { startScene(d); } catch (e) { console.error(e); toast("Impossible de démarrer la 3D, essaie le mode compatibilité dans les réglages.", "error"); }
+      hud.end.classList.add("hidden"); hud.end.innerHTML = "";
+      showCenter("Le voyage commence", "Tu es " + (L.ROLES.find((r) => r.id === d.role) || { label: "équipier" }).label.toLowerCase(), 4);
+    });
+    so.on("bb:reg", (list) => { list.forEach((n) => { BB.npc[n.id] = n; }); });
+    so.on("bb:state", (s) => {
+      if (s.n.some((n) => !BB.npc[n.i])) { BB.missT = (BB.missT || 0) + 1; if (BB.missT > 28) { BB.missT = 0; so.emit("bb:regReq"); } } else BB.missT = 0;
+      BB.v = s; BB.tb = s.b; BB.age = 0;
+      if (!BB.bus) BB.bus = Object.assign({}, s.b);
+      const me = s.p.find((p) => p.i === BB.me);
+      if (me) { if (s.ps && Math.hypot(s.ps.x - BB.pos.x, s.ps.z - BB.pos.z) > 1.8) { BB.pos.x = s.ps.x; BB.pos.z = s.ps.z; } BB.held = me.h; BB.tumble = me.tm ? 1 : 0; BB.holdProg = me.hp; }
+      if (s.ov && !BB.over) { BB.over = s.ov; showEnd(s.ov); }
+    });
+    so.on("bb:ev", (list) => { list.forEach(onEvent); });
+  }
+  function onEvent(e) {
+    if (e.k === "msg") pushFeed(e.text, e.kind, e.icon);
+    else if (e.k === "toast") pushFeed(e.text, "info", "ℹ️");
+    else if (e.k === "hit") { BB.shake = 1; BB.hurt = 0.6; sound.noise(0.25, 0.12, 0, 900); sound.tone(120, 0.2, "sawtooth", 0.08, 0, 60); }
+    else if (e.k === "cash") sound.tone(880, 0.08, "triangle", 0.07), sound.tone(1175, 0.1, "triangle", 0.07, 0.07);
+    else if (e.k === "fixed") sound.tone(660, 0.1, "triangle", 0.08), sound.tone(990, 0.14, "triangle", 0.08, 0.09);
+    else if (e.k === "need") sound.tone(440, 0.07, "sine", 0.05);
+    else if (e.k === "fire") sound.noise(0.5, 0.1, 0, 2400);
+    else if (e.k === "horn") { sound.tone(330, 0.5, "square", 0.07); sound.tone(415, 0.5, "square", 0.05); }
+    else if (e.k === "thunder") { BB.flash = 1; sound.noise(1.2, 0.15, 0.2, 500); }
+    else if (e.k === "rear") sound.tone(200, 0.3, "sawtooth", 0.06, 0, 90);
+    else if (e.k === "eject") sound.tone(500, 0.4, "triangle", 0.08, 0, 140);
+    else if (e.k === "chick") sound.tone(1200, 0.08, "square", 0.04), sound.tone(1500, 0.08, "square", 0.04, 0.09);
+  }
+  function pushFeed(text, kind, icon) { BB.feed.push({ text: (icon ? icon + " " : "") + text, kind: kind || "info", t: performance.now() }); if (BB.feed.length > 7) BB.feed.shift(); BB.feedDirty = true; }
+  function showCenter(a, b, sec) { hud.center.innerHTML = ""; hud.center.appendChild(document.createTextNode(a)); if (b) hud.center.appendChild(el("small", { text: b })); hud.center.style.display = ""; clearTimeout(showCenter.t); showCenter.t = setTimeout(() => { hud.center.style.display = "none"; }, (sec || 3) * 1000); }
+
+  // ---------- commandes ----------
+  const typing = (e) => { const t = e.target; return t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable); };
+  const inGame = () => document.body.dataset.screen === "game" && BB.v && BB.init && !BB.over;
+  document.addEventListener("keydown", (e) => {
+    if (typing(e) || document.body.dataset.screen !== "game") return;
+    if (e.repeat && !["KeyW", "KeyA", "KeyS", "KeyD"].includes(e.code)) { if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault(); return; }
+    BB.keys[e.code] = true; if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
+    if (!inGame()) return; const k = (e.key || "").toLowerCase();
+    if (k === "e") pressUse();
+    else if (k === "f") pressGrab();
+    else if (k === "r") pressRefuse();
+    else if (k === "g") send({ a: "drop" });
+    else if (k === "t") send({ a: "throw" });
+    else if (k === "h" && BB.role === "driver") send({ a: "horn" });
+    else if (e.code === "Digit1" || e.code === "Digit2" || e.code === "Digit3") { BB.sel.cart = Number(e.code.slice(5)) - 1; BB.hudT = 0; }
+  });
+  document.addEventListener("keyup", (e) => { delete BB.keys[e.code]; if ((e.key || "").toLowerCase() === "e") BB.hold = null; });
+  window.addEventListener("blur", () => { BB.keys = {}; BB.hold = null; });
+  document.addEventListener("pointerlockchange", () => { BB.locked = document.pointerLockElement === canvas; if (!BB.locked && hud.click && document.body.dataset.screen === "game") hud.click.style.display = ""; });
+  document.addEventListener("mousemove", (e) => { if (!BB.locked || !inGame()) return; look(e.movementX * 0.0022, e.movementY * 0.0022); });
+  document.addEventListener("mousedown", (e) => { if (BB.locked && inGame()) { if (BB.role === "driver") send({ a: "horn" }); else pressUse(); } });
+  document.addEventListener("mouseup", () => { BB.hold = null; });
+  function look(dx, dy) { BB.pos.yaw = wrap(BB.pos.yaw + dx * BB.sens); BB.pos.pitch = clamp(BB.pos.pitch - dy * BB.sens, -1.3, 1.3); }
+  const send = (m) => { if (Kit.socket) Kit.socket.emit("bb:act", m); };
+
+  // ---------- cibles d'interaction ----------
+  function findTargets() {
+    const S = BB.v; if (!S || !BB.init) return []; const me = BB.pos; const out = []; const fx = Math.sin(me.yaw), fz = Math.cos(me.yaw); const stop = S.ph === "stop"; const open = stop && S.b.dr;
+    const heldNpc = BB.held.indexOf("npc") === 0; const heldItem = BB.held.indexOf("item") === 0 ? S.it.find((i) => "item" + i.i === BB.held) : null;
+    const consider = (x, z, range, bias, obj) => {
+      const dx = x - me.x, dz = z - me.z; const d = Math.hypot(dx, dz); if (d > range) return; let ang = 0;
+      if (d > 0.9) { ang = Math.abs(wrap(Math.atan2(dx, dz) - me.yaw)); if (ang > 0.95) return; }
+      obj.d = d; obj.score = d + ang * 1.4 + (bias || 0); out.push(obj);
+    };
+    const driver = BB.role === "driver";
+    if (driver) {
+      out.push({ kind: "door", score: 0, d: 0, x: 0, z: 0, text: stop ? "Appuie sur E pour fermer la porte et repartir" : "Le klaxon se joue avec H ou un clic", can: stop });
+      return out;
+    }
+    S.n.forEach((n) => {
+      const inf = BB.npc[n.i]; if (!inf) return;
+      if (n.s === "wait") { if (stop && open !== undefined) consider(n.x, n.z, 2.9, 0, { kind: "cand", n, inf }); return; }
+      if (["leave", "ejected", "carried", "board"].includes(n.s)) return;
+      consider(n.x, n.z, 2.1, 0, { kind: "npc", n, inf });
+    });
+    S.it.forEach((i) => { if (i.h) return; if (i.s === "slot" || i.s === "free" || i.s === "wait" || i.s === "plat" || i.s === "") consider(i.x, i.z, 2.0, 0.15, { kind: "item", it: i }); });
+    L.stations.forEach((st) => consider(st.x, st.z, st.r + 0.4, 0.1, { kind: st.id === "hatch" ? "hatch" : "station", st }));
+    S.hz.forEach((h) => consider(h.x, h.z, 1.9, -0.2, { kind: h.t, h }));
+    if (heldItem && (heldItem.t === "crate" || heldItem.t === "bag")) L.slots.forEach((sl) => { if (S.it.some((i) => i.s === "slot" && i.sl === sl.id)) return; consider(sl.x, sl.z, 2.0, 0.3, { kind: "slot", sl }); });
+    if (heldNpc) L.seats.forEach((s) => { if (S.n.some((n) => n.sl === s.i && n.s !== "gone")) return; consider(s.x, s.z, 1.9, 0.2, { kind: "seat", seat: s }); });
+    consider(0, -7.3, 2.6, 0.8, { kind: "rear" });
+    out.sort((a, b) => a.score - b.score); return out;
+  }
+  function describe(t) {
+    const S = BB.v; const heldItem = BB.held.indexOf("item") === 0 ? S.it.find((i) => "item" + i.i === BB.held) : null;
+    if (t.kind === "cand") { const k = L.KINDS[t.inf.k]; return { text: "E pour accepter, R pour refuser", info: t.inf.nm + ", " + k.label + ". " + k.note + " Va jusqu'à l'arrêt " + (S.st && BB.init ? W.R.stops[t.inf.d].name : "") + ". Paie " + t.inf.f + " pièces." }; }
+    if (t.kind === "npc") {
+      const n = t.n; const nm = t.inf.nm; const N = n.nd ? L.NEEDS[n.nd] : null;
+      if (N) {
+        if (N.item) return heldItem && heldItem.t === N.item ? { text: "E pour donner " + L.ITEMS[N.item].label.toLowerCase() + " à " + nm } : { text: nm + " " + N.label + ". Il lui faut " + (L.ITEMS[N.item].label.toLowerCase()), hint: true };
+        if (N.seat) return { text: "E pour trouver une place à " + nm };
+        if (N.stop) return { text: nm + " doit descendre vite. Demande au conducteur de s'arrêter", hint: true };
+        if (N.hold) return { text: "Maintiens E pour " + N.hold.toLowerCase() + " " + nm, hold: true };
+      }
+      if (n.tr) return { text: "Maintiens E pour calmer " + nm + ", F pour le porter", hold: true };
+      if (n.as) return { text: "Maintiens E pour réveiller " + nm, hold: true };
+      return { text: nm + " va bien. F pour le porter", hint: true };
+    }
+    if (t.kind === "item" && BB.held) return { text: "Tes mains sont pleines. G pour poser ce que tu tiens", hint: true };
+    if (t.kind === "item") { const d = L.ITEMS[t.it.t]; const c = t.it.c ? L.CARGO[t.it.c] : null; return { text: "E pour prendre " + (c ? c.label.toLowerCase() : d.label.toLowerCase()), info: c ? c.label + ". " + c.note + " Destination " + (t.it.d >= 0 && W ? W.R.stops[t.it.d].name : "inconnue") + (t.it.hp < 100 ? ". Solidité " + t.it.hp + " sur 100" : "") : d.tip }; }
+    if (t.kind === "station") { const st = t.st; const cur = BB.held.indexOf("item") === 0; if (cur) return { text: "E pour reposer ce que tu tiens" }; if (st.id === "cart") { const ks = ["snack", "drink", "mop"]; const k = ks[BB.sel.cart % 3]; return { text: "E pour prendre " + (L.ITEMS[k] ? L.ITEMS[k].label.toLowerCase() : "serpillière") + ". Touches 1 casse-croûte, 2 boisson, 3 serpillière" }; } return { text: "E pour prendre " + L.ITEMS[st.give[0]].label.toLowerCase() }; }
+    if (t.kind === "hatch") return heldItem && heldItem.t === "tools" ? { text: "Maintiens E pour réparer le moteur", hold: true } : { text: "Trappe du moteur. Prends d'abord la caisse à outils sur l'établi", hint: true };
+    if (t.kind === "fire") return heldItem && heldItem.t === "ext" ? { text: "Maintiens E pour éteindre le feu", hold: true } : { text: "Un feu. Prends d'abord l'extincteur au fond du bus", hint: true };
+    if (t.kind === "puddle") return { text: "Maintiens E pour nettoyer (la serpillière va plus vite)", hold: true };
+    if (t.kind === "slot") return { text: "E pour ranger ici (" + (t.sl.kind === "haut" ? "porte-bagages" : "sol") + ")" };
+    if (t.kind === "seat") return { text: "E pour asseoir le passager ici" };
+    if (t.kind === "rear") return { text: S.b.rr ? "E pour refermer la porte de secours" : "E pour ouvrir la porte de secours", hint: false };
+    if (t.kind === "door") return { text: t.text };
+    return { text: "" };
+  }
+  function pressUse() {
+    const S = BB.v; if (!S) return; const list = findTargets(); const t = list[0]; if (!t) return;
+    const m = { a: "use", e: 1 };
+    if (t.kind === "door") m.t = "door";
+    else if (t.kind === "cand") { m.t = "cand"; m.id = t.n.i; }
+    else if (t.kind === "npc") { m.t = "npc"; m.id = t.n.i; }
+    else if (t.kind === "item") { m.t = "item"; m.id = t.it.i; }
+    else if (t.kind === "station") { m.t = "station"; m.id = t.st.id; m.k = t.st.id === "cart" ? ["snack", "drink", "mop"][BB.sel.cart % 3] : undefined; }
+    else if (t.kind === "hatch") { m.t = "hatch"; m.id = "hatch"; }
+    else if (t.kind === "fire") { m.t = "fire"; m.id = t.h.i; }
+    else if (t.kind === "puddle") { m.t = "puddle"; m.id = t.h.i; }
+    else if (t.kind === "slot") { m.t = "slot"; m.id = t.sl.id; }
+    else if (t.kind === "seat") { m.t = "seat"; m.id = t.seat.i; }
+    else if (t.kind === "rear") m.t = "rear";
+    send(m);
+    if (["npc", "hatch", "fire", "puddle"].includes(t.kind)) BB.hold = { t: m.t, id: m.id };
+  }
+  function pressRefuse() { const list = findTargets().filter((t) => t.kind === "cand"); if (list[0]) send({ a: "use", e: 1, t: "cand", id: list[0].n.i, refuse: 1 }); }
+  function pressGrab() { const S = BB.v; if (!S || BB.role === "driver") return; const t = findTargets().find((x) => x.kind === "npc"); if (t) send({ a: "use", e: 1, t: "grab", id: t.n.i }); }
+
+  // ---------- commandes tactiles ----------
+  function buildTouch(H) {
+    const coarse = ("ontouchstart" in window) || (window.matchMedia && window.matchMedia("(pointer: coarse)").matches); if (!coarse) return; BB.touch = true;
+    const layer = el("div", { class: "bb-touch" }); H.appendChild(layer);
+    const lookZone = el("div", { class: "bb-lookzone" }); layer.appendChild(lookZone); let lp = null;
+    lookZone.addEventListener("pointerdown", (e) => { lp = { id: e.pointerId, x: e.clientX, y: e.clientY }; lookZone.setPointerCapture(e.pointerId); });
+    lookZone.addEventListener("pointermove", (e) => { if (!lp || lp.id !== e.pointerId) return; look((e.clientX - lp.x) * 0.0045, (e.clientY - lp.y) * 0.0045); lp.x = e.clientX; lp.y = e.clientY; });
+    const endLook = (e) => { if (lp && lp.id === e.pointerId) lp = null; }; lookZone.addEventListener("pointerup", endLook); lookZone.addEventListener("pointercancel", endLook);
+    const stick = el("div", { class: "bb-stick" }); const knob = el("div", { class: "bb-knob" }); stick.appendChild(knob); layer.appendChild(stick); let sp = null;
+    const setStick = (e) => { const r = stick.getBoundingClientRect(); let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2); const m = Math.hypot(dx, dy), lim = r.width / 2; if (m > lim) { dx *= lim / m; dy *= lim / m; } knob.style.transform = "translate(" + dx + "px," + dy + "px)"; BB.mobile.mx = dx / lim; BB.mobile.mz = -dy / lim; };
+    stick.addEventListener("pointerdown", (e) => { sp = e.pointerId; stick.setPointerCapture(sp); setStick(e); }); stick.addEventListener("pointermove", (e) => { if (sp === e.pointerId) setStick(e); });
+    const endStick = (e) => { if (sp === e.pointerId) { sp = null; BB.mobile.mx = BB.mobile.mz = 0; knob.style.transform = ""; } }; stick.addEventListener("pointerup", endStick); stick.addEventListener("pointercancel", endStick);
+    const btn = (txt, cls, down, up) => { const b = el("button", { class: "bb-tb " + cls, text: txt }); b.addEventListener("pointerdown", (e) => { e.preventDefault(); b.classList.add("on"); down(); }); const u = () => { b.classList.remove("on"); if (up) up(); }; b.addEventListener("pointerup", u); b.addEventListener("pointercancel", u); b.addEventListener("pointerleave", u); layer.appendChild(b); return b; };
+    btn("Agir", "b1", () => { if (inGame()) pressUse(); }, () => { BB.hold = null; }); btn("Porter", "b2", () => { if (inGame()) pressGrab(); }); btn("Lâcher", "b3", () => { if (inGame()) send({ a: "drop" }); }); btn("Refuser", "b4", () => { if (inGame()) pressRefuse(); });
+    const k = (code, on) => () => { if (on) BB.keys[code] = true; else delete BB.keys[code]; };
+    const d1 = btn("Accélérer", "d1", k("KeyW", 1), k("KeyW", 0)), d2 = btn("Freiner", "d2", k("KeyS", 1), k("KeyS", 0)), d3 = btn("Gauche", "d3", k("KeyA", 1), k("KeyA", 0)), d4 = btn("Droite", "d4", k("KeyD", 1), k("KeyD", 0)), d5 = btn("Klaxon", "d5", () => { if (inGame()) send({ a: "horn" }); });
+    BB.touchDrv = [d1, d2, d3, d4, d5]; BB.touchOnly = [stick]; document.body.classList.add("bb-touch-on");
+  }
+
+
+  // envois réguliers, indépendants de l'affichage pour rester fluides même quand l'image rame
+  let netLast = performance.now(), netN = 0;
+  function netTick() {
+    const now = performance.now(); const dt = Math.min(0.2, (now - netLast) / 1000); netLast = now; netN++;
+    if (!BB.v || !BB.init || !Kit.socket || BB.over || document.body.dataset.screen !== "game") return;
+    const p = BB.pos, b = BB.bus; if (!b) return;
+    Kit.socket.emit("bb:pos", { x: +p.x.toFixed(2), z: +p.z.toFixed(2), yaw: +p.yaw.toFixed(3), vx: +p.vx.toFixed(2), vz: +p.vz.toFixed(2) });
+    if (BB.role === "driver") {
+      const up = holdKey("KeyW") || holdKey("ArrowUp"), dn = holdKey("KeyS") || holdKey("ArrowDown") || holdKey("Space");
+      const rev = dn && !up && Math.abs(b.v) < 1.2 && !holdKey("Space"); const want = ((holdKey("KeyD") || holdKey("ArrowRight")) ? 1 : 0) - ((holdKey("KeyA") || holdKey("ArrowLeft")) ? 1 : 0) + BB.mobile.sx;
+      // volant progressif, il se tourne peu à peu et revient seul au centre
+      const grow = 1.5 * BB.wheel, back = 3.2; const tgt = clamp(want, -1, 1); const diff = tgt - BB.steerV; const rate = (tgt !== 0 && Math.sign(tgt) === Math.sign(BB.steerV || tgt) && Math.abs(tgt) >= Math.abs(BB.steerV)) ? grow : back; BB.steerV += clamp(diff, -rate * dt, rate * dt); const steer = Math.abs(BB.steerV) < 0.02 ? 0 : BB.steerV;
+      Kit.socket.emit("bb:drive", { steer, thr: up || rev ? 1 : 0, brk: dn && !rev ? 1 : 0, rev: rev ? 1 : 0 });
+    }
+    if (BB.hold && netN % 2 === 0) send({ a: "use", e: 0, t: BB.hold.t, id: BB.hold.id });
+  }
+  setInterval(netTick, 60);
+
+  // ---------- boucle ----------
+  const holdKey = (c) => !!BB.keys[c];
+  function loop(now) { requestAnimationFrame(loop); PicuiteGL.frame(() => body(now)); }
+  function body(now) {
+    const dt = Math.min(0.1, (now - BB.last) / 1000); BB.last = now; BB.fps = BB.fps ? BB.fps * 0.95 + (1 / Math.max(0.001, dt)) * 0.05 : 30;
+    if (!scene || !BB.v || !BB.init || document.body.dataset.screen !== "game") return;
+    const S = BB.v; const open = S.ph === "stop" && S.b.dr;
+    // le bus
+    const tb = BB.tb, b = BB.bus; BB.age += dt;
+    const ps = tb.s + Math.cos(tb.psi) * tb.v * BB.age, pe = tb.e + Math.sin(tb.psi) * tb.v * BB.age; const k = 1 - Math.exp(-dt * 9);
+    if (Math.abs(ps - b.s) > 25) { b.s = ps; b.e = pe; } else { b.s += (ps - b.s) * k; b.e += (pe - b.e) * k; }
+    ["psi", "v", "w", "sh", "al", "ay", "gu"].forEach((f) => { b[f] += (tb[f] - b[f]) * k; });
+    ["tp", "hl", "tr", "lk", "dr", "rr", "sl", "of", "sk", "hn", "th", "bk"].forEach((f) => { b[f] = tb[f]; });
+    const pose = BBWorld.pose(W, b); BB.pose = pose;
+    // déplacements du joueur
+    const p = BB.pos; const driver = BB.role === "driver"; const heldNpc = BB.held.indexOf("npc") === 0;
+    if (driver) { p.x = L.DRIVER.x; p.z = L.DRIVER.z; p.vx = p.vz = 0; if (holdKey("ArrowLeft") && false) look(-dt, 0); }
+    else {
+      if (holdKey("ArrowLeft") && !driver) look(-1.9 * dt / BB.sens, 0); if (holdKey("ArrowRight") && !driver) look(1.9 * dt / BB.sens, 0);
+      let f = (holdKey("KeyW") || holdKey("ArrowUp") ? 1 : 0) - (holdKey("KeyS") || holdKey("ArrowDown") ? 1 : 0) + BB.mobile.mz, s = (holdKey("KeyD") ? 1 : 0) - (holdKey("KeyA") ? 1 : 0) + BB.mobile.mx;
+      if (BB.tumble) { f = 0; s = 0; }
+      const m = Math.hypot(f, s); if (m > 1) { f /= m; s /= m; }
+      const sp = (holdKey("ShiftLeft") || holdKey("ShiftRight") ? 3.6 : 2.4) * (heldNpc ? 0.7 : 1);
+      const fx = Math.sin(p.yaw), fz = Math.cos(p.yaw), rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
+      const tx = (fx * f + rx * s) * sp, tz = (fz * f + rz * s) * sp; const a = Math.min(1, dt * 9);
+      p.vx += (tx - p.vx) * a; p.vz += (tz - p.vz) * a;
+      if (S.ph === "drive" || true) { p.vx -= tb.ay * 0.09 * dt * 8 * (BB.tumble ? 1.5 : 1) * 0.2; p.vz += -tb.al * 0.07 * dt * 8 * 0.2; }
+      const ox = p.x, oz = p.z; const c = L.collide(p.x + p.vx * dt, p.z + p.vz * dt, 0.28, open); p.x = c.x; p.z = c.z;
+      if (S.ph !== "stop" && p.x > L.BUS.x1 + 0.1) { p.x = 0.2; p.z = L.DOOR.z; }
+      const rvx = (p.x - ox) / Math.max(dt, 0.001), rvz = (p.z - oz) / Math.max(dt, 0.001); p.vx = Math.abs(rvx - p.vx) > 1.5 ? rvx : p.vx; p.vz = Math.abs(rvz - p.vz) > 1.5 ? rvz : p.vz;
+    }
+    // le bus dans le monde
+    busG.position.set(pose.x, 0.55, pose.z); busG.rotation.y = pose.h; const t = performance.now() / 1000;
+    const shk = b.sh * 0.012 + BB.shake * 0.02; busG.position.y += Math.sin(t * 41) * shk; busG.rotation.x = clamp(-b.al * 0.004, -0.05, 0.05) + Math.sin(t * 29) * shk * 0.4; busG.rotation.z = clamp(b.ay * 0.004, -0.06, 0.06) + Math.sin(t * 33) * shk * 0.4;
+    const door = bus.door; door.position.z += ((b.dr ? 5.95 : 4.6) - door.position.z) * Math.min(1, dt * 4); bus.rear.rotation.y += ((b.rr ? 1.65 : 0) - bus.rear.rotation.y) * Math.min(1, dt * 3);
+    bus.wheel.rotation.z += (-b.w * 1.7 - bus.wheel.rotation.z) * Math.min(1, dt * 10);
+    BB.gaugeT = (BB.gaugeT || 0) - dt; if (BB.gaugeT <= 0) { BB.gaugeT = 0.2; const dr = Object.keys(BB.players).map((i) => BB.players[i]).find((q) => q.role === "driver"); bus.gauge.draw(b, dr ? dr.name : ""); bus.dest.draw(S.st.nm || S.st.cur || ""); }
+    // quai
+    if (S.ph === "stop" && platFor !== S.st.i) { if (platG) flip.remove(platG); platG = new T.Group(); platG.add(BBBus.platform(S.st.cur || "Arrêt")); platG.position.copy(busG.position); platG.position.y = 0.55; platG.rotation.y = pose.h; platG.userData.s = b.s; flip.add(platG); platFor = S.st.i; }
+    if (platG && Math.abs(b.s - platG.userData.s) > 90 && S.ph !== "stop") { flip.remove(platG); platG = null; }
+    // contexte pour les entités
+    const holderPos = (id) => { if (id === BB.me) return { x: p.x, z: p.z, y: p.yaw }; const o = E.pl[id]; return o ? { x: o.x, z: o.z, y: o.y } : null; };
+    const C = { me: BB.me, npc: BB.npc, players: BB.players, assist: BB.assist, myPos: p, holderPos, holderOf: (key) => { const q = S.p.find((x) => x.h === key); return q ? holderPos(q.i) : null; } };
+    BBEnt.sync(E, S, C, dt);
+    // l'objet tenu en main
+    const ht = BB.held.indexOf("item") === 0 ? S.it.find((i) => "item" + i.i === BB.held) : null; const hk = ht ? ht.t + "|" + ht.c + "|" + ht.tg : "";
+    if (hk !== BB.handKey) { BB.handKey = hk; while (handG.children.length) handG.remove(handG.children[0]); if (ht) { const g = BBBus.item(ht.t, { c: ht.c, tg: ht.tg, hp: ht.hp }); g.scale.setScalar(ht.t === "crate" ? 0.8 : 1); g.rotation.y = -0.4; handG.add(g); } }
+    // la caméra
+    BB.shake = Math.max(0, BB.shake - dt * 1.6); BB.hurt = Math.max(0, BB.hurt - dt); BB.flash = Math.max(0, BB.flash - dt * 2.2);
+    BB.roll += ((BB.tumble ? 0.9 : 0) - BB.roll) * Math.min(1, dt * 5);
+    const walk = Math.hypot(p.vx, p.vz); BB.bob = (BB.bob || 0) + walk * dt * 3.2;
+    const eyeY = (driver ? 1.42 : 1.62) - BB.roll * 0.9 + Math.sin(BB.bob) * 0.022 * Math.min(1, walk) + (E ? BBEnt.gy(p.x) : 0);
+    busG.updateMatrixWorld(true);
+    const eye = new T.Vector3(p.x, eyeY, driver ? p.z - 0.12 : p.z), dirL = new T.Vector3(Math.sin(p.yaw) * Math.cos(p.pitch), Math.sin(p.pitch), Math.cos(p.yaw) * Math.cos(p.pitch));
+    const eyeW = eye.clone().applyMatrix4(busG.matrixWorld), tgtW = eye.clone().add(dirL).applyMatrix4(busG.matrixWorld);
+    camera.position.copy(eyeW); camera.up.set(0, 1, 0).transformDirection(busG.matrixWorld); camera.lookAt(tgtW); if (BB.roll) camera.rotateZ(BB.roll);
+    // le monde
+    const at = W.R.at(b.s); BBWorld.syncObst(W, { b, go: S.go, mv: S.mv }, dt); BBWorld.weather(W, at.wx, dt, b, eyeW);
+    W.sun.position.set(eyeW.x + 40, 70, eyeW.z - 20); W.sun.target.position.copy(eyeW);
+    renderer.render(scene, camera); PicuiteGL.verify(renderer);
+    BB.hudT -= dt; if (BB.hudT <= 0) { BB.hudT = 0.12; updateHud(S, b, at, t); }
+    hud.hurt.style.opacity = String(Math.min(1, BB.hurt)); hud.flash.style.opacity = String(BB.flash * 0.8);
+  }
+
+  // ---------- interface ----------
+  const setKids = (node, key, build) => { node._k = node._k || ""; if (node._k === key) return; node._k = key; node.textContent = ""; build().forEach((n) => { if (n) node.appendChild(n); }); };
+  const bar = (v, cls) => el("div", { class: "bb-bar " + (cls || "") }, [el("i", { style: { width: Math.round(clamp(v, 0, 1) * 100) + "%" } })]);
+  const lvl = (v, lo, hi) => (v < lo ? "bad" : v < hi ? "warn" : "");
+  function curveHint(b) { const cs = [W.R.at(b.s + 18).curv, W.R.at(b.s + 40).curv, W.R.at(b.s + 70).curv]; const c = Math.abs(cs[0]) > Math.abs(cs[1]) ? cs[0] : cs[1]; const m = Math.abs(c) > Math.abs(cs[2]) ? c : cs[2]; return m; }
+  function updateHud(S, b, at, t) {
+    const role = L.ROLES.find((r) => r.id === BB.role) || L.ROLES[0]; const R_ = W.R;
+    setKids(hud.role, role.id, () => [el("div", { class: "ic", text: role.icon }), el("div", {}, [el("b", { text: role.label }), el("small", { text: "Ton poste" })])]);
+    // état du bus et du voyage
+    const onb = S.n.filter((n) => !["wait", "leave", "ejected", "carried"].includes(n.s) || n.s === "carried").length;
+    const rows = [["💰", S.sc.m + " pièces"], ["👥", onb + " à bord, " + S.sc.dl + " colis livrés"]];
+    setKids(hud.stats, [S.sc.m, onb, S.sc.dl, Math.round(S.sc.r / 5), Math.round(b.hl / 5), Math.round(b.tp / 5)].join("|"), () => [
+      el("div", { class: "bb-row" }, [el("span", { text: "💰 " + S.sc.m + " pièces" }), el("span", { text: "👥 " + onb })]),
+      el("div", { class: "bb-row" }, [el("span", { text: "⭐ Réputation" }), el("span", { text: Math.round(S.sc.r) })]), bar(S.sc.r / 100, lvl(S.sc.r, 30, 60)),
+      el("div", { class: "bb-row" }, [el("span", { text: "🚌 Carrosserie" }), el("span", { text: Math.round(b.hl) })]), bar(b.hl / 100, lvl(b.hl, 35, 65)),
+      el("div", { class: "bb-row" }, [el("span", { text: "🌡️ Moteur" }), el("span", { text: Math.round(b.tp) + " degrés" })]), bar((b.tp - 40) / 90, b.tp > 105 ? "bad" : b.tp > 88 ? "warn" : ""),
+      el("div", { class: "bb-row" }, [el("span", { text: "📦 Colis livrés" }), el("span", { text: S.sc.dl })]),
+    ]);
+    // haut de l'écran
+    const st = S.st; const legs = BB.init.legs; const wx = WX[at.wx]; const sf = SURF[at.surf];
+    const from = R_.stops[st.i] ? R_.stops[st.i].s : 0, to = R_.stops[st.nx] ? R_.stops[st.nx].s : from + 1; const frac = clamp((b.s - from) / Math.max(1, to - from), 0, 1);
+    const stopMsg = S.ph === "stop" ? (BB.role === "driver" ? "Attends que l'équipage ait choisi les passagers et rangé les colis, puis appuie sur E pour repartir." : "Va sur le quai choisir les candidats au voyage et les colis. Le conducteur repart quand tout est prêt.") : "";
+    setKids(hud.top, [S.ph, st.ann, st.i, st.nx, Math.round(st.d / 10), Math.round(frac * 50), at.wx, at.surf, BB.role].join("|"), () => S.ph === "stop"
+      ? [el("b", { text: "🚏 Arrêt " + (st.cur || "") }), el("small", { text: "Étape " + Math.min(legs, st.i + 1) + " sur " + legs + (st.i >= legs ? ", c'est le terminus" : "") + (st.ann >= 0 ? "  ·  Départ annoncé dans " + st.ann + " s" : "") }), el("small", { text: stopMsg })]
+      : [el("b", { text: "➡️ " + (st.nm || "Terminus") }), el("small", { text: Math.max(0, st.d) + " m  ·  " + wx.icon + " " + wx.label + "  ·  " + sf.label }), el("div", { class: "bb-road" }, [el("i", { style: { width: Math.round(frac * 100) + "%" } })])]);
+    // tableau de bord
+    const kmh = Math.round(Math.abs(b.v) * 3.6); const cv = curveHint(b); const dz = st.d - 70;
+    setKids(hud.dash, [kmh, Math.round(cv * 4000), b.sl, Math.round((SURF[at.surf].grip * WX[at.wx].grip) * 10),  S.ph, Math.round(st.d / 5), BB.role === "driver" ? 1 : 0, b.tr, b.lk, b.of].join("|"), () => {
+      const kids = [el("div", { class: "bb-speed" }, [document.createTextNode(String(kmh)), el("small", { text: " km/h" })])];
+      if (BB.role === "driver") {
+        if (S.ph === "drive") {
+          const mag = Math.abs(cv); const dir = cv > 0 ? "à droite" : "à gauche";
+          kids.push(el("div", { class: "bb-row", text: mag > 0.0045 ? (mag > 0.011 ? "⚠️ Virage serré " + dir : "↪ Virage " + dir) : "Route droite" }));
+          const grip = SURF[at.surf].grip * WX[at.wx].grip; let cmax = 0.0001; [8, 28, 50, 75].forEach((o) => { cmax = Math.max(cmax, Math.abs(W.R.at(b.s + o).curv)); }); const rec = Math.min(100, Math.round(Math.sqrt(8.2 * grip * 0.75 / cmax) * 3.6));
+          kids.push(el("div", { class: "bb-row" + (kmh > rec * 1.12 ? " warnrow" : ""), text: "Vitesse conseillée " + rec + " km/h" }));
+          if (b.sl) kids.push(el("div", { class: "bb-row", text: "🛞 Le bus dérape, relâche l'accélérateur" }));
+          if (b.of) kids.push(el("div", { class: "bb-row", text: "🌾 Tu es hors de la route" }));
+          if (st.nx <= legs) kids.push(el("div", { class: "bb-row", text: dz > 0 ? "🛑 Zone d'arrêt dans " + dz + " m" : st.d > 6 ? "🛑 Arrête-toi maintenant" : "🛑 Arrêt dépassé" }));
+        }
+      }
+      return kids;
+    });
+    // alertes
+    const al = []; const z = (v) => ZONE(v);
+    if (b.rr) al.push({ ic: "🚪", t: "Porte de secours ouverte" });
+    if (b.tp > 100) al.push({ ic: "🌡️", t: "Le moteur surchauffe", hot: 1 }); if (b.tr) al.push({ ic: "🛞", t: "Pneu crevé, trappe du moteur", hot: 1 }); if (b.lk) al.push({ ic: "💧", t: "Fuite du radiateur, trappe du moteur", hot: 1 });
+    if (b.hl < 35) al.push({ ic: "💥", t: "Carrosserie très abîmée", hot: 1 });
+    S.hz.forEach((h) => al.push({ ic: h.t === "fire" ? "🔥" : "💦", t: (h.t === "fire" ? "Feu " : "Flaque ") + z(h.z), hot: h.t === "fire" }));
+    const needs = S.n.filter((n) => (n.nd || n.tr) && BB.npc[n.i] && n.s !== "wait" && n.s !== "leave").sort((a, c) => (a.nd ? a.nf : 0.5) - (c.nd ? c.nf : 0.5)).slice(0, 5);
+    needs.forEach((n) => { const N = n.nd ? L.NEEDS[n.nd] : null; al.push({ ic: N ? N.icon : "😡", t: BB.npc[n.i].nm + (N ? " " + N.label : " fait des bêtises") + ", " + z(n.z), pct: N ? n.nf : 0.4, hot: N ? n.nf < 0.25 : 1 }); });
+    if (S.ph === "stop") { const cands = S.n.filter((n) => n.s === "wait").length, crates = S.it.filter((i) => i.t === "crate" && (i.s === "wait" || i.s === "plat")).length; if (cands || crates) al.push({ ic: "🧳", t: cands + " candidat" + (cands > 1 ? "s" : "") + " et " + crates + " colis sur le quai" }); }
+    setKids(hud.alerts, al.map((a) => a.t + (a.pct != null ? Math.round(a.pct * 10) : "")).join("#"), () => al.slice(0, 8).map((a) => el("div", { class: "bb-alert" + (a.hot ? " hot" : "") }, [el("span", { class: "ic", text: a.ic }), el("span", { class: "t", text: a.t }), a.pct != null ? el("span", { class: "m" }, [el("i", { style: { width: Math.round(clamp(a.pct, 0, 1) * 100) + "%" } })]) : null])));
+    // journal
+    const nowMs = performance.now(); const live = BB.feed.filter((m) => nowMs - m.t < 11000).slice(window.innerHeight < 560 ? -3 : -7);
+    setKids(hud.feed, live.map((m) => m.t).join(","), () => live.map((m) => el("div", { class: "bb-msg " + m.kind, text: m.text })));
+    // invite d'action
+    const list = findTargets(); const top = list[0]; const dsc = top ? describe(top) : null;
+    const showHold = BB.hold && BB.holdProg > 0;
+    setKids(hud.prompt, (dsc ? dsc.text + (dsc.info || "") : "") + (showHold ? BB.holdProg : "") + (BB.tumble ? "t" : ""), () => {
+      if (BB.tumble) return [el("div", { class: "pill", text: "Tu es tombé, attends de te relever" })];
+      const k = [];
+      if (dsc && dsc.text) k.push(el("div", { class: "pill" + (dsc.hint ? " soft" : "") , text: dsc.text }));
+      if (dsc && dsc.info) k.push(el("div", { class: "pill info", text: dsc.info }));
+      if (showHold) k.push(el("div", { class: "bb-prog" }, [el("i", { style: { width: BB.holdProg + "%" } })]));
+      return k;
+    });
+    const held = BB.held; let hl = "";
+    if (held.indexOf("item") === 0) { const it = S.it.find((i) => "item" + i.i === held); if (it) hl = "Tu portes " + (it.c ? L.CARGO[it.c].label.toLowerCase() : L.ITEMS[it.t].label.toLowerCase()) + ". G pour le poser, T pour le lancer"; } else if (held.indexOf("npc") === 0) hl = "Tu portes un passager. G pour le poser, devant une porte ouverte il sera éjecté";
+    setKids(hud.heldbox, hl, () => hl ? [el("span", { text: hl })] : []); hud.heldbox.style.display = hl ? "" : "none";
+    const keys = BB.touch ? "Stick pour marcher, glisse pour regarder" : (BB.role === "driver" ? "Z S accélérer et freiner  ·  Q D tourner  ·  Espace frein  ·  H klaxon  ·  E porte et départ" : "ZQSD ou flèches marcher  ·  Souris regarder  ·  Maj courir  ·  E agir  ·  F porter  ·  G poser  ·  T lancer");
+    setKids(hud.help, keys, () => [el("span", { text: keys })]);
+    hud.cross.style.display = BB.role === "driver" && false ? "none" : "";
+  }
+
+  function showEnd(ov) {
+    hud.end.classList.remove("hidden"); hud.end.innerHTML = "";
+    const st = ov.stats || {}; const mins = Math.floor((ov.t || 0) / 60), secs = (ov.t || 0) % 60;
+    const lines = [["💰 Pièces gagnées", ov.money], ["⭐ Réputation", ov.rep], ["🚌 Carrosserie", ov.hull], ["👥 Passagers transportés", st.carried || 0], ["📦 Colis livrés", st.delivered || 0], ["🛫 Éjectés", st.ejected || 0], ["💥 Chocs", st.crashes || 0], ["🔥 Feux", st.fires || 0], ["🕒 Durée", mins + " min " + secs + " s"]];
+    const stars = ov.win ? "★".repeat(ov.stars) + "☆".repeat(5 - ov.stars) : "☆☆☆☆☆";
+    const card = el("div", { class: "card" }, [el("h2", { text: ov.win ? "Terminus atteint" : "Voyage terminé" }), el("p", { text: ov.win ? "Le bus est arrivé à bon port, plus ou moins entier." : (ov.why || "Le voyage s'arrête ici.") }), el("div", { class: "bb-stars", text: stars }),
+      el("div", { class: "bb-endlines" }, lines.map((l) => el("div", { class: "bb-row" }, [el("span", { text: l[0] }), el("b", { text: String(l[1]) })]))),
+      el("div", { class: "bb-endbtn" }, [Kit.isHost() ? el("button", { class: "btn btn--accent", text: "Retour au salon", onclick: () => Kit.backToLobby() }) : el("p", { class: "muted small", text: "L'hôte peut ramener tout le monde au salon." }), el("button", { class: "btn btn--ghost", text: "Quitter", onclick: () => Kit.leave() })])]);
+    hud.end.appendChild(card); sound.win(); try { document.exitPointerLock(); } catch (e) { /* rien */ }
+  }
+
+  function openMenu() {
+    const row = (title, info, control) => el("div", { class: "menu-row" }, [el("div", {}, [el("b", { text: title }), el("p", { class: "small muted", text: info })]), control]);
+    const sens = el("input", { type: "range", min: "0.4", max: "2.5", step: "0.1", value: String(BB.sens) }); sens.oninput = () => { BB.sens = Number(sens.value); store.set("bb.sens", String(BB.sens)); };
+    const wh = el("input", { type: "range", min: "0.5", max: "2.5", step: "0.1", value: String(BB.wheel) }); wh.oninput = () => { BB.wheel = Number(wh.value); store.set("bb.wheel", String(BB.wheel)); };
+    const sbtn = el("button", { class: "btn btn--small btn--ghost", text: sound.enabled ? "Son activé" : "Son coupé", onclick: (ev) => { ev.target.textContent = sound.toggle() ? "Son activé" : "Son coupé"; } });
+    const cbtn = el("button", { class: "btn btn--small btn--ghost", text: PicuiteGL.compat() ? "Compatibilité activée" : "Compatibilité coupée", onclick: () => PicuiteGL.setCompat(!PicuiteGL.compat()) });
+    const keys = el("div", { class: "keys" }, [
+      el("kbd", { text: "Z Q S D" }), el("span", { text: "Marcher dans le bus. Sur un clavier QWERTY ce sont W A S D, les flèches marchent aussi. Le conducteur accélère avec la touche du haut, freine avec celle du bas et tourne avec les côtés." }),
+      el("kbd", { text: "Souris" }), el("span", { text: "Regarder autour de soi. Clique dans la scène pour capter la souris, Échap pour la libérer. Un clic agit comme la touche E, ou joue le klaxon pour le conducteur." }),
+      el("kbd", { text: "E" }), el("span", { text: "Agir sur ce que tu vises. Reste appuyé pour calmer, éteindre un feu ou réparer le moteur." }),
+      el("kbd", { text: "F" }), el("span", { text: "Porter un passager, par exemple un fauteur de trouble ou un dormeur." }),
+      el("kbd", { text: "G et T" }), el("span", { text: "Poser ce que tu tiens, ou le lancer. À une porte ouverte, poser un passager l'éjecte." }),
+      el("kbd", { text: "R" }), el("span", { text: "Refuser un candidat au voyage sur le quai." }),
+      el("kbd", { text: "1 2 3" }), el("span", { text: "Au chariot, choisir casse-croûte, boisson ou serpillière." }),
+      el("kbd", { text: "Maj" }), el("span", { text: "Courir, mais attention aux virages." }),
+      el("kbd", { text: "H" }), el("span", { text: "Klaxon du conducteur, il fait fuir les animaux." }),
+      el("kbd", { text: "E (conducteur)" }), el("span", { text: "À l'arrêt, ferme la porte et lance le départ." }),
+    ]);
+    Kit.showModal("Réglages", [row("Sensibilité de la souris", "Vitesse de rotation de la vue. Plus haut tourne plus vite.", sens), row("Vitesse du volant", "Pour le conducteur. Plus haut, le volant tourne plus vite quand tu gardes une touche appuyée. Il revient seul au centre quand tu la relâches.", wh), row("Son", "Active ou coupe les bruitages.", sbtn),
+      row("Mode compatibilité", "Affichage 3D le plus simple possible, sans ombres ni reflets. À essayer si l'écran reste blanc ou si le jeu rame.", cbtn),
+      el("h3", { text: "Commandes", style: { marginTop: "0.8rem" } }), keys,
+      el("button", { class: "btn btn--danger btn--small", style: { marginTop: "0.8rem" }, text: "Quitter la partie", onclick: () => Kit.confirm("Quitter la partie et revenir à l'accueil ?", () => { $("#modal").classList.add("hidden"); Kit.leave(); }) })]);
+  }
+
+  Kit.on("reset", () => { stopScene(); BB.v = null; BB.init = null; BB.over = null; try { document.exitPointerLock(); } catch (e) { /* rien */ } });
+  Kit.on("room", (r) => { if (r.status === "lobby") { stopScene(); BB.v = null; BB.init = null; BB.over = null; if (hud.end) hud.end.classList.add("hidden"); try { document.exitPointerLock(); } catch (e) { /* rien */ } } });
+  Kit.on("screen", (name) => { if (name === "game") { if (!built) buildGame(); setTimeout(resize, 50); if (hud.click && !BB.touch) hud.click.style.display = ""; } });
+  window.BusBazar = BB;
   Kit.init({
-    id: "bus-bazar", title: "Bus Bazar", emoji: "🚌", ribbon: "Quatre postes, un bus, zéro contrôle", tagline: "Faites arriver un bus absurde à destination, avec des passagers pires que lui.",
+    id: "bus-bazar", title: "Bus Bazar", emoji: "🚌", ribbon: "Un bus, des passagers, zéro contrôle", tagline: "Un voyage en 3D dans un bus bondé, où chacun a son poste et rien ne se passe comme prévu.",
     createLabel: "Créer un équipage", soloLabel: "Jouer seul", startLabel: "Prendre la route", helpTitle: "Comment jouer", noBots: true,
-    floaters: [{ e: "🚌", x: 6 }, { e: "🦆", x: 20 }, { e: "🧰", x: 34 }, { e: "🧭", x: 48 }, { e: "📣", x: 62 }, { e: "🚧", x: 76 }, { e: "🥖", x: 90 }],
+    floaters: [{ e: "🚌", x: 6 }, { e: "🐔", x: 20 }, { e: "🧰", x: 34 }, { e: "🧳", x: 48 }, { e: "📣", x: 62 }, { e: "🐄", x: 76 }, { e: "🥖", x: 90 }],
     colors: COLORS, botLevels: [{ id: "habile", label: "Habile" }], maxPlayers: 4, minPlayers: 1, schema: R.SCHEMA,
     help: [
-      { title: "Le but", text: "Amener un bus et ses passagers jusqu'au terminus à travers des routes générées au hasard. Quatre postes se partagent le travail, le conducteur, le mécanicien, le navigateur et la responsable de cabine. Les postes sans joueur sont tenus par des robots, on peut donc jouer de un à quatre." },
-      { title: "Réussir et échouer", text: "On réussit en arrivant à destination. La note dépend de la satisfaction des passagers, du retard, de l'état du bus, des objectifs et des ressources restantes. Des passagers mécontents ne font jamais perdre la partie, ils donnent des réclamations et une note plus basse." },
-      { title: "Les cinq façons de perdre", text: "Accident majeur si la carrosserie tombe à zéro. Véhicule irréparable si le moteur reste hors service deux minutes. Panne sèche si le carburant est épuisé. Mission annulée si le retard dépasse la limite. Objectif critique manqué, par exemple la passagère VIP qui quitte le bus furieuse." },
-      { title: "Le conducteur", text: "Il conduit avec de vraies inerties. Dans un virage serré, il faut freiner avant d'y entrer. Le klaxon disperse vaches et piétons, l'esquive évite un obstacle au prix des pneus et de l'humeur, l'essuie-glace nettoie le pare-brise." },
-      { title: "Le mécanicien", text: "Chaque système du bus s'use. Pièce de rechange pour du solide, ruban pour dépanner mais ça lâche, coup de clé gratuit mais capricieux. Les freins et les pneus se réparent proprement seulement à l'arrêt." },
-      { title: "Le navigateur", text: "Il choisit la route à chaque arrêt, directe, sûre ou pittoresque, achète carburant et pièces, annonce les prévisions et tranche les dilemmes de la compagnie. Avec un circuit électrique en panne, ses cartes deviennent douteuses." },
-      { title: "La responsable de cabine", text: "Elle gère les humeurs, les demandes et les bêtises. Chaque action affiche ses chances de réussir. Les baffes cartoon marchent surtout sur les paniqués et fâchent presque tout le monde, elles ne sont jamais la meilleure idée par défaut." },
-      { title: "Les incidents en chaîne", text: "Les incidents ont des causes et des suites. Un café renversé abîme l'électricité, un court-circuit coince le klaxon, un klaxon coincé rend malade le dormeur. Le journal et les alertes expliquent tout, et chaque incident a toujours une solution." },
-      { title: "Les nouveautés loufoques", text: "Fanfares, troupeaux, pluies de grenouilles, péage tenu par un clown, drone perdu, fantômes, karaoké sauvage et bien d'autres surprises. Chaque événement a toujours une solution. Les passagers ont aussi leurs manies, le magicien rate ses tours, le cuisinier fait des crêpes en roulant. La responsable de cabine a de nouvelles actions, le conducteur a la musique et le gyrophare, le mécanicien a la bidouille créative." },
-      { title: "Blagues entre équipiers", text: "Radio dramatique, annonce déplacée, faux insecte, fausse alerte et vote d'urgence. L'hôte choisit ce qui est autorisé. Chaque blague a un petit coût ou un temps d'attente." },
-      { title: "Relève des postes", text: "En mode relève, à chaque arrêt, les joueurs passent au poste suivant pour essayer tous les métiers. Les robots prennent les postes vides." },
+      { title: "Le but", text: "Mener un bus et ses passagers de station en station jusqu'au terminus, en 3D, à la première personne. À chaque arrêt on choisit qui monte et quels colis chargent. En route il faut nourrir, rassurer, réparer et garder le bus sur la route." },
+      { title: "Les quatre postes", text: "Le conducteur reste au volant, conduit, klaxonne et ouvre ou ferme la porte. L'hôtesse ou steward sert les repas et les boissons, rassure les passagers et choisit qui monte à l'arrêt. Le mécano répare le moteur et les pneus et éteint les feux. Le bagagiste choisit et range les colis, rattrape les poulets et sort les fauteurs de trouble. Les postes sans joueur sont tenus par des robots." },
+      { title: "Se déplacer et agir", text: "On marche dans le bus avec ZQSD ou les flèches, et on regarde à la souris. Une invite en bas de l'écran dit ce que la touche E fait sur ce que tu vises. Reste appuyé sur E pour calmer quelqu'un, éteindre un feu ou réparer le moteur. F porte un passager, G pose ce que tu tiens, T le lance." },
+      { title: "Aux arrêts", text: "Le conducteur s'arrête dans la zone d'arrêt. L'équipage descend sur le quai, lit la fiche de chaque candidat, accepte ou refuse avec R, puis charge les colis et les range dans le bus. Le conducteur referme la porte quand tout le monde est monté, et personne ne doit rester dehors." },
+      { title: "En route", text: "Les passagers ont faim, soif, peur, besoin de leur valise ou envie de descendre. Une icône et une barre apparaissent au-dessus de leur tête, et la liste en haut à droite dit où aller. Les virages serrés, les nids de poule, la pluie et le vent secouent tout le monde, même les colis." },
+      { title: "Les colis", text: "Chaque colis paie à l'arrivée à la bonne destination. Les poulets s'échappent si la caisse est secouée, les feux d'artifice craignent les flammes, le fût de cidre fuit, la statue se brise et le piano glisse partout. Range-les dans le porte-bagages ou sur les emplacements jaunes du fond." },
+      { title: "Les fauteurs de trouble", text: "Un farceur ou un fêtard peut jeter des objets, ouvrir la porte de secours ou embêter ses voisins. Maintiens E pour le calmer, ou porte-le avec F jusqu'à une porte ouverte pour l'éjecter. C'est drôle mais cela coûte de la réputation si la personne n'avait rien fait." },
+      { title: "Réussir", text: "La note de une à cinq étoiles dépend de la réputation, de l'état du bus, de l'argent gagné et du nombre de passagers transportés. Le voyage se perd si la réputation tombe à zéro ou si le bus est en miettes." },
     ],
     theme: { a1: "#ffd23f", a2: "#f08a24", bg1: "#2a4a7a", bg2: "#10203a" },
     renderPreview,
