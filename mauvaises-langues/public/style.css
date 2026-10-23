@@ -1,7 +1,7 @@
 /* Mauvaises Langues — néon, rose et violet, un peu trop de piment */
 #screen-game { background: #14032a; color: #fff; }
-#screen-game.screen--active { position: fixed; inset: 0; height: auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-.ml-bg { position: absolute; inset: 0; background: radial-gradient(circle at 15% 10%, rgba(255, 79, 163, 0.35), transparent 45%), radial-gradient(circle at 90% 30%, rgba(155, 92, 255, 0.4), transparent 50%), radial-gradient(circle at 50% 110%, rgba(255, 210, 63, 0.18), transparent 50%), #14032a; z-index: 0; }
+#screen-game.screen--active { position: fixed; top: 0; right: 0; bottom: 0; left: 0; height: auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.ml-bg { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: radial-gradient(circle at 15% 10%, rgba(255, 79, 163, 0.35), transparent 45%), radial-gradient(circle at 90% 30%, rgba(155, 92, 255, 0.4), transparent 50%), radial-gradient(circle at 50% 110%, rgba(255, 210, 63, 0.18), transparent 50%), #14032a; z-index: 0; }
 .ml-top { position: relative; z-index: 2; padding: 0.55rem 0.8rem 0.3rem; display: flex; flex-direction: column; gap: 0.35rem; }
 .ml-round { font-family: var(--font-title); letter-spacing: 0.04em; font-size: 1.05rem; color: var(--accent-1); text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35); }
 .ml-scores { display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 0.2rem; scrollbar-width: none; }
@@ -14,7 +14,7 @@
 .ml-chip--off { opacity: 0.45; }
 .ml-timer { position: relative; z-index: 2; margin: 0.1rem 0.8rem 0; height: 14px; border-radius: 8px; background: rgba(255, 255, 255, 0.14); overflow: hidden; }
 .ml-timer i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #ff4fa3, #ffd23f); transition: width 0.25s linear; }
-.ml-timer span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 700; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+.ml-timer span { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 700; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
 .ml-timer--hot i { background: linear-gradient(90deg, #ff2d2d, #ff8a1f); animation: mlpulse 0.6s ease-in-out infinite; }
 @keyframes mlpulse { 50% { opacity: 0.55; } }
 .ml-stage { position: relative; z-index: 1; flex: 1; overflow-y: auto; padding: 0.7rem 0.8rem 5.5rem; display: flex; flex-direction: column; gap: 0.8rem; width: 100%; max-width: 680px; margin: 0 auto; }
@@ -73,7 +73,7 @@
 .ml-react-bar { position: absolute; left: 50%; bottom: 0.7rem; transform: translateX(-50%); z-index: 4; display: flex; gap: 0.4rem; background: rgba(10, 0, 30, 0.75); border: 2px solid rgba(255, 255, 255, 0.25); border-radius: 99px; padding: 0.3rem 0.6rem; backdrop-filter: blur(6px); }
 .ml-emo { width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, 0.1); font-size: 1.5rem; padding: 0; }
 .ml-emo:active { transform: scale(1.3); }
-.ml-reacts { position: absolute; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
+.ml-reacts { position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; z-index: 5; overflow: hidden; }
 .ml-fly { position: absolute; bottom: 4.5rem; display: flex; flex-direction: column; align-items: center; animation: mlfly 2.5s ease-out forwards; }
 .ml-fly span { font-size: 2.4rem; } .ml-fly small { font-size: 0.7rem; background: rgba(0, 0, 0, 0.5); border-radius: 99px; padding: 0 0.4rem; }
 @keyframes mlfly { from { transform: translateY(0) scale(0.6); opacity: 1; } 80% { opacity: 1; } to { transform: translateY(-62vh) scale(1.2); opacity: 0; } }
