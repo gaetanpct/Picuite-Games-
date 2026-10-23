@@ -1072,7 +1072,7 @@ class Game {
     for (let i = 0; i < pr.outs.length; i++) { r -= ws[i]; if (r <= 0) { o = pr.outs[i]; oi = i; break; } }
     const pre = EXP.record(this, p, pr, info.risky ? info.tones[oi] : 0, info);
     FX.applyFx(this, p, o.fx, x);
-    const text = pre + C.render(o.t, p, x);
+    const text = pre + C.render(typeof o.t === "function" ? o.t(p, x, this) : o.t, p, x);
     rep.lines.push(text);
     if (o.j) p.journal.push({ age: p.age, text, ic: pr.ic, tag: "projet" });
   }

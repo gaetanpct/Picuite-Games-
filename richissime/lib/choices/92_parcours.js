@@ -15,6 +15,13 @@ function chance(base, stat, dom) {
   };
 }
 
+// les métiers pour lesquels chaque parcours a du sens
+const TRACKS_OF = {
+  sport: ["sportpro", "foot", "tennis", "rugby", "cyclisme", "boxe", "f1", "ski", "natation", "coach", "golf_pro", "testeur_toboggans", "explorateur", "esport", "danse"],
+  cine: ["cinema", "humour", "mannequin", "arts", "media", "createur", "photo", "cabaret", "medium_tele", "cirque", "voyante", "presse"],
+  music: ["chanteur", "dj", "arts", "danse", "cabaret", "createur", "media"],
+};
+
 function ladder(L) {
   L.steps.forEach((S, i) => {
     const n = i + 1;
@@ -27,6 +34,8 @@ function ladder(L) {
     reg({ id: "par_" + L.id + "_" + n, grp: "parcours", dom: [L.dom], l: S.l, ic: S.ic, d: S.d, need, cool: S.cool === undefined ? (n >= 4 ? 3 : n === 3 ? 2 : 1) : S.cool, w: S.w || 12, prio: 0, j: true, tag: S.tag,
       fit: (p) => {
         if (IN.val(p, L.dom) < (S.minInterest || 0)) return 0;
+        // les marches professionnelles ne se proposent pas à quelqu'un dont le métier n'a rien à voir avec le parcours
+        if (n >= 3 && p.job && p.job.track !== "libre" && !TRACKS_OF[L.id].includes(p.job.track)) return 0;
         if (((p.parTry || {})["par_" + L.id + "_" + n] || 0) >= (n <= 1 ? 4 : n === 2 ? 3 : n === 3 ? 3 : 2)) return 0;
         if (S.minStat && (S.minStat[0] in p.stats ? p.stats[S.minStat[0]] : p.traits[S.minStat[0]]) < S.minStat[1]) return 0;
         // plus on s'est investi, plus l'occasion se présente

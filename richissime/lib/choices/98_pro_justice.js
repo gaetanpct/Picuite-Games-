@@ -274,3 +274,144 @@ P("rc_mus_viral", "scene", "📱", "Lancer un défi viral avec ton morceau", "Un
         out(fail(ch), "Une enquête de la fédération met la main sur des échanges de messages. Tu es suspendu(e) à vie, et la justice veut s'en mêler.", { fire: true, prison: yrs(1, 2), flag: "ancienne_gloire", repute: -22, pro: { rep: -8, heat: 20 }, bonheur: -14, pub: "🎲 $nom suspendu(e) pour match truqué." }, true),
       ] });
 }
+
+// ============================================================
+// Vocabulaire par métier (ce qui suit adapte les options déjà déclarées)
+// ============================================================
+{
+// Les options de l'onglet Professionnel parlent la langue du métier exercé.
+// Un chanteur ne reçoit plus des conseils de footballeur, un peintre ne passe plus de casting, un plombier ne vise plus une étoile au guide.
+// Les textes deviennent des fonctions du joueur. Sans variante pour un métier, le texte d'origine reste.
+const { byId } = require("../lifekit");
+
+const subOf = (map) => (p) => {
+  const t = p.job && p.job.track;
+  for (const k of Object.keys(map)) if (map[k].includes(t)) return k;
+  return null;
+};
+
+// ---------- création et scène ----------
+const SCENE = subOf({
+  MUS: ["chanteur", "dj"],
+  ECR: ["cinema", "humour", "mannequin", "cabaret", "adulte", "medium_tele", "voyante"],
+  VIS: ["arts", "peintre", "photo", "mode", "danse", "cirque", "sculpteur_beurre"],
+  WEB: ["createur", "media", "gamedev", "paparazzi", "critique_gastro"],
+});
+// ---------- sport et aventure ----------
+const SPORT = subOf({
+  TEAM: ["foot", "rugby"],
+  SOLO: ["sportpro", "tennis", "boxe", "natation", "ski", "cyclisme", "f1", "golf_pro", "testeur_toboggans"],
+  ESP: ["esport"],
+  COACH: ["coach"],
+  ADV: ["explorateur", "astronaute"],
+});
+// ---------- métiers manuels ----------
+const FOOD = ["resto", "patisserie", "chocolatier", "sommelier", "boulanger", "boucher", "fromager", "brasseur", "fleuriste", "hotel", "agri", "maraicher", "apiculteur", "coiffeur", "artisan", "paysagiste", "menuisier", "bijoutier", "couturier", "tatoueur", "libraire"];
+const RISK = ["btp", "agri", "marin", "transport", "pompier", "militaire", "artisan", "plombier", "electricien", "pecheur", "installateur_solaire", "mecano", "maraicher", "chauffeur_bus"];
+const EXAM = ["ordre", "pompier", "militaire", "transport", "facteur", "chauffeur_bus", "hotesse_air", "animateur", "aide_domicile"];
+const NOSHOP = ["ordre", "pompier", "militaire", "chauffeur_bus", "facteur", "marin", "hotesse_air", "animateur", "aide_domicile", "guide_tourisme", "crieur_public", "casino", "nuit", "testeur_matelas"];
+
+function edit(id, f) { const pr = byId[id]; if (pr) f(pr); else throw new Error("option inconnue " + id); }
+// ne propose l'option qu'à certains métiers
+function onlyFor(id, list) { edit(id, (pr) => { const old = pr.fit; pr.fit = (p, g) => (p.job && list.includes(p.job.track) ? (old ? old(p, g) : 1) : 0); }); }
+function notFor(id, list) { edit(id, (pr) => { const old = pr.fit; pr.fit = (p, g) => (p.job && list.includes(p.job.track) ? 0 : (old ? old(p, g) : 1)); }); }
+// titre, description et issues selon le métier. V = { CLE: [titre, description, [texte issue 1, texte issue 2, ...]] }
+function words(id, sub, V) {
+  edit(id, (pr) => {
+    const l0 = pr.l, d0 = pr.d;
+    pr.l = (p) => { const v = V[sub(p)]; return v && v[0] ? v[0] : l0; };
+    pr.d = (p) => { const v = V[sub(p)]; return v && v[1] ? v[1] : d0; };
+    (pr.outs || []).forEach((o, i) => {
+      const t0 = o.t;
+      o.t = (p) => { const v = V[sub(p)]; return v && v[2] && v[2][i] ? v[2][i] : t0; };
+    });
+  });
+}
+
+// ===== scène =====
+words("s_casting", SCENE, {
+  MUS: ["Enchaîner les auditions et les scènes ouvertes", "Des fonds de bar, des plateaux de télé et la phrase « on vous rappellera ». Il faut passer partout pour être entendu.",
+    ["Un producteur te choisit pour sa prochaine production. Ton nom apparaît sur les affiches et les propositions suivantes arrivent toutes seules.", "Tu décroches une première partie. Ce n'est pas la gloire, mais ton nom est sur le programme.", "Les refus s'enchaînent. Tu apprends à encaisser, à sourire, et à porter ton instrument dans le métro."]],
+  ECR: null,
+  VIS: ["Présenter ton travail aux galeries et aux appels à projets", "Un dossier sous le bras, des portfolios qui s'empilent et des réponses qui tardent. Il faut frapper à beaucoup de portes.",
+    ["Une galerie importante t'ouvre ses murs. Ton nom est sur le carton d'invitation et les propositions suivantes arrivent toutes seules.", "Une exposition collective te prend. Ce n'est pas la gloire, mais ton nom est dans le catalogue.", "Les refus s'enchaînent. Tu apprends à encaisser, à sourire, et à porter ton carton à dessin dans le métro."]],
+  WEB: ["Décrocher des partenariats et des collaborations", "Des messages à des marques, des propositions de contenus et la phrase « on revient vers vous ». Il faut démarcher pour exister.",
+    ["Une grande marque te confie sa campagne. Ton nom est partout et les propositions suivantes arrivent toutes seules.", "Un petit partenariat te tombe dessus. Ce n'est pas la gloire, mais ton nom est dans la description.", "Les refus s'enchaînent. Tu apprends à encaisser, à sourire, et à relancer sans insister."]],
+});
+words("s_tournee", SCENE, {
+  MUS: ["Partir en tournée", "Des villes que tu ne connaissais pas, des salles de taille variable, un camion de matériel et des hôtels de passage.", null],
+  ECR: ["Partir en tournée de théâtre ou de spectacle", "Des villes inconnues, des salles de tailles variées, des loges minuscules et des hôtels de passage.", null],
+  VIS: ["Faire circuler ton travail dans des expositions", "Des villes, des murs blancs, des vernissages et des trajets avec des cadres sous le bras.", ["L'exposition itinérante est fatigante et belle. Tu reviens avec de l'argent, des contacts partout et un public qui sait ton nom.", "Les salles sont à moitié vides et les vernissages tièdes. L'exposition n'est pas rentable, mais tu progresses."]],
+  WEB: ["Partir à la rencontre de ton public", "Salons, conventions et rencontres avec ceux qui te suivent. Tu découvres que les gens réels sont plus grands qu'à l'écran.", ["La rencontre est fatigante et belle. Tu reviens avec de l'argent, des contacts partout et des fans qui connaissent ton nom.", "Les salles sont à moitié vides et les stands trop chauds. La tournée n'est pas rentable, mais tu progresses."]],
+});
+words("s_contrat", SCENE, {
+  MUS: ["Signer avec un grand label", "Plus de moyens, un studio mieux équipé et un contrat plus épais que ton répertoire.", null],
+  ECR: ["Signer avec une grande production", "Un studio, une chaîne ou une grande agence. Plus de moyens, moins de liberté.", null],
+  VIS: ["Être représenté par une grande galerie", "Une galerie qui compte te propose un contrat d'exclusivité. Plus de moyens et de visibilité, moins de liberté.", null],
+  WEB: ["Signer avec un grand réseau ou une grande marque", "Une plateforme ou une marque te propose un contrat. Plus de moyens, moins de liberté.", null],
+});
+words("s_festival", SCENE, {
+  MUS: ["Te présenter à un festival ou à un concours de chant", "Un jury, un public et une photo du lauréat dans le journal du lendemain.", null],
+  ECR: ["Te présenter à un festival ou à un concours", "Un jury, un public et une photo du lauréat dans le journal du lendemain.", null],
+  VIS: ["Concourir pour un salon ou un prix d'art", "Un jury qui regarde ton œuvre trois secondes et un nom de lauréat dans le journal du lendemain.", null],
+  WEB: ["Viser un prix de créateurs ou de médias", "Un jury, des nominations et une cérémonie où tout le monde se connaît.", null],
+});
+words("s_maitre", SCENE, {
+  MUS: ["Prendre des cours avec un grand musicien", "Un artiste reconnu accepte de te prendre en cours. Il est exigeant, souvent injuste et toujours instructif.", null],
+  ECR: ["Prendre des cours avec un grand comédien", "Un artiste reconnu accepte de te prendre en cours. Il est exigeant, souvent injuste et toujours instructif.", null],
+  VIS: ["Prendre des cours avec un maître de ton art", "Un artiste reconnu accepte de te prendre en atelier. Il est exigeant, souvent injuste et toujours instructif.", null],
+  WEB: ["Te former auprès d'un grand créateur", "Une figure de ton milieu accepte de te donner son temps. Il est exigeant, souvent injuste et toujours instructif.", null],
+});
+// des issues très liées à la scène ne conviennent pas à tous
+notFor("s_casting", ["critique_gastro", "paparazzi", "gamedev", "voyante", "sculpteur_beurre", "traducteur_chats", "chasseur_fantomes", "dresseur_licornes"]);
+
+// ===== sport =====
+words("sp_grand_rdv", SPORT, {
+  TEAM: ["Viser la grande finale avec ton équipe", "Championnat, finale, derby mythique. Toute ta saison converge vers un seul match.", ["Vous le faites. Le jour J, tout s'aligne, et ton équipe réalise l'exploit dont tu rêvais depuis l'enfance.", "Vous faites un beau match. Pas de titre, mais de la fierté et des sponsors rassurés.", "Le jour J, rien ne va. Tu passes l'hiver à te demander pourquoi."]],
+  SOLO: ["Viser le grand rendez-vous de l'année", "Championnat, finale, course mythique. Toute ta saison converge vers un seul jour.", null],
+  ESP: ["Viser le grand tournoi mondial", "Une salle comble, des écrans géants et dix mille personnes qui regardent ta souris. Toute ta saison converge vers un seul week-end.", ["Tu le fais. Le jour J, tout s'aligne, et ton équipe soulève le trophée devant une salle debout.", "Tu fais un beau tournoi. Pas de titre, mais de la fierté et des sponsors rassurés.", "Le jour J, rien ne va. Tu passes l'hiver à regarder le replay."]],
+  COACH: ["Mener tes athlètes jusqu'à la grande échéance", "Une finale, un championnat, une qualification. Tout ton travail de l'année se joue en quelques heures sur le bord du terrain.", ["Tes athlètes le font. Le jour J, tout s'aligne, et tu savoures l'exploit dont ils rêvaient depuis l'enfance.", "Une belle performance, sans titre. De la fierté et des sponsors rassurés.", "Le jour J, rien ne va. Tu passes l'hiver à te demander ce que tu aurais pu changer."]],
+  ADV: ["Tenter l'expédition de ta vie", "Un sommet, un pôle, une mission lointaine. Toute ta préparation converge vers un seul départ.", ["Tu le fais. Le jour J, tout s'aligne, et tu réalises l'exploit dont tu rêvais depuis l'enfance.", "L'expédition est belle et incomplète. Pas de record, mais de la fierté et des soutiens rassurés.", "Le jour J, tout se dérègle. Tu passes l'hiver à te demander pourquoi."]],
+});
+words("sp_prepa", SPORT, {
+  ESP: ["Tout donner à l'entraînement et à l'hygiène de vie", "Des journées de pratique intensive, des réflexes à affûter, du sommeil à respecter et un dos qui proteste.", null],
+  COACH: ["Mettre à jour ta méthode d'entraînement", "Stages, lectures et analyses vidéo. Ceux qui entraînent doivent aussi s'entraîner.", null],
+  ADV: ["Te préparer physiquement pour l'expédition", "Endurance, altitude, froid et poids du sac. Ton corps devra tenir plus longtemps que ton confort.", null],
+});
+words("sp_contrat", SPORT, {
+  TEAM: ["Négocier un nouveau contrat ou un transfert", "Ton agent, un directeur sportif et trois clubs qui font semblant de ne pas se parler.", null],
+  SOLO: ["Négocier avec une écurie, un équipementier ou une fédération", "Ton agent, un directeur et trois marques qui font semblant de ne pas se parler.", ["Une meilleure structure te veut. Ton nouveau contrat te permet de franchir un cap, en salaire comme en visibilité.", "Aucune structure ne s'engage. Tu restes où tu es, avec une prolongation moins avantageuse."]],
+  ESP: ["Rejoindre une meilleure équipe", "Ton manager, deux structures concurrentes et une clause de départ que personne ne comprend.", ["Une meilleure équipe te veut. Ton nouveau contrat te permet de franchir un cap, en salaire comme en visibilité.", "Aucune équipe ne s'engage. Tu restes où tu es, avec une prolongation moins avantageuse."]],
+});
+words("sp_capitaine", SPORT, {
+  ESP: ["Devenir le capitaine de l'équipe", "Organiser les stratégies, calmer les tensions, parler aux sponsors quand ça va mal.", null],
+});
+onlyFor("sp_contrat", ["foot", "rugby", "tennis", "boxe", "natation", "ski", "cyclisme", "f1", "sportpro", "golf_pro", "esport"]);
+onlyFor("sp_capitaine", ["foot", "rugby", "esport"]);
+onlyFor("sp_reconversion", ["foot", "rugby", "tennis", "boxe", "natation", "ski", "cyclisme", "f1", "sportpro", "golf_pro", "esport", "astronaute", "explorateur"]);
+notFor("sp_raccourci", ["esport", "explorateur", "astronaute", "coach", "golf_pro", "testeur_toboggans"]);
+notFor("sp_sponsor", ["coach", "astronaute"]);
+notFor("sp_grand_rdv", ["testeur_toboggans"]);
+
+// ===== métiers manuels =====
+onlyFor("t_label", FOOD);
+onlyFor("t_chantier_risque", RISK);
+onlyFor("t_concours", EXAM.concat(["public", "enseignement"]));
+notFor("t_atelier", NOSHOP);
+words("t_label", subOf({ FOOD: FOOD }), { FOOD: ["Viser un label de qualité", "Un guide, une étoile, une distinction régionale. Les inspecteurs passent sans prévenir.", null] });
+
+// ===== coups de poker de la scène et du sport (rc_*) =====
+const MUS = ["chanteur", "dj"];
+const ECR = ["cinema", "humour", "mannequin", "cabaret", "adulte", "medium_tele"];
+onlyFor("rc_mus_streams", MUS);
+onlyFor("rc_mus_label", MUS);
+onlyFor("rc_mus_viral", MUS.concat(["createur"]));
+onlyFor("rc_cine_la", ECR);
+onlyFor("rc_cine_tele", ECR.concat(["createur", "chanteur", "danse"]));
+onlyFor("rc_cine_film", ECR.concat(["photo", "media"]));
+onlyFor("rc_cine_buzz", ECR.concat(["createur", "chanteur", "dj", "media", "paparazzi"]));
+onlyFor("rc_sport_agent", ["foot", "rugby", "tennis", "boxe", "natation", "ski", "cyclisme", "f1", "sportpro", "golf_pro", "esport"]);
+onlyFor("rc_sport_camp", ["foot", "rugby", "tennis", "boxe", "natation", "ski", "cyclisme", "f1", "sportpro", "golf_pro", "explorateur", "astronaute"]);
+onlyFor("rc_sport_truque", ["foot", "rugby", "tennis", "boxe", "cyclisme", "sportpro", "esport"]);
+
+}

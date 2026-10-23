@@ -32,6 +32,16 @@ function affinity(g, p, k, T, ctx) {
   a *= IN.trackFactor(p, k);
   a *= require("./filieres").affinityMul(p, k);
   { const FB = { sportpro: "par_sport_2", cinema: "par_cine_2", chanteur: "par_music_2" }; if (FB[k] && p.flags[FB[k]]) a *= 5; }
+  // la vie ne se joue pas qu'à la scène ou au stade, les métiers de vedette sont dosés, sauf pour qui les connaît déjà ou s'y est lancé par un parcours
+  {
+    const known0 = ((p.exp && p.exp[k]) || 0) > 0 || p.jobHistory.some((j) => j.track === k);
+    const lad = ["par_sport_1", "par_sport_2", "par_cine_1", "par_cine_2", "par_music_1", "par_music_2"].some((f) => p.flags[f]);
+    const fam = require("./pro").trackFamily(k);
+    if (!known0 && !lad) {
+      if (fam === "scene" || fam === "sport") { if (p.age < 18 && !p.flags["vocation_" + k]) return 0; a *= p.age < 21 ? 0.6 : 0.6; }
+      else if (fam === "terrain" || fam === "bureau") a *= 1.1;
+    }
+  }
   const s = statOf(p, T.stat);
   a *= clamp(0.4 + s / 52, 0.35, 2.6);
   const exp = (p.exp && p.exp[k]) || 0;
