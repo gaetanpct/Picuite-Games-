@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Logo Bus Bazar">
+<circle cx="80" cy="80" r="70" fill="#2a4a7a" stroke="#14172b" stroke-width="6"/>
+<path d="M14 118 L146 118" stroke="#fff" stroke-width="3" stroke-dasharray="10 10" opacity="0.6"/>
+<rect x="22" y="52" width="116" height="56" rx="12" fill="#f2b705" stroke="#14172b" stroke-width="5"/>
+<rect x="22" y="86" width="116" height="9" fill="#d6453d" stroke="#14172b" stroke-width="4"/>
+<rect x="30" y="60" width="20" height="20" rx="4" fill="#bfe8ff" stroke="#14172b" stroke-width="3"/>
+<rect x="56" y="60" width="20" height="20" rx="4" fill="#bfe8ff" stroke="#14172b" stroke-width="3"/>
+<rect x="82" y="60" width="20" height="20" rx="4" fill="#bfe8ff" stroke="#14172b" stroke-width="3"/>
+<rect x="108" y="58" width="24" height="24" rx="5" fill="#bfe8ff" stroke="#14172b" stroke-width="3"/>
+<circle cx="119" cy="68" r="6" fill="#e8b088" stroke="#14172b" stroke-width="2.5"/>
+<path d="M112 72 Q119 79 126 72" fill="none" stroke="#3a2412" stroke-width="3" stroke-linecap="round"/>
+<circle cx="52" cy="110" r="13" fill="#222" stroke="#14172b" stroke-width="4"/><circle cx="52" cy="110" r="5" fill="#ddd"/>
+<circle cx="112" cy="110" r="13" fill="#222" stroke="#14172b" stroke-width="4"/><circle cx="112" cy="110" r="5" fill="#ddd"/>
+<ellipse cx="62" cy="36" rx="9" ry="7" fill="#ffd23f" stroke="#14172b" stroke-width="3"/><circle cx="68" cy="29" r="5" fill="#ffd23f" stroke="#14172b" stroke-width="3"/><path d="M72 29 L79 31 L72 33 Z" fill="#ff9a2e" stroke="#14172b" stroke-width="2"/>
+<path d="M88 40 q4 -10 8 0 q4 -10 8 0" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+</svg>

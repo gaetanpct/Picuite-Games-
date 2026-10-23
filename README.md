@@ -2,7 +2,7 @@
 
 Le site qui réunit tous les jeux, avec une page d'accueil pour choisir.
 
-Jeux inclus pour l'instant, Gaeboub-up (plateau à la Monopoly), Goliathicus (stratégie et bluff), Richissime Destiny (simulation de vie entre amis), Golfouille (golf en 3D sur des terrains générés) Zoomalou (courses de voitures sur des circuits générés) et Mauvaises Langues (jeu de soirée de classements déplacés, pour adultes).
+Jeux inclus pour l'instant, Gaeboub-up (plateau à la Monopoly), Goliathicus (stratégie et bluff), Richissime Destiny (simulation de vie entre amis), Golfouille (golf en 3D sur des terrains générés) Zoomalou (courses de voitures sur des circuits générés) Mauvaises Langues (jeu de soirée de classements déplacés, pour adultes) et Bus Bazar (jeu coopératif à quatre postes dans un bus absurde).
 
 ## Lancer en local
 
@@ -19,13 +19,13 @@ Puis ouvrir localhost, port 3000, dans le navigateur.
 4. Start Command, npm start.
 5. Render fournit la variable PORT tout seul.
 
-Une seule adresse sert tout le site. Les jeux sont sur /gaeboub-up, /goliathicus, /richissime, /golfouille, /zoomalou et /mauvaises-langues. La route /health répond quand le serveur est vivant.
+Une seule adresse sert tout le site. Les jeux sont sur /gaeboub-up, /goliathicus, /richissime, /golfouille, /zoomalou, /mauvaises-langues et /bus-bazar. La route /health répond quand le serveur est vivant.
 
 ## Organisation
 
 - server.js, le serveur du site, il découvre et monte automatiquement chaque jeu.
 - public/, la page d'accueil (index.html, style.css, app.js), les logos dans public/logos et le petit bouton de retour pg-back.js.
-- gaeboub-up/, goliathicus/, richissime/, golfouille/, zoomalou/ et mauvaises-langues/, un dossier par jeu directement à la racine, sans dossier games. Chaque dossier contient son server.js, son dossier public, ses éventuels dossiers lib, et un fichier game.json qui sert à la présentation sur l'accueil. Tout dossier de la racine qui contient un server.js et un game.json est reconnu comme un jeu (sauf public et node_modules).
+- gaeboub-up/, goliathicus/, richissime/, golfouille/, zoomalou/, mauvaises-langues/ et bus-bazar/, un dossier par jeu directement à la racine, sans dossier games. Chaque dossier contient son server.js, son dossier public, ses éventuels dossiers lib, et un fichier game.json qui sert à la présentation sur l'accueil. Tout dossier de la racine qui contient un server.js et un game.json est reconnu comme un jeu (sauf public et node_modules).
 
 Pour envoyer le projet sur GitHub, il suffit de déposer chaque dossier séparément (gaeboub-up, goliathicus, richissime, public), puis les fichiers de la racine. Chaque envoi reste sous la limite de 100 fichiers.
 
@@ -255,3 +255,33 @@ Deux jeux arrivent sur l'accueil, Golfouille et Zoomalou. Ils partagent un petit
 - Les zones sans gravité sont testées par des automates et par des captures d'écran du rendu, pas par de vrais joueurs. Les sensations de conduite dans un looping ou une vrille restent à juger à la manette ou au clavier.
 - Les pilotes automatiques ne tentent pas d'abandonner volontairement, ils jouent jusqu'à la panne d'essence.
 - Les temps de calcul des automates sur les circuits géants peuvent se sentir au début d'un tour.
+
+
+## Dix-neuvième mise à jour, nouveau jeu coopératif, Bus Bazar
+
+Bus Bazar se joue de 1 à 4 personnes. Il y a quatre postes, conducteur, mécanicien, navigateur et responsable de cabine. Les postes sans joueur sont tenus par des robots, qui ne voient que ce que voit leur poste. On peut donc jouer seul.
+
+### Les quatre postes
+
+- Conducteur. Un vrai volant avec de l'inertie, une route en pseudo 3D, accélérateur, frein, klaxon, essuie-glaces, esquive et freinage d'urgence. L'adhérence dépend de la route, des pneus et de la météo.
+- Mécanicien. Sept organes à surveiller, un diagnostic, des réparations en plusieurs étapes, du ruban qui lâche au bout de 45 secondes, des pièces de rechange, un extincteur et le coup de clé qui aide une fois sur deux, ne fait rien une fois sur trois et aggrave une fois sur cinq.
+- Navigateur. Trois types de route à chaque étape, météo annoncée avant qu'elle n'arrive, horaire, achats, annonces au micro, GPS qui peut mentir, dilemmes à choix.
+- Responsable de cabine. Douze types de passagers avec leurs envies, leurs manies et leurs humeurs, et douze actions, dont la baffe cartoon, qui n'est jamais la meilleure idée sur un passager calme.
+
+### Réglages
+
+Dix-huit réglages, tous expliqués dans le salon et tous validés par le serveur. Mode de jeu, durée, rotation des postes, graine, difficulté, chaos, pannes, circulation, exigence des passagers, nombre de passagers, ressources, objets absurdes, sabotages, baffes, objectifs, types de routes, niveau des robots et remplissage des postes vides.
+
+### Graine
+
+La même graine avec les mêmes réglages redonne les mêmes routes, les mêmes passagers, les mêmes obstacles et les mêmes objets de départ. La graine se copie depuis le salon.
+
+### Fin de partie
+
+Cinq échecs distincts, accident majeur, panne sèche, retard fatal, bus irréparable pendant 120 secondes, objectif critique perdu. Une satisfaction très basse ne finit jamais la partie, elle donne des plaintes, une note plus faible et un titre moqueur.
+
+### Limites connues
+
+- Le mode de rotation Crise n'est pas encore là. Il y a Fixe et Relève.
+- Le passager VIP, objectif critique, est perdu assez souvent quand le poste de cabine est laissé à un robot ou à un joueur inactif. À équilibrer.
+- Les sons n'ont pas été écoutés. Rien n'a été testé sur Render ni avec plusieurs vrais téléphones. Le rendu a été contrôlé par captures d'écran dans un navigateur de test.

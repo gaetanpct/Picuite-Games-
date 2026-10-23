@@ -1,0 +1,23 @@
+{
+ "name": "Bus Bazar",
+ "order": 6,
+ "tagline": "Quatre postes, un bus, et zéro contrôle.",
+ "pitch": "Un jeu coopératif où quatre postes se partagent un bus absurde. Le conducteur tient un volant qui a de l'inertie, le mécanicien rafistole avec du ruban, le navigateur choisit les routes et jongle avec l'argent, et la responsable de cabine gère des passagers pires que le bus lui-même. Les routes, les pannes et les incidents en chaîne sont générés à partir d'une graine. Seul ou à quatre, avec des robots pour les postes vides.",
+ "tags": [
+  "1 à 4 joueurs",
+  "8 à 25 minutes",
+  "Coopération et chaos"
+ ],
+ "steps": [
+  "Choisis ton poste, conducteur, mécanicien, navigateur ou responsable de cabine.",
+  "Faites rouler le bus de station en station, en réparant, en décidant et en calmant les passagers.",
+  "Arrivez au terminus avant que le bus, le carburant ou le retard ne vous lâchent."
+ ],
+ "for": "Pour celles et ceux qui aiment crier des ordres contradictoires dans un bus qui fume.",
+ "colors": [
+  "#f2b705",
+  "#7a4b00"
+ ],
+ "cta": "Jouer à Bus Bazar",
+ "logo": "logos/bus-bazar.svg"
+}
