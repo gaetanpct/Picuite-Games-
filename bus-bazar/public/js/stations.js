@@ -23,12 +23,13 @@ const BBStations = (function () {
       const warn = el("div", { class: "warns", id: "d-warns" });
       const alertBox = el("div", { class: "d-alert hidden", id: "d-alert" });
       const stopBox = el("div", { class: "d-stop hidden", id: "d-stop" }, [el("h3", { id: "d-stop-t" }), el("p", { id: "d-stop-p" }), el("button", { class: "btn btn--accent btn--big", id: "d-depart", text: "Donner le départ", onclick: () => act({ t: "depart" }) }), el("p", { class: "why", id: "d-depart-why" })]);
-      const keys = el("div", { class: "keyhint" }, [el("span", { text: "Flèches ou Q D pour tourner, haut ou Z pour accélérer, bas ou S pour freiner" }), el("span", { text: "Espace klaxon, A et E esquive, Maj freinage d'urgence, R essuie-glace" })]);
+      const keys = el("div", { class: "keyhint" }, [el("span", { text: "Flèches ou Q D pour tourner, haut ou Z pour accélérer, bas ou S pour freiner" }), el("span", { text: "Espace klaxon, A et E esquive, Maj freinage d'urgence, R essuie-glace, M musique, G gyrophare" })]);
       const pad = el("div", { class: "pad" }, [
         el("div", { class: "pad-l" }, [this.hold("◀", "left"), this.hold("▶", "right")]),
         el("div", { class: "pad-m" }, [
           this.tap("📯", "Klaxon", () => act({ t: "horn" }), "d-b-horn"), this.tap("↩️", "Esquive gauche", () => act({ t: "dodge", dir: -1 }), "d-b-dl"), this.tap("↪️", "Esquive droite", () => act({ t: "dodge", dir: 1 }), "d-b-dr"),
           this.tap("🛑", "Freinage d'urgence", () => act({ t: "emergency" }), "d-b-em"), this.tap("🧽", "Essuie-glace", () => act({ t: "wipe" }), "d-b-wipe"),
+          this.tap("🎵", "Musique du bord", () => act({ t: "musique" }), "d-b-music"), this.tap("🚨", "Gyrophare de fête", () => act({ t: "gyro" }), "d-b-gyro"),
         ]),
         el("div", { class: "pad-r" }, [this.hold("⛽", "gas", "Accélérer"), this.hold("🛞", "brake", "Freiner")]),
       ]);
@@ -73,7 +74,7 @@ const BBStations = (function () {
     sendDrive() { if (!this.v) return; BB.rawSend({ t: "drive", steer: +this.fx.steer.toFixed(2), thr: this.thr || 0, brk: this.brk || 0 }); },
     key(e) {
       if (e.type !== "keydown" || e.repeat) return; const k = e.key;
-      if (k === " ") { e.preventDefault(); act({ t: "horn" }); } else if (k === "a" || k === "A") act({ t: "dodge", dir: -1 }); else if (k === "e" || k === "E") act({ t: "dodge", dir: 1 }); else if (k === "Shift") act({ t: "emergency" }); else if (k === "r" || k === "R") act({ t: "wipe" });
+      if (k === " ") { e.preventDefault(); act({ t: "horn" }); } else if (k === "a" || k === "A") act({ t: "dodge", dir: -1 }); else if (k === "e" || k === "E") act({ t: "dodge", dir: 1 }); else if (k === "Shift") act({ t: "emergency" }); else if (k === "r" || k === "R") act({ t: "wipe" }); else if (k === "m" || k === "M") act({ t: "musique" }); else if (k === "g" || k === "G") act({ t: "gyro" });
     },
     frame(dt, t) {
       const v = this.v; if (!v || !this.srv) return; const cv = this.cv;
@@ -130,8 +131,9 @@ const BBStations = (function () {
       if (v.hasHammer) { const l2 = cd(v, "hammer"); defs.push({ id: "marteau", ic: "🔨", label: "Marteau en mousse", detail: "Sans risque, restaure un peu. Le clown adore.", dis: l2 > 0 ? "Prêt dans " + secTxt(l2) : "", go: () => act({ t: "hammer", sys }) }); }
       if (sys === "engine" || sys === "cooling") defs.push({ id: "refroidir", ic: R.refroidir.icon, label: "Refroidir le moteur", detail: "1 bidon de liquide, 6 secondes, baisse nettement la température.", dis: busy ? "Une réparation est en cours." : v.inv.coolant <= 0 ? "Plus de liquide de refroidissement." : "", go: () => act({ t: "repair", sys: "engine", kind: "refroidir" }) });
       if (v.hasExt && (sys === "engine" || sys === "cooling")) defs.push({ id: "ext", ic: "🧯", label: "Extincteur", detail: "Refroidit tout de suite, mais le pare-brise du conducteur disparaît sous la mousse pendant 5 secondes.", dis: "", go: () => act({ t: "extinguish" }) });
+      D.MECH_EXTRAS.forEach((x) => { const l3 = cd(v, x.id); defs.push({ id: x.id, ic: x.icon, label: x.label, detail: x.info, dis: l3 > 0 ? "Prêt dans " + secTxt(l3) : busy && x.id === "bidouille" ? "Une réparation est en cours." : "", go: () => act({ t: x.id }) }); });
       const sig = defs.map((d) => d.id).join(",") + sys; if (this.sig !== sig) { this.sig = sig; this.actions.innerHTML = ""; this.btns = {}; defs.forEach((d) => { const b = el("button", { class: "mbtn", onclick: () => d.go() }, [el("span", { class: "mb-ic", text: d.ic }), el("span", { class: "mb-main" }, [el("b", { text: d.label }), el("small", { text: d.detail }), el("small", { class: "why" })])]); this.btns[d.id] = b; this.actions.appendChild(b); }); }
-      defs.forEach((d) => { const b = this.btns[d.id]; btnTip(b, d.dis); b.go = d.go; b.onclick = () => d.go(); });
+      defs.forEach((d) => { const b = this.btns[d.id]; btnTip(b, d.dis); b.go = d.go; });
     },
     frame() { },
   };
@@ -170,7 +172,7 @@ const BBStations = (function () {
       info.appendChild(el("div", { class: "card-lite" }, [el("h3", { text: "Devant nous" }), u ? el("p", { text: B.icon + " " + B.label + ", encore " + u.remaining + " mètres avant l'arrêt. Environ " + u.obsAhead + " obstacle" + (u.obsAhead > 1 ? "s" : "") + " sur la route." }) : el("p", { text: "..." }), ...(u && u.pois.length ? [el("p", { class: "good", text: "À venir " + u.pois.map((p) => p.name + " dans " + p.in + " mètres").join(", ") + "." })] : [])]));
       const fc = v.forecast || []; info.appendChild(el("div", { class: "card-lite" }, [el("h3", { text: "Prévisions" }), fc.length ? el("div", {}, fc.map((f) => el("p", { class: "fc", text: f.icon + " " + f.title + " dans " + f.in + " secondes. Préviens le conducteur par radio." }))) : el("p", { class: "muted", text: "Rien de prévu pour les prochaines secondes." })]));
       if (v.tip) info.appendChild(el("div", { class: "card-lite tip" }, [el("h3", { text: "Tuyau d'un passager" }), el("p", { text: v.tip.text }), el("small", { text: "Sa fiabilité est douteuse." })]));
-      const defs = [["info", "📣", "Annonce d'information", "Répond aux passagers qui veulent un renseignement ou une annonce de gare."], ["calme", "🕊️", "Annonce rassurante", "Apaise doucement toute la cabine."], ["delire", "🎭", "Annonce délirante", "Ça passe très bien ou très mal selon les passagers."]];
+      const defs = D.ANNOUNCES.map((a) => [a.id, a.icon, a.label, a.tip]);
       const sig = String(v.radioOn); if (this.dSig !== sig) { this.dSig = sig; this.dBtns.innerHTML = ""; this.annBtns = {};
         defs.forEach(([k, ic, l, tip]) => { const b2 = el("button", { class: "mbtn", onclick: () => act({ t: "announce", tpl: k }) }, [el("span", { class: "mb-ic", text: ic }), el("span", { class: "mb-main" }, [el("b", { text: l }), el("small", { text: tip }), el("small", { class: "why" })])]); this.annBtns[k] = b2; this.dBtns.appendChild(b2); });
         if (v.radioOn) this.dBtns.appendChild(el("button", { class: "mbtn", onclick: () => act({ t: "radio_off" }) }, [el("span", { class: "mb-ic", text: "📻" }), el("span", { class: "mb-main" }, [el("b", { text: "Couper la radio" }), el("small", { text: "La radio pirate hurle de l'accordéon." })])])); }

@@ -45,7 +45,7 @@ function view(S, role) {
   }
   if (role === "cabin") {
     v.pax = S.pax.map((p) => ({ id: p.id, name: p.name, arch: p.arch, mood: Math.round(p.mood), state: p.state, req: p.req ? { type: p.req.type, left: Math.round(p.req.ttl) } : null, trait: p.revealed ? p.trait : null, vip: p.vip, parcel: p.parcel, inv: p.invincible > 0 }));
-    v.hasDuck = Sim.has(S, "canardplastique"); v.cabinItems = ["canardplastique", "gilet", "trophee"].filter((k) => Sim.has(S, k));
+    v.hasDuck = Sim.has(S, "canardplastique"); v.cabinItems = ["canardplastique", "gilet", "trophee"].concat(D.GIFT_IDS.filter((k) => !["canardplastique", "gilet", "trophee"].includes(k))).filter((k) => Sim.has(S, k));
   }
   return v;
 }

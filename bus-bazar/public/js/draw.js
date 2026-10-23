@@ -117,6 +117,12 @@ const BBDraw = (function () {
     if (a === "train") { path(ctx, (c) => { c.moveTo(-R * 0.95, -R * 1.5); c.lineTo(-R * 0.8, -R * 2.2); c.lineTo(R * 0.8, -R * 2.2); c.lineTo(R * 0.95, -R * 1.5); c.closePath(); }); fillStroke(ctx, "#d6453d", 3); rrect(ctx, -R, -R * 1.6, R * 2, 8, 3, "#9a2a22", 2.5); ell(ctx, 0, -R * 1.9, 5, 5, "#ffd23f", 1.5); }
     if (a === "dormeur") { path(ctx, (c) => { c.moveTo(-R * 0.95, -R * 1.5); c.quadraticCurveTo(-R * 0.2, -R * 2.8, R * 1.35, -R * 1.2); c.quadraticCurveTo(0, -R * 1.7, -R * 0.95, -R * 1.5); }); fillStroke(ctx, "#8aa4ff", 3); ell(ctx, R * 1.35, -R * 1.15, 6, 6, "#fff", 2); rrect(ctx, -30, -12, 60, 16, 8, "#fff5e6", 2.5); }
     if (a === "animal") { ell(ctx, 30, -42, 9, 11, "#3fbf5b", 2.5); ell(ctx, 32, -54, 7, 7, "#3fbf5b", 2.5); poly(ctx, [[37, -54], [45, -51], [37, -49]], "#ff9a2e", 1.8); ell(ctx, 33, -55, 1.8, 1.8, INK, 0); ell(ctx, 30, -34, 4, 6, "#d6453d", 1.8); }
+    if (a === "magicien") { rrect(ctx, -R * 0.9, -R * 2.55, R * 1.8, R * 1.1, 4, "#2a2a3a", 3); ell(ctx, 0, -R * 1.5, R * 1.5, R * 0.3, "#2a2a3a", 3); rrect(ctx, -R * 0.9, -R * 1.8, R * 1.8, 6, 2, "#c24dff", 2); }
+    if (a === "poete") { path(ctx, (c) => { c.moveTo(-R * 1.1, -R * 1.5); c.quadraticCurveTo(0, -R * 2.5, R * 1.1, -R * 1.5); c.quadraticCurveTo(0, -R * 1.75, -R * 1.1, -R * 1.5); }); fillStroke(ctx, "#6b3fa0", 3); ell(ctx, R * 0.9, -R * 1.9, 5, 5, "#ffd23f", 1.8); }
+    if (a === "sportif") { rrect(ctx, -R * 1.02, -R * 1.5, R * 2.04, 8, 4, "#e63946", 2.5); }
+    if (a === "cuisinier") { ell(ctx, 0, -R * 2.25, R * 0.95, R * 0.7, "#fff", 3); rrect(ctx, -R * 0.85, -R * 1.9, R * 1.7, R * 0.5, 3, "#fff", 3); }
+    if (a === "ventriloque") { ell(ctx, 26, -34, 10, 12, "#e8b088", 2.5); ell(ctx, 26, -48, 8, 8, "#e8b088", 2.5); ell(ctx, 23, -49, 1.6, 1.6, INK, 0); ell(ctx, 29, -49, 1.6, 1.6, INK, 0); line(ctx, 22, -44, 30, -44, 2); }
+    if (a === "sosie") { path(ctx, (c) => { c.moveTo(-R * 0.98, -R * 1.45); c.quadraticCurveTo(0, -R * 2.45, R * 0.98, -R * 1.45); c.quadraticCurveTo(0, -R * 1.9, -R * 0.98, -R * 1.45); }); fillStroke(ctx, "#f4d35e", 3); }
     face(ctx, 0, -60, R, emo, t);
     if (a === "retraite") { ctx.beginPath(); ctx.arc(-R * 0.4, -60 - R * 0.08, R * 0.3, 0, TAU); ctx.moveTo(R * 0.7, -60 - R * 0.08); ctx.arc(R * 0.4, -60 - R * 0.08, R * 0.3, 0, TAU); ctx.lineWidth = 2.2; ctx.strokeStyle = INK; ctx.stroke(); }
     if (a === "silence") { ell(ctx, 0, -60 + R * 0.42, 5, 14, SKINS[0], 2.5, 0); rrect(ctx, -3, -60 + R * 0.1, 6, 20, 3, skin, 2.2); }
@@ -128,6 +134,11 @@ const BBDraw = (function () {
     if (a === "canards") { ell(ctx, 24, -12, 9, 7, "#ffd23f", 2.5); ell(ctx, 29, -19, 5, 5, "#ffd23f", 2.2); poly(ctx, [[33, -19], [39, -17], [33, -15]], "#ff9a2e", 1.8); }
     if (a === "touriste") { rrect(ctx, -14, -26, 28, 18, 4, "#333", 2.5); ell(ctx, 0, -17, 6, 6, "#9ad", 2); }
     if (a === "colis" && (Math.floor((t || 0) * 3) % 2 === 0)) text(ctx, "bip", 22, -52, 12, "#d6453d");
+    if (a === "sosie") { rrect(ctx, -R * 0.95, -60 - R * 0.35, R * 1.9, R * 0.5, 6, "#1b1b24", 2.5); }
+    if (a === "cuisinier") { rrect(ctx, 14, -22, 30, 18, 3, "#8a8d94", 2.5); ell(ctx, 29, -28, 10, 5, "#e7c27a", 2.2); }
+    if (a === "magicien") { line(ctx, 18, -8, 42, -34, 3, "#222"); ell(ctx, 43, -36, 3, 3, "#fff", 1.5); }
+    if (a === "sportif") { line(ctx, -26, -20, -42, -34, 5, skin); ell(ctx, -43, -36, 6, 6, skin, 2.2); }
+    if (a === "poete") { rrect(ctx, -44, -28, 22, 28, 3, "#fff", 2.5); line(ctx, -40, -20, -26, -20, 1.6); line(ctx, -40, -14, -26, -14, 1.6); line(ctx, -40, -8, -32, -8, 1.6); }
     if (p.vip) { poly(ctx, [[-14, -R * 2.3], [-8, -R * 2.0], [0, -R * 2.5], [8, -R * 2.0], [14, -R * 2.3], [12, -R * 1.75], [-12, -R * 1.75]], "#ffd23f", 2.5); }
     if (p.inv) { ctx.save(); ctx.globalAlpha = 0.4 + 0.3 * Math.sin((t || 0) * 6); ell(ctx, 0, -40, 44, 56, "#fff6a8", 0); ctx.restore(); }
     ctx.restore();

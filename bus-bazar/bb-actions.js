@@ -14,7 +14,7 @@ const RADIO = [
   "Chers passagers, ceci n'est pas un exercice, ceci est un bus.",
   "Alerte générale, quelqu'un a mangé le dernier biscuit.",
 ];
-const ANN = { info: "Annonce d'information", calme: "Annonce rassurante", delire: "Annonce délirante" };
+const ANN = {};
 const PRANKS = { fausse_alerte: { label: "Fausse alerte moteur", cost: 5 }, insecte: { label: "Faux insecte sur le conducteur", cost: 0 }, annonce_mal: { label: "Annonce déplacée", cost: 0 }, radio: { label: "Radio dramatique", cost: 0 } };
 
 const ok = (extra) => Object.assign({ ok: true }, extra || {});
@@ -45,6 +45,10 @@ function act(S, role, m) {
     case "gps": return role === "nav" ? gps(S) : err("Seul le navigateur utilise le GPS.");
     case "announce": return role === "nav" ? announce(S, m) : err("Seul le navigateur fait les annonces.");
     case "radio_off": return role === "nav" ? radioOff(S) : err("Seul le navigateur touche à la radio.");
+    case "musique": return role === "driver" ? musique(S) : err("Seul le conducteur choisit la musique.");
+    case "gyro": return role === "driver" ? gyro(S) : err("Seul le conducteur allume le gyrophare.");
+    case "bidouille": return role === "mech" ? bidouille(S) : err("Seul le mécanicien bidouille.");
+    case "parler_moteur": return role === "mech" ? parlerMoteur(S) : err("Seul le mécanicien parle au moteur.");
     case "decide": return decide(S, role, m);
     case "cabin": return role === "cabin" ? cabin(S, m) : err("Seule la responsable de cabine s'occupe des passagers.");
     case "radio": return radio(S, role, m);
@@ -129,7 +133,49 @@ function hammer(S, m) {
 function extinguish(S) {
   if (!Sim.has(S, "extincteur")) return err("Il n'y a plus d'extincteur.");
   Sim.useItem(S, "extincteur"); S.temp = Math.max(30, S.temp - 60); S.blind = Math.max(S.blind, 5); S.foamUntil = S.t + 5;
-  Sim.addLog(S, "good", "🧯", "Pschhhh, le moteur refroidit d'un coup, et le pare-brise disparaît sous la mousse pendant cinq secondes."); Ev.notify(S, "repair", { sys: "cooling", cool: true }); return ok();
+  Sim.addLog(S, "good", "🧯", "Pschhhh, le moteur refroidit d'un coup, et le pare-brise disparaît sous la mousse pendant cinq secondes."); Ev.notify(S, "repair", { sys: "cooling", cool: true }); Ev.notify(S, "extinguish", {}); return ok();
+}
+
+// ---------- petites actions bonus ----------
+function musique(S) {
+  if (S.hp.electric <= 10) return err("Sans électricité, la musique ne marche plus.");
+  const g = gate(S, "musique", 40); if (g) return err(g);
+  S.song = Math.max(S.song, 25); Sim.addNoise(S, 0.5);
+  S.pax.forEach((p) => { const bad = p.arch === "silence" || p.arch === "dormeur" || p.arch === "poete"; p.mood = clamp(p.mood + (bad ? -4 : p.arch === "sportif" || p.arch === "clown" ? 5 : 2), 0, 100); if (p.req && p.req.type === "silence") p.mood = clamp(p.mood - 3, 0, 100); });
+  Sim.wakeSleepers(S, "La musique réveille les dormeurs."); Sim.addLog(S, "bus", "🎵", "Le conducteur monte le son, la cabine se met à taper du pied."); return ok();
+}
+function gyro(S) {
+  if (S.phase !== "drive") return err("Le bus doit rouler.");
+  if (S.hp.electric <= 15) return err("Le circuit électrique est trop faible pour le gyrophare.");
+  const g = gate(S, "gyro", 45); if (g) return err(g);
+  S.hp.electric = Math.max(0, S.hp.electric - 2); let n = 0;
+  S.obs.forEach((o) => { if ((o.kind === "animal" || o.kind === "pieton") && !o.gone && o.s > S.bus.s && o.s - S.bus.s < 110 && o.scared <= 0) { o.scared = 1.5; n++; } });
+  Sim.addLog(S, "good", "🚨", n ? "Le gyrophare de fête éblouit " + n + " obstacle" + (n > 1 ? "s" : "") + " vivant" + (n > 1 ? "s" : "") + ", qui s'écartent en dansant." : "Le gyrophare de fête tourne dans le vide, mais les passagers adorent.");
+  if (!n) Sim.moodAll(S, 1); Ev.notify(S, "horn", { silent: true }); return ok({ scared: n });
+}
+const BIDOUILLES = [
+  { w: 30, f(S, sys) { S.hp[sys] = clamp(S.hp[sys] + 18, 0, sys === "body" ? 90 : 100); Sim.addLog(S, "good", "🪛", "Une bidouille improbable et " + Sim.sysLabel(sys) + " repart comme neuf, personne ne sait pourquoi."); } },
+  { w: 12, f(S) { S.inv.spares++; Sim.addLog(S, "good", "🔩", "Il reste une pièce en trop après le remontage. Elle rejoint la caisse à outils."); } },
+  { w: 10, f(S) { S.inv.tape++; Sim.addLog(S, "good", "🎞️", "Un rouleau de ruban était coincé derrière le tableau de bord."); } },
+  { w: 10, f(S) { S.song = Math.max(S.song, 10); Sim.moodAll(S, 2); Sim.addLog(S, "good", "🎶", "Le moteur se met à fredonner un air connu. Les passagers applaudissent."); } },
+  { w: 8, f(S) { Sim.giveItem(S, D.ITEM_BY_ID.canardplastique); } },
+  { w: 10, f(S) { S.blind = Math.max(S.blind, 4); Sim.addLog(S, "mech", "💨", "Pschhhit, un nuage de fumée violette monte du capot. Rien de grave, mais on n'y voit plus rien pendant quelques secondes."); } },
+  { w: 12, f(S, sys) { S.hp[sys] = clamp(S.hp[sys] - 8, 0, 100); Sim.addLog(S, "bad", "🪛", "Quelque chose tombe de " + Sim.sysLabel(sys) + ". Ce n'était sûrement pas important."); } },
+  { w: 8, f(S) { Sim.moodAll(S, -2); Sim.addNoise(S, 0.6); Sim.addLog(S, "bad", "💥", "Un grand bang sort du moteur et fait sursauter toute la cabine."); } },
+];
+function bidouille(S) {
+  const g = gate(S, "bidouille", 25); if (g) return err(g);
+  if (S.job) return err("Une réparation est déjà en cours.");
+  const sys = Sim.HP_SYS.slice().sort((a, b) => S.hp[a] - S.hp[b])[0]; const b = Sim.pickW(S.rng, BIDOUILLES, (q) => q.w); b.f(S, sys);
+  S.stats.bidouilles = (S.stats.bidouilles || 0) + 1; return ok();
+}
+function parlerMoteur(S) {
+  const g = gate(S, "parler_moteur", 20); if (g) return err(g);
+  const r = S.rng();
+  if (r < 0.7) { S.temp = Math.max(30, S.temp - 8); if (r < 0.2) S.hp.engine = clamp(S.hp.engine + 6, 0, 100); Sim.addLog(S, "good", "🗣️", r < 0.2 ? "Le mécanicien murmure des mots doux et le moteur ronronne un peu mieux." : "Le mécanicien raconte sa journée au moteur, qui se détend légèrement."); }
+  else if (r < 0.85) Sim.addLog(S, "mech", "🗣️", "Le moteur n'écoute pas. Le mécanicien insiste quand même.");
+  else { S.temp += 5; Sim.addLog(S, "bad", "😤", "Le moteur se vexe et chauffe un peu plus."); }
+  return ok();
 }
 
 // ---------- navigateur ----------
@@ -150,18 +196,25 @@ function gps(S) {
   S.gpsHint = { kind: pick.kind, at: S.si }; Sim.addLog(S, "nav", "🛰️", "Le GPS affirme avec un aplomb total que la meilleure route est " + (pick.kind === "direct" ? "la directe" : pick.kind === "sure" ? "la sûre" : "la pittoresque") + "."); return ok();
 }
 function announce(S, m) {
-  const k = String(m.tpl); if (!ANN[k]) return err("Annonce inconnue.");
+  const k = String(m.tpl); const A = D.ANN_BY_ID[k]; if (!A) return err("Annonce inconnue.");
   if (S.hp.electric <= 10) return err("Sans électricité, le micro ne marche plus.");
   const g = gate(S, "announce", 20); if (g) return err(g);
-  Sim.addNoise(S, 0.2);
+  Sim.addNoise(S, k === "silence" ? 0 : 0.2);
+  const lv = (p, a) => D.ARCH_BY_ID[p.arch].loves.includes(a), ht = (p, a) => D.ARCH_BY_ID[p.arch].hates.includes(a);
+  const mood = (p, d) => { p.mood = clamp(p.mood + d, 0, 100); };
+  if (k === "loto") { const w = S.pax[Math.floor(S.rng() * S.pax.length)]; S.pax.forEach((p) => { if (p === w) { mood(p, 12); if (p.req) Sim.satisfyReq(S, p, 6); } else mood(p, -1); }); if (w) { S.inv.snacks += 1; Sim.addLog(S, "nav", "🎰", "Le loto des sièges tombe sur " + w.name + ", qui gagne un snack et la gloire éternelle."); } return ok(); }
+  if (k === "silence") { S.noise = 0; }
   S.pax.forEach((p) => {
-    const A = D.ARCH_BY_ID[p.arch];
-    if (p.req && (p.req.type === "annonce" || (k === "info" && p.req.type === "info"))) { Sim.satisfyReq(S, p, 10); return; }
-    if (k === "calme") p.mood = clamp(p.mood + 2 + (p.state === "panique" ? 4 : 0), 0, 100);
-    else if (k === "delire") p.mood = clamp(p.mood + (Math.random() < 0.5 + (A.loves.includes("discours_absurde") ? 0.3 : 0) - (A.hates.includes("discours_absurde") ? 0.4 : 0) ? 5 : -5), 0, 100);
-    else p.mood = clamp(p.mood + 1, 0, 100);
+    if (k === "info" && p.req && (p.req.type === "annonce" || p.req.type === "info")) { Sim.satisfyReq(S, p, 10); return; }
+    if (k === "meteo") { if (p.req && p.req.type === "info") { Sim.satisfyReq(S, p, 10); return; } mood(p, p.arch === "touriste" ? 4 : 1); return; }
+    if (k === "silence") { if (p.req && p.req.type === "silence") { Sim.satisfyReq(S, p, 14); return; } mood(p, p.arch === "poete" ? 3 : -1); return; }
+    if (k === "calme") { mood(p, 2 + (p.state === "panique" ? 4 : 0)); return; }
+    if (k === "delire") { mood(p, S.rng() < 0.5 + (lv(p, "discours_absurde") ? 0.3 : 0) - (ht(p, "discours_absurde") ? 0.4 : 0) ? 5 : -5); return; }
+    if (k === "compliment") { mood(p, p.trait === "raleur" || p.trait === "petard" ? 1 : 3 + (p.arch === "sosie" ? 3 : 0)); return; }
+    if (k === "blague") { mood(p, S.rng() < 0.4 + (p.arch === "clown" ? 0.4 : 0) + (p.arch === "ventriloque" ? 0.2 : 0) - (p.arch === "poete" || p.arch === "plaignant" ? 0.25 : 0) ? 4 : -3); return; }
+    mood(p, 1);
   });
-  Sim.addLog(S, "nav", "📣", ANN[k] + " à bord."); return ok();
+  Sim.addLog(S, "nav", "📣", A.log + " à bord."); return ok();
 }
 function radioOff(S) {
   const was = S.radioOn; S.radioOn = false; S.song = 0; Ev.notify(S, "radio_off", {}); if (was) Sim.addLog(S, "good", "📻", "La radio est coupée, le silence revient."); return ok();
@@ -226,7 +279,61 @@ const EFFECTS = {
     Sim.useItem(S, item);
     if (item === "canardplastique") { if (p.arch === "canards") { if (p.req) Sim.satisfyReq(S, p, 16); else p.mood = clamp(p.mood + 12, 0, 100); L(S, "🦆", p.name + " serre le canard sur son cœur."); return { ok: true }; } p.mood = clamp(p.mood + (roll ? 4 : -3), 0, 100); L(S, "🦆", p.name + (roll ? " accepte le canard avec un sourire gêné." : " regarde le canard d'un œil vide.")); return { ok: roll }; }
     if (item === "gilet") { p.invincible = 60; reveal(p); L(S, "🦺", p.name + " enfile le gilet magique et se sent invincible pendant une minute."); return { ok: true }; }
+    const G = D.GIFTS[item];
+    if (G && item !== "trophee") {
+      const fav = (G.fav || []).includes(p.arch), bad = (G.bad || []).includes(p.arch); let d = G.base + (fav ? 6 : 0) - (bad ? 9 : 0);
+      if (G.calm && (p.state === "panique" || p.state === "colere")) { p.state = "normal"; d += 6; }
+      if (G.noisy) { d += S.rng() < 0.5 ? 6 : -6; Sim.addNoise(S, 0.5); Sim.wakeSleepers(S, "Le coussin a fait un bruit qui réveille les dormeurs."); }
+      if (G.pop && S.rng() < G.pop) { d -= 8; L(S, "💥", "Le ballon de " + p.name + " éclate d'un coup sec, tout le monde sursaute."); Sim.addNoise(S, 0.8); }
+      p.mood = clamp(p.mood + d, 0, 100); if (p.req && (p.req.type === "attention" || p.req.type === "snack") && d > 4) Sim.satisfyReq(S, p, 4);
+      L(S, D.ITEM_BY_ID[item].icon, p.name + " " + G.line + (d < 0 ? " et le regrette aussitôt." : ".")); return { ok: d >= 0 };
+    }
     p.mood = clamp(p.mood + 8, 0, 100); L(S, "🏆", p.name + " reçoit le trophée ridicule avec une fierté infinie."); return { ok: true };
+  },
+  ola(S) {
+    S.pax.forEach((p) => { p.mood = clamp(p.mood + (p.arch === "silence" ? -2 : p.arch === "sportif" || p.arch === "clown" ? 6 : 3), 0, 100); });
+    S.jolt = Math.max(S.jolt, 0.4); Sim.addNoise(S, 0.3); L(S, "🌊", "La ola traverse la cabine d'avant en arrière, le bus tangue un peu."); return { ok: true };
+  },
+  conga(S) {
+    S.pax.forEach((p) => { const hate = p.arch === "silence" || p.arch === "dormeur" || p.arch === "poete"; p.mood = clamp(p.mood + (hate ? -8 : p.arch === "clown" || p.arch === "influenceur" || p.arch === "sportif" ? 9 : 5), 0, 100); if (p.state === "dort") p.state = "normal"; });
+    S.jolt = Math.max(S.jolt, 1); Sim.addNoise(S, 1); S.hp.body = Math.max(0, S.hp.body - 1); S.song = Math.max(S.song, 12); L(S, "💃", "Une conga part de l'arrière et fait le tour du bus. Le plancher proteste."); return { ok: true };
+  },
+  quiz(S, p, roll) {
+    if (!roll) { Sim.moodAll(S, -2); const q = S.pax[Math.floor(S.rng() * S.pax.length)]; L(S, "❓", "La question du quiz est si compliquée que " + (q ? q.name : "quelqu'un") + " exige une réclamation."); return { ok: false, msg: "Question ratée." }; }
+    let n = 0; S.pax.slice().sort((a, b) => (a.req ? a.req.ttl : 999) - (b.req ? b.req.ttl : 999)).forEach((q) => { if (n < 2 && q.req && ["attention", "info", "annonce"].includes(q.req.type)) { Sim.satisfyReq(S, q, 10); n++; } else q.mood = clamp(q.mood + 3, 0, 100); });
+    L(S, "❓", "Le quiz du bus passionne la cabine" + (n ? " et règle " + n + " demande" + (n > 1 ? "s" : "") + "." : ".")); return { ok: true };
+  },
+  tombola(S) {
+    if (!S.pax.length) return { ok: false };
+    const w = S.pax.slice().sort((a, b) => (a.mood + (a.req ? -20 : 0)) - (b.mood + (b.req ? -20 : 0)))[Math.floor(S.rng() * Math.min(3, S.pax.length))]; const r = S.rng();
+    S.pax.forEach((q) => { if (q !== w) q.mood = clamp(q.mood - 1, 0, 100); });
+    if (r < 0.45) { S.inv.snacks += 2; w.mood = clamp(w.mood + 10, 0, 100); L(S, "🎟️", w.name + " gagne deux paquets de biscuits à la tombola et les met en commun."); }
+    else if (r < 0.75) { const id = D.GIFT_IDS[Math.floor(S.rng() * D.GIFT_IDS.length)]; Sim.giveItem(S, D.ITEM_BY_ID[id], true); w.mood = clamp(w.mood + 12, 0, 100); L(S, "🎟️", w.name + " gagne " + D.ITEM_BY_ID[id].label.toLowerCase() + " et le rend aussitôt à la responsable pour l'offrir à qui elle veut."); }
+    else if (r < 0.9) { w.mood = clamp(w.mood + 16, 0, 100); if (w.req) Sim.satisfyReq(S, w, 8); L(S, "🎟️", w.name + " gagne le grand lot, une médaille imaginaire et le droit de choisir la prochaine chanson."); }
+    else { S.stats.complaints += 1; L(S, "🎟️", "Le billet gagnant est introuvable, " + w.name + " crie à la tricherie.", "bad"); w.mood = clamp(w.mood - 8, 0, 100); return { ok: false }; }
+    return { ok: true };
+  },
+  selfie(S, p, roll) {
+    const flop = S.rng() < 0.25; S.pax.forEach((q) => { q.mood = clamp(q.mood + (flop ? -2 : q.arch === "touriste" || q.arch === "influenceur" || q.arch === "sosie" ? 10 : 2), 0, 100); if (!flop && q.req && q.req.type === "photo") Sim.satisfyReq(S, q, 6); });
+    L(S, "🤳", flop ? "Dans le selfie de groupe, la moitié de la cabine a les yeux fermés et l'autre moitié ne le pardonne pas." : "Selfie de groupe réussi, le bus entier sourit en même temps."); return { ok: !flop };
+  },
+  sieste(S) {
+    S.noise = 0; S.pax.forEach((q) => { if (q.req && q.req.type === "silence") Sim.satisfyReq(S, q, 12); else q.mood = clamp(q.mood + (q.arch === "dormeur" ? 8 : 4), 0, 100); if (q.arch === "dormeur" && q.state === "normal" && !q.req) q.state = "dort"; });
+    L(S, "😴", "Lumières tamisées et silence, la cabine fait la sieste. Personne ne touche au klaxon, s'il vous plaît."); return { ok: true };
+  },
+  massage(S, p, roll) {
+    if (!roll) { p.mood = clamp(p.mood - 4, 0, 100); L(S, "💆", p.name + " n'aime pas du tout qu'on lui touche la nuque."); return { ok: false }; }
+    p.mood = clamp(p.mood + 10, 0, 100); if (p.req && p.req.type === "attention") Sim.satisfyReq(S, p, 5); L(S, "💆", p.name + " fond comme du beurre sous le massage de nuque."); return { ok: true };
+  },
+  horoscope(S, p, roll) {
+    if (!roll) { p.mood = clamp(p.mood - 5, 0, 100); L(S, "🔮", "L'horoscope de " + p.name + " annonce une catastrophe imminente. Merci beaucoup."); if (S.rng() < 0.3 && p.state === "normal") p.state = "panique"; return { ok: false }; }
+    p.mood = clamp(p.mood + 8, 0, 100); reveal(p); if (p.req && p.req.type === "info") Sim.satisfyReq(S, p, 6); L(S, "🔮", p.name + " apprend qu'une grande chance l'attend, et se rengorge."); return { ok: true };
+  },
+  penchez(S) {
+    if (S.phase !== "drive") { L(S, "↔️", "Tout le monde se penche pour rien, le bus est déjà à l'arrêt."); Sim.moodAll(S, -1); return { ok: false }; }
+    const active = Math.abs(S.pull) > 0.02 || Math.abs(S.windPush) > 0.02;
+    if (active) { S.leanUntil = S.t + 6; L(S, "↔️", "Toute la cabine se penche du bon côté, le bus se redresse."); Sim.moodAll(S, -1); return { ok: true }; }
+    Sim.moodAll(S, -2); L(S, "↔️", "Tout le monde se penche à droite pour contrer un vent qui n'existe pas.", "bad"); return { ok: false };
   },
   chanson(S) {
     S.song = Math.max(S.song, 20); S.pax.forEach((p) => { p.mood = clamp(p.mood + (hates(p, "chanson") ? -8 : likes(p, "chanson") ? 8 : 3), 0, 100); if (p.state === "dort") p.state = "normal"; }); L(S, "🎤", "Concours de chansons, la cabine chante faux et fort."); return { ok: true };

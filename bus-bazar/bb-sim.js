@@ -218,7 +218,7 @@ function stepDrive(S, dt) {
   const auth = 1.25 * grip * (1 - clamp(b.v / 45, 0, 0.4)) * clamp(b.v / 5, 0, 1);
   const push = -curve * b.v * b.v * 0.2;
   const steer = clamp(b.steer + S.steerBias, -1, 1);
-  const target = steer * auth + push + S.windPush + S.pull * clamp(b.v / 12, 0, 1);
+  const target = steer * auth + push + (S.windPush + S.pull * clamp(b.v / 12, 0, 1)) * (S.leanUntil > S.t ? 0.35 : 1);
   b.vx += (target - b.vx) * Math.min(1, dt * 5);
   b.x += b.vx * dt;
   if (Math.abs(b.x) > 1.55) {

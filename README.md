@@ -285,3 +285,63 @@ Cinq échecs distincts, accident majeur, panne sèche, retard fatal, bus irrépa
 - Le mode de rotation Crise n'est pas encore là. Il y a Fixe et Relève.
 - Le passager VIP, objectif critique, est perdu assez souvent quand le poste de cabine est laissé à un robot ou à un joueur inactif. À équilibrer.
 - Les sons n'ont pas été écoutés. Rien n'a été testé sur Render ni avec plusieurs vrais téléphones. Le rendu a été contrôlé par captures d'écran dans un navigateur de test.
+
+
+## Vingtième mise à jour, grosse vague de nouveautés loufoques pour Bus Bazar
+
+### Nouveaux incidents, 22 de plus
+
+- Sur la route, fanfare en travers de la route, troupeau en promenade, pluie de grenouilles, mouette voleuse de snacks, camion de fromages renversé, tunnel à écho et coucher de soleil magnifique.
+- Choix à trancher, cortège de mariage, duel de klaxons, jeu radiophonique, caneton à bord.
+- Aux arrêts, péage tenu par un clown, fête du village, marchand ambulant avec son sac mystère, bus jumeau pour troquer un objet, contrôleur très zélé, drone de livraison perdu.
+- En cabine, lumières dans le ciel, karaoké sauvage, bus hanté la nuit, grève des sièges, crêpes en flammes.
+- Chacun a une solution, un texte clair et des conséquences mesurées. Les robots savent réagir à tous.
+
+### Six nouveaux passagers avec leurs manies
+
+Magicien incompris, poète en résidence, sportif du dimanche, cuisinier de voyage, ventriloque et sa marionnette, sosie d'une grande star. Chacun déclenche de temps en temps un petit événement qui aide ou dérange.
+
+### Nouvelles actions
+
+- Responsable de cabine, la ola, la danse en file, le quiz du bus, la tombola, le selfie de groupe, la sieste collective, le massage de nuque, l'horoscope du bord et Tous à droite, qui contre le vent ou un pneu qui tire.
+- Six nouveaux cadeaux à offrir, chapeau de fête, ballon géant, peluche douteuse, coussin à bruits, glace à la pistache et médaille en chocolat.
+- Navigateur, cinq nouvelles annonces, compliment général, blague du chauffeur, bulletin météo du bord, minute de silence et loto des sièges.
+- Conducteur, musique du bord (touche M) et gyrophare de fête (touche G).
+- Mécanicien, bidouille créative et parler au moteur.
+
+### Correction
+
+Les boutons du mécanicien envoyaient chaque action deux fois, la seconde étant refusée avec un message de patience. C'est corrigé.
+
+### Limites connues
+
+- Les sons des nouveautés sont ceux du jeu, aucun son neuf n'a été créé.
+- Les chances de réussite de plusieurs nouvelles actions sont à régler à l'usage.
+
+## Richissime Destiny, douzième mise à jour, des métiers pour tous
+
+Les vies de Richissime partaient trop souvent vers la scène ou le stade. Sur 150 vies simulées, 63 pour cent commençaient par un métier de scène ou de sport. Cette mise à jour rend les parcours plus variés et les choix plus cohérents.
+
+### Trente-cinq nouveaux métiers
+
+- Métiers manuels et de service, plombier, électricien, menuisier, boulanger, boucher, fleuriste, mécanicien, facteur, conducteur de bus et de train, maraîcher, pêcheur, bijoutier, couturier, fromager, apiculteur, brasseur, brocanteur, libraire, guide touristique, personnel navigant, animateur, aide à domicile et énergies vertes.
+- Métiers de bureau et de gestion, comptable, assistant de direction, assurance et banque, ressources humaines, urbaniste, géomètre, interprète, logisticien, contrôleur aérien, actuaire, événementiel et éducation spécialisée.
+- Chacun a ses échelons de salaire, ses centres d'intérêt, ses filières d'études qui le favorisent et une occasion de vocation qui peut le lancer.
+
+### Un début de carrière moins prévisible
+
+- Les métiers de vedette (scène et sport) ne sont plus proposés avant 18 ans, sauf vocation ou parcours engagé. Ensuite ils restent possibles, avec une probabilité plus proche de celle des autres métiers.
+- Les vocations de chanteur, d'esport, de créateur et de DJ demandent de vraies qualités et tombent moins souvent.
+- Résultat sur 180 vies simulées, 21 pour cent de débuts en scène ou en sport au lieu de 63 pour cent. Le nombre de premiers métiers différents passe d'une trentaine à plus de soixante-dix.
+
+### Un onglet professionnel qui parle de ton métier
+
+- Les marches professionnelles des parcours (label, tube, contrat pro, saison de rêve) ne sont plus proposées à quelqu'un dont le métier n'a aucun rapport.
+- Les coups de poker de la scène et du sport sont réservés aux bons métiers. Un peintre ne reçoit plus d'offre pour lancer un morceau, ni un comptable de camp d'entraînement.
+- Titres, descriptions et issues changent selon le métier. Un musicien part en tournée et signe chez un label, un peintre fait circuler ses œuvres et vise une galerie, un joueur d'esport vise le grand tournoi mondial, un footballeur vise la grande finale avec son équipe, un explorateur tente l'expédition de sa vie.
+- Chez les métiers manuels, viser un label de qualité, accepter le chantier le plus dangereux, passer un examen interne ou ouvrir son atelier ne sont proposés qu'aux métiers concernés.
+
+### Limites connues
+
+- Les textes adaptés couvrent les options les plus décalées. D'autres options de bureau et de métiers manuels gardent un texte général.
+- Les chances de rencontrer un métier précis dépendent encore beaucoup des goûts et des qualités du personnage.

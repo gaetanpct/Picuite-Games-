@@ -8,7 +8,7 @@ const { clamp } = D;
 const rnd = (S) => S.rng();
 
 const DEFS = {};
-const def = (id, d) => { d.id = id; DEFS[id] = d; };
+const def = (id, d) => { d.id = id; if (d.stop) d.stopClear = true; DEFS[id] = d; };
 
 const paxOf = (S, f) => S.pax.filter(f);
 const pickPax = (S, f) => { const l = paxOf(S, f || (() => true)); return l.length ? l[Math.floor(rnd(S) * l.length)] : null; };
@@ -155,6 +155,7 @@ def("radio_pirate", { cat: "chaos", icon: "📻", title: "Radio pirate", sev: 1,
 def("trouvaille", { cat: "chaos", icon: "🎁", title: "Objet tombé du plafond", sev: 0, who: ["cabin"], ttl: 4, weight: (S) => (S.phase === "drive" ? 0.7 * S.M.items * Sim.OBJ_K[S.cfg.objects] : 0), ok: (S) => S.phase === "drive",
   spawn(S) { Sim.giveItem(S, Sim.pickItem(S)); }, desc: () => "Un objet tombe d'une trappe du plafond, personne ne sait d'où.", hint: "Il rejoint l'inventaire.", tick() { } });
 
+const MORE = { def, rnd, pickPax, paxOf, biomeIs, driving };
 // ---------- moteur ----------
 function weightOf(S, d) { let w = 0; try { w = d.weight(S); } catch (e) { w = 0; } if (!w || w < 0) return 0; if (d.ok && !d.ok(S)) return 0; if (S.inc.some((x) => x.defId === d.id)) return 0; if (d.cat === "chaos") w *= S.M.absurd; return w * (d.sev >= 2 ? 1 : 1); }
 const maxActive = (S) => 2 + Math.floor(S.cfg.chaos / 2);
@@ -194,9 +195,10 @@ function decide(S, incId, choice) {
   const r = inc.def.decide(S, inc, choice); close(S, inc, r === "solved" ? "solved" : "done"); return { ok: true };
 }
 function stopIncident(S) {
-  const pool = ["route_barree", "prime"].map((id) => DEFS[id]); const d = Sim.pickW(S.rng, pool, (q) => weightOf(S, q)); if (d && rnd(S) < 0.55) spawn(S, d.id, { now: true });
+  const pool = Object.keys(DEFS).map((k) => DEFS[k]).filter((q) => q.stop || q.id === "route_barree" || q.id === "prime"); const d = Sim.pickW(S.rng, pool, (q) => weightOf(S, q)); if (d && rnd(S) < 0.6) spawn(S, d.id, { now: true });
 }
 function tick(S, dt) {
+  if (MORE.quirks) MORE.quirks(S, dt);
   // incidents en attente (prévisions et enchaînements)
   S.pending = S.pending.filter((pd) => { if (S.t < pd.at) return true; const d = DEFS[pd.id]; if (!d) return false; if (pd.chained && d.ok && !d.ok(S)) return false; if (!pd.chained && d.ok && !d.ok(S)) return false; if (S.inc.some((x) => x.defId === pd.id)) return false; spawn(S, pd.id, { now: true }); return false; });
   // vie des incidents en cours
@@ -218,7 +220,8 @@ function tick(S, dt) {
 
 // ---------- vue publique d'un incident ----------
 function publicInc(S, inc) {
-  const d = inc.def; return { id: inc.id, defId: d.id, icon: d.icon, title: d.title, cat: d.cat, sev: inc.sev, who: d.who, desc: d.desc(S, inc), hint: d.hint || "", left: Math.max(0, Math.round(inc.ttl)), dilemma: !!d.dilemma, choices: d.dilemma ? d.choices.map((c) => ({ id: c.id, label: c.label, info: c.info, ok: c.need ? c.need(S) === true : true, why: c.need && c.need(S) !== true ? c.need(S) : "" })) : null };
+  const d = inc.def; return { id: inc.id, defId: d.id, icon: d.icon, title: d.title, cat: d.cat, sev: inc.sev, who: d.who, desc: d.desc(S, inc), hint: d.hint || "", left: Math.max(0, Math.round(inc.ttl)), dilemma: !!d.dilemma, botc: d.bot || null, choices: d.dilemma ? d.choices.map((c) => ({ id: c.id, label: c.label, info: c.info, ok: c.need ? c.need(S) === true : true, why: c.need && c.need(S) !== true ? c.need(S) : "" })) : null };
 }
 
+MORE.spawn = spawn; require("./bb-more.js")(MORE);
 module.exports = { DEFS, tick, notify, close, spawn, decide, stopIncident, publicInc, maxActive };

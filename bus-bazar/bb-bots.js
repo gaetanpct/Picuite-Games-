@@ -15,12 +15,19 @@ const SKILL = {
 };
 function makeBrain(role, skillId, rng) { const sk = SKILL[skillId] || SKILL.habile; return { role, sk, rng: rng || Math.random, timer: sk.react * Math.random(), seenInc: {}, noteT: 0 }; }
 
+function dilemmas(S, brain, v) {
+  (v.inc || []).forEach((i) => {
+    if (!i.dilemma || !i.botc || brain.seenInc[i.id] || !i.who.includes(brain.role)) return; brain.seenInc[i.id] = 1;
+    const c = (i.choices || []).find((x) => x.id === i.botc); const alt = (i.choices || []).find((x) => x.id === "non") || (i.choices || [])[1];
+    act(S, brain.role, { t: "decide", inc: i.id, choice: c && c.ok ? c.id : alt ? alt.id : i.botc });
+  });
+}
 function think(S, brain, dt) {
   if (!S || S.end) return;
   brain.timer -= dt; const v0 = brain.role === "driver" ? null : null;
-  if (brain.role === "driver") { driver(S, brain, view(S, "driver")); return; }
+  if (brain.role === "driver") { const vd = view(S, "driver"); driver(S, brain, vd); dilemmas(S, brain, vd); return; }
   if (brain.timer > 0) return; brain.timer = brain.sk.react * (0.7 + brain.rng() * 0.6);
-  const v = view(S, brain.role);
+  const v = view(S, brain.role); dilemmas(S, brain, v);
   if (brain.role === "mech") mech(S, brain, v); else if (brain.role === "nav") nav(S, brain, v); else cabin(S, brain, v);
 }
 
@@ -78,6 +85,7 @@ function mech(S, br, v) {
   if (v.job) return; const hp = v.hp; const sk = br.sk;
   if (v.fake && v.hp[v.fake] > 60) { act(S, "mech", { t: "wrench", sys: v.fake }); return; }
   const stopped = v.bus.v < 3;
+  if (v.inc.some((i) => i.defId === "feu_cuisine") && v.hasExt) { act(S, "mech", { t: "extinguish" }); return; }
   if (v.stuckHorn) { if (v.hasHammer && act(S, "mech", { t: "hammer", sys: "electric" }).ok) return; if (act(S, "mech", { t: "wrench", sys: "electric" }).ok) return; }
   if (v.temp > 104 && v.inv.coolant > 0) { act(S, "mech", { t: "repair", sys: "engine", kind: "refroidir" }); return; }
   if (v.temp > 118 && v.hasExt) { act(S, "mech", { t: "extinguish" }); return; }
@@ -141,6 +149,10 @@ function cabin(S, br, v) {
   const fx = pax.find((p) => p.arch === "fauxchauffeur"); if (incs.some((i) => i.defId === "prise_volant") && fx) { if (can("sifflet") && doIt("sifflet")) return; if (doIt("parler", fx)) return; }
   const col = pax.find((p) => p.arch === "colis"); if (incs.some((i) => i.defId === "colis_suspect") && col && can("confisquer") && doIt("confisquer", col)) return;
   const an = pax.find((p) => p.arch === "animal"); if (incs.some((i) => i.defId === "animal_libre") && an) { if (v.inv.snacks > 0 && can("snack") && doIt("snack", an)) return; if (can("parler") && doIt("parler", an)) return; }
+  if (incs.some((i) => ["ovni", "fantome", "greve"].includes(i.defId)) && can("discours_rassurant") && doIt("discours_rassurant")) return;
+  if (incs.some((i) => i.defId === "karaoke")) { if (can("chanson") && doIt("chanson")) return; if (can("sifflet") && doIt("sifflet")) return; }
+  if (incs.some((i) => i.defId === "mouette") && can("sifflet") && doIt("sifflet")) return;
+  const cook = pax.find((p) => p.arch === "cuisinier"); if (incs.some((i) => i.defId === "feu_cuisine") && cook && can("confisquer") && doIt("confisquer", cook)) return;
   const vip = pax.find((p) => p.vip); if (vip && vip.mood < 45) { if (vip.req && vip.req.type === "snack" && v.inv.snacks > 0 && can("snack") && doIt("snack", vip)) return; if (can("parler") && doIt("parler", vip)) return; }
   // demandes les plus pressantes
   const wants = pax.filter((p) => p.req).sort((a, b) => a.req.left - b.req.left);
@@ -156,7 +168,8 @@ function cabin(S, br, v) {
   const panicky = pax.filter((p) => p.state === "panique");
   if (panicky.length >= 3 && can("discours_rassurant") && doIt("discours_rassurant")) return;
   if (sk.id === "expert" && panicky.length === 1 && v.slapsOn && can("baffe") && br.rng() < 0.15 && doIt("baffe", panicky[0])) return;
-  const low = pax.slice().sort((a, b) => a.mood - b.mood)[0]; if (low && low.mood < 45 && can("parler")) doIt("parler", low);
+  const low = pax.slice().sort((a, b) => a.mood - b.mood)[0]; if (low && low.mood < 45 && can("parler") && doIt("parler", low)) return;
+  if (v.sat < 62 && !wants.length) { for (const a of ["tombola", "quiz", "ola", "selfie"]) { if (can(a) && doIt(a)) return; } }
 }
 
 module.exports = { SKILL, makeBrain, think };
