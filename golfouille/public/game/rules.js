@@ -5,17 +5,35 @@
   if (typeof module !== "undefined" && module.exports) module.exports = factory(require("./course.js"));
   else root.GolfRules = factory(root.GolfCourse);
 })(typeof window !== "undefined" ? window : globalThis, function (Course) {
-  // vitesse maximale en m/s, angle de lancer en degrés, err erreur de visée en degrés pour un coup à pleine puissance
+  // speed vitesse maximale en m/s, loft angle de lancer par défaut en degrés, loftMin et loftMax les angles extrêmes réglables,
+  // err erreur de visée en degrés pour un coup à pleine puissance
   const CLUBS = {
-    driver: { id: "driver", name: "Driver", icon: "🏌️", speed: 34, loft: 14, err: 2.6, desc: "Le grand frappeur. Part loin et tendu, mais un peu imprécis." },
-    iron: { id: "iron", name: "Fer", icon: "⛳", speed: 24, loft: 22, err: 1.9, desc: "Le bon à tout faire, une belle courbe et un bon roulé." },
-    wedge: { id: "wedge", name: "Cale", icon: "🥄", speed: 16, loft: 42, err: 1.5, desc: "Monte haut, passe les arbres, retombe doucement." },
-    lob: { id: "lob", name: "Lob", icon: "🎈", speed: 12.5, loft: 62, err: 1.4, lob: true, desc: "Un lob très haut qui retombe presque à la verticale et s'arrête net." },
-    putter: { id: "putter", name: "Putter", icon: "🎯", speed: 12, loft: 0, err: 0.7, desc: "Roule au ras du sol, le plus précis. Parfait sur le green." },
-    ricochet: { id: "ricochet", name: "Ricochet", icon: "🥏", speed: 24, loft: 8, err: 2.2, skip: true, desc: "Frappe rasante qui fait des ricochets sur l'eau. Pour traverser les mares." },
-    rocket: { id: "rocket", name: "Fusée", icon: "🚀", speed: 46, loft: 11, err: 4.2, limited: 1, desc: "Un coup monstrueux et très imprécis. Une seule fois par trou." },
+    rocket: { id: "rocket", name: "Fusée", icon: "🚀", speed: 46, loft: 11, loftMin: 6, loftMax: 22, err: 4.2, limited: 1, role: "Distance folle", desc: "Le coup le plus puissant du sac. Très long et très imprécis, une seule fois par trou.", fly: "Vol rapide et assez bas. Il rase les arbres, monte la hauteur pour les passer." },
+    driver: { id: "driver", name: "Driver", icon: "🏌️", speed: 34, loft: 14, loftMin: 8, loftMax: 30, err: 2.6, role: "Longue distance", desc: "Le grand frappeur. Part très loin avec un vol tendu, un peu imprécis.", fly: "Vol tendu et bas. Il file droit mais cogne facilement un arbre ou un obstacle. Monte la hauteur pour passer au dessus." },
+    iron: { id: "iron", name: "Fer", icon: "⛳", speed: 24, loft: 22, loftMin: 14, loftMax: 40, err: 1.9, role: "Bon à tout faire", desc: "Le club polyvalent, une belle courbe et un bon roulé.", fly: "Vol moyen. Passe les petits obstacles, roule bien à l'arrivée." },
+    ricochet: { id: "ricochet", name: "Ricochet", icon: "🥏", speed: 24, loft: 8, loftMin: 8, loftMax: 8, err: 2.2, skip: true, role: "Spécial eau", desc: "Frappe rasante qui fait des ricochets sur l'eau pour traverser les mares.", fly: "Vol rasant, hauteur fixe. Aucun arbre ne le laisse passer." },
+    wedge: { id: "wedge", name: "Cale", icon: "🥄", speed: 16, loft: 42, loftMin: 30, loftMax: 58, err: 1.5, role: "Haut et doux", desc: "Monte haut, passe les arbres et retombe doucement.", fly: "Vol haut qui franchit la plupart des obstacles. Court mais sûr." },
+    lob: { id: "lob", name: "Lob", icon: "🎈", speed: 12.5, loft: 62, loftMin: 52, loftMax: 76, err: 1.4, lob: true, role: "Très haut et court", desc: "Un lob très haut qui retombe presque à la verticale et s'arrête net.", fly: "Vol très haut, passe tout, mais la portée est courte." },
+    putter: { id: "putter", name: "Putter", icon: "🎯", speed: 12, loft: 0, loftMin: 0, loftMax: 0, err: 0.7, role: "Au sol, précis", desc: "Roule au ras du sol, le plus précis. Parfait sur le green.", fly: "Aucun vol, la balle roule. Un obstacle ou une pente l'arrête." },
   };
-  const CLUB_ORDER = ["driver", "iron", "wedge", "lob", "putter", "ricochet", "rocket"];
+  // du plus puissant au moins puissant
+  const CLUB_ORDER = ["rocket", "driver", "iron", "ricochet", "wedge", "lob", "putter"];
+  const HEIGHT_NAMES = ["Très bas", "Bas", "Normal", "Haut", "Très haut"];
+  const HEIGHT_DEFAULT = 2;
+  const hasHeight = (c) => c.loftMax > c.loftMin;
+  // cinq hauteurs possibles, la troisième est l'angle habituel du club
+  function loftFor(id, h) {
+    const c = CLUBS[id] || CLUBS.putter; if (!hasHeight(c)) return c.loft;
+    h = Math.max(0, Math.min(4, Math.round(Number(h)))); if (!isFinite(h)) h = HEIGHT_DEFAULT;
+    const l = [c.loftMin, (c.loftMin + c.loft) / 2, c.loft, (c.loft + c.loftMax) / 2, c.loftMax]; return l[h];
+  }
+  // notes de 1 à 5 pour afficher la fiche d'un club
+  function stars(c) {
+    const pow = Math.max(1, Math.min(5, Math.round((c.speed / 46) * 5)));
+    const acc = Math.max(1, Math.min(5, Math.round(5 - ((c.err - 0.7) / 3.5) * 4)));
+    const hi = c.loft <= 0 ? 0 : Math.max(1, Math.min(5, Math.round(c.loft / 62 * 5)));
+    return { pow, acc, hi };
+  }
 
   // kind hostile se lance sur un adversaire, self sur soi
   const POWERS = {
@@ -85,9 +103,10 @@
       { id: "seed", label: "Graine du parcours", type: "text", default: "", max: 20, placeholder: "Laisse vide pour du hasard", info: "Écris un mot pour rejouer exactement le même parcours plus tard ou avec des amis." },
     ] },
     { category: "🏌️ Les clubs", rules: [
-      { id: "clubs", label: "Clubs autorisés", type: "multi", default: ["driver", "iron", "wedge", "lob", "putter", "ricochet", "rocket"], options: CLUB_ORDER.map((id) => ({ value: id, label: CLUBS[id].name, icon: CLUBS[id].icon, desc: CLUBS[id].desc })), info: "Le putter est toujours disponible pour ne jamais rester bloqué." },
+      { id: "clubs", label: "Clubs autorisés", type: "multi", default: CLUB_ORDER.slice(), options: CLUB_ORDER.map((id) => ({ value: id, label: CLUBS[id].name, icon: CLUBS[id].icon, desc: CLUBS[id].desc })), info: "Le putter est toujours disponible pour ne jamais rester bloqué." },
       { id: "precision", label: "Précision des coups", type: "chips", default: 1, options: [{ value: 0.5, label: "Facile" }, { value: 1, label: "Normale" }, { value: 1.6, label: "Réaliste" }], info: "Facile réduit de moitié les erreurs de visée, réaliste les augmente." },
-      { id: "aimAssist", label: "Aide à la visée", type: "chips", default: "traj", options: [{ value: "none", label: "Aucune" }, { value: "dots", label: "Direction seule" }, { value: "traj", label: "Trajectoire complète" }], info: "Trajectoire complète montre le vol de la balle, ses rebonds, où elle s'arrête, les obstacles touchés, l'eau et la lave, avec la zone où l'erreur du coup peut l'envoyer. Direction seule montre juste une flèche. Aucune est le mode des experts. Valable pour tous les joueurs." },
+      { id: "heightControl", label: "Hauteur du tir réglable", type: "bool", default: true, info: "Quand c'est actif, chaque club se joue sur cinq hauteurs, de très bas à très haut. Un tir bas va plus droit et roule mais cogne les arbres, un tir haut passe au dessus des obstacles mais se pose plus court ou plus long selon le club. Sinon chaque club garde son angle habituel." },
+      { id: "aimAssist", label: "Aide à la visée", type: "chips", default: "zone", options: [{ value: "none", label: "Aucune" }, { value: "dots", label: "Direction seule" }, { value: "zone", label: "Zone d'arrivée" }, { value: "traj", label: "Trajectoire exacte" }], info: "Zone d'arrivée montre l'arc de la balle jusqu'à son atterrissage et un grand cercle où elle devrait finir, sans dire où elle rebondit. Une alerte prévient seulement quand un obstacle ou un danger est proche. Trajectoire exacte dessine tout le vol, les rebonds et les obstacles touchés, pour apprendre. Direction seule montre juste une flèche. Aucune est le mode des experts. Valable pour tous les joueurs." },
       { id: "cupSize", label: "Taille du trou", type: "chips", default: 1, options: [{ value: 1.5, label: "Grand" }, { value: 1, label: "Normal" }, { value: 0.75, label: "Petit" }], info: "Un grand trou avale aussi les balles un peu rapides." },
     ] },
     { category: "✨ Les pouvoirs", rules: [
@@ -133,5 +152,5 @@
     hole.cupR = 0.52 * s.cupSize;
     return hole;
   }
-  return { holeFor, SCORE, placePts, scoringText, SCHEMA, CLUBS, CLUB_ORDER, POWERS, POWER_ORDER, defaults, normalize, allRules };
+  return { holeFor, SCORE, placePts, scoringText, SCHEMA, CLUBS, CLUB_ORDER, HEIGHT_NAMES, HEIGHT_DEFAULT, hasHeight, loftFor, stars, POWERS, POWER_ORDER, defaults, normalize, allRules };
 });

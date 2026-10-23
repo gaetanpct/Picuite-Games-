@@ -169,7 +169,7 @@ Deux jeux arrivent sur l'accueil, Golfouille et Zoomalou. Ils partagent un petit
 - Cinq voitures, Bolide, Rallye-Pote, Pétard, Toupie et Bouboule, chacune avec ses forces. Le premier joueur, l'hôte, choisit la voiture de tout le monde au garage avant chaque course, pour que la course reste équitable.
 - Mode essence. Le premier pilote pose un temps, puis chaque autre pilote a un réservoir limité pour le battre et retente tant qu'il lui reste de l'essence. Le réservoir se règle de deux façons, relatif au record ou fixe en secondes. Un essai abandonné coûte l'essence déjà brûlée.
 - Ordre des pilotes. Le réglage propose À tour de rôle ou Le dernier d'abord, où le pilote le moins bien classé pose le temps et le leader joue en dernier.
-- Mode chrono. Tout le monde roule en même temps, les voitures des autres sont transparentes, et le meilleur temps de chacun compte.
+- Deux modes chrono. Dans le chrono fantôme tout le monde part en même temps depuis la même ligne, les voitures des autres sont transparentes, et le meilleur temps de chacun compte. Dans le chrono contact les voitures sont solides et se gênent.
 - Fantôme du record avec écart en direct, retour au dernier point de contrôle, caméras multiples, commandes clavier, tactiles et manette.
 - Les temps sont rejoués par le serveur à partir des touches envoyées, sauf si l'on choisit de faire confiance aux joueurs dans les réglages.
 
@@ -193,3 +193,26 @@ Deux jeux arrivent sur l'accueil, Golfouille et Zoomalou. Ils partagent un petit
 - Correction du bug d'essence avec les pilotes automatiques. Ils jouaient tous leurs essais d'un coup en cachette, ce qui vidait la jauge dès le début de leur tour. Ils roulent maintenant en direct, essai après essai, avec une jauge qui baisse vraiment. Ils abandonnent un essai quand ils sont en retard sur le record, ou insistent jusqu'à l'arrivée selon leur niveau.
 - Nouveau réglage Vitesse des tours des pilotes automatiques (normale, deux fois ou quatre fois plus vite) pour ne pas attendre quand ils ont un grand réservoir.
 - Le tableau de fin de course indique le nombre d'essais de chaque pilote.
+
+## Seizième mise à jour, Zoomalou, les pilotes automatiques et les circuits géants
+
+- Roues. Chaque roue tournait autour du centre de la voiture au lieu de tourner sur elle-même, ce qui les faisait partir dans tous les sens dès que la course se lançait. Elles tournent maintenant sur place, avec un petit moyeu blanc, et les roues avant se braquent quand on tourne.
+- Essence. Quand la jauge est vide, l'essai en cours va toujours jusqu'au bout et peut encore battre le record. Seul le prochain essai est refusé. Si le record ne peut plus être battu, l'essai s'arrête de lui-même. Les pilotes automatiques suivent la même règle.
+- Pilotes automatiques refaits. Un pilote étudie le circuit sans le connaître d'avance. Il calcule la trajectoire qui coupe les virages au plus court, déduit la vitesse possible en chaque point d'après sa voiture et le sol, puis se règle en se faisant rouler des centaines d'essais sur le vrai moteur. Il peut aussi s'inspirer de la trajectoire d'un meilleur temps existant, humain ou non, et teste si ça va plus vite. À chaque essai raté en mode essence il prend un peu plus de risques. Sur 200 circuits de test le niveau Prodige est environ 17 pour cent plus rapide qu'avant, et les trois autres niveaux ont gagné autant ou plus, tout en gardant des écarts nets entre eux. Les pilotes étudient le circuit pendant le garage.
+- Deux modes chrono. Le chrono fantôme garde des voitures transparentes qui ne se touchent pas. Le chrono contact rend les voitures solides, on se pousse et on se bloque. Dans les deux, le départ est commun et se fait côte à côte sur une ligne très large, avec le même compte à rebours pour tous.
+- Chocs vérifiés. En chrono contact chaque navigateur note les chocs reçus, et le serveur les rejoue avec les commandes pour confirmer le temps. Les pilotes automatiques roulent sur leur trajectoire et ne se laissent pas pousser.
+- Les pilotes automatiques roulent en continu en chrono, essai après essai, et leurs voitures sont visibles sur la grille dès le départ.
+- Circuits plus longs. Deux nouvelles longueurs, Très long et Géant, qui montent jusqu'à environ 4 kilomètres. Le générateur sait maintenant reculer quand un circuit se coince, ce qui évite les circuits trop courts.
+- Décor retravaillé. Ciel avec soleil et nuages, montagnes à l'horizon, lignes peintes de départ et d'arrivée, feux avant et arrière, bandes de course, particules d'ambiance selon le biome (neige, braises, lucioles, poussière, confettis) et effet de vitesse sur les bords de l'écran.
+
+## Dix-septième mise à jour, Golfouille, gros rework des clubs et de la visée
+
+- Clubs triés du plus puissant au moins puissant. La colonne va de la Fusée au Putter, chaque bouton affiche sa portée réelle depuis la balle et une petite barre de puissance. Les touches 1 à 7 suivent le même ordre.
+- Chaque club a une fiche claire. Elle donne son rôle, trois notes en pastilles (puissance, hauteur, précision) et une phrase sur son vol. Le driver est dit tendu et bas, donc il cogne facilement un arbre. La cale et le lob sont dits hauts et passent au dessus des obstacles.
+- Hauteur du tir réglable. Chaque club se joue de très bas à très haut, avec les flèches à côté des clubs, les touches R et F, ou Alt avec la molette. Un tir bas file droit et roule mais cogne les obstacles, un tir haut les passe. La force est recalculée pour garder le même point visé. Le serveur contrôle la hauteur reçue. Le ricochet et le putter ont une hauteur fixe.
+- Nouveau réglage Hauteur du tir réglable. Décoché, chaque club garde son angle habituel pour tout le monde.
+- Interface dégagée. Les clubs ne sont plus au milieu de l'écran mais dans une colonne sur le côté, la fiche du club est en haut à gauche, la carte passe à droite sur grand écran, et le centre reste libre pour voir où l'on tire. Sur téléphone la colonne devient compacte avec icônes et portées.
+- Aide à la visée repensée. Le nouveau mode par défaut, Zone d'arrivée, montre l'arc de la balle jusqu'à son atterrissage et un grand cercle où elle devrait finir, avec une distance arrondie. Il ne montre ni rebonds ni obstacles touchés, et prévient seulement quand quelque chose se trouve sur la route ou qu'un danger est proche. L'ancien mode complet devient Trajectoire exacte, pour apprendre. Direction seule et Aucune restent disponibles. Le réglage s'applique à tous les joueurs.
+- Les bots Gaillard, Champion et Prodige essaient eux aussi des tirs plus hauts ou plus bas selon les obstacles.
+- Aide, tutoriel et menu réécrits pour expliquer les clubs, la hauteur et la nouvelle aide.
+- Limites connues. Le bot Mou du genou ne règle pas la hauteur. Les tirs de la zone d'arrivée dépendent des moulins et barrières qui bougent, donc l'aide reste approximative par construction.

@@ -104,6 +104,9 @@ function shoot(room, pid, data) {
   let yaw = Number(data.yaw); let power = Number(data.power);
   if (!isFinite(yaw) || !isFinite(power)) return { error: "Coup invalide." };
   power = Math.max(0.05, Math.min(1, power));
+  // hauteur du tir, de 0 très bas à 4 très haut, 2 est l'angle habituel du club
+  const hRaw = Number(data.height); const height = s.heightControl === false || !isFinite(hRaw) ? Rules.HEIGHT_DEFAULT : Math.max(0, Math.min(4, Math.round(hRaw)));
+  const loft = Rules.loftFor(allowed, height);
   if (club.limited) P.rocketUsed = true;
   // erreur de coup
   const prec = s.precision;
@@ -117,7 +120,7 @@ function shoot(room, pid, data) {
   if (P.fx.gust) { const a = yaw + (rng() < 0.5 ? 1 : -1) * Math.PI / 2; opts.gust = [Math.sin(a) * 3.4, Math.cos(a) * 3.4]; }
   if (s.powersOn) opts.orbs = g.orbs.filter((o) => !o.taken).map((o) => ({ id: o.id, x: o.x, z: o.z, taken: false }));
   const ball = { x: P.x, y: P.y, z: P.z };
-  const res = Physics.simulate(g.hole, ball, { yaw, speed, loft: club.loft, lob: !!club.lob }, opts);
+  const res = Physics.simulate(g.hole, ball, { yaw, speed, loft, lob: !!club.lob }, opts);
   P.stats.longest = Math.max(P.stats.longest, Math.hypot(res.end.x - P.x, res.end.z - P.z));
   P.prevRest = P.lastRest; P.lastRest = null;
   P.strokes++; P.moving = true; P.lastClub = allowed;
@@ -127,7 +130,7 @@ function shoot(room, pid, data) {
   P.pending = res;
   // les orbes ramassées disparaissent tout de suite pour les autres
   res.picked.forEach((id) => { const o = g.orbs.find((q) => q.id === id); if (o) { o.taken = true; o.by = pid; o.respawnAt = s.orbRespawn ? Date.now() + s.orbRespawn * 1000 * TS : 0; } });
-  g.api.emitAll(room, "golf:shot", { pid, club: allowed, t0: Date.now(), tRel: opts.t0, frames: res.frames, events: res.events, outcome: res.outcome, dur: res.dur, picked: res.picked, strokes: P.strokes });
+  g.api.emitAll(room, "golf:shot", { pid, club: allowed, height, t0: Date.now(), tRel: opts.t0, frames: res.frames, events: res.events, outcome: res.outcome, dur: res.dur, picked: res.picked, strokes: P.strokes });
   emitState(room, true);
   return { ok: true };
 }
@@ -328,8 +331,8 @@ function tick(room) {
 function botShot(room, P, def, forcedLevel) {
   const g = room.g, s = room.settings; const level = forcedLevel || botLevelOf(def);
   const clubs = s.clubs.filter((c) => !(Rules.CLUBS[c].limited && P.rocketUsed));
-  const plan = Bot.planShot(g.hole, { x: P.x, y: P.y, z: P.z }, { clubs, t0: tRel(g), walls: activeWalls(g), turbo: !!P.fx.turbo, glu: !!P.fx.glu, ice: !!P.fx.ice, magnet: !!P.fx.magnet, cupMul: 1 }, level, rng);
-  shoot(room, P.id, { club: plan.club, yaw: plan.yaw, power: plan.power });
+  const plan = Bot.planShot(g.hole, { x: P.x, y: P.y, z: P.z }, { clubs, t0: tRel(g), walls: activeWalls(g), turbo: !!P.fx.turbo, glu: !!P.fx.glu, ice: !!P.fx.ice, magnet: !!P.fx.magnet, cupMul: 1, noHeight: room.settings.heightControl === false }, level, rng);
+  shoot(room, P.id, { club: plan.club, yaw: plan.yaw, power: plan.power, height: plan.height });
 }
 function botAct(room, P, def) {
   const g = room.g, s = room.settings;

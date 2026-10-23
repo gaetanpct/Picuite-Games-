@@ -334,6 +334,24 @@
     const sx = Math.sin(yaw), sz = Math.cos(yaw);
     P.line.forEach((d, i) => { const dist = 1.3 + i * ((o.len || 20) / 26); d.visible = mode === "points"; const px = x + sx * dist, pz = z + sz * dist; d.position.set(px, groundY(px, pz) + 0.25, pz); d.scale.setScalar(i % 5 === 4 ? 1.7 : 1); });
     P.arrow.visible = mode === "points"; { const len = o.len || 20; const ax = x + sx * (len + 1.4), az = z + sz * (len + 1.4); P.arrow.position.set(ax, groundY(ax, az) + 0.35, az); P.arrow.rotation.order = "YXZ"; P.arrow.rotation.y = yaw; P.arrow.rotation.x = Math.PI / 2; }
+    if (mode === "zone" && o.frames && o.zone) {
+      // aide douce, l'arc de vol jusqu'à l'atterrissage et un grand cercle d'arrivée, sans rebonds ni obstacles
+      const f = o.frames, n = f.length / 3; hideAll();
+      let land = n - 1; for (let i = 4; i < n; i++) { if (f[i * 3 + 1] / 100 - groundY(f[i * 3] / 100, f[i * 3 + 2] / 100) < 0.2) { land = i; break; } }
+      let total = 0; for (let i = 1; i <= land; i++) total += Math.hypot(f[i * 3] - f[(i - 1) * 3], f[i * 3 + 2] - f[(i - 1) * 3 + 2]) / 100 + Math.abs(f[i * 3 + 1] - f[(i - 1) * 3 + 1]) / 100;
+      const gap = Math.max(0.8, total / 34); let acc = 0, ia = 0;
+      for (let i = 1; i <= land; i++) {
+        acc += Math.hypot(f[i * 3] - f[(i - 1) * 3], f[i * 3 + 2] - f[(i - 1) * 3 + 2]) / 100 + Math.abs(f[i * 3 + 1] - f[(i - 1) * 3 + 1]) / 100;
+        if (acc < gap) continue; acc = 0;
+        const px = f[i * 3] / 100, py = f[i * 3 + 1] / 100, pz = f[i * 3 + 2] / 100;
+        if (py - groundY(px, pz) > 0.3 && ia < P.air.length) { const m = P.air[ia++]; m.position.set(px, py, pz); m.visible = true; }
+      }
+      const zr = Math.max(1.5, o.zone.r), gy = groundY(o.zone.cx, o.zone.cz);
+      P.disc.visible = P.discEdge.visible = true; P.disc.position.set(o.zone.cx, gy + 0.1, o.zone.cz); P.disc.scale.set(zr, zr, 1); P.discEdge.position.set(o.zone.cx, gy + 0.11, o.zone.cz); P.discEdge.scale.set(zr, zr, 1);
+      const col = o.warn ? 0xff5a4a : 0xffffff; P.disc.material.color.setHex(col); P.discEdge.material.color.setHex(col);
+      if (o.label) { setLabel(o.label, !!o.warn); P.label.visible = true; P.label.position.set(o.zone.cx, gy + 3.3 + Math.min(1.5, zr * 0.12), o.zone.cz); }
+      return;
+    }
     if (mode !== "trajectoire" || !o.frames) { hideAll(); return; }
     const f = o.frames, n = f.length / 3; let total = 0; for (let i = 1; i < n; i++) total += Math.hypot(f[i * 3] - f[(i - 1) * 3], f[i * 3 + 2] - f[(i - 1) * 3 + 2]) / 100;
     const gap = Math.max(0.9, total / 120); let acc = 0, ia = 0, ir = 0;

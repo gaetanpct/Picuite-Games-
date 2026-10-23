@@ -17,7 +17,8 @@
       { id: "rounds", label: "Nombre de courses", type: "range", min: 1, max: 12, step: 1, default: 5, info: "Chaque course se joue sur un nouveau circuit généré pour toi." },
       { id: "mode", label: "Mode de jeu", type: "cards", default: "essence", options: [
         { value: "essence", label: "Essence", icon: "⛽", desc: "Le premier pilote pose un temps. Les autres, à tour de rôle, ont une réserve d'essence limitée pour le battre, avec autant d'essais que le réservoir le permet." },
-        { value: "chrono", label: "Chrono", icon: "⏱️", desc: "Tout le monde roule en même temps, recommence autant qu'il veut, et le meilleur temps gagne." },
+        { value: "chrono", label: "Chrono fantôme", icon: "👻", desc: "Tout le monde part en même temps depuis la même ligne, recommence autant qu'il veut, et le meilleur temps gagne. Les voitures sont des fantômes, elles ne se touchent jamais." },
+        { value: "contact", label: "Chrono contact", icon: "💥", desc: "Même principe, mais les voitures sont bien réelles. On se pousse, on se gêne, on se bloque dans les virages. Le départ se fait côte à côte pour que ce soit équitable." },
       ] },
       { id: "refTries", label: "Essais du premier pilote", type: "chips", default: 1, options: [1, 2, 3], showIf: { mode: "essence" }, info: "Le premier pilote de la course pose le temps à battre, sans limite d'essence. Avec plusieurs essais son meilleur temps compte." },
       { id: "tankMode", label: "Taille du réservoir", type: "chips", default: "relatif", options: [{ value: "relatif", label: "Selon le record" }, { value: "fixe", label: "Durée fixe" }], showIf: { mode: "essence" }, info: "Selon le record, le réservoir vaut un multiple du temps à battre, ce qui garde la tension sur les petits comme sur les grands circuits. Durée fixe donne le même nombre de secondes à chaque défi." },
@@ -27,13 +28,13 @@
         { value: "tour", label: "À tour de rôle", icon: "🔁", desc: "Le pilote qui pose le temps change à chaque course, dans l'ordre des places." },
         { value: "retard", label: "Le dernier d'abord", icon: "🐢", desc: "Le dernier du classement joue en premier et pose le temps. Le leader passe en dernier et doit battre tout le monde." },
       ], showIf: { mode: "essence" } },
-      { id: "roundTime", label: "Durée d'une course en chrono", type: "chips", default: 120, options: [{ value: 60, label: "1 min" }, { value: 90, label: "1 min 30" }, { value: 120, label: "2 min" }, { value: 180, label: "3 min" }, { value: 240, label: "4 min" }], showIf: { mode: "chrono" }, info: "Pendant ce temps, chacun enchaîne les essais. Seul le meilleur temps compte." },
+      { id: "roundTime", label: "Durée d'une course en chrono", type: "chips", default: 120, options: [{ value: 60, label: "1 min" }, { value: 90, label: "1 min 30" }, { value: 120, label: "2 min" }, { value: 180, label: "3 min" }, { value: 240, label: "4 min" }], showIf: { mode: ["chrono", "contact"] }, info: "Après le départ commun, chacun enchaîne les essais pendant ce temps. Seul le meilleur temps compte." },
       { id: "garage", label: "Temps au garage", type: "chips", default: 20, options: [{ value: 10, label: "10 s" }, { value: 20, label: "20 s" }, { value: 40, label: "40 s" }], info: "Avant chaque course, chacun choisit sa voiture. Le garage se ferme plus tôt quand tous les joueurs sont prêts." },
     ] },
     { category: "🛣️ Le circuit", rules: [
       { id: "biomes", label: "Biomes possibles", type: "multi", default: Track.BIOME_IDS.slice(), options: BIOME_OPTIONS, info: "Coche les décors que tu veux croiser. Chaque biome a sa couleur de route, sa gravité et ses types de sols." },
       { id: "biomeOrder", label: "Choix du biome à chaque course", type: "chips", default: "hasard", options: [{ value: "hasard", label: "Au hasard" }, { value: "ordre", label: "Dans l'ordre de la liste" }, { value: "unique", label: "Le même partout" }], info: "Le même partout prend le premier biome coché." },
-      { id: "trackSize", label: "Longueur des circuits", type: "chips", default: 2, options: [{ value: 1, label: "Court" }, { value: 2, label: "Moyen" }, { value: 3, label: "Long" }], info: "Court fait environ 25 secondes de conduite, moyen environ 45, long plus d'une minute." },
+      { id: "trackSize", label: "Longueur des circuits", type: "chips", default: 2, options: [{ value: 1, label: "Court" }, { value: 2, label: "Moyen" }, { value: 3, label: "Long" }, { value: 4, label: "Très long" }, { value: 5, label: "Géant" }], info: "Court fait environ 30 secondes de conduite, moyen environ 45, long environ 1 minute 15, très long environ 2 minutes, géant 3 minutes ou plus. Les circuits géants sont faits pour de vraies courses d'endurance." },
       { id: "difficulty", label: "Difficulté du circuit", type: "range", min: 1, max: 5, step: 1, default: 3, info: "Plus c'est haut, plus la route est étroite avec des virages serrés et des enchaînements." },
       { id: "hills", label: "Relief", type: "range", min: 0, max: 3, step: 1, default: 2, format: (v) => ["plat", "doux", "vallonné", "montagneux"][v], info: "Les bosses font décoller la voiture, les côtes la ralentissent." },
       { id: "features", label: "Animations du circuit", type: "multi", default: FEATURE_OPTIONS.map((f) => f.value), options: FEATURE_OPTIONS, info: "Décoche ce que tu n'aimes pas." },
@@ -41,8 +42,8 @@
     ] },
     { category: "🚗 La conduite", rules: [
       { id: "botPace", label: "Vitesse des tours des pilotes automatiques", type: "chips", default: 2, options: [{ value: 1, label: "Normale" }, { value: 2, label: "Deux fois plus vite" }, { value: 4, label: "Quatre fois plus vite" }], showIf: { mode: "essence" }, info: "Les pilotes automatiques roulent en direct, essai après essai, avec leur essence qui baisse. Accélérer évite d'attendre quand ils ont un grand réservoir." },
-      { id: "ghost", label: "Fantôme du record", type: "bool", default: true, info: "Affiche une voiture transparente qui rejoue le meilleur temps du moment et un écart en direct." },
-      { id: "others", label: "Voir les autres pilotes", type: "bool", default: true, info: "Affiche les voitures des autres pilotes en transparence pendant qu'ils roulent. Elles ne gênent jamais." },
+      { id: "ghost", label: "Fantôme du record", type: "bool", default: true, info: "Affiche une voiture transparente qui rejoue le meilleur temps du moment (le record en mode essence, ton meilleur essai en chrono) et un écart en direct." },
+      { id: "others", label: "Voir les autres pilotes", type: "bool", default: true, info: "Affiche les voitures des autres pilotes pendant qu'ils roulent, en transparence en chrono fantôme. En chrono contact elles sont toujours visibles et solides." },
       { id: "verify", label: "Contrôle des temps", type: "chips", default: "replay", options: [{ value: "replay", label: "Rejouer les pilotages" }, { value: "trust", label: "Faire confiance" }], info: "Rejouer les pilotages fait refaire chaque course par le serveur pour confirmer le temps exact. Faire confiance accepte le temps annoncé par chaque navigateur, plus simple mais triche possible." },
     ] },
   ];

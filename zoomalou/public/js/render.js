@@ -10,7 +10,7 @@
   const wrap = (a) => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
   const View = { ready: false, track: null, quality: "medium", cars: {}, paused: false };
   let renderer, scene, camera, sun, hemi, host, group = null, particles = [], gates = [], stars = null, camMode = 0, followId = null, shake = 0;
-  let camHd = 0, camPos = new T.Vector3(), camInit = false, fov = 62, orbit = null, time = 0;
+  let camHd = 0, camPos = new T.Vector3(), camInit = false, fov = 62, orbit = null, time = 0, sky = null, cloudsG = null, amb = null, ambMode = null;
   View.onFrame = null;
 
   View.init = function (container, quality) {
@@ -141,10 +141,29 @@
     place(arch(tr.start.idx, "DÉPART", "#ffffff", "#222222", "#ffffff", false), tr.start.idx);
     place(arch(tr.n - 3, "ARRIVÉE", "#ffffff", "#222222", "#ffffff", false), tr.n - 3);
     tr.cps.forEach((c, k) => { const g = arch(c, "", "", "", "#33e0ff", true); place(g, c); g.userData.cp = k; gates.push(g); });
-    group.add(bakeDecor(tr.decor, tr.biome));
+    // lignes peintes au départ et à l'arrivée
+    { const ck = checkerTexture(); [tr.start.idx, tr.n - 3].forEach((idx) => { const pl = new T.Mesh(new T.PlaneGeometry(tr.w[idx] * 2 - 0.2, 3.2), new T.MeshBasicMaterial({ map: ck, transparent: true, opacity: 0.92 })); pl.rotation.x = -Math.PI / 2; const wr = new T.Object3D(); wr.position.set(tr.x[idx], tr.y[idx] + 0.07, tr.z[idx]); wr.rotation.y = tr.h[idx]; wr.add(pl); group.add(wr); }); }
+    group.add(bakeDecor(tr.decor, tr.biome)); buildSky(B, tr);
     if (B.stars) { const m = 500, p = new Float32Array(m * 3); for (let k = 0; k < m; k++) { const a = Math.random() * 6.28, b = Math.random() * 1.2 + 0.05, r = 600; p[k * 3] = Math.cos(a) * Math.cos(b) * r; p[k * 3 + 1] = Math.sin(b) * r; p[k * 3 + 2] = Math.sin(a) * Math.cos(b) * r; } const g = new T.BufferGeometry(); g.setAttribute("position", new T.BufferAttribute(p, 3)); stars = new T.Points(g, new T.PointsMaterial({ color: 0xffffff, size: 1.6, fog: false, sizeAttenuation: false })); group.add(stars); } else stars = null;
     camInit = false; View.resetFollow();
   };
+  // ---------- ciel, horizon et ambiance ----------
+  function sunTexture(hex) { const c = document.createElement("canvas"); c.width = c.height = 128; const g = c.getContext("2d"); const gr = g.createRadialGradient(64, 64, 4, 64, 64, 62); gr.addColorStop(0, "#ffffff"); gr.addColorStop(0.25, hex); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new T.CanvasTexture(c); }
+  function checkerTexture() { const c = document.createElement("canvas"); c.width = 256; c.height = 64; const g = c.getContext("2d"); for (let i = 0; i < 32; i++) for (let j = 0; j < 8; j++) { g.fillStyle = (i + j) % 2 ? "#ffffff" : "#15171f"; g.fillRect(i * 8, j * 8, 8, 8); } const t = new T.CanvasTexture(c); t.anisotropy = 4; return t; }
+  const AMBIENT = { neige: { n: 220, color: "#ffffff", size: 0.35, vy: -3.2, drift: 1.4 }, volcan: { n: 140, color: "#ff9a3a", size: 0.3, vy: 3.2, drift: 1.2 }, foret: { n: 90, color: "#fff3a0", size: 0.4, vy: 0.3, drift: 0.8 }, desert: { n: 120, color: "#f6dca0", size: 0.3, vy: -0.2, drift: 5 }, bonbons: { n: 130, color: "#ff8ac8", size: 0.5, vy: -1.6, drift: 0.8 }, neon: { n: 160, color: "#5affd8", size: 0.4, vy: 0.8, drift: 1.2 }, cote: { n: 60, color: "#ffffff", size: 0.25, vy: 0.2, drift: 2 } };
+  function buildSky(B, tr) {
+    sky = new T.Group(); group.add(sky); const lowQ = View.quality === "low";
+    const sdir = new T.Vector3(0.55, 0.42, -0.5).normalize().multiplyScalar(470);
+    const sunSp = new T.Sprite(new T.SpriteMaterial({ map: sunTexture(B.sun), transparent: true, fog: false, depthWrite: false, opacity: B.stars ? 0.55 : 0.95 })); sunSp.scale.set(B.stars ? 160 : 120, B.stars ? 160 : 120, 1); sunSp.position.copy(sdir); sky.add(sunSp);
+    if (B.stars) { const pl = new T.Mesh(new T.SphereGeometry(1, 20, 14), new T.MeshBasicMaterial({ color: col("#7a5ae0"), fog: false })); pl.scale.set(70, 70, 70); pl.position.set(-300, 210, 380); sky.add(pl); const ring = new T.Mesh(new T.TorusGeometry(1.7, 0.06, 4, 40), new T.MeshBasicMaterial({ color: col("#5affd8"), fog: false })); ring.scale.set(70, 70, 70); ring.position.copy(pl.position); ring.rotation.x = 1.2; ring.rotation.y = 0.3; sky.add(ring); }
+    const gcol = col(B.ground).lerp(col(B.fog), 0.45).multiplyScalar(0.8); const mr = mulberryJS(tr.n * 7 + 3);
+    const mcount = lowQ ? 14 : 28; for (let i = 0; i < mcount; i++) { const a = (i / mcount) * 6.283 + mr() * 0.2; const r = 430 + mr() * 90; const h = 40 + mr() * 90 * (B.id === "desert" || B.id === "cote" ? 0.6 : 1); const w = 50 + mr() * 70;
+      const m = new T.Mesh(new T.ConeGeometry(w, h, 5 + Math.floor(mr() * 3)), new T.MeshBasicMaterial({ color: gcol.clone().multiplyScalar(0.85 + mr() * 0.3), fog: false })); m.position.set(Math.cos(a) * r, tr.groundY + h / 2 - 4, Math.sin(a) * r); m.rotation.y = mr() * 3; sky.add(m); if (B.id === "neige" || B.id === "volcan") { const cap = new T.Mesh(new T.ConeGeometry(w * 0.34, h * 0.34, 5), new T.MeshBasicMaterial({ color: col(B.id === "neige" ? "#ffffff" : "#ff7a3a"), fog: false })); cap.position.set(m.position.x, tr.groundY + h * 0.84 - 4, m.position.z); sky.add(cap); } }
+    cloudsG = new T.Group(); sky.add(cloudsG); if (!B.stars) { const cc = col("#ffffff").lerp(col(B.amb), 0.25); const ccount = lowQ ? 8 : 16; for (let i = 0; i < ccount; i++) { const cl = new T.Group(); const puffs = 4 + Math.floor(mr() * 3); for (let k = 0; k < puffs; k++) { const m = new T.Mesh(new T.SphereGeometry(1, 7, 5), new T.MeshBasicMaterial({ color: cc, fog: false, transparent: true, opacity: 0.93 })); m.position.set((k - puffs / 2) * 1.3, mr() * 0.5, (mr() - 0.5) * 0.8); m.scale.set(1.2 + mr() * 0.7, 0.6 + mr() * 0.3, 0.9); cl.add(m); } const a = mr() * 6.283, r = 300 + mr() * 160; cl.position.set(Math.cos(a) * r, 80 + mr() * 90, Math.sin(a) * r); const sc = 14 + mr() * 16; cl.scale.set(sc, sc, sc); cloudsG.add(cl); } }
+    // particules d'ambiance qui suivent la caméra
+    const A = AMBIENT[B.id]; amb = null; if (A && View.quality !== "low") { const n = A.n; const p = new Float32Array(n * 3); for (let i = 0; i < n; i++) { p[i * 3] = (mr() - 0.5) * 90; p[i * 3 + 1] = mr() * 36; p[i * 3 + 2] = (mr() - 0.5) * 90; } const g = new T.BufferGeometry(); g.setAttribute("position", new T.BufferAttribute(p, 3)); amb = new T.Points(g, new T.PointsMaterial({ color: col(A.color), size: A.size, transparent: true, opacity: 0.85, depthWrite: false })); amb.frustumCulled = false; amb.userData = A; group.add(amb); }
+  }
+  function mulberryJS(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   View.flashGate = function (k) { const g = gates[k - 1]; if (g && g.userData.ring) { g.userData.ring.material.color.set("#7aff7a"); g.userData.ring.material.emissive.set("#2aff2a"); g.userData.flash = 1; } };
   View.resetGates = function () { gates.forEach((g) => { if (g.userData.ring) { g.userData.ring.material.color.set("#33e0ff"); g.userData.ring.material.emissive.set("#33e0ff"); } }); };
 
@@ -155,12 +174,17 @@
     const mb = M(hex); const dark = M("#222a33"); const white = M("#f4f4f4"); const glass = M("#9fd8ff", { roughness: 0.2 });
     const add = (geo, m, x, y, z, rx, ry, rz) => { const o = new T.Mesh(geo, m); o.position.set(x, y, z); if (rx) o.rotation.x = rx; if (ry) o.rotation.y = ry; if (rz) o.rotation.z = rz; o.castShadow = !ghost; root.add(o); return o; };
     const wheels = [];
-    const wheel = (x, y, z, r, wd) => { const w = new T.Mesh(G.cyl(r, r, wd, 10), dark); w.rotation.z = Math.PI / 2; w.position.set(x, y, z); w.castShadow = !ghost; const holder = new T.Group(); holder.add(w); root.add(holder); wheels.push(w); return w; };
+    const wheel = (x, y, z, r, wd) => { const w = new T.Mesh(G.cyl(r, r, wd, 10), dark); w.rotation.z = Math.PI / 2; w.castShadow = !ghost; const hub = new T.Mesh(G.cyl(r * 0.55, r * 0.55, wd * 1.05, 6), white); hub.rotation.z = Math.PI / 2; hub.position.x = Math.sign(x) * 0.02; const holder = new T.Group(); holder.rotation.order = "YXZ"; holder.position.set(x, y, z); holder.add(w); holder.add(hub); root.add(holder); wheels.push({ holder, front: z > 0 }); return w; };
     if (carId === "rallye") { add(G.box(2.1, 0.8, 4.0), mb, 0, 0.85, 0); add(G.box(1.8, 0.7, 2.0), glass, 0, 1.55, -0.2); add(G.box(1.9, 0.12, 2.1), white, 0, 1.95, -0.2); add(G.box(1.6, 0.18, 0.4), dark, 0, 1.2, 1.95); [[1.1, 1.3], [-1.1, 1.3], [1.1, -1.3], [-1.1, -1.3]].forEach(([x, z]) => wheel(x, 0.55, z, 0.55, 0.45)); for (let i = -1; i <= 1; i += 2) add(G.sph(0.14, 6, 5), M("#fff3a0", { emissive: col("#ffe060"), emissiveIntensity: 0.8 }), i * 0.55, 1.6, 2.0); }
     else if (carId === "petard") { add(G.box(1.6, 0.55, 4.6), mb, 0, 0.6, 0); const nose = add(G.cone(0.8, 1.6, 8), mb, 0, 0.6, 3.0); nose.rotation.x = Math.PI / 2; add(G.box(0.9, 0.5, 1.5), glass, 0, 1.0, -0.2); add(G.box(0.18, 1.4, 1.4), white, 0, 1.2, -2.2); add(G.box(2.6, 0.14, 0.7), dark, 0, 1.8, -2.3); [[1.0, 1.8], [-1.0, 1.8], [1.05, -1.8], [-1.05, -1.8]].forEach(([x, z]) => wheel(x, 0.45, z, 0.45, 0.5)); }
     else if (carId === "toupie") { add(G.cyl(1.5, 1.6, 0.6, 14), mb, 0, 0.6, 0); const dome = add(new T.SphereGeometry(1.0, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), glass, 0, 0.9, 0.1); dome.scale.set(1, 0.9, 1.1); add(G.cyl(0.35, 0.35, 0.3, 8), white, 0, 1.0, -1.0); [[1.35, 1.0], [-1.35, 1.0], [1.35, -1.0], [-1.35, -1.0]].forEach(([x, z]) => wheel(x, 0.4, z, 0.4, 0.4)); }
     else if (carId === "bouboule") { const s = add(G.sph(1.25, 14, 10), mb, 0, 1.15, 0); s.scale.set(1, 0.85, 1.25); const dome = add(G.sph(0.8, 10, 8), glass, 0, 1.75, 0.2); dome.scale.set(1, 0.7, 1); [[1.15, 1.0], [-1.15, 1.0], [1.15, -1.0], [-1.15, -1.0]].forEach(([x, z]) => wheel(x, 0.5, z, 0.5, 0.45)); add(G.sph(0.2, 6, 5), white, 0.5, 1.05, 1.5); add(G.sph(0.2, 6, 5), white, -0.5, 1.05, 1.5); }
     else { add(G.box(2.0, 0.5, 4.2), mb, 0, 0.62, 0); add(G.box(1.45, 0.45, 1.7), glass, 0, 1.05, -0.35); add(G.box(1.2, 0.1, 0.5), dark, 0, 1.35, -2.0); add(G.box(0.12, 0.45, 0.12), dark, 0.7, 1.1, -1.9); add(G.box(0.12, 0.45, 0.12), dark, -0.7, 1.1, -1.9); add(G.box(1.9, 0.12, 0.9), dark, 0, 0.4, 2.1); [[1.05, 1.4], [-1.05, 1.4], [1.05, -1.4], [-1.05, -1.4]].forEach(([x, z]) => wheel(x, 0.48, z, 0.48, 0.42)); }
+    // feux avant et arrière, et bandes de course
+    { const D = { rallye: [2.0, -2.0, 0.95, 0.7], petard: [3.0, -2.3, 0.65, 0.5], toupie: [1.55, -1.5, 0.65, 0.8], bouboule: [1.5, -1.4, 1.0, 0.6], bolide: [2.1, -2.1, 0.62, 0.8] }[carId] || [2.1, -2.1, 0.62, 0.8];
+      const head = M("#fff6c0", { emissive: col("#ffe890"), emissiveIntensity: 0.9 }), tail = M("#ff3030", { emissive: col("#ff1010"), emissiveIntensity: 0.9 });
+      [-1, 1].forEach((sx) => { add(G.box(0.3, 0.14, 0.08), head, sx * D[3], D[2], D[0] + 0.02); add(G.box(0.34, 0.14, 0.08), tail, sx * D[3], D[2], D[1] - 0.02); });
+      if (carId === "bolide" || carId === "petard") [-0.3, 0.3].forEach((sx) => add(G.box(0.18, 0.02, carId === "bolide" ? 3.6 : 3.9), white, sx, carId === "bolide" ? 0.89 : 0.9, carId === "bolide" ? 0 : 0.3)); }
     // flamme de turbo
     const flame = new T.Mesh(G.cone(0.5, 2.2, 8), new T.MeshBasicMaterial({ color: 0xffb02a, transparent: true, opacity: 0.85 })); flame.rotation.x = -Math.PI / 2; flame.position.set(0, 0.7, -3.1); flame.visible = false; root.add(flame);
     let label = null; if (name) { label = new T.Sprite(new T.SpriteMaterial({ map: labelTexture(name), depthTest: false, transparent: true })); label.scale.set(4.2, 1.05, 1); label.position.y = 3.3; label.renderOrder = 10; root.add(label); }
@@ -204,7 +228,7 @@
   function updateCamera(dt) {
     const c = followId && View.cars[followId];
     if (orbit) { // vue de garage, la caméra tourne autour du départ
-      const t = time * 0.35; const s = View.track.start; camera.position.set(s.x + Math.sin(t) * 8, s.y + 3.2, s.z + Math.cos(t) * 8); camera.lookAt(s.x, s.y + 0.8, s.z); camera.fov = 50; camera.updateProjectionMatrix(); return;
+      const t = time * 0.35; const s = View.track.start; camera.position.set(s.x + Math.sin(t) * 14, s.y + 5.2, s.z + Math.cos(t) * 14); camera.lookAt(s.x, s.y + 0.8, s.z); camera.fov = 52; camera.updateProjectionMatrix(); return;
     }
     if (!c || !c.init) return;
     const st = c.st; const spd = c.speed || 0;
@@ -231,14 +255,17 @@
     Object.values(View.cars).forEach((c) => {
       if (c.tgt) { const k = 1 - Math.exp(-14 * dt); c.st.x += (c.tgt.x - c.st.x) * k; c.st.y += (c.tgt.y - c.st.y) * k; c.st.z += (c.tgt.z - c.st.z) * k; c.st.h += wrap(c.tgt.h - c.st.h) * k; c.st.p += ((c.tgt.p || 0) - c.st.p) * k; }
       const s = c.st; c.root.position.set(s.x, s.y, s.z); c.root.rotation.order = "YXZ"; c.root.rotation.y = s.h; c.root.rotation.x = -s.p * (c.air ? 0.4 : 1); c.root.rotation.z = -(c.steer || 0) * 0.06 * clamp((c.speed || 0) / 30, 0, 1);
+      if (c.label) { const d = camera.position.distanceTo(c.root.position); c.label.visible = d > 9 && d < 170; const sc = 2.6 + d * 0.02; c.label.scale.set(sc, sc * 0.25, 1); c.label.position.y = 3.1; }
       c.flame.visible = !!c.boost; if (c.boost) c.flame.scale.set(0.8 + Math.random() * 0.3, 0.8 + Math.random() * 0.5, 0.8 + Math.random() * 0.3);
-      c.spin += (c.speed || 0) * dt / 0.5; c.wheels.forEach((w) => { w.parent.rotation.y = 0; w.rotation.x = 0; w.rotation.order = "XYZ"; w.parent.rotation.x = c.spin; });
+      c.spin += (c.speed || 0) * dt / 0.5; c.spin = c.spin % (Math.PI * 2); c.wheels.forEach((w) => { w.holder.rotation.x = c.spin; w.holder.rotation.y = w.front ? -(c.steer || 0) * 0.45 : 0; });
       if (c.shadow) { c.shadow.visible = c.root.visible && !c.air; c.shadow.position.set(s.x, s.y + 0.06, s.z); c.shadow.rotation.z = s.h; }
       if (c.skid > 0.5 && !c.air && Math.random() < 0.6) puff(s.x - Math.sin(s.h) * 1.6, s.y + 0.3, s.z - Math.cos(s.h) * 1.6, c.skidCol || "#dddddd", 1, 1.4, 0.8, 1);
     });
     particles.forEach((p) => { if (!p.alive) return; p.life -= dt; if (p.life <= 0) { p.alive = false; p.mesh.visible = false; return; } p.v.y += 1.2 * dt; p.v.multiplyScalar(1 - dt * 1.5); p.mesh.position.addScaledVector(p.v, dt); p.mesh.material.opacity = clamp(p.life / p.max, 0, 1) * 0.8; p.mesh.scale.multiplyScalar(1 + dt * 0.8); });
     gates.forEach((g) => { if (g.userData.flash > 0) { g.userData.flash -= dt * 0.6; if (g.userData.flash <= 0 && g.userData.ring) { g.userData.ring.material.emissive.set("#33e0ff"); g.userData.ring.material.color.set("#33e0ff"); } } });
     if (stars) stars.position.copy(camera.position);
+    if (sky) { sky.position.set(camera.position.x, 0, camera.position.z); if (cloudsG) cloudsG.rotation.y += dt * 0.004; }
+    if (amb) { const A = amb.userData, a = amb.geometry.attributes.position; for (let i = 0; i < a.count; i++) { let y = a.getY(i) + A.vy * dt, x = a.getX(i) + (Math.sin(time * 0.4 + i) * A.drift) * dt + A.drift * 0.4 * dt, z = a.getZ(i); if (y < 0) y += 36; if (y > 36) y -= 36; if (x > 45) x -= 90; if (x < -45) x += 90; a.setXYZ(i, x, y, z); } a.needsUpdate = true; amb.position.set(camera.position.x, camera.position.y - 14, camera.position.z); }
     const f = followId && View.cars[followId]; if (f) { sun.target.position.set(f.st.x, f.st.y, f.st.z); sun.position.set(f.st.x + 50, f.st.y + 90, f.st.z - 30); }
     updateCamera(dt);
     renderer.render(scene, camera);

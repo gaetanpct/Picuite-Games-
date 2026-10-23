@@ -18,8 +18,9 @@
     track: null, roundIdx: -1, total: 0, mode: "essence", st: null, turn: null, record: null, author: 0, carId: "bolide", botPlan: null, samples: [], offset: 0, order: [],
     run: null, keys: {}, touch: {}, rstReq: false, snaps: {}, viewInit: false, myBest: null, myBestFrames: null, ghostFrames: null, ghostCar: "bolide", ghostT0: 0, ghostPtr: 0,
     autoArm: 0, wantArm: false, armedAt: 0, lastFeed: [], sheet: null, endInfo: null, lastTurnKey: "", waiting: false, prev: { seed: "", idx: 0, key: "", track: null }, lastMini: 0, lastDom: 0,
-    cpBanner: 0, lastState: "",
+    cpBanner: 0, lastState: "", slots: {},
   };
+  const isChrono = (m) => m === "chrono" || m === "contact";
   const snow = () => Date.now() + G.offset;
   const S = () => (Kit.room && Kit.room.settings) || ZR.defaults();
   const myId = () => { const p = Kit.me(); return p ? p.id : null; };
@@ -53,6 +54,7 @@
       el("div", { class: "pill z-mini nopoint" }, [el("canvas", { id: "z-mini", width: 260, height: 260 })]),
       el("div", { id: "z-board", class: "pill z-board" }),
       el("div", { id: "z-fuel", class: "pill z-fuel nopoint hidden" }),
+      el("div", { id: "z-fx", class: "z-fx nopoint" }),
       el("div", { id: "z-speed", class: "pill z-speed nopoint" }),
       el("div", { id: "z-center", class: "z-center nopoint" }),
       el("div", { id: "z-feed", class: "z-feed nopoint" }),
@@ -77,12 +79,12 @@
   function onRound(m) {
     clock(m.now);
     if (!G.viewInit) { V.init($("#gl-host"), store.get("zoom.quality", autoQuality())); G.viewInit = true; V.paused = false; V.onFrame = onFrame; }
-    G.track = m.track; G.roundIdx = m.index; G.total = m.total; G.mode = m.mode; G.author = m.author; G.carId = m.car || G.carId; G.botPlan = null; G.order = m.order || [];
+    G.track = m.track; G.roundIdx = m.index; G.total = m.total; G.mode = m.mode; G.author = m.author; G.carId = m.car || G.carId; G.botPlan = null; G.order = m.order || []; G.slots = m.slots || {};
     G.run = null; G.myBest = null; G.myBestFrames = null; G.ghostFrames = null; G.record = null; G.snaps = {}; G.turn = null; G.wantArm = false; G.armedAt = 0; G.waiting = false;
     closeSheet(); V.loadTrack(G.track); V.resize(); V.removeAllCars(); setBanner("Course " + (m.index + 1) + " sur " + m.total, G.track.name + " · " + TR.BIOMES[G.track.biome].name, 2600);
   }
   function onRecord(m) {
-    G.record = { time: m.time, pid: m.pid, car: m.car, frames: m.frames }; if (G.mode === "essence") { G.ghostFrames = m.frames; G.ghostCar = m.car; G.ghostPtr = 0; }
+    G.record = { time: m.time, pid: m.pid, car: m.car, frames: m.frames }; if (!isChrono(G.mode)) { G.ghostFrames = m.frames; G.ghostCar = m.car; G.ghostPtr = 0; }
   }
   function onTurn(m) {
     if (!m) return; clock(m.now); G.turn = m; G.run = null; G.wantArm = false; G.armedAt = 0; G.waiting = false;
@@ -113,7 +115,7 @@
   function arm() { if (G.armedAt && Date.now() - G.armedAt < 1200) return; G.armedAt = Date.now(); G.waiting = true; Kit.socket.emit("z:attempt"); }
   function onGo(m) {
     clock(m.now); G.waiting = false; const car = G.carId || m.car || "bolide";
-    G.run = { r: CA.newRun(G.track, car), bytes: [], goAt: m.goAt, fuelTicks: m.fuelLeft > 0 ? Math.floor(m.fuelLeft * 60) : 1e12, fuel0: m.fuelLeft || 0, challenger: m.fuelLeft > 0, frames: [], done: false, car, cpShown: 0, out: false, finishSent: false, gptr: 0, lastGo: 0 };
+    G.slotMe = m.slot || 0; G.run = { r: CA.newRun(G.track, car, { slot: G.slotMe }), bytes: [], events: [], goAt: m.goAt, fuelTicks: 1e12, fuel0: m.fuelLeft || 0, challenger: m.fuelLeft > 0, frames: [], done: false, car, cpShown: 0, out: false, finishSent: false, gptr: 0, lastGo: 0 };
     G.ghostPtr = 0; V.resetGates(); V.resetFollow(); G.armedAt = 0; G.cpBanner = 0;
     G.ghostT0 = m.goAt;
     const cm = me(); V.ensureCar("me", car, hexOf(cm ? cm.color : 0), false, null); engineStart();
@@ -153,8 +155,9 @@
       else {
         run.countdown = 0; let n = 0;
         while (r.tick < want && !r.finished && n < 8) {
-          const inp = inputNow(); if (r.tick >= run.fuelTicks) { inp.thr = 0; run.out = true; }
-          const q = CA.quant(inp); run.bytes.push(CA.packInput(q)); CA.step(r, q); n++;
+          if (run.challenger && r.tick / 60 >= run.fuel0) run.out = true;
+          if (G.mode === "contact") contacts(run, r);
+          const inp = inputNow(); const q = CA.quant(inp); run.bytes.push(CA.packInput(q)); CA.step(r, q); n++;
           if (r.tick % 6 === 1) run.frames.push(r.x, r.y, r.z, r.hd, r.pitch, r.air ? 1 : 0, r.boostT > 0 ? 1 : 0, r.idx);
           if (r.cpEvt === r.tick) { V.flashGate(r.cp); Kit.sound.tone(880, 0.12, "triangle", 0.1); G.cpBanner = performance.now(); setBanner("Point de contrôle " + r.cp + " sur " + tr.cps.length, fmtS(r.tick / 60), 1100); }
           if (r.wallHit > 5) { V.shake(Math.min(0.6, r.wallHit * 0.03)); Kit.sound.noise(0.12, 0.08, 0, 900); }
@@ -163,6 +166,7 @@
           if (r.lastResetTick === r.tick) { V.resetFollow(); setBanner("Retour au point de contrôle", null, 900); }
         }
         if (r.finished && !run.done) finishRun(run);
+        if (run.out && run.challenger && !run.done && G.record && G.mode === "essence" && r.tick / 60 > G.record.time + 1 && !run.lost) { run.lost = true; setBanner("Trop tard", "Le record ne peut plus être battu, ton réservoir est vide", 2400); Kit.socket.emit("z:end", { kind: "restart" }); }
       }
       speed = Math.hypot(r.vx, r.vz); shownTime = want >= 0 ? r.tick / 60 : 0; active = want >= 0 && !r.finished;
     }
@@ -176,23 +180,26 @@
       car.skidCol = r.onSurf === 1 ? "#a07a50" : r.onSurf === 2 ? "#e0f4ff" : "#dddddd";
       if (r.onSurf === 1 && !r.air && vf > 15 && Math.random() < 0.3) V.puff(r.x - Math.sin(r.hd) * 1.6, r.y + 0.3, r.z - Math.cos(r.hd) * 1.6, "#b08a5a", 1, 1.5, 1, 1.1);
     } else if (cm && (s.phase === "garage" || s.phase === "race" || myTurnActive())) {
-      const car = V.ensureCar("me", cm.car, hexOf(cm.color), false, null); const st = tr.start; V.setCarState("me", { x: st.x, y: st.y, z: st.z, h: st.h, p: 0, a: 0, b: 0, speed: 0 }, true);
+      V.ensureCar("me", cm.car, hexOf(cm.color), false, null); V.setCarState("me", gridPose(isChrono(G.mode) ? (G.slots[myId()] || 0) : 0), true);
     } else V.hideCar("me");
     // caméra
     const spectating = s.phase === "turns" && s.turn && s.turn.pid !== myId();
     if (s.phase === "garage" || s.phase === "roundEnd" || s.phase === "over") { V.setOrbit(true); V.follow("me"); }
     else { V.setOrbit(null); V.follow(spectating ? s.turn.pid : "me"); }
     // autres voitures
-    const showOthers = S().others;
-    Object.keys(G.snaps).forEach((id) => {
-      const sn = G.snaps[id]; if (id === myId()) return; const live = Date.now() - sn.at < 1500;
+    const contact = G.mode === "contact"; const showOthers = S().others || contact;
+    const chronoGrid = isChrono(G.mode) && (s.phase === "race" || s.phase === "garage");
+    s.players.forEach((p) => {
+      const id = p.id; if (id === myId()) return; const sn = G.snaps[id]; const live = sn && Date.now() - sn.at < (contact ? 600 : 1500);
       const isActive = spectating && s.turn.pid === id;
-      if (!live || (!showOthers && !isActive)) { V.hideCar(id); return; }
-      const p = stP(id); V.ensureCar(id, sn.car, hexOf(p ? p.color : 0), !isActive, isActive ? "" : (p ? p.name : "")); V.setCarTarget(id, sn);
+      if (!showOthers && !isActive) { V.hideCar(id); return; }
+      if (live && (s.phase === "race" || s.phase === "turns")) { V.ensureCar(id, sn.car, hexOf(p.color), !isActive && !contact, isActive ? "" : p.name); V.setCarTarget(id, sn); }
+      else if (chronoGrid && !p.left) { V.ensureCar(id, p.car, hexOf(p.color), !contact, p.name); V.setCarState(id, gridPose(G.slots[id] || 0), true); const c = V.cars[id]; if (c) c.tgt = null; }
+      else V.hideCar(id);
     });
     // fantôme
     let gt = null;
-    if (G.mode === "chrono") { G.ghostFrames = G.myBestFrames; G.ghostCar = run ? run.car : (cm ? cm.car : "bolide"); }
+    if (isChrono(G.mode)) { G.ghostFrames = G.myBestFrames; G.ghostCar = run ? run.car : (cm ? cm.car : "bolide"); }
     const frames = G.ghostFrames; let ghostOn = false;
     if (S().ghost && frames && frames.length >= 16) {
       if (run && !run.done && run.countdown === 0) gt = run.r.tick / 60; else if (spectating) { const bc = botClock(); if (bc) gt = bc.gap ? null : bc.t; else if (s.turn.goAt) gt = (now - s.turn.goAt) / 1000; }
@@ -208,7 +215,7 @@
 
   function finishRun(run) {
     run.done = true; const r = run.r; const t = r.finishTime;
-    if (!run.finishSent) { run.finishSent = true; Kit.socket.emit("z:end", { kind: "finish", bytes: bytesB64(run.bytes), time: t }); }
+    if (!run.finishSent) { run.finishSent = true; Kit.socket.emit("z:end", { kind: "finish", bytes: bytesB64(run.bytes), time: t, ev: run.events || [] }); }
     Kit.sound.win(); setBanner(fmtS(t), r.resets ? "Arrivée avec " + r.resets + " retour" + (r.resets > 1 ? "s" : "") : "Arrivée", 2200);
     if (G.myBest == null || t < G.myBest) { G.myBest = t; G.myBestFrames = run.frames.slice(); }
     run.doneAt = performance.now();
@@ -216,12 +223,39 @@
     if (rec != null) feed(t < rec ? "Record battu de " + fmt(rec - t) + " s" : "Il manque " + fmt(t - rec) + " s pour battre le record");
     // l'essai suivant démarre tout seul après une courte pause
     G.afterFinish = performance.now(); G.run = run;
-    setTimeout(() => { if (G.run === run && canDrive() && !(G.st.turn && G.st.turn.ended)) { G.run = null; G.armedAt = 0; if (G.mode === "chrono") { G.waiting = false; arm(); } } }, 2600);
+    setTimeout(() => { if (G.run === run && canDrive() && !(G.st.turn && G.st.turn.ended)) { G.run = null; G.armedAt = 0; if (isChrono(G.mode)) { G.waiting = false; arm(); } } }, 2600);
   }
   function bytesB64(arr) { let s = ""; for (let i = 0; i < arr.length; i += 0x8000) s += String.fromCharCode.apply(null, arr.slice(i, i + 0x8000)); return btoa(s); }
 
   // ---------- messages réseau ----------
-  function onSnap(m) { m.cars.forEach((c) => { G.snaps[c.id] = Object.assign({ at: Date.now() }, c); }); }
+  function onSnap(m) {
+    const now = Date.now();
+    m.cars.forEach((c) => {
+      const prev = G.snaps[c.id]; const n = Object.assign({ at: now, vx: 0, vz: 0 }, c);
+      if (prev) { const dt = (now - prev.at) / 1000; if (dt > 0.015 && dt < 0.6) { n.vx = prev.vx * 0.4 + ((c.x - prev.x) / dt) * 0.6; n.vz = prev.vz * 0.4 + ((c.z - prev.z) / dt) * 0.6; } else { n.vx = prev.vx; n.vz = prev.vz; } }
+      G.snaps[c.id] = n;
+    });
+  }
+  // contact entre pilotes. Chaque voiture est faite de deux cercles. Le choc est appliqué à ma voiture et noté pour que le serveur le rejoue.
+  function contacts(run, r) {
+    if (r.tick < 2) return; const R = 1.12, off = 1.05; const t = Date.now();
+    Object.keys(G.snaps).forEach((id) => {
+      if (id === myId()) return; const sn = G.snaps[id]; if (t - sn.at > 450) return; const c = V.cars[id]; if (!c || !c.init || !c.root.visible || c.ghost) return;
+      const p = stP(id); const heavy = !!(p && (p.isBot || p.auto)); const o = c.st; if (Math.abs(o.y - r.y) > 1.6) return;
+      let best = null;
+      for (let a = -1; a <= 1; a += 2) for (let b = -1; b <= 1; b += 2) {
+        const ax = r.x + Math.sin(r.hd) * off * a, az = r.z + Math.cos(r.hd) * off * a, bx = o.x + Math.sin(o.h) * off * b, bz = o.z + Math.cos(o.h) * off * b;
+        const dx = ax - bx, dz = az - bz, d = Math.hypot(dx, dz), pen = 2 * R - d; if (pen > 0 && (!best || pen > best.pen)) best = { pen, nx: d > 1e-4 ? dx / d : 1, nz: d > 1e-4 ? dz / d : 0 };
+      }
+      if (!best) return;
+      const share = heavy ? 1 : 0.5; const push = Math.min(0.7, best.pen) * share; const rvx = r.vx - sn.vx, rvz = r.vz - sn.vz; const vn = rvx * best.nx + rvz * best.nz;
+      let dvx = 0, dvz = 0; if (vn < 0) { const j = Math.min(14, -(1.3) * vn * share); dvx = best.nx * j; dvz = best.nz * j; }
+      const dx = best.nx * push, dz = best.nz * push; CA.nudge(r, dx, dz, dvx, dvz);
+      run.events.push(r.tick, Math.round(dx * 100), Math.round(dz * 100), Math.round(dvx * 100), Math.round(dvz * 100));
+      if (vn < -3 && t - (run.lastBump || 0) > 250) { run.lastBump = t; V.shake(Math.min(0.5, -vn * 0.03)); Kit.sound.noise(0.1, 0.07, 0, 700); }
+    });
+  }
+  const gridPose = (slot) => { const st = G.track.start; return { x: st.x - Math.cos(st.h) * slot, y: st.y, z: st.z + Math.sin(st.h) * slot, h: st.h, p: 0, a: 0, b: 0, speed: 0 }; };
   function onTurnEnd(m) {
     const nm = nameOf(m.pid);
     if (m.role === "setter") feed(nm + " pose " + fmtS(m.time));
@@ -276,7 +310,7 @@
     const g = $("#garage"); if (!g || !G.st || !G.track) return; const s = G.st; const cm = me();
     // on ne reconstruit le garage que si son contenu change, sinon un clic en cours serait perdu
     const secs = Math.max(0, Math.ceil((s.phaseUntil - snow()) / 1000)); const isHost0 = Kit.isHost();
-    const gkey = [G.track.name, G.carId, isHost0, !!(cm && cm.ready), Kit.room && Kit.room.hostId].join("|");
+    const gkey = [G.track.name, G.carId, G.author, isHost0, !!(cm && cm.ready), Kit.room && Kit.room.hostId].join("|");
     g.classList.remove("hidden");
     if (g.dataset.key === gkey && g.firstChild) { const t = $("#gar-secs"); if (t) t.textContent = (isHost0 ? "Tu choisis la voiture de tout le monde" : nameOf(Kit.room.hostId) + " choisit la voiture de tout le monde") + " · départ dans " + secs + " s"; return; }
     g.dataset.key = gkey; g.innerHTML = "";
@@ -302,7 +336,7 @@
   }
   function renderBoard() {
     const s = G.st; if (!s) return; const box = $("#z-board"); box.innerHTML = "";
-    box.appendChild(el("h4", {}, [el("span", { text: s.mode === "essence" ? "Essence · course " + Math.min(s.total, s.roundIdx + 1) : "Chrono · course " + Math.min(s.total, s.roundIdx + 1) }), el("span", { text: s.mode === "essence" ? "temps · pts" : "meilleur · pts" })]));
+    box.appendChild(el("h4", {}, [el("span", { text: (s.mode === "essence" ? "Essence" : s.mode === "contact" ? "Contact" : "Fantôme") + " · course " + Math.min(s.total, s.roundIdx + 1) }), el("span", { text: s.mode === "essence" ? "temps · pts" : "meilleur · pts" })]));
     let list = s.players.slice();
     if (s.mode === "essence" && s.order && s.order.length) list.sort((a, b) => s.order.indexOf(a.id) - s.order.indexOf(b.id)); else list.sort((a, b) => (a.best == null) - (b.best == null) || a.best - b.best);
     list.forEach((p) => {
@@ -330,8 +364,9 @@
     // record
     const rec = $("#z-rec"); let rt = "", rs = "";
     if (s && s.mode === "essence" && s.phase === "turns" && s.turn && s.turn.role === "setter") { rt = s.turn.pid === myId() ? "Pose le temps à battre" : nameOf(s.turn.pid) + " pose le temps"; rs = "Essai " + Math.min(S().refTries, s.turn.tries + 1) + " sur " + S().refTries; }
-    else if (s && s.mode === "essence" && G.record) { rt = "Record " + fmtS(G.record.time); rs = nameOf(G.record.pid) + (s.turn && s.turn.role === "challenger" ? " · essai " + (s.turn.pid === myId() && G.run ? "en cours" : "suivant") : ""); } else if (s && s.mode === "chrono") { rt = G.myBest != null ? "Ton meilleur " + fmtS(G.myBest) : "Pas encore de temps"; rs = s.raceEnd ? "Il reste " + Math.max(0, Math.ceil((s.raceEnd - snow()) / 1000)) + " s" : ""; }
+    else if (s && s.mode === "essence" && G.record) { rt = "Record " + fmtS(G.record.time); rs = nameOf(G.record.pid) + (s.turn && s.turn.role === "challenger" ? " · essai " + (s.turn.pid === myId() && G.run ? "en cours" : "suivant") : ""); } else if (s && isChrono(s.mode)) { rt = G.myBest != null ? "Ton meilleur " + fmtS(G.myBest) : "Pas encore de temps"; rs = s.raceEnd ? (snow() < s.goAt ? "Départ dans " + Math.max(0, Math.ceil((s.goAt - snow()) / 1000)) + " s" : "Il reste " + Math.max(0, Math.ceil((s.raceEnd - snow()) / 1000)) + " s") : ""; }
     if (G.lastDom.r !== rt + rs) { rec.innerHTML = ""; rec.appendChild(el("b", { text: rt })); rec.appendChild(el("span", { text: rs })); G.lastDom.r = rt + rs; }
+    { const fx = $("#z-fx"); const kmh = speed * 3.6; fx.style.opacity = run && !run.done ? clamp((kmh - 110) / 150, 0, 0.7) : 0; fx.classList.toggle("z-fx--boost", !!(run && !run.done && run.r.boostT > 0)); }
     $("#z-speed").style.visibility = run && !run.done ? "visible" : "hidden";
     $("#z-speed").innerHTML = "<b>" + Math.round(speed * 3.6) + "</b><span>km/h</span>";
     // essence
@@ -340,7 +375,7 @@
       let left = s.turn.fuelLeft; if (run && run.challenger && !run.done && run.countdown === 0) left = run.fuel0 - run.r.tick / 60; else if (s.turn.pid !== myId() && botClock()) left = botClock().fuel; else if (s.turn.goAt && s.turn.pid !== myId()) left = s.turn.fuelLeft - Math.max(0, (snow() - s.turn.goAt) / 1000);
       left = Math.max(0, left); fu.classList.remove("hidden"); fu.classList.toggle("z-fuel--low", left < 10);
       const txt = "⛽ " + Math.ceil(left) + " s d'essence"; if (G.lastDom.f !== txt) { fu.innerHTML = ""; fu.appendChild(el("div", { text: txt })); fu.appendChild(el("div", { class: "bar" }, [el("i", { style: { width: clamp(left / s.turn.fuel, 0, 1) * 100 + "%" } })])); G.lastDom.f = txt; } else fu.querySelector("i").style.width = clamp(left / s.turn.fuel, 0, 1) * 100 + "%";
-      if (run && run.out && !run.done && run.countdown === 0 && !G.noFuelBanner) { G.noFuelBanner = true; setBanner("Panne d'essence", "Franchis la ligne en roue libre, ou recommence", 2600); Kit.sound.fail(); }
+      if (run && run.out && !run.done && run.countdown === 0 && !G.noFuelBanner) { G.noFuelBanner = true; setBanner("Réservoir vide", "Finis cet essai, c'est ton dernier", 2800); Kit.sound.fail(); }
       if (!run || !run.out) G.noFuelBanner = false;
     } else fu.classList.add("hidden");
     // mini carte
@@ -440,11 +475,12 @@
   // ---------- démarrage ----------
   function attach() {
     const so = Kit.socket; if (!so || G.attached) return; G.attached = true;
-    so.on("z:round", onRound); so.on("z:state", onState); so.on("z:turn", onTurn); so.on("z:record", onRecord); so.on("z:go", onGo); so.on("z:snap", onSnap);
+    so.on("z:round", onRound); so.on("z:author", (m) => { G.author = m.time; G.lastGar = 0; }); so.on("z:state", onState); so.on("z:turn", onTurn); so.on("z:record", onRecord); so.on("z:go", onGo); so.on("z:snap", onSnap);
     so.on("z:turnEnd", onTurnEnd); so.on("z:result", onResult); so.on("z:botTurn", onBotTurn); so.on("z:roundEnd", onRoundEnd); so.on("z:over", onOver);
   }
   // envoi régulier de la position pendant un essai
-  setInterval(() => { const r = G.run; if (!r || r.done || !Kit.socket || r.countdown > 0 || !canDrive()) return; const a = r.r; const fx = Math.sin(a.hd), fz = Math.cos(a.hd); Kit.socket.emit("z:pos", { x: +a.x.toFixed(2), y: +a.y.toFixed(2), z: +a.z.toFixed(2), h: +a.hd.toFixed(3), p: +a.pitch.toFixed(3), a: a.air ? 1 : 0, b: a.boostT > 0 ? 1 : 0 }); }, 100);
+  const sendPos = () => { const r = G.run; if (!r || r.done || !Kit.socket || r.countdown > 0 || !canDrive()) return; const a = r.r; const fx = Math.sin(a.hd), fz = Math.cos(a.hd); Kit.socket.emit("z:pos", { x: +a.x.toFixed(2), y: +a.y.toFixed(2), z: +a.z.toFixed(2), h: +a.hd.toFixed(3), p: +a.pitch.toFixed(3), a: a.air ? 1 : 0, b: a.boostT > 0 ? 1 : 0 }); };
+  setInterval(() => { if (G.mode !== "contact") sendPos(); }, 100); setInterval(() => { if (G.mode === "contact") sendPos(); }, 50);
   Kit.on("screen", (name) => { V.paused = name !== "game"; if (name === "game") setTimeout(() => { if (G.viewInit) V.resize(); }, 50); });
   Kit.on("reset", () => { G.st = null; G.track = null; G.run = null; closeSheet(); G.prev.key = ""; });
   Kit.on("room", (r) => { if (r.status === "lobby") { G.st = null; G.run = null; closeSheet(); G.lastState = ""; } });
@@ -457,8 +493,9 @@
     colors: COLORS, botLevels: LEVELS, maxPlayers: 6, minPlayers: 1, schema: ZR.SCHEMA,
     help: [
       { title: "Le but", text: "Chaque course se joue sur un circuit généré au hasard. Il s'agit de franchir la ligne d'arrivée le plus vite possible, en passant par tous les points de contrôle." },
-      { title: "Le mode essence", text: "Le premier pilote pose un temps. Ensuite chaque autre pilote, à son tour, a un réservoir limité pour le battre. Chaque essai consomme de l'essence, y compris ceux qu'on abandonne. S'il bat le record il devient le nouveau record à battre, sinon il tombe en panne et passe la main." },
-      { title: "Le mode chrono", text: "Tout le monde roule en même temps pendant la durée choisie. On recommence autant qu'on veut, et le meilleur temps de chacun compte. Les voitures des autres sont transparentes et ne gênent jamais." },
+      { title: "Le mode essence", text: "Le premier pilote pose un temps. Ensuite chaque autre pilote, à son tour, a un réservoir limité pour le battre. Chaque essai consomme de l'essence, y compris ceux qu'on abandonne. Quand le réservoir est vide, l'essai en cours peut quand même aller jusqu'au bout. S'il bat le record il devient le nouveau record à battre, sinon il tombe en panne et passe la main." },
+      { title: "Le chrono fantôme", text: "Tout le monde part en même temps depuis la même ligne de départ, très large pour que ce soit équitable. On recommence autant qu'on veut pendant la durée choisie, et le meilleur temps de chacun compte. Les voitures des autres sont transparentes et ne gênent jamais." },
+      { title: "Le chrono contact", text: "Le même principe, mais les voitures sont solides. On se pousse, on se bloque, on peut faire perdre son temps à un adversaire en lui coupant la route. Les pilotes automatiques suivent leur trajectoire, ils ne se laissent pas pousser." },
       { title: "Piloter", text: "Les quatre flèches pilotent, haut pour accélérer, bas pour freiner et reculer, côtés pour tourner. Entrée recommence l'essai à zéro, Maj ramène au dernier point de contrôle sans arrêter le chrono. Les tapis orange donnent un coup de turbo, et un long dérapage donne un petit turbo à la sortie, surtout avec la Toupie." },
       { title: "Les sols", text: "Le bitume accroche, la terre un peu moins, la glace très peu, et le sol collant ralentit. Chaque voiture réagit différemment, la Rallye-Pote adore la terre et la glace." },
       { title: "Les points", text: "En essence, la voiture qui détient le record à la fin gagne 3 points, et celle qui l'a détenu juste avant 1 point. En chrono, les points dépendent du classement des meilleurs temps." },

@@ -36,11 +36,11 @@
   function build(spec, attempt) {
     const rng = mulberry32(hashSeed(spec.seed + "zt" + (attempt ? "#" + attempt : "")));
     const biome = BIOMES[spec.biome] || BIOMES.cote;
-    const diff = Math.max(1, Math.min(5, spec.difficulty || 3)), size = Math.max(1, Math.min(3, spec.size || 2));
+    const diff = Math.max(1, Math.min(5, spec.difficulty || 3)), size = Math.max(1, Math.min(5, spec.size || 2));
     const hillsLvl = Math.max(0, Math.min(3, spec.hills == null ? 2 : spec.hills));
     const feats = Object.assign({ boosts: true, jumps: true, surfaces: true }, spec.features || {});
-    const targetLen = [700, 1100, 1700][size - 1] * (0.92 + rng() * 0.16);
-    const maxR = [330, 440, 600][size - 1];
+    const targetLen = [700, 1100, 1700, 2800, 4200][size - 1] * (0.92 + rng() * 0.16);
+    const maxR = [330, 440, 600, 820, 1050][size - 1];
     const hw = [9, 8, 7, 6.3, 5.6][diff - 1];
     const X = [], Z = [], H = [], W = [], SF = [], FL = [];
     let x = 0, z = 0, h = 0;
@@ -61,7 +61,7 @@
       return pts;
     }
     function fits(pts) {
-      const lim = (2 * hw + 12) * (2 * hw + 12); const old = X.length - 28;
+      const lim = (2 * hw + 7) * (2 * hw + 7); const old = X.length - 28;
       for (let i = 0; i < pts.length; i++) {
         const p = pts[i]; if (Math.hypot(p.x, p.z) > maxR) return false;
         for (let j = 0; j < old; j++) { const dx = X[j] - p.x, dz = Z[j] - p.z; if (dx * dx + dz * dz < lim) return false; }
@@ -89,13 +89,24 @@
     }
     // grille de départ droite
     { const kind = { surf: SURF.ASPHALT, parts: [{ straight: 30 }] }; commit(kind, plan(kind)); }
-    let tries = 0, last = 0;
-    while (STEP * X.length < targetLen && tries < 600) {
+    let tries = 0, last = 0, back = 0; const maxTries = 600 + size * 300;
+    while (STEP * X.length < targetLen && tries < maxTries) {
       tries++; const k = makeKind(); const pts = plan(k);
-      if (fits(pts)) { commit(k, pts); last = 0; } else if (++last > 25) { const f = { surf: SURF.ASPHALT, parts: [{ straight: 20 }] }; const fp = plan(f); if (fits(fp)) commit(f, fp); else break; }
+      if (fits(pts)) { commit(k, pts); last = 0; }
+      else if (++last > 25) {
+        const f = { surf: SURF.ASPHALT, parts: [{ straight: 20 }] }; const fp = plan(f);
+        if (fits(fp)) { commit(f, fp); last = 0; }
+        else if (back < 60 && X.length > 60) { // coincé, on recule un peu pour repartir autrement
+          back++; last = 0; const cut = X.length - Math.min(X.length - 40, 24 + Math.floor(rng() * 70));
+          X.length = H.length = Z.length = W.length = SF.length = FL.length = cut; x = X[cut - 1]; z = Z[cut - 1]; h = H[cut - 1];
+          for (let q = jumpsAt.length - 1; q >= 0; q--) if (jumpsAt[q].idx >= cut - 14) jumpsAt.splice(q, 1);
+        } else break;
+      }
     }
     { const kind = { surf: SURF.ASPHALT, parts: [{ straight: 30 }] }; const pts = plan(kind); commit(kind, pts); }
     const n = X.length;
+    // la ligne de départ est large, pour que tout le monde parte côte à côte. La route se resserre ensuite
+    { const wS = Math.max(hw, 9.2); for (let i = 0; i < n; i++) { if (i <= 14) W[i] = Math.max(W[i], wS); else if (i < 34) { const t = (i - 14) / 20; const k = t * t * (3 - 2 * t); W[i] = Math.max(W[i], wS + (hw - wS) * k); } else break; } }
     // hauteurs
     const noise = (() => { const r2 = mulberry32(hashSeed(spec.seed + "hy")); const a = [], b = []; for (let i = 0; i < 6; i++) { a.push(r2() * 6.28); b.push(0.5 + r2()); } return (t) => { let s = 0; for (let i = 0; i < 3; i++) s += Math.sin(t * (0.011 + i * 0.013) * (1 + b[i] * 0.4) + a[i]) / (1 + i); return s; }; })();
     const amp = [0, 1.2, 2.6, 4.2][hillsLvl];
@@ -115,13 +126,13 @@
     // pentes limitées pour que le sol reste roulable
     for (let pass = 0; pass < 3; pass++) for (let i = 1; i < n; i++) { const d = Y[i] - Y[i - 1]; const lim = 0.5; if (d > lim) Y[i] = Y[i - 1] + lim; else if (d < -lim * 1.4) Y[i] = Y[i - 1] - lim * 1.4; }
     // points de contrôle
-    const len = (n - 1) * STEP; const cpEvery = [260, 300, 340][size - 1]; const cps = [];
+    const len = (n - 1) * STEP; const cpEvery = [260, 300, 340, 380, 420][size - 1]; const cps = [];
     for (let d = cpEvery; d < len - 80; d += cpEvery) cps.push(Math.round(d / STEP));
     // décors
     const dec = []; const decRng = mulberry32(hashSeed(spec.seed + "dc")); const cell = 24; const grid = new Map();
     for (let i = 0; i < n; i += 2) { const k = Math.floor(X[i] / cell) + "," + Math.floor(Z[i] / cell); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(i); }
     const nearTrack = (px, pz) => { let best = 1e9; const gx = Math.floor(px / cell), gz = Math.floor(pz / cell); for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) { const l = grid.get((gx + a) + "," + (gz + b)); if (!l) continue; for (const i of l) { const d = Math.hypot(X[i] - px, Z[i] - pz) - W[i]; if (d < best) best = d; } } return best; };
-    const nDeco = Math.round(120 + len * 0.28 * (spec.decor == null ? 1 : spec.decor));
+    const nDeco = Math.min(900, Math.round(120 + len * 0.28 * (spec.decor == null ? 1 : spec.decor)));
     let minY = 1e9, maxY = -1e9; for (let i = 0; i < n; i++) { if (Y[i] < minY) minY = Y[i]; if (Y[i] > maxY) maxY = Y[i]; }
     for (let a = 0; a < nDeco * 3 && dec.length < nDeco; a++) {
       const i = Math.floor(decRng() * n); const side = decRng() < 0.5 ? -1 : 1; const off = W[i] + 3 + Math.pow(decRng(), 1.6) * 55;
@@ -137,8 +148,8 @@
     };
   }
   function generate(spec) {
-    const size = Math.max(1, Math.min(3, spec.size || 2)); const want = [700, 1100, 1700][size - 1] * 0.82; let best = null;
-    for (let a = 0; a < 8; a++) { const t = build(spec, a); if (!best || t.length > best.length) best = t; if (t.length >= want) return t; }
+    const size = Math.max(1, Math.min(5, spec.size || 2)); const want = [700, 1100, 1700, 2800, 4200][size - 1] * 0.82; let best = null;
+    for (let a = 0; a < (size >= 4 ? 14 : 8); a++) { const t = build(spec, a); if (!best || t.length > best.length) best = t; if (t.length >= want) return t; }
     return best;
   }
   return { STEP, SURF, SURF_NAMES, FLAG, BIOMES, BIOME_IDS, mulberry32, hashSeed, generate };

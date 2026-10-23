@@ -42,14 +42,20 @@
   }
 
   function newRun(tr, carId, opts) {
-    const car = CARS[carId] || CARS.bolide; const st = tr.start;
+    const car = CARS[carId] || CARS.bolide; const st = tr.start; const slot = (opts && opts.slot) || 0;
     const r = {
-      tr, car, tick: 0, x: st.x, z: st.z, y: st.y, hd: st.h, vx: 0, vz: 0, vy: 0, air: false, idx: st.idx, prevIdx: st.idx, cp: 0, cpIdx: st.idx, cpHd: st.h,
+      tr, car, tick: 0, x: st.x - Math.cos(st.h) * slot, z: st.z + Math.sin(st.h) * slot, slot, y: st.y, hd: st.h, vx: 0, vz: 0, vy: 0, air: false, idx: st.idx, prevIdx: st.idx, cp: 0, cpIdx: st.idx, cpHd: st.h,
       finished: false, finishTime: 0, boostT: 0, driftT: 0, resets: 0, hits: 0, climb: 0, steerV: 0, pitch: 0, roll: 0, lastResetTick: -999, maxSpeed: 0, onSurf: 0, wallHit: 0, landed: 0, boostEvt: 0,
       opts: opts || {},
     };
     r.y = sampleAt(tr, r.idx).y; return r;
   }
+  // place sur la ligne de départ, de la gauche vers la droite de la route, pour n pilotes
+  function gridSlot(tr, i, n) {
+    if (n <= 1) return 0; const half = tr.w[tr.start.idx] - 1.5; const sp = Math.min(2.8, (2 * half) / (n - 1)); return (i - (n - 1) / 2) * sp;
+  }
+  // choc venu d'un autre pilote, appliqué avant le pas suivant. Enregistré dans la course pour que le serveur puisse la rejouer
+  function nudge(r, dx, dz, dvx, dvz) { r.x += dx; r.z += dz; r.vx += dvx; r.vz += dvz; }
 
   function resetToCheckpoint(r) {
     const tr = r.tr, s = sampleAt(tr, r.cpIdx);
@@ -147,14 +153,16 @@
   const quant = (inp) => unpackInput(packInput(inp));
 
   // rejoue une série de commandes et renvoie la course. fuelTicks coupe les gaz au delà de ce pas (mode essence)
-  function replay(tr, carId, bytes, fuelTicks) {
-    const r = newRun(tr, carId); const n = bytes.length; const frames = []; const lim = fuelTicks == null ? 1e12 : fuelTicks;
+  function replay(tr, carId, bytes, fuelTicks, opts) {
+    const r = newRun(tr, carId, opts); const n = bytes.length; const frames = []; const lim = fuelTicks == null ? 1e12 : fuelTicks;
+    const ev = (opts && opts.events) || []; let ei = 0;
     for (let i = 0; i < n && !r.finished; i++) {
+      while (ei < ev.length && ev[ei][0] <= i) { if (ev[ei][0] === i) nudge(r, ev[ei][1], ev[ei][2], ev[ei][3], ev[ei][4]); ei++; }
       const inp = unpackInput(bytes[i]); if (i >= lim) inp.thr = 0;
       step(r, inp); if (i % 6 === 0) frames.push(r.x, r.y, r.z, r.hd, r.pitch, r.air ? 1 : 0, r.boostT > 0 ? 1 : 0, r.idx);
     }
     frames.push(r.x, r.y, r.z, r.hd, r.pitch, 0, 0, r.idx);
     return { run: r, frames };
   }
-  return { DT, CARS, CAR_ORDER, HALF_W, project, sampleAt, newRun, step, resetToCheckpoint, packInput, unpackInput, quant, replay };
+  return { DT, CARS, CAR_ORDER, HALF_W, project, sampleAt, newRun, gridSlot, nudge, step, resetToCheckpoint, packInput, unpackInput, quant, replay };
 });

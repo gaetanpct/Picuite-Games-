@@ -18,7 +18,7 @@
 .z-mini { position: absolute; left: 0.7rem; top: 5.1rem; padding: 4px; line-height: 0; }
 .z-mini canvas { width: 130px; height: 130px; border-radius: 10px; background: rgba(0, 0, 0, 0.25); }
 .z-board { position: absolute; right: 0.7rem; top: 0.7rem; min-width: 200px; max-width: 46vw; padding: 0.35rem 0.5rem; }
-.z-board h4 { margin: 0 0 0.25rem; font-size: 0.78rem; font-weight: 500; opacity: 0.8; display: flex; justify-content: space-between; }
+.z-board h4 { margin: 0 0 0.25rem; font-size: 0.78rem; font-weight: 500; opacity: 0.8; display: flex; justify-content: space-between; gap: 0.9rem; white-space: nowrap; }
 .brow { display: flex; align-items: center; gap: 0.4rem; padding: 0.18rem 0.25rem; border-radius: 8px; font-size: 0.9rem; }
 .brow--you { background: rgba(255, 255, 255, 0.16); } .brow--turn { outline: 2px solid var(--accent-1); }
 .brow i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; flex: none; }
@@ -73,10 +73,15 @@
 .keys { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.8rem; font-size: 0.92rem; } .keys kbd { background: #fff; border: 2px solid var(--line); border-radius: 6px; padding: 0 0.4rem; font-family: inherit; font-weight: 700; white-space: nowrap; }
 .lobby-prev { margin-top: 1rem; border-top: 2px dashed var(--line); padding-top: 0.8rem; } .lobby-prev .meta { font-weight: 600; } .lobby-prev .row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
 @media (max-width: 700px) {
-  .z-board { min-width: 150px; font-size: 0.85rem; } .z-time { font-size: 2rem; } .z-mini canvas { width: 90px; height: 90px; } .z-rec { max-width: 36vw; }
+  .z-board { min-width: 0; max-width: 33vw; font-size: 0.74rem; padding: 0.25rem 0.4rem; top: 0.5rem; right: 0.5rem; } .z-board h4 { display: none; } .z-board .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 62px; display: inline-block; vertical-align: bottom; }
+  .z-top { top: 0.5rem; min-width: 104px; padding: 0.15rem 0.6rem 0.2rem; } .z-time { font-size: 1.7rem; } .z-sub { font-size: 0.7rem; } .z-mini canvas { width: 84px; height: 84px; } .z-mini { top: 4.3rem; left: 0.5rem; }
+  .z-rec { max-width: 29vw; top: 0.5rem; left: 0.5rem; padding: 0.25rem 0.5rem; } .z-rec b { font-size: 0.85rem; } .z-rec span { font-size: 0.7rem; } .z-tip { display: none; }
   .z-fuel { top: 9.4rem; } .carcard { width: 150px; } .garage { padding-top: 1.5rem; }
 }
 
 .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.5rem; align-items: center; justify-content: center; font-size: 0.8rem; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
 .legend kbd { background: #fff; color: #222; border-radius: 6px; padding: 1px 7px; font-family: inherit; font-weight: 700; box-shadow: 0 2px 0 rgba(0,0,0,0.35); }
 .cars--locked .carcard { cursor: default; }
+
+.z-fx { position: absolute; inset: 0; opacity: 0; transition: opacity 0.2s; background: radial-gradient(ellipse at center, rgba(255,255,255,0) 52%, rgba(255,255,255,0.42) 100%); }
+.z-fx--boost { background: radial-gradient(ellipse at center, rgba(255,160,40,0) 45%, rgba(255,150,30,0.55) 100%); }

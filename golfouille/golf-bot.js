@@ -40,13 +40,19 @@ function planShot(hole, ball, ctx, level, rng) {
   ranked.forEach((c) => {
     const club = Rules.CLUBS[c]; const R = RANGE[c];
     const need = Math.min(1, Math.max(0.28, Math.min(D, R) / R));
-    const pows = c === "putter" || c === "lob" ? [need * 0.8, need * 0.95, need, need * 1.12, need * 1.3] : [need * 0.85, need, Math.min(1, need * 1.1)];
-    pows.forEach((p) => { p = Math.min(1, Math.max(0.15, p)); yaws.forEach((yaw) => cands.push({ club: c, yaw, power: p, def: club })); });
+    // les bots un peu forts essaient aussi un tir plus haut ou plus bas
+    const hs = !Rules.hasHeight(club) || ctx.noHeight ? [2] : lv.id === "debutant" ? [2] : lv.id === "moyen" ? [2, 3] : [2, 3, 1];
+    hs.forEach((h) => {
+      const loft = Rules.loftFor(c, h); const ratio = club.loft > 0 && loft > 0 ? Math.sqrt(Math.sin(2 * club.loft * Math.PI / 180) / Math.max(0.2, Math.sin(2 * loft * Math.PI / 180))) : 1;
+      const nd = Math.min(1, Math.max(0.2, need * Math.min(1.7, Math.max(0.55, ratio))));
+      const pows = c === "putter" || c === "lob" ? [need * 0.8, need * 0.95, need, need * 1.12, need * 1.3] : h === 2 ? [need * 0.85, need, Math.min(1, need * 1.1)] : [nd * 0.8, nd, Math.min(1, nd * 1.2)];
+      pows.forEach((p) => { p = Math.min(1, Math.max(0.15, p)); yaws.forEach((yaw) => cands.push({ club: c, yaw, power: p, def: club, height: h, loft })); });
+    });
   });
   const mult = ctx.turbo ? 1.5 : 1; const half = ctx.glu ? 0.5 : 1;
   const results = [];
   cands.forEach((cd) => {
-    const r = Physics.simulate(hole, ball, { yaw: cd.yaw, speed: cd.def.speed * cd.power * mult * half, loft: cd.def.loft, lob: !!cd.def.lob }, { t0: ctx.t0, wind: hole.wind, walls: ctx.walls, ice: ctx.ice, magnet: ctx.magnet, skip: !!cd.def.skip, maxTime: 22, cupMul: ctx.cupMul });
+    const r = Physics.simulate(hole, ball, { yaw: cd.yaw, speed: cd.def.speed * cd.power * mult * half, loft: cd.loft != null ? cd.loft : cd.def.loft, lob: !!cd.def.lob }, { t0: ctx.t0, wind: hole.wind, walls: ctx.walls, ice: ctx.ice, magnet: ctx.magnet, skip: !!cd.def.skip, maxTime: 22, cupMul: ctx.cupMul });
     let sc;
     if (r.outcome === "sunk") sc = -2000 - (r.dur);
     else {
@@ -65,7 +71,7 @@ function planShot(hole, ball, ctx, level, rng) {
   if (!chosen) return { club: "putter", yaw: toCup, power: Math.min(1, D / 12) };
   let yaw = chosen.cd.yaw + (gauss(rng) * lv.yawErr * Math.PI) / 180;
   let power = Math.min(1, Math.max(0.1, chosen.cd.power * (1 + gauss(rng) * lv.powErr)));
-  return { club: chosen.cd.club, yaw, power, expect: chosen.sc };
+  return { club: chosen.cd.club, yaw, power, height: chosen.cd.height != null ? chosen.cd.height : 2, expect: chosen.sc };
 }
 
 // Choix d'un pouvoir à jouer, ou null.

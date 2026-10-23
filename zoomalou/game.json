@@ -2,15 +2,22 @@
  "name": "Zoomalou",
  "order": 5,
  "tagline": "Des courses à l'infini, et une jauge d'essence qui fond.",
- "pitch": "Un jeu de course en 3D inspiré des modes essence de Trackmania. Chaque circuit est généré au hasard dans sept biomes. Le premier pilote pose un temps, les autres ont une réserve d'essence limitée pour le battre, essai après essai.",
- "tags": ["1 à 6 joueurs", "10 à 25 minutes", "Course et essence"],
+ "pitch": "Un jeu de course en 3D inspiré des modes essence de Trackmania. Chaque circuit est généré au hasard dans sept biomes. En mode essence, le premier pilote pose un temps et les autres ont une réserve limitée pour le battre. Deux modes chrono permettent aussi de partir tous ensemble, en fantômes ou en se touchant.",
+ "tags": [
+  "1 à 6 joueurs",
+  "10 à 25 minutes",
+  "Course et essence"
+ ],
  "steps": [
   "Choisis ta voiture au garage parmi cinq bolides au caractère bien différent.",
   "Le premier pilote pose un temps sur un circuit tout neuf.",
   "Les autres tentent de le battre avant la panne d'essence."
  ],
  "for": "Pour celles et ceux qui aiment recommencer encore et encore jusqu'au temps parfait.",
- "colors": ["#e8453c", "#6a1b17"],
+ "colors": [
+  "#e8453c",
+  "#6a1b17"
+ ],
  "cta": "Jouer à Zoomalou",
  "logo": "logos/zoomalou.svg"
 }

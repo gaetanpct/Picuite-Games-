@@ -14,7 +14,7 @@
   const hexOf = (c) => COLORS[(c || 0) % COLORS.length].hex;
 
   const G = {
-    hole: null, holeIdx: -1, total: 0, st: null, samples: [], offset: 0, club: "driver", clubManual: false, power: 0.65, yaw: 0, charging: false, chargeAt: 0, keys: {},
+    hole: null, holeIdx: -1, total: 0, st: null, samples: [], offset: 0, club: "driver", height: 2, clubManual: false, power: 0.65, yaw: 0, charging: false, chargeAt: 0, keys: {},
     viewInit: false, flown: false, needAim: false, peek: null, prevPhase: "", lastTurn: null, sentAt: 0, sheet: null, lastCount: -99, endInfo: null,
     prev: { seed: "", idx: 0, key: "", hole: null }, pred: null, predAt: 0, predKey: "", ranges: {}, rangeKey: "", suggest: null, aimDist: null, top: false, topZoom: 1, tap: null, lastInfo: "", lastMini: 0, lastSlow: 0, wasMoving: false, pointers: new Map(), pinch: 0,
   };
@@ -49,7 +49,6 @@
         el("div", { id: "hud-tip", class: "tip nopoint" }),
         el("div", { id: "hud-powers", class: "powers" }),
         el("div", { id: "hud-aim", class: "aiminfo nopoint" }),
-        el("div", { id: "hud-clubs", class: "clubs" }),
         el("div", { class: "shootrow" }, [
           el("button", { id: "pw-minus", class: "round-btn round-btn--small", title: "Moins fort", text: "−" }),
           el("div", { id: "power", class: "power", title: "Force du coup, touche la jauge ou glisse dessus" }, [el("div", { id: "power-fill", class: "power__fill" }), el("div", { class: "power__ticks" }), el("div", { id: "power-txt", class: "power__txt" })]),
@@ -57,6 +56,9 @@
           el("button", { id: "btn-shoot", class: "btn btn--accent shootbtn", text: "Taper" }),
         ]),
       ]),
+      el("div", { id: "hud-clubs", class: "clubrail" }),
+      el("div", { id: "hud-height", class: "heightbox" }),
+      el("div", { id: "hud-clubcard", class: "clubcard" }),
       el("div", { id: "hud-cup", class: "cupmark nopoint hidden" }, [el("span", { class: "cupmark__arr", text: "▲" }), el("b", { id: "cupmark-txt" })]),
       el("div", { id: "hud-pick", class: "pill pick hidden" }),
     ]);
@@ -117,11 +119,13 @@
 
   // ---------- aide à la visée ----------
   const dist2 = (ax, az, bx, bz) => Math.hypot(ax - bx, az - bz);
+  // hauteur utilisée pour un club, celle choisie pour le club en main et l'angle habituel pour les autres
+  const heightOf = (clubId) => (S().heightControl === false || clubId !== G.club ? GR.HEIGHT_DEFAULT : G.height);
   function simShot(me, clubId, power, yaw) {
     const club = GR.CLUBS[clubId]; let speed = club.speed * power; if (me.fx.turbo) speed = Math.min(speed * 1.5, 60); if (me.fx.glu) speed *= 0.5;
     const opts = { t0: (snow() - G.st.playStart) / 1000, wind: G.st.wind, walls: G.st.walls.map((w) => ({ x1: w.x1, z1: w.z1, x2: w.x2, z2: w.z2, h: w.h })), skip: !!club.skip, ice: me.fx.ice, magnet: me.fx.magnet, cupMul: 1 };
     if (S().powersOn) opts.orbs = G.st.orbs.filter((o) => !o.taken).map((o) => ({ id: o.id, x: o.x, z: o.z, taken: false }));
-    return GP.simulate(G.hole, { x: me.x, y: me.y, z: me.z }, { yaw, speed, loft: club.loft, lob: !!club.lob }, opts);
+    return GP.simulate(G.hole, { x: me.x, y: me.y, z: me.z }, { yaw, speed, loft: GR.loftFor(clubId, heightOf(clubId)), lob: !!club.lob }, opts);
   }
   const reach = (me, res) => dist2(res.end.x, res.end.z, me.x, me.z);
   // trouve la force qui amène la balle à la distance voulue avec ce club
@@ -151,12 +155,12 @@
     G.yaw = Math.atan2(dx, dz); G.aimDist = d;
     const auto = !G.clubManual || o.auto;
     const cand = bestClub(me, G.yaw, d); G.suggest = cand.club;
-    if (auto) { G.club = cand.club; G.power = clamp(cand.p, 0.05, 1); }
+    if (auto) { G.club = cand.club; G.height = GR.HEIGHT_DEFAULT; G.power = clamp(cand.p, 0.05, 1); }
     else { const r = solvePower(me, G.club, G.yaw, d); G.power = clamp(r.p, 0.05, 1); if (!r.ok && !o.quiet) toast("Ce club ne va pas assez loin, il envoie à " + Math.round(r.dist) + " m au maximum.", "info"); }
     G.pred = null; V.setCam({ yaw: G.yaw }); renderClubs();
   }
   function updateRanges(me) {
-    const key = [me.x.toFixed(1), me.z.toFixed(1), G.yaw.toFixed(1)].join("|"); if (key === G.rangeKey) return; G.rangeKey = key;
+    const key = [me.x.toFixed(1), me.z.toFixed(1), G.yaw.toFixed(1), G.club, G.height, !!me.fx.turbo, !!me.fx.glu].join("|"); if (key === G.rangeKey) return; G.rangeKey = key;
     allowedClubs(me).forEach((c) => { try { G.ranges[c] = Math.round(reach(me, simShot(me, c, 1, G.yaw))); } catch (e) { G.ranges[c] = 0; } });
     renderClubs();
   }
@@ -187,18 +191,22 @@
   }
   // prévision du coup sans l'erreur de frappe, avec distances et alertes
   function predict(me) {
-    const key = [G.club, G.power.toFixed(2), G.yaw.toFixed(3), me.x.toFixed(1), me.z.toFixed(1), me.fx.turbo, me.fx.glu, me.fx.ice, me.fx.magnet, G.st.walls.length, Math.floor(snow() / 1500)].join("|");
+    const key = [G.club, G.height, S().aimAssist, G.power.toFixed(2), G.yaw.toFixed(3), me.x.toFixed(1), me.z.toFixed(1), me.fx.turbo, me.fx.glu, me.fx.ice, me.fx.magnet, G.st.walls.length, Math.floor(snow() / 1500)].join("|");
     if (key === G.predKey && G.pred) return G.pred;
     if (Date.now() - G.predAt < 80) return G.pred; G.predAt = Date.now(); G.predKey = key;
     try {
       const res = simShot(me, G.club, G.power, G.yaw); const club = GR.CLUBS[G.club]; const f = res.frames; const n = f.length / 3;
-      let carry = null; for (let i = 4; i < n; i++) { const x = f[i * 3] / 100, y = f[i * 3 + 1] / 100, z = f[i * 3 + 2] / 100; if (y - GP.heightAt(G.hole, x, z) < 0.2) { carry = dist2(x, z, me.x, me.z); break; } }
+      let carry = null, cp = null; for (let i = 4; i < n; i++) { const x = f[i * 3] / 100, y = f[i * 3 + 1] / 100, z = f[i * 3 + 2] / 100; if (y - GP.heightAt(G.hole, x, z) < 0.2) { carry = dist2(x, z, me.x, me.z); cp = { x, z }; break; } }
       const total = reach(me, res); const toCup = dist2(res.end.x, res.end.z, G.hole.cup.x, G.hole.cup.z);
       const sig = club.err * S().precision * (0.35 + 0.65 * G.power) * Math.PI / 180; const lat = total * Math.tan(sig), lon = total * 0.025 * S().precision;
       const sigma = Math.max(0.6, Math.hypot(lat, lon));
       const hitEv = res.events.filter((e) => e.k === "hit"); const hits = hitEv.length; const mover = hitEv.some((e) => e.o === "pale" || e.o === "barriere");
       const warn = res.outcome === "water" ? "Eau, un coup de pénalité" : res.outcome === "lava" ? "Lave, un coup de pénalité" : res.outcome === "ob" ? "Hors limites, un coup de pénalité" : "";
-      G.pred = { res, frames: f, events: res.events, outcome: res.outcome, carry: carry == null ? total : carry, total, toCup, sigma, hits, mover, warn, sunk: res.outcome === "sunk" };
+      // zone d'arrivée de l'aide douce, un grand cercle entre l'atterrissage et l'arrêt
+      if (!cp) cp = { x: res.end.x, z: res.end.z };
+      const roll = Math.max(0, total - (carry == null ? total : carry));
+      const zone = { cx: (cp.x + res.end.x) / 2, cz: (cp.z + res.end.z) / 2, r: dist2(cp.x, cp.z, res.end.x, res.end.z) / 2 + Math.max(2.4, sigma * 1.4) + total * 0.05 };
+      G.pred = { zone, roll, res, frames: f, events: res.events, outcome: res.outcome, carry: carry == null ? total : carry, total, toCup, sigma, hits, mover, warn, sunk: res.outcome === "sunk" };
     } catch (e) { console.error(e); G.pred = null; }
     return G.pred;
   }
@@ -215,7 +223,7 @@
       return;
     }
     G.sentAt = Date.now(); G.power = power; G.top = false;
-    Kit.socket.emit("golf:shoot", { club: G.club, yaw: G.yaw, power });
+    Kit.socket.emit("golf:shoot", { club: G.club, yaw: G.yaw, power, height: S().heightControl === false ? GR.HEIGHT_DEFAULT : G.height });
   }
 
   // ---------- événements du jeu ----------
@@ -321,8 +329,8 @@
     const box = el("div", { id: "tuto", class: "tuto" }, [el("div", { class: "card" }, [
       el("h2", { text: "Comment taper" }),
       step(1, "Vise", "Touche le terrain à l'endroit où tu veux que la balle s'arrête. Le jeu choisit le club et la force pour toi. Tu peux aussi glisser pour tourner. La carte en haut à gauche marche pareil."),
-      step(2, "Regarde la prévision", "Le trait blanc est le vol de la balle, le jaune son roulé, et le cercle autour du point d'arrêt montre l'erreur possible du coup. Les alertes disent si elle finit dans l'eau, la lave ou touche un obstacle."),
-      step(3, "Change si besoin", "Les boutons de club en bas donnent leur portée en mètres. Un club haut passe par dessus les obstacles, un club bas roule plus. Les boutons plus et moins règlent la force, et le bouton carte donne la vue du dessus."),
+      step(2, "Regarde la zone", "L'arc blanc est le vol de la balle jusqu'à son atterrissage, et le grand cercle montre où elle devrait finir en roulant. Ce n'est pas exact, le vent, le sol et ton erreur de frappe jouent. L'hôte peut changer cette aide dans les réglages."),
+      step(3, "Choisis club et hauteur", "La colonne de clubs sur le côté va du plus puissant en haut au moins puissant en bas, avec la portée en mètres. Les flèches à côté règlent la hauteur. Un tir bas file droit mais cogne les arbres, un tir haut passe au dessus. Les boutons plus et moins règlent la force."),
       step(4, "Tape", "Appuie sur Taper, ou sur espace. Le bouton boussole fait viser le caddie, et le premier arrivé dans le trou marque le plus de points."),
       el("button", { class: "btn btn--accent btn--big", text: "Compris, c'est parti", onclick: () => { store.set("golf.tuto", "1"); $("#tuto").remove(); } }),
     ])]);
@@ -367,40 +375,85 @@
       box.appendChild(row);
     });
   }
+  const fuzzy = (d) => (d < 12 ? Math.round(d) : d < 40 ? Math.round(d / 2) * 2 : Math.round(d / 5) * 5);
+  const rollWord = (r) => (r < 2.5 ? "s'arrête presque tout de suite" : r < 9 ? "roule un peu" : "roule beaucoup");
+  const pips = (n, max) => { let t = ""; for (let i = 0; i < max; i++) t += i < n ? "●" : "○"; return t; };
+  // colonne des clubs sur le côté, du plus puissant au moins puissant
   function renderClubs() {
     const box = $("#hud-clubs"); if (!box) return; const me = myState();
     const allowed = GR.CLUB_ORDER.filter((c) => S().clubs.includes(c));
     const ckey = allowed.map((c) => c + ":" + (G.ranges[c] || 0)).join(",") + "|" + G.club + "|" + G.suggest + "|" + (me && me.rocketUsed);
-    if (box.dataset.key === ckey) return; box.dataset.key = ckey; box.innerHTML = "";
-    allowed.forEach((id, i) => {
-      const c = GR.CLUBS[id]; const off = c.limited && me && me.rocketUsed; const rg = G.ranges[id];
-      const kids = [el("kbd", { text: String(i + 1) }), el("span", { class: "club__ic", text: c.icon }), el("span", { class: "club__nm", text: c.name + (c.limited ? (off ? " (utilisée)" : " x1") : "") })];
-      if (rg && !off) kids.push(el("span", { class: "club__rg", text: "≈ " + rg + " m" }));
-      if (G.suggest === id && !off) kids.push(el("span", { class: "club__tag", text: "conseillé" }));
-      const b = el("button", { class: "club" + (G.club === id ? " club--on" : ""), disabled: !!off, title: c.name + ". " + c.desc + " Portée maximale environ " + (rg || "?") + " m depuis ici.", onclick: () => setClub(id) }, kids);
-      box.appendChild(b);
-    });
+    if (box.dataset.key !== ckey) {
+      box.dataset.key = ckey; box.innerHTML = "";
+      allowed.forEach((id, i) => {
+        const c = GR.CLUBS[id]; const off = c.limited && me && me.rocketUsed; const rg = G.ranges[id];
+        const kids = [el("kbd", { text: String(i + 1) }), el("span", { class: "club__ic", text: c.icon }), el("span", { class: "club__nm", text: c.name + (c.limited ? (off ? " (utilisée)" : " x1") : "") })];
+        kids.push(el("span", { class: "club__rg", text: rg && !off ? rg + " m" : "" }));
+        kids.push(el("span", { class: "club__bar" }, [el("i", { style: { width: Math.round(c.speed / 46 * 100) + "%" } })]));
+        if (G.suggest === id && !off) kids.push(el("span", { class: "club__tag", text: "conseillé" }));
+        box.appendChild(el("button", { class: "club" + (G.club === id ? " club--on" : ""), disabled: !!off, title: c.name + ", " + c.role + ". " + c.desc + " Portée maximale environ " + (rg || "?") + " m depuis ici.", onclick: () => setClub(id) }, kids));
+      });
+    }
+    renderHeight(); renderClubCard();
+  }
+  function renderHeight() {
+    const box = $("#hud-height"); if (!box) return; const c = GR.CLUBS[G.club];
+    const on = S().heightControl !== false && GR.hasHeight(c);
+    const key = on + "|" + G.club + "|" + G.height; if (box.dataset.key === key) return; box.dataset.key = key; box.innerHTML = "";
+    box.classList.toggle("heightbox--off", !on);
+    if (!on) { box.appendChild(el("span", { class: "heightbox__fix", text: S().heightControl === false ? "Hauteur fixe" : c.loft ? "Hauteur fixe" : "Au sol" })); return; }
+    box.appendChild(el("button", { class: "round-btn round-btn--small", id: "h-up", title: "Tir plus haut, passe au dessus des obstacles (touche R)", text: "▲", disabled: G.height >= 4, onclick: () => setHeight(G.height + 1) }));
+    const lv = el("div", { class: "heightbox__lv" }); for (let i = 4; i >= 0; i--) lv.appendChild(el("i", { class: i === G.height ? "on" : i < G.height ? "fill" : "", onclick: () => setHeight(i) }));
+    box.appendChild(lv);
+    box.appendChild(el("span", { class: "heightbox__nm", text: GR.HEIGHT_NAMES[G.height] }));
+    box.appendChild(el("button", { class: "round-btn round-btn--small", id: "h-down", title: "Tir plus bas, plus tendu, mais il cogne les arbres (touche F)", text: "▼", disabled: G.height <= 0, onclick: () => setHeight(G.height - 1) }));
+  }
+  function renderClubCard() {
+    const box = $("#hud-clubcard"); if (!box) return; const c = GR.CLUBS[G.club]; const st = GR.stars(c); const rg = G.ranges[G.club];
+    const key = G.club + "|" + G.height + "|" + rg + "|" + S().heightControl; if (box.dataset.key === key) return; box.dataset.key = key; box.innerHTML = "";
+    const on = S().heightControl !== false && GR.hasHeight(c);
+    box.appendChild(el("b", { text: c.icon + " " + c.name })); box.appendChild(el("em", { text: c.role }));
+    box.appendChild(el("div", { class: "clubcard__row" }, [el("span", { text: "Puissance" }), el("span", { class: "pips", text: pips(st.pow, 5) })]));
+    box.appendChild(el("div", { class: "clubcard__row" }, [el("span", { text: "Hauteur" }), el("span", { class: "pips", text: c.loft ? pips(st.hi, 5) : "au sol" })]));
+    box.appendChild(el("div", { class: "clubcard__row" }, [el("span", { text: "Précision" }), el("span", { class: "pips", text: pips(st.acc, 5) })]));
+    box.appendChild(el("p", { class: "small", text: c.fly }));
+    box.appendChild(el("p", { class: "small muted", text: (rg ? "Portée maximale d'ici environ " + rg + " m" : "") + (on ? ", tir " + GR.HEIGHT_NAMES[G.height].toLowerCase() + "." : ".") }));
   }
   function setClub(id) {
-    const me = myState(); G.club = id; G.clubManual = true; sound.click();
+    const me = myState(); G.club = id; G.clubManual = true; G.height = GR.HEIGHT_DEFAULT; sound.click();
     // on garde le même point visé, seul le style du coup change
     if (me && G.aimDist) { const r = solvePower(me, id, G.yaw, G.aimDist); G.power = clamp(r.p, 0.05, 1); if (!r.ok) toast("Ce club ne va pas assez loin, il envoie à " + Math.round(r.dist) + " m au maximum.", "info"); }
-    G.pred = null; renderClubs();
+    G.pred = null; G.rangeKey = ""; renderClubs();
   }
-  // carte d'information juste au-dessus des clubs
+  // change la hauteur du tir, la force est recalculée pour garder le même point visé
+  function setHeight(h) {
+    const me = myState(); const c = GR.CLUBS[G.club]; if (!me || S().heightControl === false || !GR.hasHeight(c)) return;
+    h = clamp(h, 0, 4); if (h === G.height) return; G.height = h; G.clubManual = true; sound.click();
+    if (G.aimDist) { const r = solvePower(me, G.club, G.yaw, G.aimDist); G.power = clamp(r.p, 0.05, 1); }
+    G.pred = null; G.rangeKey = ""; renderClubs();
+  }
+  // carte d'information au dessus de la jauge de force
   function renderAimInfo(me, pred) {
-    const box = $("#hud-aim"); if (!box) return; const club = GR.CLUBS[G.club];
+    const box = $("#hud-aim"); if (!box) return; const club = GR.CLUBS[G.club]; const mode = S().aimAssist;
+    const hname = S().heightControl !== false && GR.hasHeight(club) ? " · tir " + GR.HEIGHT_NAMES[G.height].toLowerCase() : "";
     let l1 = "", l2 = "", l3 = "", bad = false;
-    if (me && pred && S().aimAssist !== "none") {
-      l1 = club.icon + " " + club.name + " à " + Math.round(G.power * 100) + " pour cent, ";
+    if (me && pred && mode === "traj") {
+      l1 = club.icon + " " + club.name + hname + " à " + Math.round(G.power * 100) + " pour cent, ";
       if (pred.sunk) l1 += "la balle finit dans le trou !";
       else l1 += "elle retombe à " + Math.round(pred.carry) + " m et s'arrête à " + Math.round(pred.total) + " m";
       if (pred.warn) { l2 = "Attention, " + pred.warn.toLowerCase() + "."; bad = true; }
       else if (pred.mover) l2 = "Elle croise un moulin ou une barrière qui bouge, tout dépend du moment où tu tapes.";
       else if (pred.hits) l2 = "Elle touche un obstacle en route, le coup sera dévié.";
       else if (!pred.sunk) l2 = "Il restera " + Math.round(pred.toCup) + " m jusqu'au trou.";
-      l3 = club.desc + " " + lieNow(me) + " Erreur possible de " + (pred.sigma < 1 ? "moins de 1" : "environ " + Math.round(pred.sigma)) + " m autour du point d'arrêt.";
-    } else if (me) { l1 = club.icon + " " + club.name + " à " + Math.round(G.power * 100) + " pour cent"; l3 = lieNow(me); }
+      l3 = club.fly + " " + lieNow(me) + " Erreur possible de " + (pred.sigma < 1 ? "moins de 1" : "environ " + Math.round(pred.sigma)) + " m autour du point d'arrêt.";
+    } else if (me && pred && mode === "zone") {
+      l1 = club.icon + " " + club.name + hname + " à " + Math.round(G.power * 100) + " pour cent, atterrit vers " + fuzzy(pred.carry) + " m";
+      if (pred.warn) { l2 = "Attention, un danger se trouve près de la zone d'arrivée."; bad = true; }
+      else if (pred.hits || pred.mover) l2 = "Quelque chose se trouve sur la route de la balle. Un tir plus haut ou une autre direction peut l'éviter.";
+      else if (pred.sunk) l2 = "Le trou est dans la zone, c'est bien visé.";
+      else l2 = "Après l'atterrissage elle " + rollWord(pred.roll) + ", il resterait environ " + fuzzy(pred.toCup) + " m du trou.";
+      l3 = club.fly + " " + lieNow(me) + " Le cercle montre où elle devrait finir.";
+    } else if (me) { l1 = club.icon + " " + club.name + hname + " à " + Math.round(G.power * 100) + " pour cent"; l3 = club.fly + " " + lieNow(me); }
     const key = l1 + "|" + l2 + "|" + l3 + "|" + bad; if (key === G.lastInfo) return; G.lastInfo = key;
     box.innerHTML = ""; if (!l1) { box.classList.add("hidden"); return; } box.classList.remove("hidden"); box.classList.toggle("aiminfo--bad", bad);
     box.appendChild(el("b", { text: l1 })); if (l2) box.appendChild(el("span", { class: "aiminfo__warn", text: l2 })); if (l3) box.appendChild(el("span", { class: "small muted", text: l3 }));
@@ -462,7 +515,7 @@
       G.tap = null;
     };
     host.addEventListener("pointerup", up); host.addEventListener("pointercancel", up);
-    host.addEventListener("wheel", (e) => { e.preventDefault(); if (e.shiftKey) { G.power = clamp(G.power - Math.sign(e.deltaY) * 0.03, 0.05, 1); G.aimDist = null; } else if (G.top) { G.topZoom = clamp(G.topZoom * (1 + Math.sign(e.deltaY) * 0.1), 0.5, 2); } else { const cs = V.camState(); V.setCam({ dist: cs.dist * (1 + Math.sign(e.deltaY) * 0.1) }); } }, { passive: false });
+    host.addEventListener("wheel", (e) => { e.preventDefault(); if (e.shiftKey) { G.power = clamp(G.power - Math.sign(e.deltaY) * 0.03, 0.05, 1); G.aimDist = null; } else if (e.altKey) { setHeight(G.height - Math.sign(e.deltaY)); } else if (G.top) { G.topZoom = clamp(G.topZoom * (1 + Math.sign(e.deltaY) * 0.1), 0.5, 2); } else { const cs = V.camState(); V.setCam({ dist: cs.dist * (1 + Math.sign(e.deltaY) * 0.1) }); } }, { passive: false });
     $("#btn-zoomin").onclick = () => { const cs = V.camState(); V.setCam({ dist: cs.dist * 0.85 }); };
     $("#btn-zoomout").onclick = () => { const cs = V.camState(); V.setCam({ dist: cs.dist * 1.18 }); };
     $("#btn-menu").onclick = openMenu;
@@ -489,6 +542,8 @@
       else if (/^[1-7]$/.test(k)) { const list = GR.CLUB_ORDER.filter((c) => S().clubs.includes(c)); const id = list[+k - 1]; if (id) { const me = myState(); if (!(GR.CLUBS[id].limited && me && me.rocketUsed)) setClub(id); } }
       else if (k === "arrowup" || k === "z" || k === "w") { e.preventDefault(); G.power = clamp(G.power + (e.shiftKey ? 0.1 : 0.02), 0.05, 1); G.aimDist = null; }
       else if (k === "arrowdown" || k === "s") { e.preventDefault(); G.power = clamp(G.power - (e.shiftKey ? 0.1 : 0.02), 0.05, 1); G.aimDist = null; }
+      else if (k === "r" || k === "pageup") { e.preventDefault(); setHeight(G.height + 1); }
+      else if (k === "f" || k === "pagedown") { e.preventDefault(); setHeight(G.height - 1); }
       else if (k === "v") { if (G.toggleTop) G.toggleTop(); }
       else if (k === "c") { if (G.caddie) G.caddie(); }
       else if (k === "escape") { $("#hud-pick").classList.add("hidden"); }
@@ -509,13 +564,14 @@
       el("kbd", { text: "Glisser" }), el("span", { text: "Tourner la visée et incliner la caméra." }),
       el("kbd", { text: "Flèches gauche droite" }), el("span", { text: "Tourner la visée. Avec Maj, tourner plus finement." }),
       el("kbd", { text: "Flèches haut bas" }), el("span", { text: "Régler la force du coup, ou les boutons plus et moins." }),
-      el("kbd", { text: "1 à 7" }), el("span", { text: "Choisir son club. La portée en mètres est écrite sur chaque bouton." }),
+      el("kbd", { text: "1 à 7" }), el("span", { text: "Choisir son club, du plus puissant au moins puissant. La portée en mètres est écrite sur chaque bouton." }),
+      el("kbd", { text: "R et F" }), el("span", { text: "Régler la hauteur du tir. R pour plus haut, F pour plus bas. Les boutons flèches à côté des clubs font pareil." }),
       el("kbd", { text: "V" }), el("span", { text: "Vue du dessus pour voir toute la trajectoire et toucher la cible." }),
       el("kbd", { text: "C" }), el("span", { text: "Le caddie vise vers le trou et choisit le club conseillé." }),
       el("kbd", { text: "Espace" }), el("span", { text: "Un appui rapide tape avec la force réglée. Un appui long charge la force, on relâche pour taper." }),
       el("kbd", { text: "Molette" }), el("span", { text: "Zoom de la caméra." }),
     ]);
-    const clubs = el("div", {}, GR.CLUB_ORDER.map((id) => el("p", { class: "small", text: GR.CLUBS[id].icon + " " + GR.CLUBS[id].name + " · " + GR.CLUBS[id].desc })));
+    const clubs = el("div", {}, GR.CLUB_ORDER.map((id) => el("p", { class: "small", text: GR.CLUBS[id].icon + " " + GR.CLUBS[id].name + " (" + GR.CLUBS[id].role.toLowerCase() + ") · " + GR.CLUBS[id].desc + " " + GR.CLUBS[id].fly })));
     const pows = el("div", {}, GR.POWER_ORDER.map((id) => el("p", { class: "small", text: GR.POWERS[id].icon + " " + GR.POWERS[id].name + " · " + GR.POWERS[id].desc })));
     Kit.showModal("Menu", [
       row("Qualité graphique", "Basse retire les ombres et allège l'affichage, utile sur téléphone ou ordinateur modeste.", qbox),
@@ -549,14 +605,14 @@
     else if (!animating && fid !== (me && me.id)) { /* le spectateur tourne la caméra en glissant */ V.setCam({ yaw: G.yaw }); }
     // visée
     const showAim = !!(me && G.st.phase === "play" && !me.finished && !me.moving && !animating && fid === me.id);
-    const mode = S().aimAssist === "traj" ? "trajectoire" : S().aimAssist === "none" ? "aucune" : "points";
+    const mode = S().aimAssist === "traj" ? "trajectoire" : S().aimAssist === "zone" ? "zone" : S().aimAssist === "none" ? "aucune" : "points";
     let pred = null;
     if (showAim) {
       if (canAct() || true) updateRanges(me);
-      pred = mode === "trajectoire" || S().aimAssist !== "none" ? predict(me) : null;
+      pred = mode === "trajectoire" || mode === "zone" ? predict(me) : null;
       const len = pred ? clamp(pred.total, 2, 90) : clamp(G.power * (G.ranges[G.club] || 30) + 1, 2, 90);
-      V.setAim(true, me.x, me.y, me.z, G.yaw, { mode, len, frames: pred && pred.frames, events: pred && pred.events, outcome: pred && pred.outcome, sigma: pred && pred.sigma, warn: pred && !!pred.warn,
-        label: pred ? (pred.sunk ? "Dans le trou" : pred.warn ? pred.warn.split(",")[0] + " " + Math.round(pred.total) + " m" : Math.round(pred.total) + " m") : "" });
+      V.setAim(true, me.x, me.y, me.z, G.yaw, { mode, len, frames: pred && pred.frames, events: pred && pred.events, outcome: pred && pred.outcome, sigma: pred && pred.sigma, warn: pred && !!pred.warn, zone: pred && pred.zone,
+        label: !pred ? "" : mode === "zone" ? (pred.warn ? "Danger près de la zone" : "≈ " + fuzzy(pred.total) + " m") : (pred.sunk ? "Dans le trou" : pred.warn ? pred.warn.split(",")[0] + " " + Math.round(pred.total) + " m" : Math.round(pred.total) + " m") });
     } else V.setAim(false);
     // vue du dessus pour viser
     if (G.top && showAim && canAct()) {
@@ -567,7 +623,7 @@
     // repère du trou, même quand il est hors de l'écran
     { const cm = $("#hud-cup"), host = $("#gl-host"); const cup = G.hole.cup;
       if (cm && me && G.st.phase === "play" && !me.finished && host.clientWidth) {
-        const pr = V.project(cup.x, GP.heightAt(G.hole, cup.x, cup.z) + 2.6, cup.z); const w = host.clientWidth, h = host.clientHeight; const mx = 46, top = 96, bot = 230;
+        const pr = V.project(cup.x, GP.heightAt(G.hole, cup.x, cup.z) + 2.6, cup.z); const w = host.clientWidth, h = host.clientHeight; const mx = 46, top = 96, bot = 150;
         let x = pr.x, y = pr.y, off = false; if (pr.behind) { x = w - x; y = h - y; off = true; }
         if (x < mx || x > w - mx || y < top || y > h - bot) off = true;
         const d = Math.hypot(cup.x - me.x, cup.z - me.z);
@@ -584,7 +640,7 @@
       G.lastMini = now; const cv = $("#hud-mini");
       const players = G.st.players.filter((p) => !(p.finished && !p.moving)).map((p) => { const bp = V.ballPos(p.id) || p; return { x: bp.x, z: bp.z, hex: hexOf(p.color), you: me && p.id === me.id }; });
       const orbs = G.hole.orbs.map((o) => { const so = G.st.orbs.find((q) => q.id === o.id); return { x: o.x, z: o.z, taken: so ? so.taken : false }; });
-      M.draw(cv, G.hole, { players, orbs: S().powersOn ? orbs : [], path: false, aim: showAim ? { x: me.x, z: me.z, yaw: G.yaw } : null, pred: showAim && pred ? pred : null });
+      M.draw(cv, G.hole, { players, orbs: S().powersOn ? orbs : [], path: false, aim: showAim ? { x: me.x, z: me.z, yaw: G.yaw } : null, pred: showAim && pred && S().aimAssist === "traj" ? pred : null });
     }
     // rythme lent, compte à rebours et horloges
     if (now - G.lastSlow > 200) {
@@ -654,9 +710,9 @@
     colors: COLORS, botLevels: LEVELS, maxPlayers: 6, minPlayers: 1, schema: GR.SCHEMA,
     help: [
       { title: "Le but", text: "Chaque trou est un terrain tiré au hasard, avec son décor et ses pièges. Mets ta balle dans le trou en un minimum de coups, et si possible avant les autres." },
-      { title: "Viser", text: "Touche le terrain à l'endroit où tu veux que la balle s'arrête, le jeu règle alors le club et la force. Une prévision montre le vol en blanc, le roulé en jaune, les obstacles touchés, l'eau, la lave et un cercle qui représente l'erreur possible. Le bouton carte donne une vue du dessus et le bouton boussole fait viser le caddie." },
-      { title: "Taper", text: "Les boutons de club donnent leur portée en mètres, les boutons plus et moins règlent la force. Appuie sur Taper ou sur espace. Un appui long charge la force, on relâche pour frapper." },
-      { title: "Les clubs", text: "Le driver va très loin mais dévie un peu. Le fer est le bon à tout faire. La cale monte haut pour passer les arbres et le lob retombe presque à la verticale. Le putter roule au sol et reste le plus précis. Le ricochet saute sur l'eau pour traverser les mares et la fusée est un coup monstrueux utilisable une seule fois par trou. Le jeu conseille un club selon la distance, mais tu choisis." },
+      { title: "Viser", text: "Touche le terrain à l'endroit où tu veux que la balle s'arrête, le jeu règle alors le club et la force. Une aide montre l'arc de la balle et un grand cercle d'arrivée, sans dire exactement où elle rebondit. L'hôte peut la remplacer par la trajectoire exacte, une simple flèche ou rien du tout. Le bouton carte donne une vue du dessus et le bouton boussole fait viser le caddie." },
+      { title: "Taper", text: "Les clubs sont dans la colonne sur le côté, rangés du plus puissant au moins puissant, avec leur portée en mètres. Les flèches haut et bas à côté règlent la hauteur du tir, les boutons plus et moins règlent la force. Appuie sur Taper ou sur espace. Un appui long charge la force, on relâche pour frapper." },
+      { title: "Les clubs et la hauteur", text: "Du plus puissant au moins puissant, la fusée est un coup monstrueux utilisable une fois par trou, le driver va très loin avec un vol tendu, le fer est le bon à tout faire, le ricochet saute sur l'eau, la cale monte haut, le lob retombe presque à la verticale et le putter roule au sol en restant le plus précis. Chaque club se joue de très bas à très haut. Un tir bas file droit et roule mais cogne les arbres et les obstacles, un tir haut les passe. Le jeu conseille un club, mais tu choisis." },
       { title: "Les orbes et les pouvoirs", text: "Roule sur une orbe dorée pour gagner un pouvoir au hasard. Certains aident ta balle, d'autres embêtent un adversaire. Ils se lancent à tout moment, même pendant que la balle des autres roule." },
       { title: "Les pièges", text: "Eau, lave et sortie de terrain coûtent un coup. Le sable et la boue freinent, la glace fait glisser, la gelée fait rebondir. Les moulins, barrières, trampolines et portails sont des animations du terrain que l'hôte peut régler." },
       { title: "Les points", text: "Le premier dans le trou gagne 10 points, puis 7, 5, 3, 2 et 1. Un trou en un ajoute 5 points. Dans le décompte arrivée et coups, chaque coup sous le par du trou rapporte 2 points de plus. Dans le décompte aux coups, il n'y a pas de points et le moins de coups gagne. Le détail s'affiche à la fin de chaque trou." },
