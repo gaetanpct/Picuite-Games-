@@ -3,6 +3,9 @@
 // Serveur autoritaire. Le contenu des scènes et le moteur restent dans lib/,
 // jamais envoyés au navigateur. Chaque joueur reçoit uniquement sa vue filtrée.
 // ============================================================
+const fs = require("fs");
+const os = require("os");
+const zlib = require("zlib");
 const path = require("path");
 const http = require("http");
 const express = require("express");
@@ -179,6 +182,114 @@ function stepRoom(room) {
   sendGame(room);
 }
 
+
+// ============================================================
+// Sauvegarde des parties. Le serveur peut redémarrer à tout moment (mise à jour, veille, panne), et une partie
+// perdue ruine la soirée. Trois filets de sécurité.
+//   1. sur le disque du serveur, toutes les quelques secondes
+//   2. chaque joueur reçoit une copie compressée qu'il garde dans son navigateur
+//   3. si le serveur a tout oublié, le navigateur peut remonter la partie à l'identique
+// ============================================================
+const DATA_DIR = process.env.RICHISSIME_DATA || path.join(os.tmpdir(), "richissime-parties");
+const SAVE_FILE = path.join(DATA_DIR, "parties.json");
+const MAX_AGE_MS = 8 * 60 * 60 * 1000;
+const TIME_KEYS = /deadline|botAt|until|expire|^at$/i;
+
+function snapshotRoom(room) {
+  const eng = room.engine;
+  if (!eng) return null;
+  const engineData = {};
+  Object.keys(eng).forEach((k) => { if (typeof eng[k] !== "function" && k !== "minigames") engineData[k] = eng[k]; });
+  return {
+    v: 1, savedAt: Date.now(),
+    room: {
+      code: room.code, status: room.status, hostToken: room.hostToken, settings: room.settings, chat: room.chat.slice(-40), turbo: false, created: room.created,
+      players: room.players.map((p) => ({ id: p.id, token: p.token, name: p.name, gender: p.gender, avatar: p.avatar, gift: p.gift, isBot: p.isBot, ready: p.ready, left: !!p.left, auto: !!p.auto })),
+    },
+    engine: engineData,
+  };
+}
+function shiftTimes(o, delta, seen) {
+  if (!o || typeof o !== "object" || seen.has(o)) return;
+  seen.add(o);
+  Object.keys(o).forEach((k) => {
+    const v = o[k];
+    if (typeof v === "number") { if (v > 1e11 && TIME_KEYS.test(k)) o[k] = v + delta; }
+    else if (v && typeof v === "object") shiftTimes(v, delta, seen);
+  });
+}
+function restoreRoom(snap) {
+  if (!snap || snap.v !== 1 || !snap.room || !snap.engine || !Array.isArray(snap.room.players)) throw new Error("copie illisible");
+  const r = snap.room;
+  const code = String(r.code || "").toUpperCase();
+  if (!/^[A-Z]{4}$/.test(code)) throw new Error("code invalide");
+  if (!Array.isArray(snap.engine.players) || snap.engine.players.length !== r.players.length) throw new Error("joueurs incohérents");
+  const eng = new Game({ settings: snap.engine.settings || r.settings, rng: Math.random, timeScale: TS, players: [] });
+  Object.keys(snap.engine).forEach((k) => { if (k !== "rng" && k !== "clock" && k !== "minigames" && k !== "timeScale") eng[k] = snap.engine[k]; });
+  shiftTimes(eng, Date.now() - (snap.savedAt || Date.now()), new WeakSet());
+  eng.turbo = false;
+  const room = {
+    code, status: r.status === "over" ? "over" : r.status === "lobby" ? "game" : r.status, hostToken: r.hostToken, settings: r.settings || eng.settings, chat: Array.isArray(r.chat) ? r.chat : [],
+    engine: eng, loop: null, created: r.created || Date.now(), turbo: false, restoredAt: Date.now(),
+    players: r.players.map((p) => ({ id: p.id || makeId(), token: p.token, socketId: null, name: cleanName(p.name, "Joueur"), gender: p.gender === "f" ? "f" : "m", avatar: cleanAvatar(p.avatar), gift: p.gift, isBot: !!p.isBot, ready: true, connected: !!p.isBot, left: !!p.left, auto: !!p.auto, disconnectedAt: p.isBot ? null : Date.now(), lastKey: null })),
+  };
+  return room;
+}
+function startLoop(room) {
+  clearTimers(room);
+  if (room.status === "game") room.loop = setInterval(() => stepRoom(room), 400);
+}
+function adopt(room) { rooms.set(room.code, room); startLoop(room); sendGame(room, true); }
+
+let lastSaved = "";
+function saveToDisk() {
+  try {
+    const list = [];
+    rooms.forEach((room) => { if (room.engine && room.status !== "lobby") { const s = snapshotRoom(room); if (s) list.push(s); } });
+    const txt = JSON.stringify(list);
+    if (txt === lastSaved) return;
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    const tmp = SAVE_FILE + ".tmp";
+    fs.writeFileSync(tmp, txt); fs.renameSync(tmp, SAVE_FILE);
+    lastSaved = txt;
+  } catch (e) { console.error("sauvegarde", e.message); }
+}
+function loadFromDisk() {
+  try {
+    if (!fs.existsSync(SAVE_FILE)) return 0;
+    const list = JSON.parse(fs.readFileSync(SAVE_FILE, "utf8"));
+    let n = 0;
+    list.forEach((snap) => {
+      try {
+        if (!snap || Date.now() - snap.savedAt > MAX_AGE_MS) return;
+        const room = restoreRoom(snap);
+        if (rooms.has(room.code)) return;
+        adopt(room); n++;
+      } catch (e) { console.error("restauration", e.message); }
+    });
+    if (n) console.log("Richissime a remonté " + n + " partie(s) depuis le disque.");
+    return n;
+  } catch (e) { console.error("lecture sauvegarde", e.message); return 0; }
+}
+const packSnap = (snap) => zlib.gzipSync(JSON.stringify(snap), { level: 6 }).toString("base64");
+function unpackSnap(b64) {
+  if (typeof b64 !== "string" || b64.length > 3 * 1024 * 1024) throw new Error("copie trop grosse");
+  const buf = zlib.gunzipSync(Buffer.from(b64, "base64"), { maxOutputLength: 20 * 1024 * 1024 });
+  return JSON.parse(buf.toString("utf8"));
+}
+// copie envoyée aux joueurs, seulement si la partie a avancé
+function sendBackups(room) {
+  const eng = room.engine; if (!eng || room.status === "lobby") return;
+  const key = eng.round + ":" + eng.phase + ":" + eng.age;
+  if (room.backupKey === key && Date.now() - (room.backupAt || 0) < 120000) return;
+  room.backupKey = key; room.backupAt = Date.now();
+  let data; try { data = packSnap(snapshotRoom(room)); } catch (e) { console.error("copie", e.message); return; }
+  room.players.forEach((p) => { if (!p.isBot && p.socketId) io.to(p.socketId).emit("room:backup", { code: room.code, savedAt: Date.now(), data }); });
+}
+setInterval(() => { saveToDisk(); rooms.forEach((room) => { try { sendBackups(room); } catch (e) { /* ignore */ } }); }, 20000);
+loadFromDisk();
+app.flush = saveToDisk;
+
 io.on("connection", (socket) => {
   const ctx = { room: null, token: null };
   const safe = (fn) => (...args) => {
@@ -273,6 +384,31 @@ io.on("connection", (socket) => {
     socket.emit("chat:history", room.chat);
     broadcastRoom(room);
     if (room.engine) sendGame(room, true);
+  }));
+
+
+  // La partie a disparu du serveur. Le navigateur du joueur en garde une copie et la remonte.
+  socket.on("room:restore", safe(({ code, token, data }) => {
+    if (ctx.room) return;
+    code = String(code || "").toUpperCase();
+    let room = rooms.get(code);
+    if (!room) {
+      let snap;
+      try { snap = unpackSnap(data); room = restoreRoom(snap); } catch (e) { console.error("restore", e.message); return socket.emit("room:gone", { fatal: true }); }
+      if (room.code !== code || Date.now() - (snap.savedAt || 0) > MAX_AGE_MS) return socket.emit("room:gone", { fatal: true });
+      if (!room.players.some((x) => x.token === token && !x.isBot)) return socket.emit("room:gone", { fatal: true });
+      adopt(room);
+      console.log("Richissime a remonté la partie " + code + " depuis la copie d'un joueur.");
+    }
+    const p = room.players.find((x) => x.token === token && !x.isBot);
+    if (!p) return socket.emit("room:gone", { fatal: true });
+    p.left = false;
+    attach(room, p);
+    socket.emit("room:joined", { code: room.code, token });
+    socket.emit("chat:history", room.chat);
+    sysChat(room, "♻️ La partie a été remontée après une coupure du serveur.");
+    broadcastRoom(room);
+    sendGame(room, true);
   }));
 
   function leave(explicit) {
@@ -485,7 +621,7 @@ setInterval(() => {
   const now = Date.now();
   rooms.forEach((room, code) => {
     const anyConnected = room.players.some((p) => !p.isBot && p.connected);
-    if (!anyConnected && now - room.created > 15 * 60 * 1000) { clearTimers(room); rooms.delete(code); }
+    if (!anyConnected && now - Math.max(room.created, room.restoredAt || 0) > 15 * 60 * 1000) { clearTimers(room); rooms.delete(code); }
   });
 }, 5 * 60 * 1000);
 

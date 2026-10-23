@@ -21,8 +21,32 @@
     setInterval(() => { if (S.socket && S.socket.connected && S.token && S.code && S.room && S.room.status !== "lobby") S.socket.emit("game:sync", { code: S.code, token: S.token }); }, 12000);
     socket.on("meta", (m) => { S.meta = m; render(); });
     socket.on("toast", (t) => RD.toast(t.text, t.type));
-    socket.on("room:joined", ({ code, token }) => { S.token = token; S.code = code; RD.store.set("token", token); RD.store.set("code", code); history.replaceState(null, "", "?room=" + code); });
-    socket.on("room:gone", () => { S.room = null; S.game = null; S.code = null; RD.store.del("code"); render(); });
+    socket.on("room:joined", ({ code, token }) => { S.goneTries = 0; S.restoring = false; S.token = token; S.code = code; RD.store.set("token", token); RD.store.set("code", code); history.replaceState(null, "", "?room=" + code); });
+    // Copie de secours de la partie, gardée dans le navigateur. Elle permet de remonter la partie si le serveur l'a oubliée.
+    socket.on("room:backup", (b) => {
+      if (!b || !b.code || !b.data) return;
+      try { localStorage.setItem("rd.backup", JSON.stringify(b)); } catch (e) { /* place insuffisante, tant pis */ }
+    });
+    socket.on("room:gone", (info) => {
+      const tok = S.token, code = S.code;
+      let b = null; try { b = JSON.parse(localStorage.getItem("rd.backup") || "null"); } catch (e) { b = null; }
+      const usable = b && code && b.code === code && Date.now() - b.savedAt < 8 * 3600 * 1000 && !(info && info.fatal);
+      if (usable && tok && (S.goneTries || 0) < 4) {
+        // le serveur redémarre peut-être encore, on réessaie un peu avant de remonter la partie nous-mêmes
+        S.goneTries = (S.goneTries || 0) + 1;
+        S.restoring = true; S.room = null; S.game = null; render();
+        setTimeout(() => {
+          if (!S.socket || !S.socket.connected) return;
+          if (S.goneTries <= 2) socket.emit("room:reconnect", { code, token: tok });
+          else socket.emit("room:restore", { code, token: tok, data: b.data });
+        }, 2500);
+        return;
+      }
+      S.goneTries = 0; S.restoring = false;
+      S.room = null; S.game = null; S.code = null; RD.store.del("code");
+      if (usable === false && b && code) RD.toast("La partie n'a pas pu être retrouvée.", "error");
+      render();
+    });
     socket.on("room:kicked", () => { RD.toast("Tu as été retiré du salon.", "error"); resetRoom(); });
     socket.on("room:lobbyAgain", () => { S.game = null; render(); });
     socket.on("room:state", (r) => {
@@ -46,7 +70,7 @@
     history.replaceState(null, "", location.pathname);
     render();
   }
-  RD.leaveRoom = () => { S.socket.emit("room:leave"); resetRoom(); };
+  RD.leaveRoom = () => { S.socket.emit("room:leave"); try { localStorage.removeItem("rd.backup"); } catch (e) { /* ignore */ } resetRoom(); };
   RD.emit = (ev, data) => S.socket.emit(ev, data);
 
   // ---------- rendu avec conservation du focus et du défilement ----------
@@ -71,7 +95,8 @@
     const root = $("#app");
     if (!S.meta) { clear(root); root.appendChild(h("div.wrap.center", h("p.muted", "Chargement…"))); return; }
     let key, fn;
-    if (!S.room) { key = "home"; fn = RD.renderHome; }
+    if (!S.room && S.restoring) { key = "restoring"; fn = (r) => { clear(r); r.appendChild(h("div.wrap.center", h("h2", "Le serveur a redémarré"), h("p.muted", "On remonte ta partie, ne ferme pas la page."))); }; }
+    else if (!S.room) { key = "home"; fn = RD.renderHome; }
     else if (S.room.status === "lobby") { key = "lobby"; fn = RD.renderLobby; }
     else if (S.game && S.game.phase === "review" && S.game.review) { key = "review" + S.game.review.idx; fn = RD.renderReview; }
     else if (S.game && S.game.phase === "over") { key = "end"; fn = RD.renderEnd; }

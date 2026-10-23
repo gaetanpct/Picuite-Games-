@@ -272,7 +272,7 @@ svg.chart text { font-family: var(--body); font-size: 11px; fill: #3b3b48; }
 .legend i { width: 14px; height: 4px; border-radius: 2px; display: inline-block; }
 
 /* modale et toasts */
-#modal { position: fixed; inset: 0; background: rgba(20,33,61,.62); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+#modal { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(20,33,61,.62); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
 #modal .card { max-width: 560px; width: 100%; max-height: 90vh; overflow: auto; }
 #toasts { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 60; display: grid; gap: 8px; width: min(92vw, 460px); pointer-events: none; }
 .toast { background: var(--navy); color: #fdf6e3; border: 2px solid var(--ink); border-radius: 12px; padding: 10px 14px; box-shadow: var(--shadow-sm); transition: opacity .4s, transform .4s; font-weight: 600; }
