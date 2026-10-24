@@ -29,12 +29,12 @@ MEET.forEach(([id, l, ic, d, ages, lieu, cost, fit]) => reg({
 // ---------- 2. proposer un rendez-vous ----------
 reg({ id: "love_date", grp: "amour", prio: 2, cool: 0, w: 14, ic: "💌", need: Object.assign({ ages: [15, 95] }, single),
   fit: (p) => (crushOf(p) ? 1 : 0),
-  l: (p) => "Proposer un rendez-vous à " + crushOf(p).name,
-  d: (p) => "Tu as rencontré " + crushOf(p).name + ", c'est le moment de transformer l'essai. Un vrai rendez-vous, pas un message à moitié écrit.",
+  l: (p) => "Proposer un rendez-vous à " + ((crushOf(p) || {}).name || "quelqu'un"),
+  d: (p) => "Tu as rencontré " + ((crushOf(p) || {}).name || "quelqu'un") + ", c'est le moment de transformer l'essai. Un vrai rendez-vous, pas un message à moitié écrit.",
   scene: "love_date" });
 reg({ id: "love_ex", grp: "amour", w: 4, ic: "📞", need: Object.assign({ ages: [20, 90] }, single), cool: 4,
   fit: (p) => (NPC(p, "ex") ? 1 : 0),
-  l: (p) => "Reprendre contact avec " + NPC(p, "ex").name,
+  l: (p) => "Reprendre contact avec " + ((NPC(p, "ex") || {}).name || "ton ex"),
   d: "Une vieille histoire, un message un peu trop tard le soir.",
   scene: "love_ex" });
 

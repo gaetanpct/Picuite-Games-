@@ -35,7 +35,17 @@ LIST.forEach((pr) => {
   if (pr.isPro && pr.ill === undefined && (pr.grp === "louche" || /mafia|cartel|empire_|clandestin/.test(pr.id))) pr.ill = true;
 });
 
-function ev(spec, key, p, g) { const v = spec[key]; return typeof v === "function" ? v(p, g) : v; }
+// Une règle de choix qui plante ne doit jamais faire tomber la partie. Le choix devient simplement indisponible ou sans texte.
+const EV_SEEN = new Set();
+function ev(spec, key, p, g) {
+  const v = spec[key];
+  if (typeof v !== "function") return v;
+  try { return v(p, g); } catch (e) {
+    const k = (spec.id || "?") + "/" + key;
+    if (!EV_SEEN.has(k)) { EV_SEEN.add(k); console.error("Choix de vie en erreur", k, e && e.message); }
+    return key === "fit" ? 0 : key === "l" || key === "d" ? "" : undefined;
+  }
+}
 
 // un choix qui prolonge une vraie passion peut revenir chaque année
 function passion(p, pr) {
