@@ -350,13 +350,27 @@
 })();
 
 // ============================================================
-// Garde-fous du rendu 3D. Certains ordinateurs (Mac anciens, Safari, cartes graphiques partagées) refusent
-// une option du rendu et l'écran reste vide. On essaie donc plusieurs réglages, on survit aux erreurs d'image
-// et on affiche la cause à l'écran pour qu'un joueur puisse la montrer.
+// Garde-fous du rendu 3D. Certains ordinateurs (Mac, Safari, cartes graphiques partagées) refusent une option
+// du rendu et l'écran reste vide ou blanc. Le mode compatibilité utilise le rendu le plus simple possible.
+// Il s'active tout seul sur Safari, ou dès qu'une erreur de shader ou un écran vide est détecté, et se règle dans le menu.
 // ============================================================
 (function () {
-  const GL = { info: "", errors: 0, level: 0 };
-  GL.banner = function (msg) {
+  const GL = { info: "", errors: 0, level: 0, reason: "" };
+  const ua = navigator.userAgent || "";
+  const isSafari = /Safari\//.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|Firefox|FxiOS|Android/.test(ua);
+  const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const ssGet = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
+  const ssSet = (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) {} };
+  GL.isSafari = isSafari;
+  GL.compat = function () {
+    if (/[?&]safe=1/.test(location.search)) return true;
+    if (/[?&]safe=0/.test(location.search)) return false;
+    const v = lsGet("gl.compat"); if (v === "1") return true; if (v === "0") return false;
+    return isSafari;
+  };
+  GL.setCompat = function (on) { lsSet("gl.compat", on ? "1" : "0"); if (on) { lsSet("golf.quality", "low"); lsSet("zoom.quality", "low"); } location.reload(); };
+  GL.banner = function (msg, noBtn) {
     try {
       let b = document.getElementById("gl-diag");
       if (!b) {
@@ -366,30 +380,73 @@
       }
       b.textContent = "";
       const t = document.createElement("div"); t.textContent = msg; b.appendChild(t);
-      const bt = document.createElement("button"); bt.textContent = "Réessayer en mode compatibilité";
-      bt.style.cssText = "margin-top:8px;padding:6px 12px;border-radius:10px;border:0;background:#ffb84a;font-weight:700;cursor:pointer";
-      bt.onclick = () => { try { localStorage.setItem("gl.compat", "1"); localStorage.setItem("golf.quality", "low"); localStorage.setItem("zoom.quality", "low"); } catch (e) {} location.reload(); };
-      b.appendChild(bt);
+      if (!noBtn && !GL.compat()) {
+        const bt = document.createElement("button"); bt.textContent = "Passer en mode compatibilité";
+        bt.style.cssText = "margin-top:8px;padding:6px 12px;border-radius:10px;border:0;background:#ffb84a;font-weight:700;cursor:pointer";
+        bt.onclick = () => GL.setCompat(true); b.appendChild(bt);
+      }
+      const d = document.createElement("a"); d.textContent = "Page de diagnostic"; d.href = "common/diag.html"; d.target = "_blank";
+      d.style.cssText = "display:block;margin-top:6px;color:#ffd98a;font-size:12px"; b.appendChild(d);
     } catch (e) {}
   };
-  GL.compat = function () { try { return localStorage.getItem("gl.compat") === "1"; } catch (e) { return false; } };
-  // essaie des réglages de plus en plus prudents
+  // bascule une seule fois en mode compatibilité, sinon montre la cause
+  GL.fail = function (why) {
+    GL.reason = why;
+    if (!GL.compat() && !ssGet("gl.auto")) { ssSet("gl.auto", "1"); lsSet("gl.compat", "1"); lsSet("golf.quality", "low"); lsSet("zoom.quality", "low"); location.reload(); return; }
+    GL.banner("Ton ordinateur n'arrive pas à dessiner la 3D normalement. Cause probable " + why + ". Ouvre la page de diagnostic et envoie une capture d'écran au créateur.", true);
+  };
+  let patched = false;
+  function patchMaterials(T) {
+    if (patched) return; patched = true;
+    ["MeshStandardMaterial", "MeshPhysicalMaterial", "MeshPhongMaterial", "MeshToonMaterial"].forEach((n) => {
+      const Base = T.MeshLambertMaterial;
+      try {
+        const Simple = function (p) { const q = Object.assign({}, p || {}); ["roughness", "metalness", "shininess", "specular", "envMapIntensity", "clearcoat", "transmission", "ior", "thickness", "gradientMap", "roughnessMap", "metalnessMap", "normalMap", "bumpMap", "sheen", "reflectivity", "iridescence", "attenuationColor", "attenuationDistance"].forEach((k) => delete q[k]); return new Base(q); };
+        Simple.prototype = Base.prototype; T[n] = Simple;
+      } catch (e) { /* objet figé, tant pis */ }
+    });
+  }
+  // Essaie des réglages de plus en plus prudents. Le mode compatibilité n'utilise qu'un contexte WebGL1 sans lissage ni transparence.
   GL.create = function (T, canvas, quality) {
+    let r = null, last = null;
+    const hook = (rr) => { try { rr.debug.checkShaderErrors = true; rr.debug.onShaderError = () => GL.fail("une erreur de compilation graphique"); } catch (e) {} return rr; };
+    if (GL.compat()) {
+      patchMaterials(T);
+      try {
+        const gl = canvas.getContext("webgl", { antialias: false, alpha: false, depth: true, stencil: false, powerPreference: "default", failIfMajorPerformanceCaveat: false, preserveDrawingBuffer: false }) || canvas.getContext("experimental-webgl");
+        if (gl) { r = new T.WebGLRenderer({ canvas, context: gl }); GL.level = 9; }
+      } catch (e) { last = e; }
+      if (r) {
+        try { Object.defineProperty(r.shadowMap, "enabled", { get() { return false; }, set() {} }); } catch (e) {}
+        const spr = r.setPixelRatio.bind(r); r.setPixelRatio = (v) => spr(Math.min(v, 1.25));
+        r.setClearColor(0x000000, 1); document.documentElement.classList.add("gl-compat");
+        return hook(r);
+      }
+    }
     const tries = [
       { canvas, antialias: quality !== "low", alpha: true, powerPreference: "high-performance" },
       { canvas, antialias: quality !== "low", alpha: true },
       { canvas, antialias: false, alpha: true },
       { canvas, antialias: false, alpha: false, precision: "mediump", failIfMajorPerformanceCaveat: false },
     ];
-    let first = GL.compat() ? 2 : 0, last = null;
-    for (let i = first; i < tries.length; i++) {
-      try { const r = new T.WebGLRenderer(tries[i]); GL.level = i; return r; } catch (e) { last = e; }
+    for (let i = 0; i < tries.length; i++) {
+      try { r = new T.WebGLRenderer(tries[i]); GL.level = i; return hook(r); } catch (e) { last = e; }
     }
     GL.banner("Ton navigateur ne peut pas afficher le jeu en 3D. Vérifie que l'accélération graphique est activée dans les réglages, ou essaie un autre navigateur. Détail " + (last && last.message ? String(last.message).slice(0, 140) : "inconnu"));
     throw last || new Error("WebGL indisponible");
   };
+  // fond du ciel. En mode normal c'est un dégradé derrière un canevas transparent, en compatibilité c'est une image dans la scène
+  GL.sky = function (scene, host, c0, c1, T) {
+    if (GL.compat()) {
+      try {
+        const cv = document.createElement("canvas"); cv.width = 4; cv.height = 256; const x = cv.getContext("2d"); const g = x.createLinearGradient(0, 0, 0, 256); g.addColorStop(0, c0); g.addColorStop(0.78, c1); g.addColorStop(1, c1); x.fillStyle = g; x.fillRect(0, 0, 4, 256);
+        const tex = new T.CanvasTexture(cv); tex.minFilter = T.LinearFilter; tex.magFilter = T.LinearFilter; tex.generateMipmaps = false; scene.background = tex;
+      } catch (e) { scene.background = new T.Color(c1); }
+      host.style.background = c1;
+    } else { scene.background = null; host.style.background = "linear-gradient(180deg," + c0 + "," + c1 + " 78%)"; }
+  };
   GL.watch = function (canvas, onRestore) {
-    canvas.addEventListener("webglcontextlost", (e) => { e.preventDefault(); GL.banner("L'affichage 3D a été interrompu par ton ordinateur. Il devrait reprendre tout seul."); }, false);
+    canvas.addEventListener("webglcontextlost", (e) => { e.preventDefault(); GL.banner("L'affichage 3D a été interrompu par ton ordinateur. Il devrait reprendre tout seul.", true); }, false);
     canvas.addEventListener("webglcontextrestored", () => { const b = document.getElementById("gl-diag"); if (b) b.remove(); if (onRestore) onRestore(); }, false);
   };
   // dessine une image sans jamais casser la boucle
@@ -400,20 +457,33 @@
       if (GL.errors > 400) return;
     }
   };
-  // Vérifie que quelque chose s'affiche vraiment. Sinon l'écran est vide pour une raison propre à cet ordinateur.
+  // Vérifie que quelque chose s'affiche vraiment. Une image d'une seule couleur alors que des objets sont dessinés est un écran vide.
   let frames = 0, blank = 0;
   GL.verify = function (renderer) {
     frames++;
-    if (frames !== 90 && frames !== 150 && frames !== 240) return;
+    if (frames !== 100 && frames !== 200 && frames !== 330 && frames !== 500) return;
     try {
-      const gl = renderer.getContext(); const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight; if (!w || !h) { blank++; }
+      const gl = renderer.getContext(); const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight; let uniform = false;
+      if (!w || !h) uniform = true;
       else {
-        const px = new Uint8Array(4); let seen = false;
-        [[0.5, 0.5], [0.3, 0.6], [0.7, 0.6], [0.5, 0.75], [0.5, 0.35], [0.2, 0.8], [0.8, 0.8]].forEach((q) => { gl.readPixels(Math.floor(w * q[0]), Math.floor(h * q[1]), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); if (px[3] > 0) seen = true; });
-        if (!seen) blank++;
+        const px = new Uint8Array(4); let first = null, diff = 0;
+        for (let i = 1; i <= 5; i++) for (let j = 1; j <= 4; j++) { gl.readPixels(Math.floor(w * i / 6), Math.floor(h * j / 5), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); const c = [px[0], px[1], px[2], px[3]]; if (!first) first = c; else diff = Math.max(diff, Math.abs(c[0] - first[0]), Math.abs(c[1] - first[1]), Math.abs(c[2] - first[2]), Math.abs(c[3] - first[3])); }
+        uniform = diff < 4;
       }
-      if (blank >= 3) GL.banner("Le terrain 3D ne s'affiche pas sur cet ordinateur. On peut essayer un affichage plus simple.");
+      const calls = renderer.info && renderer.info.render ? renderer.info.render.calls : 1;
+      if (uniform && calls > 0) blank++; else blank = 0;
+      if (blank >= 2) GL.fail("un écran vide malgré des objets à dessiner");
     } catch (e) { /* lecture impossible, on ne dit rien */ }
   };
+  // toute erreur de script s'affiche à l'écran pour pouvoir être signalée
+  let shown = 0;
+  window.addEventListener("error", (e) => {
+    if (shown++ > 0 || !e || !e.message || /ResizeObserver|Script error/.test(e.message)) return;
+    try {
+      const b = document.createElement("div"); b.style.cssText = "position:fixed;left:8px;right:8px;bottom:8px;z-index:99998;background:rgba(40,10,10,0.92);color:#fff;border:2px solid #ff8a7a;border-radius:12px;padding:8px 12px;font:12px/1.35 sans-serif";
+      b.textContent = "Erreur technique, montre ce message au créateur. " + String(e.message).slice(0, 160) + " dans " + String(e.filename || "").split("/").slice(-2).join("/") + " ligne " + e.lineno;
+      b.onclick = () => b.remove(); document.body.appendChild(b);
+    } catch (x) {}
+  });
   window.PicuiteGL = GL;
 })();

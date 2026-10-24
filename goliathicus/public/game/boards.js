@@ -114,6 +114,18 @@
           [[a - 1, a - 1], [a - 1, a + 2], [a + 2, a - 1], [a + 2, a + 2], [a, a], [a, a + 1], [a + 1, a], [a + 1, a + 1]].forEach(([r, c]) => { terrain[r][c] = "lake"; });
         } else [a, a + 1].forEach((r) => [a, a + 1].forEach((c) => { terrain[r][c] = "lake"; }));
       }
+    } else if (mode === "custom") {
+      // décor choisi à la main par l'hôte, répété par symétrie pour rester équitable
+      const neutralSet = new Set(neutral.map(([r, c]) => key(r, c)));
+      const ok = { lake: 1, forest: 1, marsh: 1, plain: 1 };
+      (settings.customTerrain || []).forEach((entry) => {
+        const [r, c, t] = String(entry).split(",");
+        const rr = Number(r), cc = Number(c);
+        if (!neutralSet.has(key(rr, cc)) || !ok[t]) return;
+        const prev = terrain[rr][cc];
+        setOrbit(rr, cc, t);
+        if (t === "lake" && !connected()) setOrbit(rr, cc, prev);
+      });
     } else if (mode === "random" || mode === "wild") {
       const share = mode === "wild" ? { lake: 0.2, forest: 0.14, marsh: 0.1 } : { lake: 0.1, forest: 0.1, marsh: 0.06 };
       const seen = new Set();
@@ -149,13 +161,16 @@
         .map(([r, c]) => ({ r, c, d: Math.abs(r - midR) + Math.abs(c - midC) + rng() * 0.9 }))
         .sort((a, b) => a.d - b.d);
       const used = new Set();
-      for (const cand of cands) {
-        if (relics.length >= orbitsWanted * (duel ? 2 : 4)) break;
-        if (used.has(key(cand.r, cand.c))) continue;
-        const orbit = orbitOf(cand.r, cand.c);
-        const okOrbit = orbit.every(([r, c]) => !used.has(key(r, c)) && terrain[r][c] !== "lake" && terrain[r][c] !== "void");
-        if (!okOrbit) continue;
-        orbit.forEach(([r, c]) => { used.add(key(r, c)); terrain[r][c] = "plain"; relics.push({ r, c }); });
+      // d'abord sur terrain dégagé, jamais sur un obstacle, une forêt ou un marais
+      for (const strict of [true, false]) {
+        for (const cand of cands) {
+          if (relics.length >= orbitsWanted * (duel ? 2 : 4)) break;
+          if (used.has(key(cand.r, cand.c))) continue;
+          const orbit = orbitOf(cand.r, cand.c);
+          const okOrbit = orbit.every(([r, c]) => !used.has(key(r, c)) && terrain[r][c] !== "lake" && terrain[r][c] !== "void" && (!strict || terrain[r][c] === "plain"));
+          if (!okOrbit) continue;
+          orbit.forEach(([r, c]) => { used.add(key(r, c)); terrain[r][c] = "plain"; relics.push({ r, c }); });
+        }
       }
     }
 

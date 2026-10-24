@@ -20,7 +20,7 @@
           ],
           info: "Le mode de victoire de la partie.",
         },
-        { id: "relicTarget", label: "Points de reliques pour gagner", type: "chips", default: 12, options: [8, 12, 16, 24, 40, 60, 100], showIf: { mode: "conquest" }, info: "Chaque relique tenue au début de ton tour rapporte 1 point. Avec 8 points, la partie est très courte. Avec 60 ou 100 points, c'est une longue guerre de position." },
+        { id: "relicTarget", label: "Points de reliques pour gagner", type: "chips", default: 12, options: [8, 12, 16, 24, 40, 60, 100], showIf: { mode: "conquest" }, info: "Chaque relique tenue rapporte 1 point à la fin de chaque tour de table. Tout le monde marque en même temps, personne n'est avantagé par l'ordre de jeu. En cas d'égalité parfaite à l'objectif, la partie continue. Avec 8 points, la partie est très courte. Avec 60 ou 100 points, c'est une longue guerre de position." },
         { id: "conquestEgg", label: "🥚 Garder l'Œuf de Dragon en conquête", type: "bool", default: false, showIf: { mode: "conquest" }, info: "Désactivé = pas d'œuf en conquête, seules les reliques comptent (et la déroute si plus aucune pièce ne peut bouger). Activé = chaque camp protège aussi son œuf." },
         { id: "relicOrbits", label: "Nombre de reliques", type: "chips", default: 1, options: [{ value: 1, label: "Peu" }, { value: 2, label: "Beaucoup" }], showIf: { mode: "conquest" }, info: "Peu = 4 reliques (2 en duel), beaucoup = le double." },
       ],
@@ -42,10 +42,11 @@
         {
           id: "terrain", label: "Relief", type: "chips", default: "classic",
           options: [
-            { value: "classic", label: "Classique" }, { value: "random", label: "Aléatoire" }, { value: "wild", label: "Sauvage" }, { value: "none", label: "Plaine" },
+            { value: "classic", label: "Classique" }, { value: "random", label: "Aléatoire" }, { value: "wild", label: "Sauvage" }, { value: "none", label: "Plaine" }, { value: "custom", label: "À la main" },
           ],
-          info: "Classique = un grand lac central. Aléatoire = lacs, forêts et marais tirés au sort (toujours équitable). Sauvage = beaucoup de relief. Plaine = aucun obstacle.",
+          info: "Classique = un grand lac central. Aléatoire = lacs, forêts et marais tirés au sort (toujours équitable). Sauvage = beaucoup de relief. Plaine = aucun obstacle. À la main = l'hôte pose lui-même les lacs, forêts et marais sur l'aperçu du plateau.",
         },
+        { id: "customTerrain", label: "Décor à poser", type: "terrainEditor", default: [], showIf: { terrain: "custom" }, info: "Choisis un décor puis clique sur les cases du centre de l'aperçu du plateau. Chaque case posée est copiée par symétrie sur les autres côtés, pour que le plateau reste équitable. Un lac qui couperait le plateau en deux est refusé. Les reliques ne sont jamais posées sur un obstacle." },
         { id: "terrainInfo", type: "legend", info: "🌲 Forêt, le défenseur qui gagne un combat ici reste caché.   🟤 Marais, une pièce qui s'y arrête dort un tour.   💧 Lac, infranchissable." },
       ],
     },
@@ -73,6 +74,7 @@
         { id: "sentinelRange", label: "🦉 Portée de la Sentinelle", type: "chips", default: 1, options: [1, 2], showIf: { specialPieces: true }, info: "Distance en cases à laquelle une Sentinelle démasque les pièces ennemies. 1 = juste à côté, 2 = jusqu'à deux cases de marche en comptant les déplacements en croix." },
         { id: "phoenixLives", label: "🐦‍🔥 Renaissances du Phénix", type: "chips", default: 1, options: [1, 2], showIf: { specialPieces: true }, info: "Combien de fois le Phénix renaît face cachée dans ton camp après avoir été éliminé." },
         { id: "messengerBonus", label: "🕊️ Bonus de la Messagère", type: "bool", default: true, showIf: { specialPieces: true }, info: "Activé = quand une Messagère se déplace sans combattre, tu joues une seconde pièce, une fois par tour. Désactivé = la Messagère est une simple pièce de force 2." },
+        { id: "mirrorRelics", label: "🪞 Reflet interdit sur les reliques", type: "bool", default: true, showIf: { specialPieces: true }, info: "Activé = un Reflet ne peut jamais se poser sur une relique, ni en marchant, ni par un échange, ni par un événement du chaos. Sinon il la bloquerait pour toujours." },
         { id: "bombsHidden", label: "🥧 Les tartes restent cachées", type: "bool", default: true, info: "Activé = une tarte qui fait exploser un attaquant (ou qui est désamorcée) n'est jamais dévoilée aux joueurs qui n'étaient pas dans le combat. Désactivé = tout le monde voit ce que c'était." },
         { id: "survivorsRevealed", label: "👁️ Les survivants restent dévoilés", type: "bool", default: true, info: "Activé = après un combat, la pièce gagnante reste visible de tous. Désactivé = mode mémoire, tu dois te souvenir de ce que tu as vu." },
       ],
@@ -105,7 +107,7 @@
 
   function defaults() {
     const d = {};
-    allRules().forEach((r) => { if (r.type !== "legend") d[r.id] = r.default; });
+    allRules().forEach((r) => { if (r.type !== "legend") d[r.id] = Array.isArray(r.default) ? r.default.slice() : r.default; });
     return d;
   }
 
@@ -122,6 +124,10 @@
     allRules().forEach((r) => {
       if (r.type === "legend") return;
       let v = src[r.id];
+      if (r.type === "terrainEditor") {
+        base[r.id] = Array.isArray(v) ? v.filter((x) => typeof x === "string" && /^\d{1,2},\d{1,2},(lake|forest|marsh|plain)$/.test(x)).slice(-300) : [];
+        return;
+      }
       if (v === undefined) return;
       if (r.type === "bool") base[r.id] = !!v;
       else {

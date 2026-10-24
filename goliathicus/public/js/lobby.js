@@ -125,8 +125,26 @@
     socket.emit("room:settings", { settings: { [id]: value } });
   }
 
+  let decorTool = "lake";
+  const DECOR_TOOLS = [
+    { v: "lake", label: "💧 Lac" }, { v: "forest", label: "🌲 Forêt" }, { v: "marsh", label: "🟤 Marais" }, { v: "plain", label: "🧽 Gomme" },
+  ];
+
   function renderRule(rule, s, host, n) {
     if (!visible(rule, s)) return null;
+    if (rule.type === "terrainEditor") {
+      const w = el("div", { class: "rule rule--editor" });
+      w.appendChild(el("div", { class: "rule__label", text: rule.label }));
+      const row = el("div", { class: "chips" });
+      DECOR_TOOLS.forEach((t) => row.appendChild(el("button", {
+        class: "chip" + (decorTool === t.v ? " chip--active" : ""), disabled: host ? null : "", text: t.label,
+        onclick: () => { decorTool = t.v; renderSettings(); },
+      })));
+      row.appendChild(el("button", { class: "chip", disabled: host ? null : "", text: "🗑️ Tout effacer", onclick: () => changeSetting("customTerrain", []) }));
+      w.appendChild(row);
+      w.appendChild(el("p", { class: "rule__info", text: host ? rule.info : "Seul l'hôte pose le décor. " + rule.info }));
+      return w;
+    }
     const lock = !host;
     const wrap = el("div", { class: "rule rule--" + rule.type });
     if (rule.type === "legend") {
@@ -213,15 +231,24 @@
       arm.cells.forEach(([r, c]) => { owner[r + "," + c] = pl ? HOUSES[pl.house % HOUSES.length].color : "#bbb"; });
     });
     const relics = new Set((board.relics || []).map((x) => x.r + "," + x.c));
+    const neutralSet = new Set((board.neutral || []).map((x) => x[0] + "," + x[1]));
     for (let r = 0; r < board.rows; r++) for (let c = 0; c < board.cols; c++) {
       const t = board.terrain[r][c];
       const k = r + "," + c;
       const d = el("div", { class: "pv pv--" + t });
+      if (s.terrain === "custom" && isHost() && neutralSet.has(k)) {
+        d.classList.add("pv--edit");
+        d.addEventListener("click", () => {
+          const list = (s.customTerrain || []).filter((x) => !x.startsWith(r + "," + c + ","));
+          list.push(r + "," + c + "," + decorTool);
+          changeSetting("customTerrain", list);
+        });
+      }
       if (owner[k]) d.style.background = owner[k];
       if (relics.has(k)) { d.classList.add("pv--relic"); d.textContent = "★"; }
       box.appendChild(d);
     }
-    $("#board-preview-note").textContent = (board.kind === "duel" ? "Duel" : "Croix à " + n + " camps") + " · " + board.rows + "×" + board.cols + (s.terrain === "random" || s.terrain === "wild" ? " · relief tiré au sort à chaque partie" : "");
+    $("#board-preview-note").textContent = (board.kind === "duel" ? "Duel" : "Croix à " + n + " camps") + " · " + board.rows + "×" + board.cols + (s.terrain === "random" || s.terrain === "wild" ? " · relief tiré au sort à chaque partie" : s.terrain === "custom" ? (isHost() ? " · clique sur les cases du centre pour poser le décor" : " · décor posé par l'hôte") : "");
   }
 
   // ---------- pied de page ----------

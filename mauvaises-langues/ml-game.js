@@ -32,18 +32,33 @@ function start(room, api) {
   const g = room.g = { api, order, idx: -1, total: order.length, phase: "wait", phaseUntil: 0, used: new Set(), lastTheme: null, scores: {}, correctCount: {}, history: [], q: null, swapsLeft: 0, rankerId: null, pids: [], ranking: null, options: null, correctOpt: null, votes: {}, reveal: null, timer: null, over: false, lastReact: {} };
   room.players.forEach((p) => { g.scores[p.id] = 0; g.correctCount[p.id] = 0; });
   api.sysChat(room, "C'est parti, " + g.total + " manches. Les questions sont déplacées, vous êtes prévenus.");
+  if (s.adult) api.sysChat(room, "🔞 La Zone interdite est activée. Les questions touchent à la vie privée et intime du groupe. Chaque joueur peut changer sa question quand il classe.");
   g.timer = setInterval(() => { try { tick(room); } catch (e) { console.error("tick ml", e); } }, 250);
   nextRound(room);
 }
 function onDestroy(room) { if (room.g && room.g.timer) { clearInterval(room.g.timer); room.g.timer = null; } }
 
 // ---------- choix des questions ----------
-function allowed(room) { const th = new Set(room.settings.themes); return Q.ALL.filter((q) => th.has(q.theme)); }
+function allowed(room) {
+  const st = room.settings; const th = new Set(st.themes);
+  if (!st.adult) return Q.ALL.filter((q) => th.has(q.theme) && q.theme !== "intime");
+  // Zone interdite activée, jamais sans que l'hôte l'ait demandé
+  if (st.adultMix === "toujours") return Q.ALL.filter((q) => q.theme === "intime");
+  return Q.ALL.filter((q) => th.has(q.theme) || q.theme === "intime");
+}
+// poids d'une question de la Zone interdite, calculé pour que la part voulue soit respectée
+function adultShare(room) { return room.settings.adultMix === "rare" ? 0.08 : room.settings.adultMix === "toujours" ? 1 : 0.33; }
+function adultWeight(room) { return room.settings.adultMix === "rare" ? 0.12 : room.settings.adultMix === "toujours" ? 1 : 0.5; }
 function drawQuestion(room, avoidIds) {
   const g = room.g, s = room.settings; const W = Rules.SPICE[s.spice] || Rules.SPICE.epice;
   let pool = allowed(room).filter((q) => !g.used.has(q.id) && !(avoidIds && avoidIds.has(q.id)));
   if (!pool.length) { g.used.clear(); pool = allowed(room).filter((q) => !(avoidIds && avoidIds.has(q.id))); }
-  return pickWeighted(pool, (q) => W[q.heat - 1] * (q.theme === g.lastTheme ? 0.15 : 1));
+  const W2 = (q) => W[q.heat - 1] * (q.theme === g.lastTheme ? 0.15 : 1);
+  const adultQs = pool.filter((q) => q.theme === "intime"), otherQs = pool.filter((q) => q.theme !== "intime");
+  if (!adultQs.length || !otherQs.length) return pickWeighted(pool, (q) => (q.theme === "intime" ? 1 : W2(q)));
+  const share = adultShare(room); const wOther = otherQs.reduce((t, q) => t + W2(q), 0) || 1;
+  const per = (share / (1 - share)) * wOther / adultQs.length;
+  return pickWeighted(pool, (q) => (q.theme === "intime" ? per : W2(q)));
 }
 function drawDecoys(room, real) {
   const s = room.settings; const pool = allowed(room).filter((q) => q.id !== real.id && q.text !== real.text);

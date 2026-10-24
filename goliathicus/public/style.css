@@ -515,3 +515,6 @@ input[type="text"]:focus { border-color: var(--plum-3); box-shadow: 0 0 0 4px rg
   .duel-banner .duel__text { font-size: 0.74rem; padding-top: 0.2rem; }
   .duel-banner .duel__kicker { font-size: 0.62rem; }
 }
+
+.pv--edit { cursor: pointer; outline: 1px dashed rgba(255,255,255,.55); outline-offset: -2px; }
+.pv--edit:hover { filter: brightness(1.25); }

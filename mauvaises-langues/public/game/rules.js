@@ -20,8 +20,11 @@
     { id: "perso", label: "Personnalité", icon: "🧠" },
     { id: "futur", label: "Futur", icon: "🔮" },
     { id: "chaos", label: "Chaos", icon: "🌪️" },
+    { id: "intime", label: "Zone interdite", icon: "🔞", adult: true },
   ];
-  const THEME_IDS = THEMES.map((t) => t.id);
+  // la Zone interdite est à part, elle ne se règle pas avec les thèmes normaux
+  const NORMAL_THEMES = THEMES.filter((t) => !t.adult);
+  const THEME_IDS = NORMAL_THEMES.map((t) => t.id);
   const themeOf = (id) => THEMES.find((t) => t.id === id) || THEMES[0];
   // poids de tirage selon le piment de la question, dans l'ordre taquin, épicé, déplacé
   const SPICE = { doux: [6, 2, 0], equilibre: [3, 5, 2], epice: [1, 4, 6], infernal: [0, 1, 8] };
@@ -41,13 +44,17 @@
         { value: "epice", label: "Épicé", icon: "🔥", desc: "Surtout des questions qui font rougir. Le réglage conseillé." },
         { value: "infernal", label: "Infernal", icon: "😈", desc: "Presque uniquement du déplacé. Ça finit en dispute ou en fou rire." },
       ] },
-      { id: "themes", label: "Thèmes autorisés", type: "multi", default: THEME_IDS.slice(), options: THEMES.map((t) => ({ value: t.id, label: t.label, icon: t.icon })), info: "Décoche un thème pour ne plus jamais le voir, ni dans les questions ni dans les leurres. Il en faut au moins un." },
+      { id: "themes", label: "Thèmes autorisés", type: "multi", default: THEME_IDS.slice(), options: NORMAL_THEMES.map((t) => ({ value: t.id, label: t.label, icon: t.icon })), info: "Décoche un thème pour ne plus jamais le voir, ni dans les questions ni dans les leurres. Il en faut au moins un." },
       { id: "swaps", label: "Changements de question par manche", type: "chips", default: 1, options: [0, 1, 2, 3], info: "Le joueur qui classe voit sa question en secret. Il peut la remplacer s'il ne veut pas y répondre. Zéro signifie qu'il faut assumer." },
       { id: "decoys", label: "Questions leurres", type: "cards", default: "mixte", options: [
         { value: "mixte", label: "Mélangées", icon: "🎭", desc: "Deux leurres du même thème que la vraie question et un d'un autre thème." },
         { value: "theme", label: "Même thème", icon: "🎯", desc: "Les quatre questions parlent du même sujet. Beaucoup plus difficile." },
         { value: "hasard", label: "Au hasard", icon: "🎲", desc: "Les leurres viennent de partout. Plus facile à deviner." },
       ] },
+    ] },
+    { category: "🔞 Zone interdite, plus de 18 ans", rules: [
+      { id: "adult", label: "Activer la Zone interdite", type: "bool", default: false, info: "Une catégorie à part de questions très gênantes sur la vie privée et la vie intime du groupe. Réservée aux adultes qui se connaissent bien et qui sont tous d'accord pour jouer. Désactivée par défaut. Tout le monde est prévenu au lancement de la partie. Les questions restent drôles et jamais explicites, et chaque joueur peut toujours changer sa question." },
+      { id: "adultMix", label: "Fréquence des questions interdites", type: "chips", default: "souvent", showIf: { adult: true }, options: [{ value: "rare", label: "De temps en temps" }, { value: "souvent", label: "Souvent" }, { value: "toujours", label: "Presque que ça" }], info: "De temps en temps = elles se glissent parmi les autres thèmes. Souvent = environ une question sur trois. Presque que ça = toutes les questions viennent de la Zone interdite, y compris les leurres." },
     ] },
     { category: "🏆 Les points", rules: [
       { id: "scoreGuess", label: "Points pour une bonne réponse", type: "chips", default: 2, options: [1, 2, 3, 5], info: "Gagnés par chaque joueur qui devine la vraie question." },
@@ -71,5 +78,5 @@
     if (!out.themes.length) out.themes = THEME_IDS.slice(0, 1);
     return out;
   }
-  return { THEMES, THEME_IDS, themeOf, SPICE, HEAT_NAMES, EMOJIS, SCHEMA, defaults, normalize, allRules };
+  return { THEMES, NORMAL_THEMES, THEME_IDS, themeOf, SPICE, HEAT_NAMES, EMOJIS, SCHEMA, defaults, normalize, allRules };
 });

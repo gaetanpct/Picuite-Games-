@@ -420,3 +420,28 @@ Les vies de Richissime partaient trop souvent vers la scène ou le stade. Sur 15
 - Avec un trafic dense et une météo capricieuse, le chauffeur robot fait parfois des accidents.
 - L'IA de Goliathicus ne calcule pas le bonus de l'étendard quand elle évalue un combat, elle joue donc un peu en dessous de son niveau contre cette pièce.
 - Le Phénix 🐦‍🔥 est un emoji récent, sur un appareil ancien il peut s'afficher en deux symboles.
+
+## Vingt-deuxième mise à jour, décor à la main, reliques équitables, Zone interdite et correctif Richissime
+
+### Goliathicus
+
+- Nouveau relief À la main. L'hôte choisit un décor (lac, forêt, marais) ou la gomme, puis clique sur les cases du centre de l'aperçu du plateau. Chaque case posée est copiée par symétrie sur les autres côtés pour que le plateau reste équitable. Un lac qui couperait le plateau en deux est refusé.
+- Les reliques ne sont plus jamais posées sur un obstacle, une forêt ou un marais, que le relief soit classique, aléatoire, sauvage ou posé à la main.
+- Nouveau réglage Reflet interdit sur les reliques, activé par défaut. Un Reflet ne peut plus se poser sur une relique, ni en marchant, ni par l'échange de la maison du Lion, ni par le mélange du chaos. Il ne peut donc plus bloquer une relique pour toujours.
+- Les points de reliques tombent maintenant pour tout le monde en même temps, à la fin de chaque tour de table. Celui qui joue en premier n'est plus avantagé. Si deux camps atteignent l'objectif avec le même score, la partie continue jusqu'à ce que l'un prenne l'avantage.
+
+### Mauvaises Langues
+
+- Nouvelle catégorie à part, la Zone interdite, réservée aux plus de 18 ans. Environ soixante questions très gênantes sur la vie privée et la vie intime du groupe, drôles mais jamais explicites.
+- Elle est désactivée par défaut. Deux réglages dans le salon, l'activation et la fréquence (de temps en temps, souvent, presque que ça). Un message prévient tout le monde au lancement, et chaque joueur peut toujours changer sa question.
+
+### Richissime Destiny
+
+- Correction d'une erreur qui pouvait faire planter une année. Les choix reprendre contact avec un ex et proposer un rendez-vous lisaient un personnage qui avait pu disparaître entre-temps. Les textes sont maintenant sûrs.
+- Une règle de choix qui plante ne peut plus faire tomber la partie. Le choix devient simplement indisponible et l'erreur est notée dans le journal du serveur.
+- Environ 340 parties complètes ont été jouées en test avec 2 à 6 joueurs, des robots et des joueurs simulés, sans autre blocage ni erreur.
+
+### Limites connues
+
+- Les plantages de Richissime que tu vois ne sont pas tous reproduits. Si ça recommence, note l'année de la partie et ce qui était affiché, avec une capture si possible.
+- Sur l'hébergement gratuit, tous les jeux partagent le même petit serveur. Quand il s'endort ou redémarre, les parties en cours peuvent être perdues.

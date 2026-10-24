@@ -283,6 +283,11 @@
       this._beginTurn();
     }
 
+    // Un Reflet ne peut jamais se poser sur une relique (sinon il la bloquerait pour toujours)
+    _mirrorBlocked(p, r, c) {
+      return !!(this.settings.mirrorRelics && PIECES[p.type].mirror && this.relics.some((x) => x.r === r && x.c === c));
+    }
+
     // ---------- déplacements ----------
     _movesFor(p) {
       if (!p.alive || p.frozen > 0 || !PIECES[p.type].mobile) return [];
@@ -321,6 +326,7 @@
       // règle anti ping-pong : pas de 3e aller-retour sur une case vide
       const h = p.hist;
       return out.filter(([r, c]) => {
+        if (this._mirrorBlocked(p, r, c)) return false;
         if (this.grid[r][c]) return true;
         if (h.length >= 4) {
           const a = h[h.length - 1], b = h[h.length - 2], c3 = h[h.length - 3], d = h[h.length - 4];
@@ -621,6 +627,7 @@
         const a = find(data.a), b = find(data.b);
         if (!a || !b || a === b || a.owner !== pi || b.owner !== pi) return { ok: false, error: "Choisis deux de tes pièces." };
         const ca = { r: a.r, c: a.c }, cb = { r: b.r, c: b.c };
+        if (this._mirrorBlocked(a, cb.r, cb.c) || this._mirrorBlocked(b, ca.r, ca.c)) return { ok: false, error: "Un Reflet ne peut pas se poser sur une relique." };
         this.grid[ca.r][ca.c] = b; this.grid[cb.r][cb.c] = a;
         a.r = cb.r; a.c = cb.c; b.r = ca.r; b.c = ca.c;
         a.hist = []; b.hist = [];
@@ -752,6 +759,7 @@
       let guard = 0;
       do { idx = (idx + 1) % this.n; guard++; } while (this.players[idx].eliminated && guard <= this.n + 1);
       if (idx <= prev) {
+        if (this._scoreRelics()) return;
         this.round++;
         if (this.tempFog > 0) this.tempFog--;
         if (this.round > MAX_ROUNDS) { this._finishByMaterial("⏳ Le temps de la bataille est écoulé. On compte les points."); return; }
@@ -765,32 +773,45 @@
       this._beginTurn();
     }
 
+    // Les points de reliques tombent pour tout le monde en même temps, à la fin de chaque tour de table.
+    // Retourne true si la partie est finie.
+    _scoreRelics() {
+      if (this.settings.mode !== "conquest" || this.phase !== "playing") return false;
+      this.players.forEach((pl, pi) => {
+        if (pl.eliminated) return;
+        let gain = 0;
+        this.relics.forEach(({ r, c }) => { const o = this.grid[r][c]; if (o && o.owner === pi) gain++; });
+        if (!gain) return;
+        pl.score += gain;
+        this._pushEvent({ kind: "relic", owner: pi, gain, score: pl.score, cells: [], text: `🏆 ${pl.name} marque ${gain} point${gain > 1 ? "s" : ""} de reliques (${pl.score}/${this.settings.relicTarget}).` });
+      });
+      const target = this.settings.relicTarget;
+      const reached = this.players.filter((p) => !p.eliminated && p.score >= target);
+      if (!reached.length) return false;
+      const best = Math.max(...reached.map((p) => p.score));
+      const top = reached.filter((p) => p.score === best);
+      if (new Set(top.map((p) => p.team)).size > 1) {
+        this._pushEvent({ kind: "info", cells: [], text: "⚖️ Égalité parfaite au sommet, la bataille continue jusqu'à ce qu'un camp prenne l'avantage." });
+        return false;
+      }
+      const winners = this.players.filter((p) => p.team === top[0].team && !p.eliminated).map((p) => p.seat);
+      this._finish(winners, "relics");
+      return true;
+    }
+
     _beginTurn() {
       let guard = 0;
       while (this.phase === "playing" && guard++ < 12) {
         const pl = this.players[this.current];
         this.turnPowerUsed = false;
         this.messengerUsed = false;
-        if (this.settings.mode === "conquest") {
-          let gain = 0;
-          this.relics.forEach(({ r, c }) => { const o = this.grid[r][c]; if (o && o.owner === this.current) gain++; });
-          if (gain) {
-            pl.score += gain;
-            this._pushEvent({ kind: "relic", owner: this.current, gain, score: pl.score, cells: [], text: `🏆 ${pl.name} marque ${gain} point${gain > 1 ? "s" : ""} de reliques (${pl.score}/${this.settings.relicTarget}).` });
-            if (pl.score >= this.settings.relicTarget) {
-              const winners = this.players.filter((p) => p.team === pl.team && !p.eliminated).map((p) => p.seat);
-              this._finish(winners, "relics");
-              return;
-            }
-          }
-        }
         if (!this.hasLegalMove(this.current)) {
           this._eliminate(this.current, "Plus aucune pièce ne peut bouger, c'est la déroute.", null);
           if (this._checkLastStanding()) return;
           // passe au suivant sans compter comme tour calme
           let idx = this.current; let g2 = 0;
           do { idx = (idx + 1) % this.n; g2++; } while (this.players[idx].eliminated && g2 <= this.n + 1);
-          if (idx <= this.current) this.round++;
+          if (idx <= this.current) { if (this._scoreRelics()) return; this.round++; }
           this.current = idx; this.turn++;
           continue;
         }
@@ -853,7 +874,7 @@
         const cands = this.pieces.filter((p) => p.alive && PIECES[p.type].mobile && !(this.settings.mode === "kinghunt" && p.type === "roi"));
         Boards.shuffle(cands, this.rng);
         let a = cands[0], b = null;
-        if (a) b = cands.find((x) => x !== a && x.owner !== a.owner);
+        if (a) b = cands.find((x) => x !== a && x.owner !== a.owner && !this._mirrorBlocked(a, x.r, x.c) && !this._mirrorBlocked(x, a.r, a.c));
         if (a && b) {
           const ca = { r: a.r, c: a.c }, cb = { r: b.r, c: b.c };
           this.grid[ca.r][ca.c] = b; this.grid[cb.r][cb.c] = a;
