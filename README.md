@@ -454,78 +454,77 @@ Les vies de Richissime partaient trop souvent vers la scène ou le stade. Sur 15
 - Les chocs avec un humain sont calculés d'après sa position envoyée environ vingt fois par seconde. Avec une mauvaise connexion, le choc peut paraître un peu en retard.
 - Je n'ai pas pu tester à plusieurs humains en même temps, seulement avec des joueurs simulés. Le dosage de la force des chocs se juge à la main.
 
-## Vingt-sixième mise à jour, nouveau jeu Pagaille Party
+## Vingt-sixième mise à jour, Pagaille Party en vraie 3D
 
-Un party game en ligne de deux à huit joueurs, dans l'esprit de Mario Party, avec une collection de mini-jeux de moins d'une minute. Il vit dans le dossier pagaille et se branche sur le site comme les autres jeux, avec le même système de salons, de code, de couleurs, de tchat et de reconnexion.
+Pagaille Party est un party game en ligne de deux à huit joueurs, dans l'esprit de Mario Party. Il vit dans le dossier pagaille et se branche sur le site comme les autres jeux, avec le même système de salons, de code, de couleurs, de tchat et de reconnexion. Cette mise à jour le transforme en vrai jeu en trois dimensions, avec quinze mini-jeux complets.
 
 ### Comment se déroule une partie
 
 - L'hôte règle le nombre de manches (5, 10, 15, 20, 30 ou un nombre personnalisé jusqu'à 40) et lance la partie.
 - À chaque manche, trois mini-jeux compatibles avec le nombre de joueurs sont proposés. Tout le monde vote, le vote s'arrête dès que tous ont voté, et les égalités sont tranchées au hasard.
-- Les règles et les commandes s'affichent avant chaque jeu, avec un bouton prêt pour passer plus vite.
-- Après le jeu, un classement de la manche et un classement général sont affichés.
+- Les règles et les commandes s'affichent avant chaque jeu, avec un bouton prêt pour passer plus vite, puis un compte à rebours de trois secondes.
+- Après le jeu, un écran de résultat montre le classement de la manche, les bonus, les multiplicateurs et le classement général.
 - La dernière manche peut compter double, réglable.
+- Il n'y a plus de limite d'une minute. Chaque jeu dure le temps que demande son idée, entre une demi minute et environ trois minutes, et le réglage de durée l'allonge ou le raccourcit.
 
 ### Les réglages, tous expliqués dans le salon
 
-- Nombre de manches et nombre personnalisé.
-- Ambiance compétitive ou chaotique. En chaos, chaque manche reçoit une surprise tirée au hasard, commandes inversées, turbo ou points doublés.
-- Temps pour voter, temps pour lire les règles et durée des manches (courtes, normales, longues).
-- Éviter deux fois de suite le même jeu, et préférer les jeux pas encore joués.
-- Activer ou désactiver chaque mini-jeu un par un.
+- Nombre de manches et nombre personnalisé, ambiance compétitive ou chaotique, niveau de chaos, dernière manche double.
+- Temps pour voter, temps pour lire les règles et durée des mini-jeux (courts, normaux, longs).
+- Éviter deux fois de suite le même jeu, et activer ou désactiver chaque mini-jeu un par un.
+- Réglages propres à un jeu. Longueur de la mèche de la bombe, difficulté de la course, vitesse de la lave, météores du sumo, événements de l'arène du choc au sommet. Chacun change vraiment le déroulement du jeu.
+- Un bot remplace un joueur déconnecté, réglable.
+- Mode démo, où des bots jouent à la place de l'hôte, pour regarder le jeu tourner.
+- Jeu imposé pour tester, qui force un mini-jeu précis à chaque manche. Utile pour essayer un seul jeu, seul, avec des bots.
 
 ### Les points
 
 - Un classement est établi à chaque manche. Dix points pour le premier, puis des points décroissants selon le nombre de joueurs, et les égalités se partagent les points.
-- Quelques bonus de un à trois points récompensent les beaux coups, comme démasquer le meurtrier, toucher des adversaires avec un laser ou monter le plus haut.
+- Des bonus récompensent les beaux coups, comme démasquer le meurtrier, éjecter le plus d'adversaires, monter le plus haut ou n'être jamais tombé. Les surprises du mode chaos peuvent doubler les points.
 
-### Les onze mini-jeux livrés
-
-| Jeu | Joueurs | Idéal | Durée | Principe |
-|---|---|---|---|---|
-| Couleur cible | 2 à 8 | 4 à 6 | 40 s | Une couleur est annoncée, les autres cases tombent. Une grille de quarante-huit cases évite que ce soit du hasard à deux. |
-| Lave montante | 2 à 8 | 3 à 6 | 45 s | Des tours de plateformes en vue de dessus, un saut permet de monter de deux niveaux. |
-| Bombe en voiture | 2 à 8 | 4 à 8 | 60 s | Petites voitures qui dérapent autour de piliers. De une à deux bombes selon le nombre de joueurs, la bombe passe au contact. |
-| Sumo glissant | 2 à 8 | 3 à 6 | 60 s | Visée secrète de la direction et de la puissance, lancer simultané, glace et chocs, plateforme qui rétrécit. |
-| Lasers invisibles | 2 à 8 | 3 à 6 | 50 s | Déplacement et ligne de tir choisis en secret, tout part en même temps. Plateau plus grand avec plus de joueurs. |
-| Meurtre mystère | 3 à 8 | 5 à 8 | 75 s | Un meurtrier secret, un détective connu de tous à partir de quatre joueurs, cadavres signalés par un cercle rouge, accusations risquées. |
-| Faux semblants | 2 | 2 | 45 s | La version du meurtre pour deux joueurs. Rôles secrets parmi meurtrier, détective et innocent, choix simultanés de pièce et d'action sur cinq tours. |
-| Pont de verre | 2 à 8 | 3 à 8 | 50 s | Une dalle fragile par rangée, on passe chacun son tour et ceux qui tombent révèlent le chemin aux suivants. |
-| Faites des groupes | 3 à 8 | 5 à 8 | 40 s | Un nombre est annoncé, il faut être exactement ce nombre dans une zone. |
-| Cagnotte qui grimpe | 2 à 8 | 3 à 8 | 40 s | Cinq coups où l'on encaisse avant une explosion au moment inconnu. |
-| Sol en miettes | 2 à 8 | 3 à 6 | 50 s | Les dalles touchées s'effritent, on pousse les autres vers le vide. |
-
-Un jeu qui ne convient pas au nombre de joueurs présents n'est jamais proposé. Faux semblants n'apparaît qu'à deux et le meurtre classique à partir de trois.
-
-### Les concepts prévus pour la suite
+### Les quinze mini-jeux
 
 | Jeu | Joueurs | Principe |
 |---|---|---|
-| Portes piégées | 3 à 8 | Plusieurs portes, certaines sont des pièges, on choisit en même temps que les autres. |
-| Mémoire de cases | 2 à 8 | Une séquence de cases à reproduire, qui s'allonge à chaque tour. |
-| Course à l'envers | 2 à 8 | Une course dont les commandes s'inversent par moments. |
-| Course aux raccourcis | 2 à 8 | Un parcours avec obstacles et passages secrets. |
-| Cache-cache | 3 à 8 | Une petite carte, un chercheur et des cachés qui bougent peu. |
-| Roi de la colline | 2 à 8 | Occuper une zone le plus longtemps possible, les autres cherchent à vous pousser. |
-| Collecte gênée | 2 à 8 | Ramasser des objets en pouvant bloquer les autres. |
-| Chaises sans musique | 3 à 8 | La zone sûre change régulièrement, signalée par une animation. |
-| Pierre feuille ciseaux élargi | 2 à 8 | Choix simultanés entre plusieurs actions qui se battent entre elles. |
-| Esquive automatique | 2 à 8 | Éviter des projectiles tirés tout seuls, sans viser. |
-| Aimants | 2 à 8 | Des forces attirent et repoussent les joueurs vers des zones. |
+| Bombe en voiture | 2 à 8 | Des voitures en 3D, une bombe qui passe au contact, des trous dans le sol. Mèche réglable. |
+| Course des fous | 2 à 8 | Une vraie course d'obstacles avec plateformes mobiles, balanciers, pistons, escaliers, poutre étroite et drapeaux de reprise. Trois difficultés. |
+| Lave montante | 2 à 8 | Une tour de plateformes en spirale, une lave qui monte à vitesse réglable, un combat au sommet. |
+| Sumo glissant | 2 à 8 | Visée secrète, lancer simultané sur la glace, plateforme qui rétrécit, météores en option. |
+| Choc au sommet | 2 à 8 | Une arène où l'on se charge, se repousse et s'écrase, avec bumpers, vagues et météores. |
+| Couleur cible | 2 à 8 | Une couleur est annoncée, les autres dalles tombent. Après quelques tours les couleurs s'éteignent avant la chute. |
+| Sol en miettes | 2 à 8 | Deux étages de dalles qui s'abîment sous les pas et se fissurent avec le temps. |
+| Dalles de mémoire | 2 à 8 | Des dalles s'allument, le sol s'éteint, il faut courir sur une dalle qui était allumée. |
+| Lasers invisibles | 2 à 8 | Déplacement et ligne de tir choisis en secret, tout part en même temps. |
+| Meurtre mystère | 3 à 8 | Un meurtrier secret, un détective connu de tous, des cadavres qui déclenchent une alerte, des accusations risquées. |
+| Faux semblants | 2 | La version du meurtre pour deux joueurs, en interface plate. |
+| Pont de verre | 2 à 8 | Une dalle fragile par rangée, on passe chacun son tour et ceux qui tombent révèlent le chemin. |
+| Faites des groupes | 3 à 8 | Un nombre est annoncé, il faut se retrouver sur une plateforme avec exactement ce nombre de joueurs. |
+| Ruée vers l'or | 2 à 8 | Répartir en secret des mineurs entre des gisements, avec une banque sûre et des conflits. |
+| Cagnotte qui grimpe | 2 à 8 | Cinq coups où l'on encaisse avant une explosion au moment inconnu, en interface plate. |
+
+Les nouveautés de cette mise à jour sont la Course des fous, le Choc au sommet, les Dalles de mémoire et la Ruée vers l'or. Les autres jeux ont été refaits en 3D avec des bots. Un jeu qui ne convient pas au nombre de joueurs présents n'est jamais proposé.
+
+### Les bots
+
+- Tous les jeux sont jouables seul ou avec des bots. Les bots ont trois niveaux, facile, normal et expert, et se trompent, hésitent et réagissent avec un petit retard, pour rester crédibles.
+- Un joueur déconnecté peut être remplacé par un bot, puis reprendre sa place en revenant.
+
+### Technique
+
+- Le serveur décide de tout, les votes, les déplacements, les collisions, les éliminations et les scores. Le client envoie ses touches, ses clics et ses choix, et affiche la scène reçue.
+- La scène 3D est décrite par de simples formes, boîtes, cylindres, sphères, personnages et voitures. Le client la dessine avec three.js, déjà partagé par tout le site. Aucune bibliothèque n'a été ajoutée.
+- Si la 3D n'est pas disponible, un affichage à plat prend le relais. Le bouton 3D en haut à droite permet de basculer.
+- Les ressources de chaque scène sont libérées entre deux jeux.
+- Le dossier pagaille reste sous cent fichiers.
 
 ### Ajouter un mini-jeu
 
-- Ajouter une fiche dans pagaille/public/game/catalog.js avec le nombre de joueurs minimum et maximum, les règles et les commandes.
-- Créer pagaille/games/<identifiant>.js qui exporte create(ctx) et renvoie un objet avec update, frame, priv, onAct, done et ranking.
-- Le moteur se charge du reste, vote, règles, compte à rebours, classement, points, déconnexions et affichage. Le plateau est décrit au client par de simples formes que le dessin sait afficher.
-
-### Ce qui est contrôlé par le serveur
-
-- Les votes, le démarrage des manches, les déplacements, les collisions, les éliminations, les scores et les résultats. Le client n'envoie que ses touches, ses clics et ses choix.
-- Un joueur déconnecté ne bloque jamais une manche. Il ne vote plus et ses touches sont à zéro. Il peut revenir avec le même lien.
+- Ajouter une fiche dans pagaille/public/game/catalog.js avec le nombre de joueurs, les règles et les commandes.
+- Créer pagaille/games/<identifiant>.js qui exporte create(ctx) et renvoie un objet avec update, frame, scene, priv, onAct, done et ranking.
+- Le moteur se charge du reste, vote, règles, compte à rebours, classement, points, déconnexions et affichage.
 
 ### Limites connues
 
-- Cette première version contient onze mini-jeux et non cent. Le catalogue et le moteur sont faits pour en ajouter facilement.
-- Les touches à l'écran pour téléphone sont prévues mais n'ont pas été testées sur un vrai téléphone.
-- Les tests ont été faits par des joueurs simulés qui jouent au hasard, sans humains. L'équilibrage fin des jeux reste à juger à la main.
+- Les tests ont été faits avec des bots et avec un navigateur sans carte graphique réelle. La fluidité sur un vrai téléphone ou un vieil ordinateur n'est pas mesurée.
+- Les touches à l'écran pour téléphone n'ont pas été testées sur un vrai téléphone.
+- Aucun test avec plusieurs humains réels. L'équilibrage fin, la vitesse de la lave, la difficulté de la course ou la force des chocs, se juge à la main avec les réglages.

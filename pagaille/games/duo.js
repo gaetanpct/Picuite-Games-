@@ -34,22 +34,25 @@ exports.create = function (ctx) {
   }
   const inst = {
     done: false,
+    live: false,
     update(dt) {
       left -= dt;
       if (phase === "plan") {
+        P.forEach((p) => { if (!ctx.isBot(p.id) || p.lock) return; if (p.bt == null) { const sk = ctx.skill(p.id); p.bt = 1.2 + rnd() * 4.5 * (1.2 - sk); p.room = Math.floor(rnd() * 4);
+          if (p.role === "M") p.act = rnd() < 0.72 ? "strike" : "hide"; else if (p.role === "D") p.act = p.known === "Meurtrier" ? "accuse" : rnd() < 0.55 + sk * 0.2 ? "search" : "wait"; else p.act = (turn >= 4 && rnd() < 0.1 * (1.2 - sk)) ? "accuse" : "wait"; if (p.role === "D" && p.known === "Meurtrier" && rnd() < 0.15) p.act = "search"; }
+          p.bt -= dt; if (p.bt <= 0) { p.lock = true; p.bt = null; } });
         const A = P.filter((p) => ctx.present(p.id));
         if (left <= 0 || (A.length && A.every((p) => p.lock))) resolve();
       } else if (phase === "reveal" && left <= 0) {
         if (result || turn >= TURNS) { inst.done = true; return; }
-        turn++; phase = "plan"; left = 11 * ctx.pace; P.forEach((p) => { p.lock = false; });
+        turn++; phase = "plan"; left = 11 * ctx.pace; P.forEach((p) => { p.lock = false; p.bt = null; });
       }
     },
     frame() {
-      const items = ROOMS.map((r, i) => ({ t: "rect", x: 40 + (i % 2) * 340, y: 80 + Math.floor(i / 2) * 200, w: 320, h: 180, c: "#33405c", r: 16, s: "#5d6f96" }));
-      ROOMS.forEach((r, i) => items.push({ t: "text", x: 200 + (i % 2) * 340, y: 175 + Math.floor(i / 2) * 200, v: r, c: "#c8d3ea", s: 30 }));
-      if (phase === "reveal" && reveal) P.forEach((p, i) => { const r = p.room; items.push({ t: "pawn", id: p.id, x: 120 + (r % 2) * 340 + i * 90, y: 230 + Math.floor(r / 2) * 200, k: p.k, n: p.name, r: 22, dead: !p.alive }); });
+      const items = []; ROOMS.forEach((r, i) => { const cx = 40 + (i % 2) * 340 + 160, cy = 80 + Math.floor(i / 2) * 200 + 90; const hot = phase === "reveal" && reveal && reveal.rooms.includes(i); items.push({ t: "box", x: cx, y: cy, w: 320, d: 180, h: 0, c: hot ? "#4a5f8c" : "#33405c", lab: r, lc: "rgba(200,211,234,.85)" }); });
+      if (phase === "reveal" && reveal) P.forEach((p, i) => { const r = p.room; items.push({ t: "pawn", id: p.id, x: 120 + (r % 2) * 340 + i * 90 + 30, y: 170 + Math.floor(r / 2) * 200 + 70, z: 0, k: p.k, n: p.name, dead: p.alive ? 0 : 1 }); });
       const lockN = P.filter((p) => p.lock).length;
-      return { w: 720, h: 480, bg: "#141b2d", items, hud: { title: "Tour " + turn + " sur " + TURNS, timer: phase === "plan" ? Math.max(0, left) : null, chips: [{ text: lockN + " prêts" }], msgs2: phase === "reveal" ? (result ? [result.why] : []) : [] } };
+      return { w: 720, h: 480, bg: "#141b2d", items, hud: { title: "Tour " + turn + " sur " + TURNS, timer: phase === "plan" ? Math.max(0, left) : null, chips: [{ text: lockN + " prêts" }].concat(phase === "reveal" && result ? [{ text: result.why }] : []) } };
     },
     priv(pid) {
       const p = P.find((x) => x.id === pid); if (!p) return null;

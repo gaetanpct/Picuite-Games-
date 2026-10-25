@@ -14,4 +14,8 @@ function rankFromFalls(ids, fallOrder, aliveIds) {
 // place n points sur un cercle ou une grille de départ
 function ringPositions(n, cx, cy, r, a0) { const out = []; for (let i = 0; i < n; i++) { const a = (a0 || 0) + (i / n) * Math.PI * 2; out.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r, a }); } return out; }
 function norm2(x, y) { const l = Math.hypot(x, y); return l > 1 ? [x / l, y / l] : [x, y]; }
-module.exports = { clamp, mulberry32, hashSeed, shuffle, rankFromFalls, ringPositions, norm2 };
+// angle le plus court entre deux directions
+function angDiff(a, b) { let d = b - a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return d; }
+const lerp = (a, b, k) => a + (b - a) * k;
+function pick(arr, rnd) { return arr[Math.floor(rnd() * arr.length)]; }
+module.exports = { angDiff, lerp, pick, clamp, mulberry32, hashSeed, shuffle, rankFromFalls, ringPositions, norm2 };

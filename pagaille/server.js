@@ -11,10 +11,12 @@ const COLORS = [
   { name: "Violet", hex: "#9b5de5" }, { name: "Orange", hex: "#ff8a1f" }, { name: "Rose", hex: "#ff6fb5" }, { name: "Turquoise", hex: "#1fc8c0" },
 ];
 
+const BOT_NAMES = ["Pixel", "Turbo", "Bobine", "Mirabelle", "Fusée", "Cacahuète", "Zébulon", "Praline", "Roulotte", "Pompon", "Nougat", "Boulet"];
+
 module.exports = function mount(server, prefix) {
   const game = {
-    dir: __dirname, id: "pagaille", maxPlayers: 8, minPlayers: 2, noBots: true, colors: COLORS,
-    botNames: [], botLevels: [{ id: "x", label: "x" }],
+    dir: __dirname, id: "pagaille", maxPlayers: 8, minPlayers: 2, noBots: false, colors: COLORS,
+    botNames: BOT_NAMES, botLevels: [{ id: "facile", label: "Facile" }, { id: "normal", label: "Normal" }, { id: "expert", label: "Expert" }],
     defaults: Rules.defaults, normalize: (s) => Rules.normalize(s),
     start: Engine.start, bind: Engine.bind, onReconnect: Engine.onReconnect, onDisconnect: Engine.onDisconnect, onLeave: Engine.onLeave, onDestroy: Engine.onDestroy, canReturn: Engine.canReturn,
   };
