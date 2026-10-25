@@ -96,7 +96,7 @@ exports.create = function (ctx) {
       plats.forEach((q) => { if (!q.crumble || q.gone) return; if (q.timer >= 0) { q.timer -= dt; if (q.timer < 0 && !q.fall) { q.fall = 0.001; ctx.fx("puff", q.x, q.y, q.top, ""); } } if (q.fall) { q.fall += dt; q.b.z -= 260 * q.fall * dt * 3; if (q.fall > 0.25) q.b.solid = false; if (q.b.z < GROUND) q.gone = true; } });
       P.forEach((p) => {
         const b = p.bd; if (p.dead) return;
-        let inp; if (ctx.isBot(p.id)) inp = botThink(p, dt); else { const i = ctx.input(p.id); const e = ctx.edge(p.id); inp = { x: i.x, y: i.y, jump: e.a, jh: i.a, dive: e.b }; }
+        let inp; if (ctx.isBot(p.id)) inp = botThink(p, dt); else { const i = ctx.input(p.id); const e = ctx.edge(p.id); const cy = Math.cos(p.camYaw), sy = Math.sin(p.camYaw); inp = { x: cy * (-i.y) + (-sy) * i.x, y: sy * (-i.y) + cy * i.x, jump: e.a, jh: i.a, dive: e.b }; }
         const ev = Plat.step(world, b, inp, dt, cfg);
         ev.forEach((e) => { if (e === "jump" || e === "dbl") { ctx.snd("jump"); ctx.fx("puff", b.x, b.y, b.z, ""); } else if (e === "land") { ctx.snd("land"); ctx.fx("puff", b.x, b.y, b.z, ""); } else if (e === "dive") ctx.snd("whoosh"); else if (e === "bump") ctx.snd("bump"); });
         if (b.grounded && b.z > p.bestZ) { p.bestZ = b.z; }

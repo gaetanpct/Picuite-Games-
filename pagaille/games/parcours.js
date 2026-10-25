@@ -153,7 +153,7 @@ exports.create = function (ctx) {
     done: false,
     update(dt) {
       t += dt; world.step(dt);
-      dynBoxes.forEach((d) => { if (d.drop) { if (d.timer >= 0) { d.timer -= dt; if (d.timer < 0 && !d.fall) d.fall = 1; } if (d.fall) { d.fall += dt * 10; d.b.vz = 0; d.b.z -= 520 * dt * d.fall * 0.2 - 0; if (d.b.z < d.base - 40 && d.b.solid) d.b.solid = false; if (d.b.z < d.base - 600) d.gone = true; } } });
+      dynBoxes.forEach((d) => { if (d.drop) { if (d.timer >= 0) { d.timer -= dt; if (d.timer < 0 && !d.fall) d.fall = 1; } if (d.fall && !d.gone) { d.fall += dt * 10; d.b.vz = 0; d.b.z -= 520 * dt * d.fall * 0.2 - 0; if (d.b.z < d.base - 40 && d.b.solid) d.b.solid = false; if (d.b.z < d.base - 600) { d.gone = true; d.regen = 3.2; } } if (d.gone) { d.regen -= dt; if (d.regen <= 0) { d.gone = false; d.fall = 0; d.timer = -1; d.b.z = d.base; d.b.vz = 0; d.b.solid = true; } } } });
       P.forEach((p) => {
         const b = p.bd; p.inv = Math.max(0, (p.inv || 0) - dt);
         if (p.finished) { b.vx *= 0.9; b.vy *= 0.9; const e = Plat.step(world, b, { x: 0, y: 0 }, dt, cfg); return; }

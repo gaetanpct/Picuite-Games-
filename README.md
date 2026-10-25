@@ -456,7 +456,7 @@ Les vies de Richissime partaient trop souvent vers la scène ou le stade. Sur 15
 
 ## Vingt-sixième mise à jour, Pagaille Party en vraie 3D
 
-Pagaille Party est un party game en ligne de deux à huit joueurs, dans l'esprit de Mario Party. Il vit dans le dossier pagaille et se branche sur le site comme les autres jeux, avec le même système de salons, de code, de couleurs, de tchat et de reconnexion. Cette mise à jour le transforme en vrai jeu en trois dimensions, avec quinze mini-jeux complets.
+Pagaille Party est un party game en ligne de deux à huit joueurs, dans l'esprit de Mario Party. Il vit dans le dossier pagaille et se branche sur le site comme les autres jeux, avec le même système de salons, de code, de couleurs, de tchat et de reconnexion. Cette mise à jour le transforme en vrai jeu en trois dimensions, avec treize mini-jeux complets.
 
 ### Comment se déroule une partie
 
@@ -482,7 +482,7 @@ Pagaille Party est un party game en ligne de deux à huit joueurs, dans l'esprit
 - Un classement est établi à chaque manche. Dix points pour le premier, puis des points décroissants selon le nombre de joueurs, et les égalités se partagent les points.
 - Des bonus récompensent les beaux coups, comme démasquer le meurtrier, éjecter le plus d'adversaires, monter le plus haut ou n'être jamais tombé. Les surprises du mode chaos peuvent doubler les points.
 
-### Les quinze mini-jeux
+### Les treize mini-jeux
 
 | Jeu | Joueurs | Principe |
 |---|---|---|
@@ -494,20 +494,29 @@ Pagaille Party est un party game en ligne de deux à huit joueurs, dans l'esprit
 | Couleur cible | 2 à 8 | Une couleur est annoncée, les autres dalles tombent. Après quelques tours les couleurs s'éteignent avant la chute. |
 | Sol en miettes | 2 à 8 | Deux étages de dalles qui s'abîment sous les pas et se fissurent avec le temps. |
 | Dalles de mémoire | 2 à 8 | Des dalles s'allument, le sol s'éteint, il faut courir sur une dalle qui était allumée. |
-| Lasers invisibles | 2 à 8 | Déplacement et ligne de tir choisis en secret, tout part en même temps. |
-| Meurtre mystère | 3 à 8 | Un meurtrier secret, un détective connu de tous, des cadavres qui déclenchent une alerte, des accusations risquées. |
-| Faux semblants | 2 | La version du meurtre pour deux joueurs, en interface plate. |
-| Pont de verre | 2 à 8 | Une dalle fragile par rangée, on passe chacun son tour et ceux qui tombent révèlent le chemin. |
+| Lasers invisibles | 2 à 8 | Une plateforme ronde où l'on marche librement. Ton laser pointe toujours devant toi. Pendant le placement personne ne voit rien, à la révélation ceux qui se tiennent sur un laser tombent, puis la plateforme rétrécit. |
+| Pont de verre | 2 à 8 | Deux dalles identiques par rangée, une seule se brise. On marche, on saute et on se pousse en liberté. Un mur laser avance derrière tout le monde pour forcer les choix. |
 | Faites des groupes | 3 à 8 | Un nombre est annoncé, il faut se retrouver sur une plateforme avec exactement ce nombre de joueurs. |
 | Ruée vers l'or | 2 à 8 | Répartir en secret des mineurs entre des gisements, avec une banque sûre et des conflits. |
 | Cagnotte qui grimpe | 2 à 8 | Cinq coups où l'on encaisse avant une explosion au moment inconnu, en interface plate. |
 
-Les nouveautés de cette mise à jour sont la Course des fous, le Choc au sommet, les Dalles de mémoire et la Ruée vers l'or. Les autres jeux ont été refaits en 3D avec des bots. Un jeu qui ne convient pas au nombre de joueurs présents n'est jamais proposé.
+Le meurtre mystère et Faux semblants ont été retirés. Les nouveautés de la version précédente sont la Course des fous, le Choc au sommet, les Dalles de mémoire et la Ruée vers l'or. Les autres jeux ont été refaits en 3D avec des bots. Un jeu qui ne convient pas au nombre de joueurs présents n'est jamais proposé.
 
 ### Les bots
 
 - Tous les jeux sont jouables seul ou avec des bots. Les bots ont trois niveaux, facile, normal et expert, et se trompent, hésitent et réagissent avec un petit retard, pour rester crédibles.
 - Un joueur déconnecté peut être remplacé par un bot, puis reprendre sa place en revenant.
+
+### Dernières retouches
+
+- Lasers invisibles et Pont de verre ont été entièrement repensés en plateformes où l'on marche librement.
+- Couleur cible mélangeait mal les couleurs, elles sont maintenant bien réparties et la couleur change à chaque tour.
+- Maj ou E permet de se pousser un peu dans les jeux de dalles et sur le pont, sans éjecter quelqu'un d'un seul coup.
+- Les plateformes qui tombent dans la course des fous réapparaissent après quelques secondes.
+- La ruée vers l'or se joue avec quatre mineurs par tour au lieu de six.
+- Les commandes de la lave suivent maintenant la caméra.
+- Choc au sommet affiche le pourcentage de dégâts au dessus de chaque joueur et explique mieux la charge.
+- Graphismes, relief sur les blocs, poussières lumineuses et vignette.
 
 ### Technique
 

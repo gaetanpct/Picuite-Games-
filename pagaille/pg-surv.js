@@ -23,13 +23,20 @@ exports.setup = function (ctx, world, cfg, o) {
     if (kind === "lava") { ctx.fx("lavasplash", b.x, b.y, b.z, "#ff7a1a"); ctx.snd("burn"); } else if (kind === "void" || kind == null) { ctx.fx("splash", b.x, b.y, o.killZ != null ? o.killZ : -180, "#bfe9ff"); ctx.snd("splash"); } else if (kind === "boom") { ctx.fx("boom", b.x, b.y, b.z, "#ffb347"); ctx.snd("boom"); }
     ctx.shake(1.2);
   };
+  // petite poussée entre joueurs, on écarte les voisins sans les éjecter d'un coup
+  S.push = function (p) {
+    if (p.dead || p.ex.pushCd > 0) return; const b = p.bd; let hit = 0;
+    S.alive().forEach((q) => { if (q === p) return; const dx = q.bd.x - b.x, dy = q.bd.y - b.y, d = Math.hypot(dx, dy); if (d > 78 || d < 0.1) return; q.bd.vx += dx / d * 280; q.bd.vy += dy / d * 280; if (q.bd.grounded) q.bd.vz = Math.max(q.bd.vz, 120); hit++; });
+    p.ex.pushCd = 0.9; ctx.snd(hit ? "bump" : "whoosh"); ctx.fx("puff", b.x, b.y, b.z, "");
+  };
   // fait avancer le monde et tous les joueurs vivants. bot(p,dt) renvoie les commandes d'un bot
   S.update = function (dt, bot, hook) {
     t += dt; world.step(dt);
     S.alive().forEach((p) => {
       const b = p.bd; let inp;
-      if (ctx.isBot(p.id)) inp = bot ? bot(p, dt) : { x: 0, y: 0 };
-      else { const i = ctx.input(p.id); const e = ctx.edge(p.id); inp = o.human ? o.human(p, i, e) : { x: i.x, y: i.y, jump: e.a, jh: i.a, dive: e.b }; }
+      const canPush = o.push != null ? o.push : !cfg.diveV; p.ex.pushCd = Math.max(0, (p.ex.pushCd || 0) - dt);
+      if (ctx.isBot(p.id)) { inp = bot ? bot(p, dt) : { x: 0, y: 0 }; if (canPush && p.ex.pushCd <= 0 && b.grounded && Math.random() < dt * (o.botPush != null ? o.botPush : 0.3)) S.push(p); }
+      else { const i = ctx.input(p.id); const e = ctx.edge(p.id); inp = o.human ? o.human(p, i, e) : { x: i.x, y: i.y, jump: e.a, jh: i.a, dive: e.b }; if (canPush && e.b) S.push(p); }
       const ev = Plat.step(world, b, inp, dt, cfg);
       for (let k = 0; k < ev.length; k++) { const e = ev[k]; if (e === "jump" || e === "dbl") { ctx.snd("jump"); ctx.fx("puff", b.x, b.y, b.z, ""); } else if (e === "land") ctx.fx("puff", b.x, b.y, b.z, ""); else if (e === "dive") ctx.snd("whoosh"); else if (e === "bump") ctx.snd("bump"); }
       if (hook) hook(p, ev);

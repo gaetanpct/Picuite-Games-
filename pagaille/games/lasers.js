@@ -1,96 +1,85 @@
-// Lasers invisibles. Déplacement et laser choisis en secret, tout part en même temps.
-// Les lasers traversent toute une ligne ou toute une colonne. On ne peut pas se tirer dessus soi même.
+// Lasers invisibles. Une grande plateforme ronde où l'on marche librement. Chaque joueur a un laser qui part tout droit devant lui, en permanence.
+// Pendant le placement personne ne voit les autres ni leurs lasers. À la révélation tout apparaît, et celui qui se tient sur le laser de quelqu'un tombe.
+// Ensuite la plateforme rétrécit et ramène les survivants vers le centre.
 const U = require("../pg-util.js");
-const T = 104;
-const DIRS = { N: [0, -1], S: [0, 1], W: [-1, 0], E: [1, 0], X: [0, 0] };
 exports.create = function (ctx) {
-  const rnd = ctx.rnd; const n = ctx.n; const S = Math.max(5, Math.min(9, n + 3)); const W = S * T, H = S * T; const maxCycles = Math.round(7 * ctx.len);
-  const free = U.shuffle(Array.from({ length: S * S }, (_, i) => i), rnd);
-  const P = ctx.players.map((m, i) => ({ id: m.id, k: m.color, name: m.name, cx: free[i] % S, cy: Math.floor(free[i] / S), alive: true, mv: "X", ln: null, lock: false, err: "", kills: 0, ex: {}, fade: 0 }));
-  const falls = []; let cycle = 0, phase = "plan", left = 15 * ctx.pace, flash = null, t = 0, planT = 0, shown = false;
+  const rnd = ctx.rnd; const n = ctx.n; const R0 = 250 + 24 * n; const RMIN = 120; const maxCycles = Math.max(4, Math.round(9 * ctx.len)); const SP = 210 * ctx.speed; const HIT = 21;
+  const P = ctx.players.map((m, i) => { const a = (i / n) * 6.283 + rnd(); const r = R0 * (0.35 + rnd() * 0.4); return { id: m.id, k: m.color, name: m.name, x: Math.cos(a) * r, y: Math.sin(a) * r, face: a + 3.14, alive: true, ready: false, kills: 0, deadAt: -1, fade: 0, ex: {} }; });
+  const falls = []; let R = R0, cycle = 0, phase = "place", left = 0, t = 0, shrinkTo = R0, firedKills = [];
   const alive = () => P.filter((p) => p.alive);
-  const dest = (p) => { const d = DIRS[p.mv]; const x = p.cx + d[0], y = p.cy + d[1]; return x < 0 || y < 0 || x >= S || y >= S ? [p.cx, p.cy] : [x, y]; };
-  const onLine = (ln, x, y) => (ln[0] === "r" ? y === Number(ln.slice(1)) : x === Number(ln.slice(1)));
-  const px = (c) => c * T + T / 2;
-  function tryLock(p) { if (p.lock) return; if (p.ln) { const [x, y] = dest(p); if (onLine(p.ln, x, y)) { p.err = "Ton laser te toucherait, change de ligne ou de déplacement."; return; } } p.err = ""; p.lock = true; ctx.snd("coin"); }
-  function resolve() {
-    const A = alive(); A.forEach((p) => { const d = dest(p); p.cx = d[0]; p.cy = d[1]; });
-    const lines = A.filter((p) => p.ln).map((p) => ({ ln: p.ln, by: p.id }));
-    const dead = []; A.forEach((p) => { const hit = lines.filter((l) => onLine(l.ln, p.cx, p.cy)); if (hit.length) { dead.push(p); hit.forEach((l) => { const o = P.find((q) => q.id === l.by); if (o && o !== p) o.kills++; }); } });
-    dead.forEach((p) => { p.alive = false; p.fade = 1.4; }); if (dead.length) falls.push(dead.map((p) => p.id));
-    flash = { lines: lines.map((l) => l.ln), dead: dead.map((p) => ({ x: p.cx, y: p.cy })) };
-    phase = "fire"; left = 2.6; shown = false; ctx.snd("laser");
-    if (!lines.length) ctx.announce("Personne n'a tiré", 1800); else if (!dead.length) ctx.announce("Tous les lasers sont passés à côté", 2000); else ctx.announce(dead.map((p) => p.name).join(" et ") + (dead.length > 1 ? " sont touchés" : " est touché"), 2200);
+  const dirOf = (p) => [Math.cos(p.face), Math.sin(p.face)];
+  // distance d'un point à un rayon qui part de p dans sa direction
+  function rayDist(p, q) { const d = dirOf(p); const dx = q.x - p.x, dy = q.y - p.y; const s = dx * d[0] + dy * d[1]; if (s < 0) return 1e9; return Math.abs(dx * d[1] - dy * d[0]); }
+  function startPlace() { phase = "place"; left = Math.max(5.5, 9 - cycle * 0.5) * ctx.pace; alive().forEach((p) => { p.ready = false; p.ex.go = null; p.ex.readyAt = 1.2 + (1 - ctx.skill(p.id)) * 3 + rnd() * 2; p.ex.t = 0; }); if (cycle > 0) ctx.announce("Place toi, ton laser pointe devant toi", 1800); }
+  function reveal() {
+    phase = "reveal"; left = 3.4; ctx.snd("laser"); firedKills = []; const A = alive();
+    const dead = []; A.forEach((q) => { const hitters = A.filter((p) => p !== q && rayDist(p, q) < HIT + 6); if (hitters.length) { dead.push(q); hitters.forEach((h) => { h.kills++; }); } });
+    firedKills = dead; ctx.announce(dead.length ? "Ceux qui sont sur un laser tombent" : "Tous les lasers sont passés à côté", 1900);
   }
-  function plan(p) {
-    const sk = ctx.skill(p.id); const foes = alive().filter((q) => q !== p); p.ex.at = 1.5 + rnd() * 3.5 * (1.2 - sk);
-    // les lignes qui rapportent le plus. on compte les adversaires qui pourraient s'y trouver
-    const score = (ln) => foes.reduce((s, q) => { let k = 0; [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].forEach((d) => { if (onLine(ln, q.cx + d[0], q.cy + d[1])) k += d[0] === 0 && d[1] === 0 ? 2 : 1; }); return s + k; }, 0);
-    const lines = []; for (let i = 0; i < S; i++) { lines.push("r" + i); lines.push("c" + i); }
-    // un bon joueur évite les lignes où il y a trop d'adversaires, qui seront probablement visées. il se met là où personne n'est aligné
-    const risk = (x, y) => foes.reduce((s, q) => s + (q.cx === x ? 1 : 0) + (q.cy === y ? 1 : 0), 0);
-    let bestMv = "X", br = 1e9; Object.keys(DIRS).forEach((k) => { const x = p.cx + DIRS[k][0], y = p.cy + DIRS[k][1]; if (x < 0 || y < 0 || x >= S || y >= S) return; const r = risk(x, y) * (0.5 + sk) + rnd() * (1.3 - sk) * 2 + (k === "X" ? 0.4 : 0); if (r < br) { br = r; bestMv = k; } });
-    p.mv = bestMv; const [dx, dy] = dest(p); let bl = null, bs = -1e9; lines.forEach((ln) => { if (onLine(ln, dx, dy)) return; const s = score(ln) + rnd() * (1.2 - sk) * 3; if (s > bs) { bs = s; bl = ln; } });
-    p.ln = bl && bs > 0.5 ? bl : (rnd() < 0.35 ? null : bl);
+  function bot(p, dt) {
+    const sk = ctx.skill(p.id); const ex = p.ex; ex.t += dt;
+    if (!ex.go) {
+      // un bon joueur reste vers le bord et regarde vers l'intérieur, un faible joueur se place au hasard
+      const edge = rnd() < 0.35 + sk * 0.5; const a = rnd() * 6.283; const r = edge ? Math.max(20, R - 40 - rnd() * 40) : rnd() * (R - 30);
+      ex.go = { x: Math.cos(a) * r, y: Math.sin(a) * r }; const aim = edge ? Math.atan2(-ex.go.y, -ex.go.x) + (rnd() - 0.5) * 1.3 * (1.2 - sk) : rnd() * 6.283; ex.aim = aim;
+    }
+    const dx = ex.go.x - p.x, dy = ex.go.y - p.y, d = Math.hypot(dx, dy);
+    if (d > 8) { return { x: dx / d, y: dy / d, strafe: false }; }
+    return { x: 0, y: 0, face: ex.aim };
   }
-  function startPlan() { phase = "plan"; planT = 0; left = Math.max(8, 14 - cycle) * ctx.pace; flash = null; alive().forEach((p) => { p.mv = "X"; p.ln = null; p.lock = false; p.err = ""; if (ctx.isBot(p.id)) plan(p); }); }
-  const lineBeam = (ln, a) => { const v = Number(ln.slice(1)); return ln[0] === "r" ? { t: "beam", x: -20, y: px(v), z: 36, x2: W + 20, y2: px(v), z2: 36, w: 18, c: "#ff3b3b", a } : { t: "beam", x: px(v), y: -20, z: 36, x2: px(v), y2: H + 20, z2: 36, w: 18, c: "#ff3b3b", a }; };
-  startPlan();
+  startPlace();
   const inst = {
     done: false,
     live: false,
     update(dt) {
       t += dt; left -= dt; P.forEach((p) => { if (p.fade > 0) p.fade -= dt; });
-      if (phase === "plan") {
-        planT += dt;
+      if (phase === "place") {
         alive().forEach((p) => {
-          if (ctx.isBot(p.id)) { if (!p.lock && planT > p.ex.at) { if (!p.ln || !onLine(p.ln, dest(p)[0], dest(p)[1])) p.lock = true; else { p.ln = null; p.lock = true; } } return; }
-          if (p.lock) return; const i = ctx.input(p.id); const e = ctx.edge(p.id);
-          if (i.x < 0) p.mv = "W"; else if (i.x > 0) p.mv = "E"; else if (i.y < 0) p.mv = "N"; else if (i.y > 0) p.mv = "S"; if (e.b) p.mv = "X"; if (e.a) tryLock(p);
+          let ix = 0, iy = 0, strafe = false;
+          if (ctx.isBot(p.id)) { const c = bot(p, dt); ix = c.x; iy = c.y; if (c.face != null) { const da = U.angDiff ? U.angDiff(p.face, c.face) : 0; p.face = c.face; } if (c.x === 0 && c.y === 0 && p.ex.t > p.ex.readyAt) p.ready = true; }
+          else { const i = ctx.input(p.id), e = ctx.edge(p.id); ix = i.x; iy = i.y; strafe = !!i.a; if (e.b) p.ready = !p.ready; }
+          const l = Math.hypot(ix, iy); if (l > 0.01) { const nx = ix / l, ny = iy / l; p.x += nx * SP * dt; p.y += ny * SP * dt; if (!strafe) p.face = Math.atan2(ny, nx); }
+          const d = Math.hypot(p.x, p.y), lim = R - 16; if (d > lim) { p.x *= lim / d; p.y *= lim / d; }
         });
         const A = alive().filter((p) => ctx.present(p.id));
-        if (left <= 0 || (A.length && A.every((p) => p.lock))) resolve();
-      } else if (phase === "fire") {
-        if (!shown && left < 2.0) { shown = true; if (flash && flash.dead.length) { flash.dead.forEach((d) => ctx.fx("boom", px(d.x), px(d.y), 20, "#ff6b6b")); ctx.shake(2); ctx.snd("boom"); } }
-        if (left <= 0 && !inst.done) { cycle++; if (alive().length <= 1 || cycle >= maxCycles) { inst.done = true; return; } startPlan(); }
+        if (left <= 0 || (A.length && A.every((p) => p.ready))) reveal();
+      } else if (phase === "reveal") {
+        if (left < 2.4 && firedKills.length) { firedKills.forEach((p) => { p.alive = false; p.fade = 1.4; p.deadAt = t; ctx.fx("boom", p.x, p.y, 20, "#ff6b6b"); }); falls.push(firedKills.map((p) => p.id)); firedKills = []; ctx.shake(2); ctx.snd("boom"); if (alive().length <= 1) { left = Math.min(left, 1.2); } }
+        if (left <= 0) {
+          cycle++; if (alive().length <= 1 || cycle >= maxCycles) { inst.done = true; return; }
+          phase = "shrink"; left = 1.4; shrinkTo = Math.max(RMIN, R * 0.88); ctx.snd("crack"); ctx.shake(1);
+        }
+      } else if (phase === "shrink") {
+        R += (shrinkTo - R) * Math.min(1, dt * 4); alive().forEach((p) => { const d = Math.hypot(p.x, p.y), lim = R - 16; if (d > lim) { p.x *= lim / d; p.y *= lim / d; } });
+        if (left <= 0) { R = shrinkTo; startPlace(); }
       }
     },
-    scene() {
-      const items = []; for (let r = 0; r < S; r++) for (let c = 0; c < S; c++) items.push({ t: "box", x: px(c), y: px(r), z: -30, w: T - 4, d: T - 4, h: 30, c: (r + c) % 2 ? "#2f3f63" : "#38496f" });
-      for (let i = 0; i < S; i++) { items.push({ t: "text", x: -34, y: px(i), z: 6, v: String(i + 1), c: "#9fb3d1", s: 28 }); items.push({ t: "text", x: px(i), y: -34, z: 6, v: String.fromCharCode(65 + i), c: "#9fb3d1", s: 28 }); }
-      return { w: W, h: H, cam: { tilt: 62, fov: 40, pad: 1.12, c: [W / 2, H / 2 + 20], ht: 30 }, env: { sky: ["#0a1020", "#1a2a55"], fog: "#0c1530", fogN: 70, fogF: 250, ground: { c: "#070b16", z: -300 }, lt: { h: ["#b8c8ff", "#3a4a7a"], hi: 0.8, d: "#cfe0ff", di: 0.7, dir: [-0.3, 1, 0.5] } }, items };
-    },
-    frame() {
-      const items = [];
-      P.forEach((p) => { if (!p.alive && p.fade <= 0) return; if (!p.alive && phase !== "fire") return; items.push({ t: "pawn", id: p.id, x: px(p.cx), y: px(p.cy), z: 0, k: p.k, n: p.name, face: 0.8, dead: p.alive ? 0 : 1, badge: p.alive && phase === "plan" && p.lock ? "✔" : "", sm: 14 }); });
-      if (phase === "fire" && flash && left > 0.6) flash.lines.forEach((ln, i) => items.push(Object.assign(lineBeam(ln, left > 2.0 ? 0.35 : 0.9), { id: "lz" + i })));
-      const lockN = alive().filter((p) => p.lock).length;
-      return { w: W, h: H, items, hud: { title: phase === "plan" ? "Prépare ton coup en secret" : "Les lasers partent", timer: phase === "plan" ? Math.max(0, left) : null, chips: [{ text: "Tour " + Math.min(maxCycles, cycle + 1) + " sur " + maxCycles }, { text: alive().length + " en jeu" }, { text: phase === "plan" ? lockN + " prêts" : "" }].filter((c) => c.text) } };
-    },
-    priv(pid) {
-      const p = P.find((x) => x.id === pid); if (!p) return null; if (!p.alive) return { dead: 1, deadText: "Tu es touché, regarde la suite" };
-      const out = { err: p.err, items: [], bars: null };
-      if (phase === "plan") {
-        const [dx, dy] = dest(p); out.items.push({ t: "ring", id: "mydest", x: px(dx), y: px(dy), z: 2, r: 38, c: "#ffd23b", a: 0.95 }); out.items.push({ t: "disc", id: "mydisc", x: px(dx), y: px(dy), z: 2, r: 36, c: "#ffd23b", a: 0.22 });
-        if (p.ln) { const v = Number(p.ln.slice(1)); out.items.push(p.ln[0] === "r" ? { t: "beam", id: "mypre", x: 0, y: px(v), z: 12, x2: W, y2: px(v), z2: 12, w: 10, c: "#ffd23b", a: 0.55 } : { t: "beam", id: "mypre", x: px(v), y: 0, z: 12, x2: px(v), y2: H, z2: 12, w: 10, c: "#ffd23b", a: 0.55 }); }
-        const mvb = [["X", "Rester"], ["N", "Haut"], ["S", "Bas"], ["W", "Gauche"], ["E", "Droite"]].map(([id, t]) => ({ id: "mv" + id, t, sel: p.mv === id, dis: p.lock }));
-        const rows = [], cols = []; for (let i = 0; i < S; i++) { rows.push({ id: "lnr" + i, t: "Ligne " + (i + 1), sel: p.ln === "r" + i, dis: p.lock }); cols.push({ id: "lnc" + i, t: "Colonne " + String.fromCharCode(65 + i), sel: p.ln === "c" + i, dis: p.lock }); }
-        out.ui = { title: "Choisis en secret", groups: [{ label: "Où te déplacer", btns: mvb }, { label: "Quelle ligne tirer", btns: rows.concat(cols).concat([{ id: "lnnone", t: "Aucun tir", sel: p.ln === null, dis: p.lock }]) }], lock: { id: "lock", t: p.lock ? "Prêt" : "Valider", dis: p.lock } };
-      }
+    scene() { return { w: R0 * 2.4, h: R0 * 2.4, cam: { tilt: 62, fov: 40, pad: 1.05, c: [0, 10], ht: 30 }, env: { sky: ["#1a0f3a", "#7a3bd6"], fog: "#2a1a5a", fogN: 80, fogF: 300, ground: { c: "#120a2e", m: "water", z: -240 }, lt: { h: ["#f1e8ff", "#6a52a8"], hi: 1, d: "#ffe8ff", di: 0.9, dir: [-0.3, 1, 0.5] } }, items: [{ t: "deco", kind: "cloud", x: -R0 * 1.3, y: -R0, z: 70, s: 3 }, { t: "deco", kind: "cloud", x: R0 * 1.4, y: R0 * 0.4, z: 80, s: 3 }] }; },
+    beams(all, only) {
+      const out = []; P.forEach((p) => { if (!p.alive && !(phase === "reveal" && p.fade > 0)) return; if (only && p.id !== only) return; const d = dirOf(p); out.push({ t: "beam", id: "lz" + p.id, x: p.x, y: p.y, z: 26, x2: p.x + d[0] * (R0 * 2.2), y2: p.y + d[1] * (R0 * 2.2), z2: 26, w: all ? 14 : 7, c: all ? "#ff3b5c" : "#ffd23b", a: all ? 0.9 : 0.45 }); });
       return out;
     },
-    onAct(pid, m) {
-      const p = P.find((x) => x.id === pid); if (!p || !p.alive || phase !== "plan" || p.lock) return;
-      if (m.type === "click") { // un clic sur une case voisine ou sur la même case règle le déplacement
-        const c = Math.floor(m.x / T), r = Math.floor(m.y / T); const dc = c - p.cx, dr = r - p.cy; if (Math.abs(dc) + Math.abs(dr) <= 1) { p.mv = dc === 1 ? "E" : dc === -1 ? "W" : dr === 1 ? "S" : dr === -1 ? "N" : "X"; p.err = ""; } return;
-      }
-      if (m.type !== "btn") return; const id = m.id || "";
-      if (id.startsWith("mv") && DIRS[id.slice(2)]) { p.mv = id.slice(2); p.err = ""; }
-      else if (id === "lnnone") { p.ln = null; p.err = ""; }
-      else if (/^ln[rc]\d$/.test(id)) { const k = id[2], v = Number(id.slice(3)); if (v < S) { p.ln = k + v; p.err = ""; } }
-      else if (id === "lock") tryLock(p);
+    frame() {
+      const items = [{ t: "cyl", id: "floor", x: 0, y: 0, z: -30, r: R, h: 30, c: "#4a3a8c", m: "", sm: 6 }, { t: "cyl", id: "rim", x: 0, y: 0, z: -34, r: R + 10, h: 8, c: "#ff8ad8", m: "neon", ns: 1, sm: 6 }];
+      const show = phase !== "place";
+      if (show) { P.forEach((p) => { if (p.alive || p.fade > 0) items.push({ t: "pawn", id: p.id, x: p.x, y: p.y, z: p.alive ? 0 : -Math.max(0, 1.4 - p.fade) * 120, k: p.k, n: p.name, face: p.face, dead: p.alive ? 0 : 1 - p.fade / 1.4, air: p.alive ? 0 : 1, gz: -200 }); }); if (phase === "reveal") this.beams(true).forEach((b) => items.push(b)); }
+      return { w: R0 * 2.4, h: R0 * 2.4, items, hud: { title: phase === "place" ? "Place toi, ton laser pointe devant toi" : phase === "reveal" ? "Révélation des lasers" : "La plateforme rétrécit", timer: phase === "place" ? Math.max(0, left) : null, chips: [{ text: "Tour " + Math.min(maxCycles, cycle + 1) + " sur " + maxCycles }, { text: alive().length + " debout" }], target: null } };
     },
-    ranking() { const al = alive().map((p) => p.id); const bonus = {}, notes = {}; P.forEach((p) => { if (p.kills) { bonus[p.id] = Math.min(2, p.kills); notes[p.id] = p.kills + " touché" + (p.kills > 1 ? "s" : ""); } else notes[p.id] = p.alive ? "Encore debout" : "Touché"; }); return { groups: U.rankFromFalls(P.map((p) => p.id), falls, al), bonus, notes, headline: "🔦 Le dernier à l'abri des lasers" }; },
+    priv(pid) {
+      const me = P.find((p) => p.id === pid); if (!me) return null; const items = [];
+      if (phase === "place") {
+        if (me.alive) { items.push({ t: "pawn", id: me.id, x: me.x, y: me.y, z: 0, k: me.k, n: me.name, face: me.face, badge: me.ready ? "✓" : "" }); this.beams(false, me.id).forEach((b) => items.push(b)); }
+        else P.forEach((p) => { if (p.alive) items.push({ t: "pawn", id: p.id, x: p.x, y: p.y, z: 0, k: p.k, n: p.name, face: p.face }); });
+        return { items, dead: me.alive ? 0 : 1, deadText: "Tu es tombé, regarde la fin", bars: [{ label: me.ready ? "Prêt" : "Maj pour valider", pct: me.ready ? 100 : Math.max(0, left / 9 * 100), c: me.ready ? "#4cd964" : "#ffd23b" }] };
+      }
+      return { items, dead: me.alive ? 0 : 1, deadText: "Tu es tombé, regarde la fin" };
+    },
+    onAct(pid, m) { const p = P.find((x) => x.id === pid); if (p && p.alive && phase === "place" && m.type === "btn" && m.id === "ready") p.ready = !p.ready; },
+    ranking() {
+      const alive = P.filter((p) => p.alive).map((p) => p.id); const groups = U.rankFromFalls(P.map((p) => p.id), falls, alive); const notes = {}; const bonus = {}; const mk = Math.max(0, ...P.map((p) => p.kills));
+      P.forEach((p) => { notes[p.id] = (p.alive ? "Encore debout" : "Tombé") + (p.kills ? ", " + p.kills + " touché" + (p.kills > 1 ? "s" : "") : ""); if (mk > 0 && p.kills === mk) bonus[p.id] = Math.min(3, mk); });
+      return { groups, bonus, notes, headline: "🔦 Le dernier hors des lasers" };
+    },
   };
   return inst;
 };

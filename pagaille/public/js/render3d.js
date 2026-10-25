@@ -44,6 +44,19 @@
     }
     mm.userData = { cached: true, kind: m || "" }; cache.mat[key] = mm; return mm;
   }
+  // texture de dalle partagée, un liseré plus sombre sur les bords et un éclat doux au centre, pour que chaque bloc ait du relief
+  function tileTex() {
+    if (cache.tex.tile) return cache.tex.tile; const cv = document.createElement("canvas"); cv.width = cv.height = 64; const x = cv.getContext("2d");
+    x.fillStyle = "#fff"; x.fillRect(0, 0, 64, 64); const g = x.createLinearGradient(0, 0, 0, 64); g.addColorStop(0, "rgba(255,255,255,.0)"); g.addColorStop(1, "rgba(0,0,40,.10)"); x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+    x.fillStyle = "rgba(0,0,30,.20)"; x.fillRect(0, 0, 64, 3); x.fillRect(0, 61, 64, 3); x.fillRect(0, 0, 3, 64); x.fillRect(61, 0, 3, 64);
+    x.fillStyle = "rgba(255,255,255,.35)"; x.fillRect(3, 3, 58, 2); x.fillRect(3, 3, 2, 58);
+    for (let i = 0; i < 40; i++) { x.fillStyle = "rgba(0,0,40," + (Math.random() * 0.05).toFixed(3) + ")"; x.fillRect(6 + Math.random() * 50, 6 + Math.random() * 50, 2 + Math.random() * 5, 2 + Math.random() * 5); }
+    const tx = new T.CanvasTexture(cv); tx.anisotropy = 4; cache.tex.tile = tx; return tx;
+  }
+  function matB(it) {
+    if (it.m || Math.max(it.w || 0, it.d || 0, it.h || 0, (it.r || 0) * 2) > 270) return mat(it.m, pc(it), it.a); const key = "tile|" + pc(it) + "|" + (it.a == null ? 1 : Math.round(it.a * 10) / 10); if (cache.mat[key]) return cache.mat[key];
+    const op = it.a == null ? 1 : it.a; const mm = new T.MeshLambertMaterial({ color: new T.Color(pc(it)), map: tileTex(), transparent: op < 1, opacity: op }); mm.userData = { cached: true, kind: "tile" }; cache.mat[key] = mm; return mm;
+  }
   function noiseTex(kind) {
     if (cache.tex["n" + kind]) return cache.tex["n" + kind];
     const cv = document.createElement("canvas"); cv.width = cv.height = 128; const x = cv.getContext("2d");
@@ -92,7 +105,7 @@
       R.root = new T.Group(); R.scene.add(R.root); R.statG = new T.Group(); R.dynG = new T.Group(); R.root.add(R.statG); R.root.add(R.dynG);
       R.fxG = new T.Group(); R.scene.add(R.fxG); initFx();
       if (GLk && GLk.watch) GLk.watch(canvas, () => { R.dirty = true; });
-      applyQuality(); R.ready = true; R.resize(); return true;
+      applyQuality(); try { initMotes(); } catch (e) { /* tant pis */ } R.ready = true; R.resize(); return true;
     } catch (e) { console.error("3D indisponible", e); R.failed = true; return false; }
   };
   function applyQuality() {
@@ -130,9 +143,9 @@
 
   const B = {};
   B.box = function (it) {
-    const m = new T.Mesh(G.box, mat(it.m, pc(it), it.a)); shadowOn(m, !it.ns && it.m !== "glass", true); m.userData.kind = "box"; return m;
+    const m = new T.Mesh(G.box, matB(it)); shadowOn(m, !it.ns && it.m !== "glass", true); m.userData.kind = "box"; return m;
   };
-  B.cyl = function (it) { const g = it.r2 != null ? new T.CylinderGeometry(it.r2 || 0.01, 1, 1, it.seg || 24) : (it.seg === 8 ? G.cyl8 : G.cyl); const m = new T.Mesh(g, mat(it.m, pc(it), it.a)); shadowOn(m, !it.ns, true); m.userData.kind = "cyl"; return m; };
+  B.cyl = function (it) { const g = it.r2 != null ? new T.CylinderGeometry(it.r2 || 0.01, 1, 1, it.seg || 24) : (it.seg === 8 ? G.cyl8 : G.cyl); const m = new T.Mesh(g, matB(it)); shadowOn(m, !it.ns, true); m.userData.kind = "cyl"; return m; };
   B.sph = function (it) { const m = new T.Mesh(G.sph, mat(it.m, pc(it), it.a)); shadowOn(m, !it.ns, false); m.userData.kind = "sph"; return m; };
   B.ring = function (it) { const m = new T.Mesh(G.ring, new T.MeshBasicMaterial({ color: pc(it), transparent: true, opacity: it.a == null ? 0.9 : it.a, side: T.DoubleSide, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.userData.own = true; m.userData.kind = "ring"; m.renderOrder = 3; return m; };
   B.disc = function (it) { const m = new T.Mesh(G.disc, new T.MeshBasicMaterial({ color: pc(it), transparent: true, opacity: it.a == null ? 0.5 : it.a, side: T.DoubleSide, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.userData.own = true; m.userData.kind = "disc"; m.renderOrder = 2; return m; };
@@ -221,7 +234,7 @@
   U_.box = function (en, it, dt) {
     const o = en.obj; const c = applyTransform(en, it, dt, en.fresh); const h = (it.h == null ? 10 : it.h) * S; o.scale.set((it.w || 10) * S * (it.sx || 1), Math.max(0.001, h * (it.sy == null ? 1 : it.sy)), (it.d || 10) * S * (it.sx || 1));
     o.position.y = c.y + h * (it.sy == null ? 1 : it.sy) / 2; o.rotation.y = -(it.rot || 0);
-    const key = (it.m || "") + "|" + pc(it) + "|" + (it.a == null ? 1 : it.a); if (en.mk !== key) { en.mk = key; o.material = mat(it.m, pc(it), it.a); }
+    const key = (it.m || "") + "|" + pc(it) + "|" + (it.a == null ? 1 : it.a); if (en.mk !== key) { en.mk = key; o.material = matB(it); }
     if (it.lab !== undefined) labelOn(en, it);
     if (it.m === "lava") animSurface(o.material);
   };
@@ -235,7 +248,7 @@
   }
   U_.cyl = function (en, it, dt) {
     const o = en.obj; const c = applyTransform(en, it, dt, en.fresh); const h = (it.h == null ? 10 : it.h) * S * (it.sy == null ? 1 : it.sy); const r = (it.r || 10) * S * (it.sx || 1); o.scale.set(r, Math.max(0.001, h), r); o.position.y = c.y + h / 2; o.rotation.y = -(it.rot || 0);
-    const key = (it.m || "") + "|" + pc(it) + "|" + (it.a == null ? 1 : it.a); if (en.mk !== key) { en.mk = key; o.material = mat(it.m, pc(it), it.a); }
+    const key = (it.m || "") + "|" + pc(it) + "|" + (it.a == null ? 1 : it.a); if (en.mk !== key) { en.mk = key; o.material = matB(it); }
     if (it.m === "lava" || it.m === "water") animSurface(o.material);
   };
   U_.sph = function (en, it, dt) { const o = en.obj; const c = applyTransform(en, it, dt, en.fresh); const r = (it.r || 10) * S; o.scale.set(r * (it.sx || 1), r * (it.sy || 1), r * (it.sx || 1)); o.position.y = c.y; const key = (it.m || "") + "|" + pc(it) + "|" + (it.a == null ? 1 : it.a); if (en.mk !== key) { en.mk = key; o.material = mat(it.m, pc(it), it.a); } };
@@ -351,6 +364,17 @@
     geo.setDrawRange(0, 0); const m = new T.PointsMaterial({ size, map: dotTex(), vertexColors: true, transparent: true, depthWrite: false, blending: additive ? T.AdditiveBlending : T.NormalBlending, sizeAttenuation: true });
     const p = new T.Points(geo, m); p.frustumCulled = false; p.renderOrder = 8; R.fxG.add(p); return { p, geo, pos, col, N, additive };
   }
+  // poussières lumineuses qui flottent autour de la caméra, elles donnent de la profondeur
+  function initMotes() {
+    const N = 70; const geo = new T.BufferGeometry(); const pos = new Float32Array(N * 3); R.motes = { off: [], n: N };
+    for (let i = 0; i < N; i++) { R.motes.off.push([(Math.random() - 0.5) * 16, (Math.random()) * 8, (Math.random() - 0.5) * 16, 0.15 + Math.random() * 0.35]); }
+    geo.setAttribute("position", new T.BufferAttribute(pos, 3)); const m = new T.PointsMaterial({ color: 0xffffff, size: 0.11, map: dotTex(), transparent: true, opacity: 0.45, depthWrite: false, blending: T.AdditiveBlending, sizeAttenuation: true });
+    const pts = new T.Points(geo, m); pts.frustumCulled = false; pts.userData.own = true; R.scene.add(pts); R.motes.pts = pts;
+  }
+  function stepMotes(dt) {
+    const M = R.motes; if (!M || !M.pts || R.quality === "low") { if (M && M.pts) M.pts.visible = false; return; } M.pts.visible = true; const cur = R.camCur; if (!cur) return; const a = M.pts.geometry.attributes.position;
+    for (let i = 0; i < M.n; i++) { const o = M.off[i]; o[1] += dt * o[3]; if (o[1] > 8) o[1] -= 8; a.setXYZ(i, cur.tx + o[0] + Math.sin(R.t * 0.4 + i) * 0.4, cur.ty - 1 + o[1], cur.tz + o[2]); } a.needsUpdate = true;
+  }
   function initFx() {
     F.sets.addS = mkPoints(0.34, true); F.sets.addL = mkPoints(1.0, true); F.sets.smokeS = mkPoints(0.55, false); F.sets.smokeL = mkPoints(1.4, false);
     for (let i = 0; i < 6; i++) { const m = new T.Mesh(G.ring, new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, side: T.DoubleSide, depthWrite: false, blending: T.AdditiveBlending })); m.rotation.x = -Math.PI / 2; m.visible = false; m.userData.own = true; R.fxG.add(m); F.rings.push({ m, t: 0, life: 0, r: 0 }); }
@@ -459,7 +483,7 @@
     if (!R.ready) return; R.t += dt; R.dtLast = dt; if (R.w !== R.host.clientWidth || R.h !== R.host.clientHeight) R.resize();
     // les éléments qui bougent entre deux images du serveur sont lissés ici
     smoothAll(dt);
-    stepFx(dt); updateCamera(dt);
+    stepFx(dt); updateCamera(dt); stepMotes(dt);
     const run = () => R.renderer.render(R.scene, R.camera); if (window.PicuiteGL && PicuiteGL.frame) { PicuiteGL.frame(run); PicuiteGL.verify && PicuiteGL.verify(R.renderer); } else run();
   };
   function smoothAll(dt) {

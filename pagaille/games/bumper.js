@@ -64,8 +64,8 @@ exports.create = function (ctx) {
       craters.forEach((c) => items.push({ t: "disc", id: "c" + c.id, x: c.x, y: c.y, z: 1, r: c.r, c: "#5a3a2a", a: 0.5 }));
       meteors.forEach((m) => { const k = 1 - (m.at - t) / 2.1; items.push({ t: "ring", id: "r" + m.id, x: m.x, y: m.y, z: 1, r: m.r, c: "#ff4d4d", a: 0.8 }); items.push({ t: "disc", id: "q" + m.id, x: m.x, y: m.y, z: 1, r: m.r * Math.max(0.1, k), c: "#ff6b3d", a: 0.3 }); });
       if (wave) items.push({ t: "box", id: "wave", x: wave.b.x, y: wave.b.y, z: 0, w: wave.b.w, d: wave.b.d, h: 46, c: "#4dd2ff", m: "neon", sm: 40 });
-      S.pawns((p) => { const q = S.byId(p.id); return { tilt: q.slam ? 0.6 : undefined, badge: q.dmg >= 100 ? "💥" : "", st: q.dmg >= 100 ? "hot" : "" }; }).forEach((it) => items.push(it));
-      return { w: 1100, h: 1100, items, hud: { title: "Pousse les autres hors de l'arène", chips: [{ text: S.alive().length + " debout" }, { text: "Arène " + Math.round(sz / 10) + " m" }], prog: null } };
+      S.pawns((p) => { const q = S.byId(p.id); return { tilt: q.slam ? 0.6 : undefined, badge: Math.round(q.dmg) + " %", st: q.dmg >= 100 ? "hot" : "" }; }).forEach((it) => items.push(it));
+      return { w: 1100, h: 1100, items, hud: { title: "Espace pour foncer sur un adversaire, envoie le dans le vide", chips: [{ text: S.alive().length + " debout" }, { text: "Arène " + Math.round(sz / 10) + " m" }], prog: null } };
     },
     priv(pid) { const p = S.byId(pid); if (!p) return null; return { dead: p.dead ? 1 : 0, deadText: "Tu es tombé, regarde la suite", bars: p.dead ? null : [{ label: "Dégâts", pct: Math.min(100, p.dmg), c: p.dmg > 80 ? "#ff4d4d" : p.dmg > 45 ? "#ffb347" : "#7ed957" }] }; },
     ranking() { const bonus = {}; const top = S.P.slice().sort((a, b) => b.ejects - a.ejects)[0]; if (top && top.ejects >= 2) bonus[top.id] = 2; return S.ranking({ bonus, note: (p) => (p.dead ? "Éjecté après " + Math.round(p.deadAt) + " s" : "Dernier debout") + (p.ejects ? ", " + p.ejects + " éjection" + (p.ejects > 1 ? "s" : "") : ""), headline: "🥊 Maître de l'arène" }); },

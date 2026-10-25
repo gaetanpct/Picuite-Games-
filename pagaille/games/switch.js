@@ -20,8 +20,8 @@ exports.create = function (ctx) {
   const roundTime = () => Math.max(1.35, 4.6 - 0.42 * round) * ctx.pace;
   function newColours() {
     // chaque couleur est présente et la cible occupe de 20 à 30 pour cent des dalles
-    const alive = tiles.filter((t) => !t.gone); const ids = alive.map((t) => t); U.shuffle(ids, rnd);
-    target = Math.floor(rnd() * COLS.length); const wantTarget = Math.max(3, Math.round(alive.length * (0.3 - Math.min(0.14, round * 0.02))));
+    const alive = tiles.filter((t) => !t.gone); const ids = U.shuffle(alive, rnd);
+    const prev = target; do { target = Math.floor(rnd() * COLS.length); } while (round > 1 && target === prev); const wantTarget = Math.max(3, Math.round(alive.length * (0.3 - Math.min(0.14, round * 0.02))));
     ids.forEach((t, i) => { t.col = i < wantTarget ? target : (target + 1 + Math.floor(rnd() * (COLS.length - 1))) % COLS.length; });
   }
   function startRound() {

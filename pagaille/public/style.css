@@ -64,7 +64,7 @@ body[data-screen="game"] .chat { bottom: auto; top: 30%; }
 .pg-timer--low { color: #ff6b4a; animation: pgpulse 0.5s infinite; }
 @keyframes pgpulse { 50% { transform: scale(1.14); } }
 #pg-chips { position: absolute; top: 0.6rem; left: 0.8rem; display: flex; flex-direction: column; gap: 0.25rem; align-items: flex-start; }
-.pg-target { position: absolute; top: 4.8rem; left: 0.8rem; width: 4.6rem; height: 4.6rem; border-radius: 18px; border: 4px solid #fff; font-size: 2.6rem; display: grid; place-items: center; color: rgba(255, 255, 255, 0.9); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45); }
+.pg-target { position: absolute; top: 4.8rem; left: 0.8rem; min-width: 4.6rem; min-height: 4.6rem; padding: 0.2rem 0.9rem; white-space: nowrap; font-weight: 800; border-radius: 18px; border: 4px solid #fff; font-size: 1.7rem; display: grid; place-items: center; color: rgba(255, 255, 255, 0.9); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45); }
 .pg-big { position: absolute; top: 3.2rem; left: 0.8rem; font-family: var(--font-title); font-size: 4.2rem; color: var(--accent-1); text-shadow: 0 4px 0 rgba(0, 0, 0, 0.55); }
 .pg-msgs { position: absolute; bottom: 0.9rem; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 0.3rem; align-items: center; width: 90%; }
 .pg-msg { background: rgba(10, 5, 28, 0.78); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 12px; padding: 0.25rem 1rem; font-weight: 600; animation: pgin 0.2s; }
@@ -164,3 +164,5 @@ body[data-screen="game"] .chat { bottom: auto; top: 30%; }
   #pg-timer { font-size: 1.9rem; } .pg-cd { font-size: 6rem; } .pg-cd--go { font-size: 5.5rem; } .pg-card h2 { font-size: 1.5rem; } .pg-banner { font-size: 1.7rem; }
   .pg-overlay--result { justify-content: center; background: rgba(12, 6, 30, 0.75); } #pg-title { font-size: 0.85rem; top: 2.8rem; max-width: 92%; }
 }
+
+.pg-board--3d::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, rgba(0, 0, 0, 0) 58%, rgba(8, 4, 30, 0.38) 100%); }

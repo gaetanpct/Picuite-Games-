@@ -6,7 +6,7 @@ const PAL = ["#ef4b4b", "#3b82f6", "#34c36c", "#f5c518", "#9b5de5", "#ff8a1f", "
 const SITES = [{ n: "Filon du nord", x: 150, y: 200 }, { n: "Mine de l'est", x: 330, y: 150 }, { n: "Puits du sud", x: 510, y: 150 }, { n: "Veine de l'ouest", x: 690, y: 200 }];
 const BANK = { x: 420, y: 400 };
 exports.create = function (ctx) {
-  const rnd = ctx.rnd; const n = ctx.n; const ROUNDS = Math.max(3, Math.round(5 * ctx.len)); const M = 6; const BANKV = 3;
+  const rnd = ctx.rnd; const n = ctx.n; const ROUNDS = Math.max(3, Math.round(5 * ctx.len)); const M = 4; const BANKV = 3;
   const P = ctx.players.map((m, i) => ({ id: m.id, k: m.color, name: m.name, gold: 0, alloc: [0, 0, 0, 0, 0], lock: false, ex: {}, gain: 0, hist: [0, 0, 0, 0, 0], rounds: 0, best: 0 }));
   let round = 0, phase = "pre", left = 2, t = 0, sites = [], res = null, bestMove = null; const log = [];
   const hex = (k) => PAL[(k || 0) % PAL.length];
