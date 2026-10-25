@@ -82,7 +82,7 @@
     const pickSurf = () => {
       if (!F.surfaces) return SURF.ASPHALT;
       const r = rng(); const p = biome.plan; const k = 0.5 + 0.2 * (spec.surfaceVar == null ? 2 : spec.surfaceVar) * 0.5;
-      if (r < p.ice * k * 1.4) return SURF.ICE; if (r < (p.ice + p.dirt) * k * 1.4) return SURF.DIRT; if (r < (p.ice + p.dirt + p.slow) * k * 1.4) return SURF.SLOW; return SURF.ASPHALT;
+      if (r < p.ice * k * 1.4) return SURF.ICE; if (r < (p.ice + p.dirt) * k * 1.4) return SURF.DIRT; return SURF.ASPHALT; // les ralentisseurs sont de courtes plaques posées à part, jamais une pièce entière
     };
     push(SURF.ASPHALT, 0);
 
@@ -103,10 +103,17 @@
       }
       return true;
     }
+    // Ralentisseurs, de rares petites plaques de quelques mètres, espacées et en nombre limité selon la longueur
+    let lastSlow = -999, slowCount = 0; const slowMax = 1 + Math.floor(size * 0.7);
     function commit(kind, pts) {
       const i0 = X.length; starts.push(i0);
       pts.forEach((p) => { x = p.x; z = p.z; h = p.h; push(p.sf != null ? p.sf : kind.surf, p.fl || 0, p.w); });
       if (kind.reg) kind.reg(i0, X.length - 1, pts);
+      if (F.surfaces && biome.plan.slow > 0 && pts.length >= 12 && kind.surf !== SURF.ICE && !kind.make && !kind.noSelf && i0 > 40 && i0 - lastSlow > 90 && slowCount < slowMax && rng() < Math.min(0.4, biome.plan.slow * 1.3)) {
+        const len = 3 + Math.floor(rng() * 2); const q0 = i0 + Math.floor(pts.length / 2) - 1; let ok = true;
+        for (let q = q0; q < q0 + len; q++) if (q >= X.length || FL[q] !== 0 || SF[q] !== SURF.ASPHALT || items.some((it) => it.b != null && q >= it.a - 3 && q <= it.b + 3)) { ok = false; break; }
+        if (ok) { for (let q = q0; q < q0 + len; q++) SF[q] = SURF.SLOW; lastSlow = X.length; slowCount++; }
+      }
     }
     const sgn = () => { const toward = Math.atan2(-x, -z); let d = toward - h; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; const bias = Math.min(0.85, Math.hypot(x, z) / maxR); return (rng() < 0.5 + 0.4 * bias * Math.sign(d || 1)) ? 1 : -1; };
     const lastPinEnd = () => { let m = -999; items.forEach((it) => { if (it.t === "region" && it.b > m) m = it.b; }); return m; };
@@ -118,7 +125,7 @@
 
     // ---------- pièces classiques ----------
     function kStraight() {
-      const len = rad(40, 90), surf = pickSurf(); const boost = F.boosts && len > 50 && rng() < 0.45; const bump = F.jumps && len > 70 && rng() < 0.4 && surf !== SURF.ICE && pinOK();
+      const len = rad(40, 90), surf = pickSurf(); const boost = F.boosts && len > 50 && rng() < 0.6; const bump = F.jumps && len > 70 && rng() < 0.4 && surf !== SURF.ICE && pinOK();
       const n = Math.max(1, Math.round(len / STEP));
       return { surf, parts: [{ straight: len }], reg(i0, i1) {
         if (boost) { const m = i1 - Math.floor(n / 2); for (let i = 0; i < 4; i++) { const q = m - 2 + i; if (q > 2) { FL[q] |= FLAG.BOOST; SF[q] = SURF.BOOST; } } }
@@ -281,14 +288,14 @@
 
     // ---------- choix de la pièce suivante ----------
     function makeKind() {
-      const cands = [[3, kStraight], [4, kCurve], [0.4 + diff * 0.45, kHairpin], [2, kBends], [0.3 + diff * 0.4, kChic], [1.5, kSweep]];
+      const cands = [[2.6, kStraight], [3.6, kCurve], [0.4 + diff * 0.45, kHairpin], [2, kBends], [0.3 + diff * 0.4, kChic], [1.5, kSweep]];
       if (wild > 0) {
-        const k = wild * 0.55; const sizeOK = size >= 2;
-        if (F.steep) cands.push([1.3 * k, kSteep]);
-        if (F.obstacles) cands.push([1.3 * k, kObstacles]);
+        const k = wild * 0.8; const sizeOK = size >= 2;
+        if (F.steep) cands.push([2.0 * k, kSteep]);
+        if (F.obstacles) cands.push([1.6 * k, kObstacles]);
         if (F.widths) { cands.push([0.8 * k, kNeck]); cands.push([0.6 * k, kArena]); cands.push([0.5 * k, kPulse]); }
-        if (F.gaps && sizeOK) cands.push([1.0 * k, kGap]);
-        if (F.bridges && sizeOK) cands.push([0.5 * k, kBridge]);
+        if (F.gaps && sizeOK) cands.push([2.4 * k, kGap]);
+        if (F.bridges && sizeOK) cands.push([1.1 * k, kBridge]);
         if (F.mag && sizeOK) { cands.push([0.8 * k, kLoop]); cands.push([0.55 * k, kRoll]); cands.push([0.6 * k, kWall]); cands.push([0.4 * k, kCeiling]); }
       }
       const tot = cands.reduce((a, c) => a + c[0], 0); let r = rng() * tot;

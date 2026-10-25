@@ -431,6 +431,32 @@
       return true;
     }
 
+    // Récompense de l'œuf croqué, la dernière pièce éliminée du joueur revient dans son camp, face cachée
+    _reviveLast(pi) {
+      if (this.players[pi].eliminated) return;
+      for (let i = this.graveyard.length - 1; i >= 0; i--) {
+        const g = this.graveyard[i];
+        if (g.owner !== pi) continue;
+        const piece = this.pieces.find((x) => x.id === g.id);
+        if (!piece || piece.alive) continue;
+        const o = piece.origin || (this.board.arms[pi].cells[0] ? { r: this.board.arms[pi].cells[0][0], c: this.board.arms[pi].cells[0][1] } : { r: 0, c: 0 });
+        let best = null, bd = 1e9;
+        this._armCells(pi).forEach((cell) => {
+          const r = Array.isArray(cell) ? cell[0] : cell.r, c = Array.isArray(cell) ? cell[1] : cell.c;
+          if (this.grid[r][c] || !this.passable(r, c) || this.terrain[r][c] === "marsh" || this._mirrorBlocked(piece, r, c)) return;
+          const d = Math.abs(r - o.r) + Math.abs(c - o.c);
+          if (d < bd) { bd = d; best = { r, c }; }
+        });
+        if (!best) return;
+        this.graveyard.splice(i, 1);
+        piece.alive = true; piece.r = best.r; piece.c = best.c; piece.moved = false; piece.hist = []; piece.frozen = 0; piece.pubFreeze = false;
+        piece.revealedAll = false; piece.revealedTo = new Set();
+        this.grid[best.r][best.c] = piece;
+        this._pushEvent({ kind: "info", cells: [], text: "🥚 Œuf croqué ! " + this.pname(pi) + " récupère " + PIECES[piece.type].icon + " " + PIECES[piece.type].name + ", elle revient dans son camp face cachée." });
+        return;
+      }
+    }
+
     // Les Sentinelles démasquent les ennemis proches, pour leur camp seulement
     _sentinels() {
       if (!this.settings.specialPieces) return;
@@ -566,7 +592,10 @@
       this._pushEvent(ev);
       this.quietTurns = -1; // remis à 0 en fin de tour
       // éliminations
-      if (result === "flag") this._eliminate(di, "L'Œuf de Dragon a été croqué.", pi);
+      if (result === "flag") {
+        this._eliminate(di, "L'Œuf de Dragon a été croqué.", pi);
+        if (this.settings.eggRevive) this._reviveLast(pi);
+      }
       if (this.settings.mode === "kinghunt") {
         if (def.type === "roi" && defDies) this._eliminate(di, "Le Roi est tombé.", pi);
         if (att.type === "roi" && attDies) this._eliminate(pi, "Le Roi est tombé.", di);

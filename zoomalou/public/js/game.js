@@ -116,7 +116,7 @@
   function arm() { if (G.armedAt && Date.now() - G.armedAt < 1200) return; G.armedAt = Date.now(); G.waiting = true; Kit.socket.emit("z:attempt"); }
   function onGo(m) {
     clock(m.now); G.waiting = false; if (isChrono(G.mode)) G.wantArm = false; const car = G.carId || m.car || "bolide";
-    G.slotMe = m.slot || 0; G.run = { r: CA.newRun(G.track, car, { slot: G.slotMe }), bytes: [], events: [], goAt: m.goAt, fuelTicks: 1e12, fuel0: m.fuelLeft || 0, challenger: m.fuelLeft > 0, frames: [], done: false, car, cpShown: 0, out: false, finishSent: false, gptr: 0, lastGo: 0 };
+    G.slotMe = m.slot || 0; G.run = { r: CA.newRun(G.track, car, { slot: G.slotMe, leave: S().leave }), bytes: [], events: [], goAt: m.goAt, fuelTicks: 1e12, fuel0: m.fuelLeft || 0, challenger: m.fuelLeft > 0, frames: [], done: false, car, cpShown: 0, out: false, finishSent: false, gptr: 0, lastGo: 0 };
     G.ghostPtr = 0; V.resetGates(); V.resetFollow(); G.armedAt = 0; G.cpBanner = 0;
     G.ghostT0 = m.goAt;
     const cm = me(); V.ensureCar("me", car, hexOf(cm ? cm.color : 0), false, null); engineStart();
@@ -251,24 +251,10 @@
     if (r.tick < 2) return; const R = 1.12, off = 1.05; const t = Date.now();
     Object.keys(G.snaps).forEach((id) => {
       if (id === myId()) return; const sn = G.snaps[id]; if (t - sn.at > 450) return; const c = V.cars[id]; if (!c || !c.init || !c.root.visible || c.ghost) return;
-      const p = stP(id); const heavy = !!(p && (p.isBot || p.auto)); const o = c.st; if (Math.abs(o.y - r.y) > 1.6) return;
-      let best = null;
-      for (let a = -1; a <= 1; a += 2) for (let b = -1; b <= 1; b += 2) {
-        const ax = r.x + Math.sin(r.hd) * off * a, az = r.z + Math.cos(r.hd) * off * a, bx = o.x + Math.sin(o.h) * off * b, bz = o.z + Math.cos(o.h) * off * b;
-        const dx = ax - bx, dz = az - bz, d = Math.hypot(dx, dz), pen = 2 * R - d;
-        if (pen > 0 && (!best || pen > best.pen)) best = { pen, nx: d > 1e-4 ? dx / d : 1, nz: d > 1e-4 ? dz / d : 0, cx: (ax + bx) / 2, cz: (az + bz) / 2 };
-      }
-      if (!best) return;
-      const share = heavy ? 1 : 0.55; const push = Math.min(0.5, best.pen * 0.6) * share;
-      const rvx = r.vx - sn.vx, rvz = r.vz - sn.vz; const vn = rvx * best.nx + rvz * best.nz;
-      let dvx = 0, dvz = 0, ds = 0;
-      if (vn < -0.2 && (r.bumpCd | 0) <= r.tick) {
-        // choc élastique. La voiture la plus lente ou la plus légère est la plus déviée
-        const j = Math.min(16, -(1.55) * vn * share); dvx = best.nx * j; dvz = best.nz * j; r.bumpCd = r.tick + 5;
-        // le point d'impact loin du centre fait tourner la voiture
-        const lx = best.cx - r.x, lz = best.cz - r.z; ds = Math.max(-5, Math.min(5, (lz * dvx - lx * dvz) * 0.22));
-      }
-      const q = (v) => Math.round(v * 100); const ex = [q(best.nx * push), q(best.nz * push), q(dvx), q(dvz), q(ds)]; CA.nudge(r, ex[0] / 100, ex[1] / 100, ex[2] / 100, ex[3] / 100, ex[4] / 100); // valeurs arrondies comme sur le serveur
+      const o = c.st;
+      const share = 0.8; const hit = CA.contactVs(r, { x: o.x, z: o.z, h: o.h, y: o.y, vx: sn.vx, vz: sn.vz }, share, (r.bumpCd | 0) <= r.tick); if (!hit) return;
+      if (hit.bump) r.bumpCd = r.tick + 5; const vn = hit.vn;
+      const q = (v) => Math.round(v * 100); const ex = [q(hit.dx), q(hit.dz), q(hit.dvx), q(hit.dvz), q(hit.ds)]; CA.nudge(r, ex[0] / 100, ex[1] / 100, ex[2] / 100, ex[3] / 100, ex[4] / 100); // valeurs arrondies comme sur le serveur
       run.events.push(r.tick, ex[0], ex[1], ex[2], ex[3], ex[4]);
       if (vn < -3 && t - (run.lastBump || 0) > 250) { run.lastBump = t; V.shake(Math.min(0.5, -vn * 0.03)); Kit.sound.noise(0.1, 0.07, 0, 700); }
     });

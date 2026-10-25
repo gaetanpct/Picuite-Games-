@@ -59,8 +59,29 @@
   // dspin est une vitesse de rotation ajoutée, en rad/s, qui s'éteint toute seule. Un choc de côté ou à l'arrière fait déraper et tourner la voiture
   function nudge(r, dx, dz, dvx, dvz, dspin) { if (r.rail) return; r.x += dx; r.z += dz; r.vx += dvx; r.vz += dvz; if (dspin) r.spin = Math.max(-9, Math.min(9, (r.spin || 0) + dspin)); }
 
+  // choc entre deux voitures faites chacune de deux cercles. r est ma voiture, o l'autre {x,z,h,y,vx,vz}. Renvoie le décalage et l'impulsion à appliquer à r, ou null.
+  // La même formule sert au client pour lui même et au serveur pour les pilotes automatiques, donc les deux voitures réagissent de la même façon
+  function contactVs(r, o, share, canBump) {
+    const R = 1.12, off = 1.05; if (Math.abs(o.y - r.y) > 1.6) return null; let best = null;
+    for (let a = -1; a <= 1; a += 2) for (let b = -1; b <= 1; b += 2) {
+      const ax = r.x + Math.sin(r.hd) * off * a, az = r.z + Math.cos(r.hd) * off * a, bx = o.x + Math.sin(o.h) * off * b, bz = o.z + Math.cos(o.h) * off * b;
+      const dx = ax - bx, dz = az - bz, d = Math.hypot(dx, dz), pen = 2 * R - d;
+      if (pen > 0 && (!best || pen > best.pen)) best = { pen, nx: d > 1e-4 ? dx / d : 1, nz: d > 1e-4 ? dz / d : 0, cx: (ax + bx) / 2, cz: (az + bz) / 2 };
+    }
+    if (!best) return null;
+    const push = Math.min(0.85, best.pen * 0.95) * share; const vn = (r.vx - o.vx) * best.nx + (r.vz - o.vz) * best.nz; let dvx = 0, dvz = 0, ds = 0;
+    if (vn < -0.2 && canBump) {
+      const j = Math.min(26, -1.9 * vn * share); dvx = best.nx * j; dvz = best.nz * j;
+      const lx = best.cx - r.x, lz = best.cz - r.z; ds = Math.max(-8, Math.min(8, (lz * dvx - lx * dvz) * 0.34));
+    }
+    return { dx: best.nx * push, dz: best.nz * push, dvx, dvz, ds, vn, bump: dvx !== 0 || dvz !== 0 };
+  }
+
   function resetToCheckpoint(r) {
-    const tr = r.tr, s = sampleAt(tr, r.cpIdx);
+    const tr = r.tr;
+    // en sortie de piste avec le retour au départ, tout est à refaire depuis la ligne
+    if (r.out && r.opts && r.opts.leave === "zero") { r.cp = 0; r.cpIdx = tr.start.idx; r.cpHd = tr.start.h; }
+    r.out = false; const s = sampleAt(tr, r.cpIdx);
     r.x = s.x; r.z = s.z; r.y = s.y; r.hd = s.h; r.vx = 0; r.vz = 0; r.vy = 0; r.air = false; r.idx = r.cpIdx; r.prevIdx = r.cpIdx; r.boostT = 0; r.driftT = 0; r.climb = 0; r.resets++; r.lastResetTick = r.tick; r.rail = false; r.mag = -1; r.wasSolid = true; r.pitch = 0;
   }
 
@@ -197,7 +218,12 @@
     const rrx = -Math.cos(ps.h), rrz = Math.sin(ps.h); let u = (r.x - ps.x) * rrx + (r.z - ps.z) * rrz;
     const lim = ps.w - HALF_W; const nowall = !!(ps.flags & Track.FLAG.NOWALL);
     r.wallHit = 0;
-    if (!nowall && Math.abs(u) > lim) {
+    // sortie de piste permise, une voiture assez haute passe par dessus la barrière et sort du circuit
+    if (r.opts && r.opts.leave && r.opts.leave !== "mur") {
+      if (r.out && Math.abs(u) <= lim) r.out = false;
+      if (!r.out && r.air && Math.abs(u) > lim && r.y - ps.y > 0.9) r.out = true;
+    }
+    if (!nowall && !r.out && Math.abs(u) > lim) {
       const sg = u > 0 ? 1 : -1; const push = u - sg * lim; r.x -= rrx * push; r.z -= rrz * push;
       const vn = r.vx * rrx + r.vz * rrz;
       if (vn * sg > 0) {
@@ -215,7 +241,7 @@
       for (let q = 0; q < tr.kicks.length; q++) { const kk = tr.kicks[q]; if (r.prevIdx < kk.i && r.idx >= kk.i) { r.air = true; r.vy = kk.vy; r.climb = 0; r.y = Math.max(r.y, ps.y) + 0.02; r.kickEvt = r.tick; break; } }
     }
     // hauteur et envol
-    const offroad = nowall && Math.abs(u) > ps.w + 0.2; let solid = ps.solid && !offroad; const gy = solid ? ps.y : -1e9;
+    const offroad = (nowall || r.out) && Math.abs(u) > ps.w + 0.2; let solid = ps.solid && !offroad; const gy = solid ? ps.y : -1e9;
     if (!r.air) {
       const freeY = r.y + r.climb * DT - 0.5 * gAir * DT * DT;
       if (!solid || (gy < freeY - 0.012 && Math.hypot(r.vx, r.vz) > 6)) { r.air = true; r.vy = r.climb - gAir * DT; r.y = freeY; }
@@ -259,5 +285,5 @@
     frames.push(r.x, r.y, r.z, r.hd, r.pitch, 0, 0, r.idx);
     return { run: r, frames };
   }
-  return { DT, CARS, CAR_ORDER, HALF_W, OBS_CAR, project, sampleAt, newRun, gridSlot, nudge, step, resetToCheckpoint, packInput, unpackInput, quant, replay };
+  return { DT, CARS, CAR_ORDER, HALF_W, OBS_CAR, project, sampleAt, newRun, gridSlot, nudge, contactVs, step, resetToCheckpoint, packInput, unpackInput, quant, replay };
 });

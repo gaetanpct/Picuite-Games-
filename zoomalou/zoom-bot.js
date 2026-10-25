@@ -11,9 +11,9 @@ const Track = require("./public/game/track.js");
 const Car = require("./public/game/car.js");
 
 const LEVELS = {
-  debutant: { id: "debutant", label: "Pilote du dimanche", evals: 0, ms: 0, noise: 0.2, pace: 0.8, paceJit: 0.08, corner: 0.7, clear: 1.5, lineK: 0.3, lapse: 0.0035, useRef: 0, push: 0 },
-  moyen: { id: "moyen", label: "Habitué", evals: 6, ms: 300, noise: 0.1, pace: 0.9, paceJit: 0.05, corner: 0.88, clear: 1.0, lineK: 0.6, lapse: 0.0012, useRef: 0.3, push: 0.01 },
-  champion: { id: "champion", label: "Champion", evals: 34, ms: 1500, noise: 0.03, pace: 0.985, paceJit: 0.018, corner: 1.0, clear: 0.7, lineK: 0.9, lapse: 0.0002, useRef: 1, push: 0.02 },
+  debutant: { id: "debutant", label: "Pilote du dimanche", evals: 0, ms: 0, noise: 0.28, pace: 0.5, paceJit: 0.08, corner: 0.55, clear: 1.5, lineK: 0.3, lapse: 0.006, useRef: 0, push: 0 },
+  moyen: { id: "moyen", label: "Habitué", evals: 6, ms: 300, noise: 0.14, pace: 0.64, paceJit: 0.05, corner: 0.72, clear: 1.0, lineK: 0.6, lapse: 0.002, useRef: 0.3, push: 0.01 },
+  champion: { id: "champion", label: "Champion", evals: 34, ms: 1500, noise: 0.03, pace: 0.82, paceJit: 0.018, corner: 0.94, clear: 0.7, lineK: 0.9, lapse: 0.0002, useRef: 1, push: 0.02 },
   prodige: { id: "prodige", label: "Prodige", evals: 110, ms: 3200, noise: 0.004, pace: 1.0, paceJit: 0.003, corner: 1.0, clear: 0.6, lineK: 1.0, lapse: 0, useRef: 1, push: 0.03 },
 };
 
@@ -225,4 +225,15 @@ function simulateRun(tr, carId, levelId, seed, maxSeconds, opts) {
   const res = run(tr, carId, th, lv, seed, { ref, slot: opts.slot, pace, maxSeconds: maxSeconds || 240 });
   const r = res.r; return { bytes: Uint8Array.from(res.bytes), finished: r.finished, time: r.finishTime, resets: r.resets, hits: r.hits, ticks: r.tick, maxSpeed: r.maxSpeed };
 }
-module.exports = { LEVELS, simulateRun, prepare, prepareSync, refFromFrames };
+// pilote automatique qui roule en direct, un pas à la fois, avec le même réglage que simulateRun. Il réagit à tout ce qui le pousse
+function createLive(tr, carId, levelId, seed, opts) {
+  opts = opts || {}; const lv = LEVELS[levelId] || LEVELS.moyen; const rnd = Track.mulberry32(Track.hashSeed("per" + seed));
+  const ref = opts.ref && lv.useRef ? refFromFrames(tr, opts.ref) : null; const refTag = ref ? opts.refTag || "ref" : "";
+  const th = Object.assign({}, thetaFor(tr, carId, levelId, ref ? opts.ref : null, refTag)); const k = opts.push || 0;
+  th.corner *= 1 + lv.push * k + (rnd() - 0.5) * lv.paceJit; th.brake *= 1 + (rnd() - 0.5) * lv.paceJit;
+  const pace = clamp(lv.pace * (1 + (rnd() - 0.5) * lv.paceJit * 2), 0.5, 1.05);
+  const car = Car.CARS[carId] || Car.CARS.bolide; const L = buildPlan(tr, car, th, ref); const r = Car.newRun(tr, carId, { slot: opts.slot || 0 });
+  const mem = { noise: 0, stuck: 0, lapse: 0, sat: false, rev: 0, revSteer: 0, tries: 0, pace };
+  return { r, maxTicks: Math.floor((opts.maxSeconds || 240) * 60), step() { Car.step(r, Car.quant(drive(r, L, th, lv, rnd, mem))); } };
+}
+module.exports = { LEVELS, simulateRun, createLive, prepare, prepareSync, refFromFrames };

@@ -465,6 +465,7 @@
       const pr = $("#compose-presets"); pr.innerHTML = "";
       if (!ready) {
         pr.appendChild(el("span", { class: "muted small", text: "Partir d'un modèle" }));
+        pr.appendChild(el("button", { class: "btn btn--small btn--plum", title: "Enlève toutes tes pièces spéciales pour choisir une par une", onclick: () => socket.emit("game:compose", { counts: {} }), text: "🧽 Tout vider" }));
         Object.keys(L.presets || {}).forEach((k) => pr.appendChild(el("button", { class: "btn btn--small btn--plum", title: L.presets[k].desc, onclick: () => socket.emit("game:composePreset", { preset: k }), text: L.presets[k].icon + " " + L.presets[k].name })));
       }
       const gr = $("#compose-grid"); gr.innerHTML = "";
@@ -483,12 +484,13 @@
         gr.appendChild(el("div", { class: "army-row", title: d.desc }, [
           el("span", { class: "army-row__ico", text: d.icon }),
           el("span", { class: "army-row__name", text: d.short }),
-          el("small", { class: "army-row__cost", text: "Force " + d.rank + " · " + d.desc }),
+          el("small", { class: "army-row__cost", text: "Force " + d.rank }),
           el("div", { class: "stepper" }, [
             el("button", { class: "mini-btn", text: "−", disabled: canMinus ? null : "", onclick: () => set(-1) }),
             el("b", { text: String(n) }),
             el("button", { class: "mini-btn", text: "+", disabled: canPlus ? null : "", onclick: () => set(1) }),
           ]),
+          el("small", { class: "army-row__desc", text: d.desc }),
         ]));
       });
       const stt = $("#compose-status"); stt.innerHTML = "";

@@ -51,11 +51,12 @@
     const p = PIECES[t];
     if (t === "oeuf") return 110;
     if (t === "roi" && mode === "kinghunt") return 80;
-    return p.cost + (p.mobile ? 1 : 0);
+    // le Phénix renaît, le perdre coûte moins cher, le tuer rapporte moins
+    return (p.phoenix ? p.cost * 0.6 : p.cost) + (p.mobile ? 1 : 0);
   }
 
   // résultat d'une attaque de a contre d : "win" | "lose" | "tie"
-  function fight(a, d, mode) {
+  function fight(a, d, mode, ba, bd) {
     const A = PIECES[a], D = PIECES[d];
     if (mode === "kinghunt" && a === "roi" && d === "roi") return "win";
     if (D.bomb) return A.miner ? "win" : "lose";
@@ -65,9 +66,100 @@
     if (a === "roi" && d === "rat") return "lose";
     if (D.mirror) return "tie";
     if (A.assassin && D.rank <= 9) return "win";
-    if (A.rank > D.rank) return "win";
-    if (A.rank < D.rank) return "lose";
+    const ra = A.rank + (ba || 0), rd = D.rank + (bd || 0);
+    if (ra > rd) return "win";
+    if (ra < rd) return "lose";
     return "tie";
+  }
+
+  // bonus d'étendard d'une pièce, d'après les étendards alliés collés à elle (type connu de l'IA)
+  function bannerBoost(view, p) {
+    const t = view.typeOf(p);
+    if (!t || PIECES[t].banner || !view.state.settings.specialPieces) return 0;
+    for (const [dr, dc] of DIRS) {
+      const q = view.grid.get(K(p.r + dr, p.c + dc));
+      if (q && q.owner === p.owner && view.typeOf(q) === "etendard") return Number(view.state.settings.bannerBoost) || 1;
+    }
+    return 0;
+  }
+
+  // ce que le souffle d'un Bombardier emporterait autour de la cible, positif si ça touche surtout l'ennemi
+  function splashValue(view, bomber, target) {
+    let sum = 0;
+    DIRS.forEach(([dr, dc]) => {
+      const q = view.grid.get(K(target.r + dr, target.c + dc));
+      if (!q || q.id === bomber.id) return;
+      const t = view.typeOf(q);
+      if (t === "roi" || t === "oeuf") return;
+      const mine = view.state.players[q.owner].team === view.myTeam;
+      const v = t ? val(t, view.mode) : 6;
+      sum += mine ? -v * 1.1 : v;
+    });
+    return sum;
+  }
+
+  // Situation en conquête, le double jeu reliques et œuf
+  function conquestCtx(state, view) {
+    const relics = (state.board && state.board.relics) || [];
+    if (state.settings.mode !== "conquest" || !relics.length) return null;
+    const T = Number(state.settings.relicTarget) || 12;
+    const me = state.players[view.me];
+    let lead = 0, leaderSeat = -1;
+    state.players.forEach((pl) => { if (!pl.eliminated && pl.team !== me.team && (pl.score || 0) > lead) { lead = pl.score || 0; leaderSeat = pl.seat; } });
+    // urgence, grande quand un adversaire approche de l'objectif ou me dépasse
+    const near = lead / T;
+    const behind = Math.max(0, lead - (me.score || 0)) / T;
+    const u = Math.max(0, Math.min(3, near * 2.5 + behind * 2 + (lead > 0 ? 0.3 : 0)));
+    const held = (pl) => relics.filter((q) => { const o = view.grid.get(K(q.r, q.c)); return o && o.owner === pl; }).length;
+    const mineHeld = relics.filter((q) => { const o = view.grid.get(K(q.r, q.c)); return o && state.players[o.owner].team === view.myTeam; }).length;
+    const enemyCells = relics.filter((q) => { const o = view.grid.get(K(q.r, q.c)); return o && state.players[o.owner].team !== view.myTeam; });
+    return { relics, T, lead, leaderSeat, u, mineHeld, enemyCells, held, ahead: (me.score || 0) >= lead && (me.score || 0) > 0 };
+  }
+
+  // Termes ajoutés au score d'un coup, communs aux deux niveaux de réflexion
+  function extraTerms(view, ctx, level, p, r, c, target) {
+    let t = 0;
+    const K2 = 1;
+    const settings = view.state.settings;
+    const pd = PIECES[p.type];
+    if (target && view.state.players[target.owner].team !== view.myTeam) {
+      if (ctx) {
+        const onRelic = ctx.relics.some((q) => q.r === target.r && q.c === target.c);
+        if (onRelic) t += K2 * (7 + 6 * ctx.u) * (0.5 + 0.5 * level.hunt);
+        if (target.owner === ctx.leaderSeat) t += K2 * 2.5 * ctx.u;
+      }
+      if (pd.bomber) t += splashValue(view, p, target) * 0.8;
+    } else {
+      if (ctx) {
+        const onRelic = (x, y) => ctx.relics.some((q) => q.r === x && q.c === y);
+        if (onRelic(r, c)) t += K2 * 3 * ctx.u;
+        if (onRelic(p.r, p.c) && !onRelic(r, c)) t -= K2 * (2 + 2 * ctx.u);
+        // aller déloger celui qui tient une relique, surtout s'il est en tête
+        if (ctx.enemyCells.length && pd.mobile && p.type !== "oeuf" && (PIECES[p.type].rank >= 3 || pd.long)) {
+          const d0 = Math.min(...ctx.enemyCells.map((q) => Math.abs(q.r - p.r) + Math.abs(q.c - p.c)));
+          const d1 = Math.min(...ctx.enemyCells.map((q) => Math.abs(q.r - r) + Math.abs(q.c - c)));
+          t += K2 * (d0 - d1) * (0.5 + 0.9 * ctx.u) * level.hunt;
+        }
+      }
+      if (settings.specialPieces) {
+        if (pd.sentinel) {
+          const range = Number(settings.sentinelRange) || 1;
+          view.state.pieces.forEach((q) => {
+            if (view.state.players[q.owner].team === view.myTeam || view.typeOf(q)) return;
+            if (Math.abs(q.r - r) + Math.abs(q.c - c) <= range) t += q.moved ? 2 : 3;
+          });
+        }
+        if (pd.messenger && settings.messengerBonus) t += 2;
+        if (pd.banner) {
+          const near = (x, y) => DIRS.reduce((n, [dr, dc]) => { const q = view.grid.get(K(x + dr, y + dc)); return n + (q && q.owner === p.owner && PIECES[q.type] && PIECES[q.type].mobile ? 1 : 0); }, 0);
+          t += (near(r, c) - near(p.r, p.c)) * 0.9;
+        } else if (pd.mobile) {
+          const nb = (x, y) => DIRS.some(([dr, dc]) => { const q = view.grid.get(K(x + dr, y + dc)); return q && q.owner === p.owner && q.type === "etendard"; });
+          if (nb(r, c) && !nb(p.r, p.c)) t += 0.7;
+        }
+      }
+    }
+    return t;
   }
 
   function rnd(rng, a, b) { return a + rng() * (b - a); }
@@ -183,8 +275,9 @@
     const myT = mine.type;
     const vm = val(myT, view.mode);
     let ev = 0; let pWin = 0; let pLose = 0;
+    const ba = bannerBoost(view, mine), bd = bannerBoost(view, target);
     const consider = (t, prob) => {
-      const r = fight(myT, t, view.mode);
+      const r = fight(myT, t, view.mode, ba, t === "etendard" ? 0 : bd);
       const vt = val(t, view.mode);
       if (r === "win") { ev += prob * (vt + 0.5); pWin += prob; }
       else if (r === "lose") { ev -= prob * vm; pLose += prob; }
@@ -343,6 +436,7 @@
       return (a.ev * 0.6 + a.info * 0.5 - 0.05 * Math.max(0, dangerAt(view, mem, p, p.r, p.c, null, null)) * val(p.type, mode)) / (1 + 0.2 * d);
     };
     const plan = level.danger > 0 ? pickPlan(state, mem, view, planScore, (t) => val(t, mode)) : null;
+    const cq = conquestCtx(state, view);
     myPieces.forEach((p) => {
       const dests = state.legal[p.id];
       if (!dests) return;
@@ -420,6 +514,7 @@
           // le roi reste prudent
           if (p.type === "roi" && round < 25 && nxt < cur) score -= 1.5 * level.danger;
         }
+        if (level.useKnowledge >= 0.55) score += extraTerms(view, cq, level, p, r, c, target);
         score += gauss(rng) * level.noise;
         cands.push({ pieceId: p.id, to: [r, c], score });
       });
@@ -624,7 +719,8 @@
     if (type === "roi") return mode === "kinghunt" ? 130 : 24;
     if (type === "tarte") return 5;
     const p = PIECES[type];
-    let v = p.cost + 1;
+    let v = (p.phoenix ? p.cost * 0.6 : p.cost) + 1;
+    if (type === "sentinelle") v += 2;
     if (type === "rat") {
       // le Rat est le seul à pouvoir tuer le Roi
       if (mine ? view.enemyKingAlive : !!view.myKing) v += mode === "kinghunt" ? 30 : 14;
@@ -709,7 +805,7 @@
     Object.keys(d).forEach((t) => {
       const pr = d[t];
       if (pr <= 0) return;
-      const r = fight(myT, t, view.mode);
+      const r = fight(myT, t, view.mode, bannerBoost(view, p), t === "etendard" ? 0 : bannerBoost(view, e));
       const vt = roleValue(view, t, false) + proxBonus(view, e, t);
       expV += pr * vt;
       if (r === "win") { ev += pr * vt; pWin += pr; }
@@ -811,6 +907,7 @@
       return (a.ev * 0.5 + a.info * 0.4 - Vq * dangerAt(view, mem, p, p.r, p.c, null, null) * 0.3) / (1 + 0.2 * d);
     };
     const plan = pickPlan(state, mem, view, planScore, (t) => roleValue(view, t, t === "rat" ? true : false));
+    const cq = conquestCtx(state, view);
     view.mine.forEach((p) => {
       const dests = state.legal[p.id];
       if (!dests) return;
@@ -879,6 +976,7 @@
           // le Roi (hors chasse au roi) reste un atout à ne pas gaspiller
           if (p.type === "roi" && round < 30 && mode !== "kinghunt" && impatience < 6) score -= 0.6;
         }
+        score += extraTerms(view, cq, level, p, r, c, target);
         score += (rng() - 0.5) * level.noise;
         cands.push({ pieceId: p.id, to: [r, c], score });
       });
@@ -983,11 +1081,11 @@
     };
     if (level.master || levelId === "hard" || levelId === "expert") {
       // base solide, puis on équilibre
-      const seq = ["dragon", "sorcier", "rat", "nain", "nain", "tarte", "tarte", "lutin", "lutin", "troll", "chevalier", "nain", "tarte", "archere", "lutin", "sorcier", "troll", "chevalier", "garde", "dragon", "lutin", "archere", "garde", "tarte", "nain", "troll", "garde", "lutin", "rat"];
+      const seq = ["dragon", "sorcier", "rat", "nain", "nain", "tarte", "tarte", "lutin", "lutin", "troll", "chevalier", "sentinelle", "phenix", "nain", "tarte", "etendard", "archere", "bombardier", "messagere", "lutin", "sorcier", "troll", "chevalier", "garde", "dragon", "lutin", "archere", "garde", "tarte", "nain", "troll", "garde", "lutin", "rat"];
       if (state.settings.mode === "kinghunt") seq.splice(seq.indexOf("rat"), 1);
       for (let round = 0; round < 3; round++) seq.forEach((t) => { if (total < room) add(t); });
     } else {
-      const bag = ["rat", "lutin", "nain", "garde", "archere", "chevalier", "troll", "sorcier", "dragon", "tarte", "lutin", "garde"];
+      const bag = ["rat", "lutin", "nain", "garde", "archere", "chevalier", "troll", "sorcier", "dragon", "tarte", "lutin", "garde", "sentinelle", "messagere", "bombardier"];
       let guard = 0;
       while (total < room && guard++ < 200) { if (!add(bag[Math.floor(rng() * bag.length)])) { if (cost > budget - 3) break; } }
     }

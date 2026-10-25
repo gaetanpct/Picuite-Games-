@@ -29,8 +29,6 @@
       category: "🌶️ Pimente la partie",
       rules: [
         { id: "teams", label: "👯 Équipes 2 contre 2", type: "bool", default: false, needs: { players: 4 }, info: "Uniquement à 4. Tu joues avec le joueur en face de toi, vous partagez ce que vous savez, vous ne pouvez pas vous attaquer. L'équipe gagne quand les deux adversaires sont éliminés." },
-        { id: "fog", label: "🌫️ Brouillard", type: "bool", default: false, info: "Tu ne vois que les pièces proches des tiennes. Le reste du plateau est dans la brume." },
-        { id: "fogRadius", label: "Portée de vue", type: "chips", default: 2, options: [1, 2, 3], showIf: { fog: true }, info: "Distance maximale (en cases) à laquelle tu vois les pièces ennemies." },
         { id: "chaos", label: "🎲 Chaos", type: "bool", default: false, info: "Un événement surprise secoue le royaume à intervalles réguliers, avec de la boue, des tourbillons, des tartes qui tombent du ciel..." },
         { id: "chaosEvery", label: "Un événement tous les", type: "chips", default: 5, options: [{ value: 3, label: "3 tours" }, { value: 5, label: "5 tours" }, { value: 8, label: "8 tours" }], showIf: { chaos: true }, info: "Un « tour » = tout le monde a joué une fois." },
         { id: "boardSize", label: "⚡ Taille du plateau", type: "chips", default: "normal", options: [{ value: "normal", label: "Normale (~35 min)" }, { value: "express", label: "Express (~10 min)" }, { value: "grand", label: "Grande (~60 min)" }], info: "Express = petit plateau et armées de 12 pièces, pour une partie éclair. Grande = grand plateau et armées de 40 pièces, pour une longue partie de stratégie. Le budget des armées sur mesure grandit avec la taille." },
@@ -69,13 +67,8 @@
         { id: "armyBudget", label: "Budget de l'armée sur mesure", type: "chips", default: 150, options: [110, 130, 150, 180], showIf: { armyPreset: "custom" }, info: "Chaque pièce coûte des points. Chaque joueur dépense le même budget pour composer sa propre armée avant le placement, sans limite de temps." },
         { id: "compReveal", label: "👀 Dévoiler les compositions à tous", type: "bool", default: false, showIf: { armyPreset: "custom" }, info: "Activé = chacun voit l'armée de ses adversaires une fois les compositions validées. Désactivé = la composition adverse reste secrète, il faut deviner." },
         { id: "specialPieces", label: "👻 Pièces spéciales", type: "bool", default: true, info: "Autorise les pièces spéciales dans les compositions (sur mesure et Légion) avec leurs pouvoirs. Fantôme, Cavalier, Assassin, Reflet, Chauve-souris, Golem, Gobelin Bombardier, Porte-Étendard, Sentinelle, Phénix et Messagère." },
-        { id: "blastRadius", label: "💣 Souffle du Gobelin Bombardier", type: "chips", default: "adjacent", options: [{ value: "off", label: "Aucun souffle" }, { value: "adjacent", label: "Cases voisines" }], showIf: { specialPieces: true }, info: "Aucun souffle = le Bombardier n'emporte que sa cible. Cases voisines = toutes les pièces collées à la cible disparaissent aussi, amies comme ennemies, tartes comprises. Le Roi et l'Œuf de Dragon résistent toujours." },
-        { id: "bannerBoost", label: "🚩 Force de l'étendard", type: "chips", default: 1, options: [1, 2], showIf: { specialPieces: true }, info: "Force ajoutée aux pièces alliées collées à un Porte-Étendard, pour comparer les forces dans un combat. Plusieurs étendards ne s'additionnent pas." },
-        { id: "sentinelRange", label: "🦉 Portée de la Sentinelle", type: "chips", default: 1, options: [1, 2], showIf: { specialPieces: true }, info: "Distance en cases à laquelle une Sentinelle démasque les pièces ennemies. 1 = juste à côté, 2 = jusqu'à deux cases de marche en comptant les déplacements en croix." },
-        { id: "phoenixLives", label: "🐦‍🔥 Renaissances du Phénix", type: "chips", default: 1, options: [1, 2], showIf: { specialPieces: true }, info: "Combien de fois le Phénix renaît face cachée dans ton camp après avoir été éliminé." },
-        { id: "messengerBonus", label: "🕊️ Bonus de la Messagère", type: "bool", default: true, showIf: { specialPieces: true }, info: "Activé = quand une Messagère se déplace sans combattre, tu joues une seconde pièce, une fois par tour. Désactivé = la Messagère est une simple pièce de force 2." },
-        { id: "mirrorRelics", label: "🪞 Reflet interdit sur les reliques", type: "bool", default: true, showIf: { specialPieces: true }, info: "Activé = un Reflet ne peut jamais se poser sur une relique, ni en marchant, ni par un échange, ni par un événement du chaos. Sinon il la bloquerait pour toujours." },
         { id: "bombsHidden", label: "🥧 Les tartes restent cachées", type: "bool", default: true, info: "Activé = une tarte qui fait exploser un attaquant (ou qui est désamorcée) n'est jamais dévoilée aux joueurs qui n'étaient pas dans le combat. Désactivé = tout le monde voit ce que c'était." },
+        { id: "eggRevive", label: "🥚 Œuf croqué, une pièce revient", type: "bool", default: false, info: "Activé = quand tu croques l'Œuf de Dragon d'un adversaire, ta dernière pièce éliminée revient dans ton camp, face cachée. Ça pousse à attaquer plutôt qu'à seulement défendre. Sans effet quand il n'y a pas d'œuf dans la partie." },
         { id: "survivorsRevealed", label: "👁️ Les survivants restent dévoilés", type: "bool", default: true, info: "Activé = après un combat, la pièce gagnante reste visible de tous. Désactivé = mode mémoire, tu dois te souvenir de ce que tu as vu." },
       ],
     },
@@ -89,15 +82,19 @@
     {
       category: "⏱️ Rythme et fin de partie",
       rules: [
-        { id: "setupTimer", label: "Temps pour placer l'armée", type: "chips", default: 0, options: [{ value: 0, label: "Illimité" }, { value: 60, label: "1 min" }, { value: 120, label: "2 min" }, { value: 180, label: "3 min" }, { value: 300, label: "5 min" }], info: "Illimité = personne n'est pressé. Sinon, les joueurs qui ne sont pas prêts sont placés automatiquement à la fin du temps." },
         { id: "turnTimer", label: "Temps par tour", type: "chips", default: 90, options: [{ value: 0, label: "Illimité" }, { value: 30, label: "30 s" }, { value: 60, label: "60 s" }, { value: 90, label: "90 s" }, { value: 180, label: "3 min" }], info: "Si le temps est écoulé, un coup raisonnable est joué à ta place." },
-        { id: "eliminated", label: "Camp éliminé", type: "chips", default: "ruins", options: [{ value: "ruins", label: "Devient ruines" }, { value: "vanish", label: "Disparaît" }], info: "Ruines = les pièces restantes se changent en obstacles infranchissables. Disparaît = elles s'évaporent." },
         { id: "duelTime", label: "⚔️ Durée d'affichage du dernier combat", type: "chips", default: 8, options: [{ value: 4, label: "4 s" }, { value: 8, label: "8 s" }, { value: 15, label: "15 s" }, { value: 0, label: "Jusqu'au prochain combat" }], info: "Combien de temps le cadre qui montre qui a attaqué qui reste à l'écran." },
         { id: "showLog", label: "📜 Afficher la chronique", type: "bool", default: false, info: "Affiche la liste des derniers événements sur le côté. Désactivé = écran plus clair, il faut suivre le plateau." },
         { id: "slowMode", label: "🐢 Mode lent", type: "bool", default: false, info: "Les pions glissent plus doucement et l'IA prend son temps, pratique pour suivre ce qu'il se passe." },
       ],
     },
   ];
+
+  // Valeurs fixes, plus modifiables. Elles gardent les anciens réglages cohérents dans le moteur.
+  const FIXED = {
+    fog: false, fogRadius: 2, setupTimer: 0, eliminated: "vanish",
+    blastRadius: "adjacent", bannerBoost: 1, sentinelRange: 1, phoenixLives: 1, messengerBonus: true, mirrorRelics: true,
+  };
 
   function allRules() {
     const out = [];
@@ -139,6 +136,8 @@
         }
       }
     });
+    // réglages retirés de l'écran, toujours les mêmes
+    Object.assign(base, FIXED);
     if (typeof playerCount === "number") {
       if (playerCount !== 4) base.teams = false;
     }

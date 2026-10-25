@@ -17,6 +17,11 @@ const BOT_GAP = 1.5; // secondes de jeu entre deux essais d'un automate
 const BOT_LAG = { debutant: 26, moyen: 18, champion: 13, prodige: 9 }, BOT_REACT = { debutant: 1.6, moyen: 1.0, champion: 0.6, prodige: 0.35 };
 const rng = Math.random;
 // durée maximale calculée pour un essai d'automate. Un circuit géant avec la voiture la plus lente dépasse 4 minutes
+// temps de référence d'un circuit en secondes, le temps du prodige quand il est connu, sinon une estimation d'après la longueur
+const refOf = (g) => (g.author > 0 ? g.author : Math.max(20, g.track.length / 30));
+// fenêtre commune quand le réglage est sur "adapté au circuit", et durée accordée à chaque pilote à partir de son propre départ
+const windowOf = (g, s) => (s.roundTime > 0 ? s.roundTime : Math.max(45, Math.min(300, Math.round(refOf(g) * 2.4 + 25))));
+const driverCap = (g) => Math.max(30, Math.round(refOf(g) * 1.8 + 15));
 const capOf = (tr) => Math.max(240, Math.ceil(tr.length / 11));
 const pName = (room, id) => { const p = room.players.find((x) => x.id === id); return p ? p.name : "?"; };
 const defOf = (room, id) => room.players.find((p) => p.id === id);
@@ -69,9 +74,9 @@ function prepareBots(room) {
 function beginDrive(room) {
   const g = room.g, s = room.settings;
   if (isChrono(s)) {
-    g.extended = false; g.allDoneAt = 0; g.goAt = Date.now() + 4200; g.phase = "race"; g.raceEnd = g.goAt + s.roundTime * 1000 * TS; g.phaseUntil = g.raceEnd;
-    room.players.forEach((def) => { const P = g.players[def.id]; P.plan = null; P.planning = false; P.nextAt = 0; P.botN = 0; });
-    g.api.sysChat(room, "Tout le monde sur la ligne, départ dans quelques secondes. Vous avez ensuite " + s.roundTime + " secondes pour signer votre meilleur temps" + (s.mode === "contact" ? ", et les voitures se touchent." : "."));
+    g.extended = false; g.allDoneAt = 0; g.goAt = Date.now() + 4200; g.phase = "race"; g.win = windowOf(g, s); g.raceEnd = g.goAt + g.win * 1000 * TS; g.phaseUntil = g.raceEnd;
+    room.players.forEach((def) => { const P = g.players[def.id]; P.plan = null; P.live = null; P.planning = false; P.nextAt = 0; P.botN = 0; });
+    g.api.sysChat(room, "Tout le monde sur la ligne, départ dans quelques secondes. Vous avez ensuite " + g.win + " secondes pour signer votre meilleur temps" + (s.mode === "contact" ? ", et les voitures se touchent." : "."));
   } else { g.phase = "turns"; g.turnIdx = -1; nextTurn(room); }
   emitState(room);
 }
@@ -89,17 +94,51 @@ function planBotAttempt(room, def) {
   const use = rf && (P.best == null || rf.t < P.best) ? rf : null; const tag = use ? use.pid + ":" + use.t.toFixed(2) : ""; const k = P.botN || 0; const slot = g.slots[def.id] || 0;
   Bot.prepare(track, P.car, lvl, use && use.frames, tag, () => {
     P.planning = false; if (g.track !== track || g.phase !== "race") return;
-    const r = Bot.simulateRun(track, P.car, lvl, g.baseSeed + def.id + g.roundIdx + "k" + k, capOf(track), { slot, ref: use && use.frames, refTag: tag, push: k }); P.botN = k + 1;
+    const seedStr = g.baseSeed + def.id + g.roundIdx + "k" + k; P.botN = k + 1;
+    // en mode contact le pilote roule vraiment sur le serveur, pour qu'on puisse le pousser, le faire tourner et qu'il se rattrape
+    if (room.settings.mode === "contact") {
+      const lv = Bot.createLive(track, P.car, lvl, seedStr, { slot, ref: use && use.frames, refTag: tag, push: k, maxSeconds: Math.min(240, capOf(track)) });
+      P.live = { lv, at: Math.max(g.goAt, Date.now() + 50), n: 0, frames: [], done: false }; P.tryCount = (P.tryCount || 0) + 1; P.botDone = true; return;
+    }
+    const r = Bot.simulateRun(track, P.car, lvl, seedStr, capOf(track), { slot, ref: use && use.frames, refTag: tag, push: k });
     const now = Date.now(); const at = Math.max(g.goAt, P.nextAt || 0, now + 50);
     if (!r.finished) { P.botDone = true; P.done = true; return; }
     const rp = Car.replay(track, P.car, r.bytes, null, { slot });
     P.plan = { at, dur: r.time * 1000 * TS, time: r.time, frames: rp.frames, bytes: r.bytes, car: P.car, slot, done: false }; P.tryCount = (P.tryCount || 0) + 1; P.botDone = true;
   });
 }
+// ---------- pilotes automatiques en direct, mode contact ----------
+const CAR_SHARE = 0.8;
+function stepLive(room, def, P, now) {
+  const g = room.g, L = P.live, r = L.lv.r; if (L.done) return;
+  if (now >= L.at) {
+    const want = Math.floor((now - L.at) / (Car.DT * 1000 * TS)); let guard = 0;
+    while (L.n < want && !r.finished && L.n < L.lv.maxTicks && guard++ < 40) {
+      L.lv.step(); L.n++; if ((L.n - 1) % 6 === 0) L.frames.push(r.x, r.y, r.z, r.hd, r.pitch, r.rail ? 2 : r.air ? 1 : 0, r.boostT > 0 ? 1 : 0, r.idx);
+      botContacts(room, def, P, r, now);
+    }
+    P.feed = { x: r.x, y: r.y, z: r.z, vx: r.vx, vz: r.vz, h: r.hd, p: r.pitch, a: r.rail ? 2 : r.air ? 1 : 0, b: r.boostT > 0 ? 1 : 0, i: r.idx, car: P.car };
+    if (r.finished) { L.frames.push(r.x, r.y, r.z, r.hd, r.pitch, 0, 0, r.idx); L.done = true; P.done = true; P.feed = null; P.live = null; acceptTime(room, def.id, +r.finishTime.toFixed(2), null, P.car, L.frames); }
+    else if (L.n >= L.lv.maxTicks || now > g.raceEnd + 500) { L.done = true; P.done = true; P.feed = null; P.live = null; }
+  }
+}
+// chocs d'un pilote automatique contre les humains en piste et contre les autres automates
+function botContacts(room, def, P, r, now) {
+  const g = room.g; if (r.tick < 2 || r.rail) return;
+  room.players.forEach((od) => {
+    if (od.id === def.id) return; const Q = g.players[od.id]; if (!Q) return; let o = null;
+    if (Q.live && !Q.live.done) { const q = Q.live.lv.r; if (Q.live.n > 0) o = { x: q.x, z: q.z, h: q.hd, y: q.y, vx: q.vx, vz: q.vz }; }
+    else if (Q.pos && Q.att && !Q.done && now - Q.pos.t < 400) { const age = Math.min(0.2, (now - Q.pos.t) / 1000); o = { x: Q.pos.x + Q.pos.vx * age, z: Q.pos.z + Q.pos.vz * age, h: Q.pos.h, y: Q.pos.y, vx: Q.pos.vx, vz: Q.pos.vz }; }
+    if (!o) return;
+    const hit = Car.contactVs(r, o, CAR_SHARE, (r.bumpCd | 0) <= r.tick); if (!hit) return;
+    if (hit.bump) r.bumpCd = r.tick + 5; Car.nudge(r, hit.dx, hit.dz, hit.dvx, hit.dvz, hit.ds);
+  });
+}
 function tickBots(room, now) {
   const g = room.g;
   room.players.forEach((def) => {
     if (!isAuto(room, def)) return; const P = g.players[def.id]; const pl = P.plan;
+    if (P.live) { stepLive(room, def, P, now); return; }
     if (pl && !pl.done) {
       if (now >= pl.at + pl.dur) { pl.done = true; P.done = true; P.feed = null; P.nextAt = pl.at + pl.dur + NEXT_GO_MS; if (pl.at + pl.dur <= g.raceEnd + 500) acceptTime(room, def.id, pl.time, pl.bytes, pl.car, pl.frames); }
       else if (now >= pl.at) { const n = pl.frames.length / 8; const k = Math.min(n - 1, Math.floor(((now - pl.at) / pl.dur) * (n - 1))); const f = pl.frames; P.feed = { x: f[k * 8], y: f[k * 8 + 1], z: f[k * 8 + 2], h: f[k * 8 + 3], p: f[k * 8 + 4], a: f[k * 8 + 5], b: f[k * 8 + 6], i: f[k * 8 + 7], car: pl.car }; } else P.feed = null;
@@ -130,7 +169,7 @@ function aliveRank(room) {
   const g = room.g; const seats = room.players.map((p) => p.id);
   return seats.filter((id) => !g.players[id].out).sort((a, b) => timeOf(g.players[a]) - timeOf(g.players[b]) || seats.indexOf(a) - seats.indexOf(b));
 }
-function recordOf(room, id) { const g = room.g; const P = g.players[id]; if (!P || P.best == null) return null; return { time: P.best, pid: id, car: P.bestCar || P.car, frames: P.bestFrames || (P.bestBytes ? Car.replay(g.track, P.bestCar || P.car, P.bestBytes).frames : null) }; }
+function recordOf(room, id) { const g = room.g; const P = g.players[id]; if (!P || P.best == null) return null; return { time: P.best, pid: id, car: P.bestCar || P.car, frames: P.bestFrames || (P.bestBytes ? Car.replay(g.track, P.bestCar || P.car, P.bestBytes, null, { leave: room.settings.leave }).frames : null) }; }
 function setRecord(room, rec) {
   const g = room.g; g.record = rec; if (rec) g.api.emitAll(room, "z:record", { time: rec.time, pid: rec.pid, car: rec.car, frames: rec.frames });
 }
@@ -201,7 +240,7 @@ function finishTurn(room, result) {
   emitState(room);
 }
 function recordFrom(room, pid, time, bytes, carId, frames) {
-  const g = room.g; const rp = frames ? { frames } : Car.replay(g.track, carId, bytes); return { time, pid, car: carId, frames: rp.frames };
+  const g = room.g; const rp = frames ? { frames } : Car.replay(g.track, carId, bytes, null, { leave: room.settings.leave }); return { time, pid, car: carId, frames: rp.frames };
 }
 
 // un automate joue son tour en direct, essai après essai, avec une vraie consommation d'essence.
@@ -336,8 +375,9 @@ function tick(room) {
     if (everyoneDone && now > g.goAt) { if (!g.allDoneAt) g.allDoneAt = now; else if (now - g.allDoneAt > 3500) return endRound(room); }
     if (now >= g.raceEnd) {
       // un pilote encore en route au moment du gong a vingt secondes de plus pour finir
-      const driving = room.players.some((def) => { const P = g.players[def.id]; return !isAuto(room, def) && P.att && !P.done; });
-      if (driving && !g.extended) { g.extended = true; g.raceEnd = now + 20000 * TS; g.phaseUntil = g.raceEnd; g.api.sysChat(room, "Dernière ligne droite, vingt secondes de plus pour finir."); emitState(room); }
+      // chacun garde de quoi finir son essai unique, calculé depuis son propre départ, pour qu'aucun essai ne soit gâché
+      let until = 0; room.players.forEach((def) => { const P = g.players[def.id]; if (!isAuto(room, def) && P.att && !P.done) until = Math.max(until, P.att.goAt + driverCap(g) * 1000 * TS); });
+      if (until > now) { if (!g.extended) g.api.sysChat(room, "Dernière ligne droite, ceux qui sont partis ont le temps de finir leur essai."); g.extended = true; g.raceEnd = until; g.phaseUntil = until; emitState(room); }
       else endRound(room);
     }
   } else if (g.phase === "turns") tickTurn(room, now);
@@ -402,6 +442,7 @@ function arm(room, id, toast) {
   if (isChrono(s)) {
     if (g.phase !== "race") return toast("La course n'a pas encore commencé.");
     if (P.tries >= 1 || P.done) return toast("Tu n'as droit qu'à un seul essai dans ce mode.");
+    if (Date.now() >= g.raceEnd - 3000) return toast("Trop tard, le temps de la course est écoulé.");
     const now = Date.now(); P.tryCount = (P.tryCount || 0) + 1; const first = P.tries === 0; const goAt = first ? (g.goAt > now + 400 ? g.goAt : now + 2200) : now + NEXT_GO_MS;
     P.att = { goAt, car: P.car, slot: g.slots[id] || 0 }; P.tries++;
     g.api.io.to(defOf(room, id).socketId).emit("z:go", { now, goAt, fuelLeft: 0, car: P.car, slot: P.att.slot });
@@ -429,9 +470,13 @@ function endAttempt(room, id, d, toast) {
   if (isChrono(s)) {
     const att = P.att; P.att = null; P.pos = null; if (!att) return;
     // l'essai est unique, il est consommé quoi qu'il arrive
+    if (kind === "finish") {
+      const t = verify(room, P, att, d, toast, null);
+      if (t) { P.done = true; acceptTime(room, id, t.time, t.bytes, att.car, t.frames); }
+      else { P.tries = 0; g.api.sysChat(room, def.name + " n'a pas pu valider son passage, l'essai n'est pas perdu."); emitState(room); return; }
+    }
     P.done = true;
-    if (kind === "finish") { const t = verify(room, P, att, d, toast, null); if (t) acceptTime(room, id, t.time, t.bytes, att.car, t.frames); }
-    else g.api.sysChat(room, def.name + " abandonne.");
+    if (kind !== "finish") g.api.sysChat(room, def.name + " abandonne.");
     emitState(room); return;
   }
   const t = g.turn; if (g.phase !== "turns" || !t || t.pid !== id || !t.att) return;
@@ -473,14 +518,21 @@ function parseEvents(raw) {
 function verify(room, P, att, d, toast, fuelTicks) {
   const g = room.g, s = room.settings; const elapsed = Math.max(0, (Date.now() - att.goAt) / 1000);
   const bytes = b64(d.bytes); if (!bytes || bytes.length < 60 || bytes.length > 60 * 900) { toast("Course non reçue, retente."); return null; }
-  const ropts = { slot: att.slot || 0, events: s.mode === "contact" ? parseEvents(d.ev) : [] }; if (ropts.events === null) { toast("Course refusée, retente."); return null; }
+  const ropts = { slot: att.slot || 0, leave: s.leave, events: s.mode === "contact" ? parseEvents(d.ev) : [] }; if (ropts.events === null) { toast("Course refusée, retente."); return null; }
   if (s.verify === "trust") {
     const time = Number(d.time); if (!isFinite(time) || time < g.track.length / 85 || time > elapsed + 2) { toast("Temps refusé, retente."); return null; }
     const rp = Car.replay(g.track, att.car, bytes, fuelTicks, ropts); return { time, bytes, frames: rp.frames };
   }
   const rp = Car.replay(g.track, att.car, bytes, fuelTicks, ropts);
-  if (!rp.run.finished) { toast("Le serveur n'a pas pu confirmer ton arrivée, retente."); return null; }
-  const time = rp.run.finishTime; if (time > elapsed + 2.5) { toast("Temps refusé, retente."); return null; }
+  const claim = Number(d.time); const plausible = isFinite(claim) && claim >= g.track.length / 85 && claim <= elapsed + 4;
+  // le rejeu du serveur peut s'écarter un peu de celui du joueur (réseau, chocs). Un temps annoncé plausible n'est jamais jeté pour ça
+  if (!rp.run.finished) {
+    if (plausible) { console.log("[zoomalou] rejeu non abouti, temps annoncé accepté", claim); return { time: +claim.toFixed(2), bytes, frames: rp.frames }; }
+    toast("Le serveur n'a pas pu confirmer ton arrivée, retente."); return null;
+  }
+  let time = rp.run.finishTime;
+  if (plausible && Math.abs(claim - time) > 0.6) { console.log("[zoomalou] écart de rejeu", claim, time); time = +claim.toFixed(2); }
+  if (time > elapsed + 4) { toast("Temps refusé, retente."); return null; }
   return { time, bytes, frames: rp.frames };
 }
 function sendTo(room, socket) {

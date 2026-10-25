@@ -518,3 +518,6 @@ input[type="text"]:focus { border-color: var(--plum-3); box-shadow: 0 0 0 4px rg
 
 .pv--edit { cursor: pointer; outline: 1px dashed rgba(255,255,255,.55); outline-offset: -2px; }
 .pv--edit:hover { filter: brightness(1.25); }
+
+.army-row__desc { grid-column: 2 / -1; font-size: 0.74rem; line-height: 1.25; color: var(--ink-soft); white-space: normal; margin-top: -0.1rem; }
+.army-row__name { min-width: 0; overflow-wrap: anywhere; }
