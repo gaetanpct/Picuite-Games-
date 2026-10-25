@@ -1,0 +1,23 @@
+{
+ "name": "Pagaille Party",
+ "order": 7,
+ "tagline": "Des mini-jeux de moins d'une minute, un vote à chaque manche et beaucoup de chaos.",
+ "pitch": "Un party game en ligne de deux à huit joueurs, dans l'esprit des soirées Mario Party. À chaque manche, trois mini-jeux sont proposés et tout le monde vote. Il y a une couleur à rejoindre avant que le sol tombe, de la lave qui monte, des voitures qui se passent une bombe, du sumo sur glace, des lasers invisibles, un meurtre mystère avec une version spéciale à deux, un pont de verre, des groupes à former et une cagnotte qui grimpe. Tout se comprend sans le son et les règles sont lues en dix secondes.",
+ "tags": [
+  "2 à 8 joueurs",
+  "15 minutes ou plus",
+  "Mini-jeux et chaos"
+ ],
+ "steps": [
+  "Crée un salon, partage le code et choisis le nombre de manches.",
+  "À chaque manche, vote pour un des trois mini-jeux proposés.",
+  "Lis les règles, joue, et cumule les points jusqu'au podium."
+ ],
+ "for": "Pour les soirées entre amis où l'on veut rire, bluffer et se vexer pour un rien.",
+ "colors": [
+  "#ff7a1f",
+  "#3a1a6e"
+ ],
+ "cta": "Jouer à Pagaille Party",
+ "logo": "logos/pagaille.svg"
+}

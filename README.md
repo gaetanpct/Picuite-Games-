@@ -2,7 +2,7 @@
 
 Le site qui réunit tous les jeux, avec une page d'accueil pour choisir.
 
-Jeux inclus pour l'instant, Gaeboub-up (plateau à la Monopoly), Goliathicus (stratégie et bluff), Richissime Destiny (simulation de vie entre amis), Golfouille (golf en 3D sur des terrains générés) Zoomalou (courses de voitures sur des circuits générés) Mauvaises Langues (jeu de soirée de classements déplacés, pour adultes) et Bus Bazar (jeu coopératif à quatre postes dans un bus absurde).
+Jeux inclus pour l'instant, Gaeboub-up (plateau à la Monopoly), Goliathicus (stratégie et bluff), Richissime Destiny (simulation de vie entre amis), Golfouille (golf en 3D sur des terrains générés) Zoomalou (courses de voitures sur des circuits générés) Mauvaises Langues (jeu de soirée de classements déplacés, pour adultes) et Pagaille Party (party game de mini-jeux).
 
 ## Lancer en local
 
@@ -19,13 +19,13 @@ Puis ouvrir localhost, port 3000, dans le navigateur.
 4. Start Command, npm start.
 5. Render fournit la variable PORT tout seul.
 
-Une seule adresse sert tout le site. Les jeux sont sur /gaeboub-up, /goliathicus, /richissime, /golfouille, /zoomalou, /mauvaises-langues et /bus-bazar. La route /health répond quand le serveur est vivant.
+Une seule adresse sert tout le site. Les jeux sont sur /gaeboub-up, /goliathicus, /richissime, /golfouille, /zoomalou, /mauvaises-langues et /pagaille. La route /health répond quand le serveur est vivant.
 
 ## Organisation
 
 - server.js, le serveur du site, il découvre et monte automatiquement chaque jeu.
 - public/, la page d'accueil (index.html, style.css, app.js), les logos dans public/logos et le petit bouton de retour pg-back.js.
-- gaeboub-up/, goliathicus/, richissime/, golfouille/, zoomalou/, mauvaises-langues/ et bus-bazar/, un dossier par jeu directement à la racine, sans dossier games. Chaque dossier contient son server.js, son dossier public, ses éventuels dossiers lib, et un fichier game.json qui sert à la présentation sur l'accueil. Tout dossier de la racine qui contient un server.js et un game.json est reconnu comme un jeu (sauf public et node_modules).
+- gaeboub-up/, goliathicus/, richissime/, golfouille/, zoomalou/, mauvaises-langues/ et pagaille/, un dossier par jeu directement à la racine, sans dossier games. Chaque dossier contient son server.js, son dossier public, ses éventuels dossiers lib, et un fichier game.json qui sert à la présentation sur l'accueil. Tout dossier de la racine qui contient un server.js et un game.json est reconnu comme un jeu (sauf public et node_modules).
 
 Pour envoyer le projet sur GitHub, il suffit de déposer chaque dossier séparément (gaeboub-up, goliathicus, richissime, public), puis les fichiers de la racine. Chaque envoi reste sous la limite de 100 fichiers.
 
@@ -257,67 +257,6 @@ Deux jeux arrivent sur l'accueil, Golfouille et Zoomalou. Ils partagent un petit
 - Les temps de calcul des automates sur les circuits géants peuvent se sentir au début d'un tour.
 
 
-## Dix-neuvième mise à jour, nouveau jeu coopératif, Bus Bazar
-
-Bus Bazar se joue de 1 à 4 personnes. Il y a quatre postes, conducteur, mécanicien, navigateur et responsable de cabine. Les postes sans joueur sont tenus par des robots, qui ne voient que ce que voit leur poste. On peut donc jouer seul.
-
-### Les quatre postes
-
-- Conducteur. Un vrai volant avec de l'inertie, une route en pseudo 3D, accélérateur, frein, klaxon, essuie-glaces, esquive et freinage d'urgence. L'adhérence dépend de la route, des pneus et de la météo.
-- Mécanicien. Sept organes à surveiller, un diagnostic, des réparations en plusieurs étapes, du ruban qui lâche au bout de 45 secondes, des pièces de rechange, un extincteur et le coup de clé qui aide une fois sur deux, ne fait rien une fois sur trois et aggrave une fois sur cinq.
-- Navigateur. Trois types de route à chaque étape, météo annoncée avant qu'elle n'arrive, horaire, achats, annonces au micro, GPS qui peut mentir, dilemmes à choix.
-- Responsable de cabine. Douze types de passagers avec leurs envies, leurs manies et leurs humeurs, et douze actions, dont la baffe cartoon, qui n'est jamais la meilleure idée sur un passager calme.
-
-### Réglages
-
-Dix-huit réglages, tous expliqués dans le salon et tous validés par le serveur. Mode de jeu, durée, rotation des postes, graine, difficulté, chaos, pannes, circulation, exigence des passagers, nombre de passagers, ressources, objets absurdes, sabotages, baffes, objectifs, types de routes, niveau des robots et remplissage des postes vides.
-
-### Graine
-
-La même graine avec les mêmes réglages redonne les mêmes routes, les mêmes passagers, les mêmes obstacles et les mêmes objets de départ. La graine se copie depuis le salon.
-
-### Fin de partie
-
-Cinq échecs distincts, accident majeur, panne sèche, retard fatal, bus irréparable pendant 120 secondes, objectif critique perdu. Une satisfaction très basse ne finit jamais la partie, elle donne des plaintes, une note plus faible et un titre moqueur.
-
-### Limites connues
-
-- Le mode de rotation Crise n'est pas encore là. Il y a Fixe et Relève.
-- Le passager VIP, objectif critique, est perdu assez souvent quand le poste de cabine est laissé à un robot ou à un joueur inactif. À équilibrer.
-- Les sons n'ont pas été écoutés. Rien n'a été testé sur Render ni avec plusieurs vrais téléphones. Le rendu a été contrôlé par captures d'écran dans un navigateur de test.
-
-
-## Vingtième mise à jour, grosse vague de nouveautés loufoques pour Bus Bazar
-
-### Nouveaux incidents, 22 de plus
-
-- Sur la route, fanfare en travers de la route, troupeau en promenade, pluie de grenouilles, mouette voleuse de snacks, camion de fromages renversé, tunnel à écho et coucher de soleil magnifique.
-- Choix à trancher, cortège de mariage, duel de klaxons, jeu radiophonique, caneton à bord.
-- Aux arrêts, péage tenu par un clown, fête du village, marchand ambulant avec son sac mystère, bus jumeau pour troquer un objet, contrôleur très zélé, drone de livraison perdu.
-- En cabine, lumières dans le ciel, karaoké sauvage, bus hanté la nuit, grève des sièges, crêpes en flammes.
-- Chacun a une solution, un texte clair et des conséquences mesurées. Les robots savent réagir à tous.
-
-### Six nouveaux passagers avec leurs manies
-
-Magicien incompris, poète en résidence, sportif du dimanche, cuisinier de voyage, ventriloque et sa marionnette, sosie d'une grande star. Chacun déclenche de temps en temps un petit événement qui aide ou dérange.
-
-### Nouvelles actions
-
-- Responsable de cabine, la ola, la danse en file, le quiz du bus, la tombola, le selfie de groupe, la sieste collective, le massage de nuque, l'horoscope du bord et Tous à droite, qui contre le vent ou un pneu qui tire.
-- Six nouveaux cadeaux à offrir, chapeau de fête, ballon géant, peluche douteuse, coussin à bruits, glace à la pistache et médaille en chocolat.
-- Navigateur, cinq nouvelles annonces, compliment général, blague du chauffeur, bulletin météo du bord, minute de silence et loto des sièges.
-- Conducteur, musique du bord (touche M) et gyrophare de fête (touche G).
-- Mécanicien, bidouille créative et parler au moteur.
-
-### Correction
-
-Les boutons du mécanicien envoyaient chaque action deux fois, la seconde étant refusée avec un message de patience. C'est corrigé.
-
-### Limites connues
-
-- Les sons des nouveautés sont ceux du jeu, aucun son neuf n'a été créé.
-- Les chances de réussite de plusieurs nouvelles actions sont à régler à l'usage.
-
 ## Richissime Destiny, douzième mise à jour, des métiers pour tous
 
 Les vies de Richissime partaient trop souvent vers la scène ou le stade. Sur 150 vies simulées, 63 pour cent commençaient par un métier de scène ou de sport. Cette mise à jour rend les parcours plus variés et les choix plus cohérents.
@@ -392,15 +331,7 @@ Les vies de Richissime partaient trop souvent vers la scène ou le stade. Sur 15
 
 - Je n'ai toujours pas de Mac. Les tests ont été faits sur un navigateur de bureau avec écran Retina, avec le rendu ancien forcé, avec un faux Safari et avec un affichage volontairement cassé pour vérifier que le mode compatibilité se déclenche seul.
 
-## Vingt-et-unième mise à jour, Bus Bazar en vraie 3D et nouveaux pions pour Goliathicus
-
-### Bus Bazar, refait de zéro en 3D
-
-- Tout est en 3D. Tu marches dans le bus à la première personne, avec la souris et le clavier ou avec les commandes tactiles. Chaque rôle a sa vraie place dans le bus.
-- Le chauffeur conduit pour de vrai, avec le volant, la vitesse conseillée et les virages de la route. Le contrôleur accepte ou refuse les voyageurs à la porte et sur le quai. Le mécanicien éteint les feux, répare sous la trappe et bouche les fuites. Le porteur ramasse les caisses et les range.
-- Les voyageurs se baladent, s'assoient, dorment, râlent et paniquent selon leurs besoins. Les rôles vides sont tenus par des robots, le chauffeur compris.
-- La météo, le brouillard, la pluie et la nuit se voient dans le décor.
-- Le menu règle la sensibilité de la souris, la vitesse du volant, le son et le mode compatibilité.
+## Vingt-et-unième mise à jour, nouveaux pions pour Goliathicus
 
 ### Goliathicus
 
@@ -416,8 +347,6 @@ Les vies de Richissime partaient trop souvent vers la scène ou le stade. Sur 15
 
 ### Limites connues
 
-- Bus Bazar n'a pas été testé sur une vraie carte graphique, sur un vrai Mac ni sur un vrai téléphone. Les essais ont eu lieu sur un navigateur de bureau avec rendu logiciel, donc lent.
-- Avec un trafic dense et une météo capricieuse, le chauffeur robot fait parfois des accidents.
 - L'IA de Goliathicus ne calcule pas le bonus de l'étendard quand elle évalue un combat, elle joue donc un peu en dessous de son niveau contre cette pièce.
 - Le Phénix 🐦‍🔥 est un emoji récent, sur un appareil ancien il peut s'afficher en deux symboles.
 
@@ -445,3 +374,158 @@ Les vies de Richissime partaient trop souvent vers la scène ou le stade. Sur 15
 
 - Les plantages de Richissime que tu vois ne sont pas tous reproduits. Si ça recommence, note l'année de la partie et ce qui était affiché, avec une capture si possible.
 - Sur l'hébergement gratuit, tous les jeux partagent le même petit serveur. Quand il s'endort ou redémarre, les parties en cours peuvent être perdues.
+
+## Vingt-troisième mise à jour, Goliathicus plus simple et IA plus stratège
+
+### Légion des merveilles
+
+- La fenêtre de composition fonctionne. Les longues descriptions des pièces poussaient les boutons plus et moins hors de l'écran, ce qui empêchait de choisir quoi que ce soit. Chaque pièce affiche maintenant son nom, sa force, ses boutons et sa description sur une ligne en dessous.
+- Un bouton Tout vider enlève toutes les pièces spéciales pour choisir une par une. Le compteur reste bloqué au nombre de places libres et les places non remplies deviennent des Gardes, donc tout le monde a bien le même nombre de pions.
+
+### Réglages simplifiés
+
+- Retirés de l'écran. Le camp éliminé disparaît toujours, plus de ruines qui remplissent le plateau. Le brouillard comme réglage permanent, il reste dans les événements du mode Chaos. Le temps pour placer l'armée, toujours illimité.
+- Les réglages des nouvelles pièces et des reliques sont retirés et gardent leur valeur de départ, souffle du Bombardier sur les cases voisines, étendard à plus 1, Sentinelle à 1 case, une seule renaissance du Phénix, bonus de la Messagère actif et Reflet interdit sur les reliques.
+- Nouveau réglage Œuf croqué, une pièce revient. Quand tu croques l'Œuf de Dragon d'un adversaire, ta dernière pièce éliminée revient dans ton camp face cachée. Désactivé par défaut.
+
+### Intelligence artificielle
+
+- En mode Conquête, l'IA joue le double jeu. Elle suit les points de reliques de chaque adversaire, s'inquiète quand l'un s'approche de l'objectif ou la dépasse, va déloger les pièces qui tiennent une relique et vise en priorité le meneur, tout en continuant de protéger son Œuf et de viser celui des autres.
+- L'IA connaît les nouvelles pièces. Elle compte le bonus de l'étendard dans ses combats, calcule les dégâts du souffle du Bombardier chez l'ennemi et chez ses alliés, place la Sentinelle près des pièces inconnues, joue la Messagère pour gagner un second déplacement, protège moins le Phénix qui renaît et compose ses armées avec ces pièces.
+- Sur des parties de test entre deux IA, la nouvelle version bat l'ancienne en Conquête aux niveaux Sorcier et Dragon. Au niveau Roi Stratège, les deux versions sont à égalité.
+
+### Limites connues
+
+- Le niveau Roi Stratège n'a pas gagné en force en Conquête, il était déjà bon pour les reliques.
+- Tout cela a été testé par des parties entre IA et dans un navigateur de bureau, pas avec des humains.
+
+## Vingt-quatrième mise à jour, Zoomalou plus juste
+
+### Circuits
+
+- Les ralentisseurs ne sont plus des pièces entières. Ce sont de petites plaques de trois ou quatre points posées de temps en temps sur l'asphalte, avec un espacement minimum et un plafond par circuit. Il y en a environ vingt fois moins, et le tirage donne plus de pentes, de sauts, de ponts, d'obstacles et de boosts.
+
+### Un seul essai par course
+
+- Le réglage Temps pour se lancer propose maintenant Adapté au circuit, choisi par défaut. La fenêtre se calcule d'après le temps du pilote de référence, donc une course de trente secondes ne laisse plus traîner.
+- Un pilote déjà parti garde toujours le temps de finir, compté depuis son propre départ. Son essai ne peut plus être gâché par la fin du chrono.
+- Une fois la fenêtre écoulée, on ne peut plus partir. Dans les deux modes chrono et contact, il n'y a qu'un essai, l'abandon compte comme l'essai.
+
+### Temps perdus
+
+- Le serveur compare toujours la course rejouée au temps annoncé, mais il accepte maintenant le temps annoncé quand l'écart est petit ou que le rejeu diverge, tant que ce temps reste plausible. Les écarts sont écrits dans le journal du serveur.
+- Si le serveur refuse tout de même un passage, l'essai n'est pas consommé et le joueur peut repartir.
+
+### Niveaux des IA
+
+- Les écarts entre niveaux sont nettement plus grands. Mesure sur le même circuit, par rapport au Prodige. Débutant environ deux fois plus lent, Moyen environ un tiers plus lent, Champion environ neuf pour cent plus lent.
+
+### Contacts
+
+- Les chocs sont plus forts, avec un rebond plus vif, un décalage plus net et une rotation plus marquée. Les limites de contrôle du serveur restent les mêmes.
+
+### Limites connues
+
+- Les contacts ont été testés par rejeu serveur, pas à plusieurs humains en même temps. Leur dosage se juge à la main.
+- Si un joueur ne démarre pas du tout, il perd simplement son essai, personne ne le lance à sa place.
+
+## Vingt-cinquième mise à jour, contacts réels et sortie de piste
+
+### Pilotes automatiques en mode contact
+
+- Avant, les pilotes automatiques rejouaient un trajet déjà calculé, donc rien ne les bougeait. C'est la raison pour laquelle ils te poussaient sans jamais rien subir.
+- Maintenant, en mode contact, chaque pilote automatique roule en direct sur le serveur avec la vraie physique. Quand tu le percutes, il est poussé, dévié et peut partir en tête à queue. Il se rattrape ensuite tout seul et reprend la route.
+- Les chocs entre deux automates fonctionnent aussi.
+- Dans mes essais, des chocs très violents avec rotation à plein régime n'ont fait échouer aucun automate sur quarante huit courses, ils perdent seulement quelques secondes.
+
+### Chocs plus justes
+
+- Humains et automates utilisent maintenant la même formule de choc, avec la même force des deux côtés. Taper quelqu'un par derrière ne se résume plus à s'arrêter net.
+
+### Nouveau réglage, sortie de piste
+
+- Murs infranchissables est le mode assisté et reste le réglage par défaut.
+- Sortie permise, retour au point de contrôle. Un saut assez haut et assez long peut passer par dessus la barrière. La voiture retombe hors du circuit puis repart du dernier point de contrôle.
+- Sortie permise, retour au départ. Même chose, mais on repart de la ligne de départ. Le chrono continue de tourner.
+- Les pilotes automatiques restent toujours dans les murs.
+
+### Limites connues
+
+- Les chocs avec un humain sont calculés d'après sa position envoyée environ vingt fois par seconde. Avec une mauvaise connexion, le choc peut paraître un peu en retard.
+- Je n'ai pas pu tester à plusieurs humains en même temps, seulement avec des joueurs simulés. Le dosage de la force des chocs se juge à la main.
+
+## Vingt-sixième mise à jour, nouveau jeu Pagaille Party
+
+Un party game en ligne de deux à huit joueurs, dans l'esprit de Mario Party, avec une collection de mini-jeux de moins d'une minute. Il vit dans le dossier pagaille et se branche sur le site comme les autres jeux, avec le même système de salons, de code, de couleurs, de tchat et de reconnexion.
+
+### Comment se déroule une partie
+
+- L'hôte règle le nombre de manches (5, 10, 15, 20, 30 ou un nombre personnalisé jusqu'à 40) et lance la partie.
+- À chaque manche, trois mini-jeux compatibles avec le nombre de joueurs sont proposés. Tout le monde vote, le vote s'arrête dès que tous ont voté, et les égalités sont tranchées au hasard.
+- Les règles et les commandes s'affichent avant chaque jeu, avec un bouton prêt pour passer plus vite.
+- Après le jeu, un classement de la manche et un classement général sont affichés.
+- La dernière manche peut compter double, réglable.
+
+### Les réglages, tous expliqués dans le salon
+
+- Nombre de manches et nombre personnalisé.
+- Ambiance compétitive ou chaotique. En chaos, chaque manche reçoit une surprise tirée au hasard, commandes inversées, turbo ou points doublés.
+- Temps pour voter, temps pour lire les règles et durée des manches (courtes, normales, longues).
+- Éviter deux fois de suite le même jeu, et préférer les jeux pas encore joués.
+- Activer ou désactiver chaque mini-jeu un par un.
+
+### Les points
+
+- Un classement est établi à chaque manche. Dix points pour le premier, puis des points décroissants selon le nombre de joueurs, et les égalités se partagent les points.
+- Quelques bonus de un à trois points récompensent les beaux coups, comme démasquer le meurtrier, toucher des adversaires avec un laser ou monter le plus haut.
+
+### Les onze mini-jeux livrés
+
+| Jeu | Joueurs | Idéal | Durée | Principe |
+|---|---|---|---|---|
+| Couleur cible | 2 à 8 | 4 à 6 | 40 s | Une couleur est annoncée, les autres cases tombent. Une grille de quarante-huit cases évite que ce soit du hasard à deux. |
+| Lave montante | 2 à 8 | 3 à 6 | 45 s | Des tours de plateformes en vue de dessus, un saut permet de monter de deux niveaux. |
+| Bombe en voiture | 2 à 8 | 4 à 8 | 60 s | Petites voitures qui dérapent autour de piliers. De une à deux bombes selon le nombre de joueurs, la bombe passe au contact. |
+| Sumo glissant | 2 à 8 | 3 à 6 | 60 s | Visée secrète de la direction et de la puissance, lancer simultané, glace et chocs, plateforme qui rétrécit. |
+| Lasers invisibles | 2 à 8 | 3 à 6 | 50 s | Déplacement et ligne de tir choisis en secret, tout part en même temps. Plateau plus grand avec plus de joueurs. |
+| Meurtre mystère | 3 à 8 | 5 à 8 | 75 s | Un meurtrier secret, un détective connu de tous à partir de quatre joueurs, cadavres signalés par un cercle rouge, accusations risquées. |
+| Faux semblants | 2 | 2 | 45 s | La version du meurtre pour deux joueurs. Rôles secrets parmi meurtrier, détective et innocent, choix simultanés de pièce et d'action sur cinq tours. |
+| Pont de verre | 2 à 8 | 3 à 8 | 50 s | Une dalle fragile par rangée, on passe chacun son tour et ceux qui tombent révèlent le chemin aux suivants. |
+| Faites des groupes | 3 à 8 | 5 à 8 | 40 s | Un nombre est annoncé, il faut être exactement ce nombre dans une zone. |
+| Cagnotte qui grimpe | 2 à 8 | 3 à 8 | 40 s | Cinq coups où l'on encaisse avant une explosion au moment inconnu. |
+| Sol en miettes | 2 à 8 | 3 à 6 | 50 s | Les dalles touchées s'effritent, on pousse les autres vers le vide. |
+
+Un jeu qui ne convient pas au nombre de joueurs présents n'est jamais proposé. Faux semblants n'apparaît qu'à deux et le meurtre classique à partir de trois.
+
+### Les concepts prévus pour la suite
+
+| Jeu | Joueurs | Principe |
+|---|---|---|
+| Portes piégées | 3 à 8 | Plusieurs portes, certaines sont des pièges, on choisit en même temps que les autres. |
+| Mémoire de cases | 2 à 8 | Une séquence de cases à reproduire, qui s'allonge à chaque tour. |
+| Course à l'envers | 2 à 8 | Une course dont les commandes s'inversent par moments. |
+| Course aux raccourcis | 2 à 8 | Un parcours avec obstacles et passages secrets. |
+| Cache-cache | 3 à 8 | Une petite carte, un chercheur et des cachés qui bougent peu. |
+| Roi de la colline | 2 à 8 | Occuper une zone le plus longtemps possible, les autres cherchent à vous pousser. |
+| Collecte gênée | 2 à 8 | Ramasser des objets en pouvant bloquer les autres. |
+| Chaises sans musique | 3 à 8 | La zone sûre change régulièrement, signalée par une animation. |
+| Pierre feuille ciseaux élargi | 2 à 8 | Choix simultanés entre plusieurs actions qui se battent entre elles. |
+| Esquive automatique | 2 à 8 | Éviter des projectiles tirés tout seuls, sans viser. |
+| Aimants | 2 à 8 | Des forces attirent et repoussent les joueurs vers des zones. |
+
+### Ajouter un mini-jeu
+
+- Ajouter une fiche dans pagaille/public/game/catalog.js avec le nombre de joueurs minimum et maximum, les règles et les commandes.
+- Créer pagaille/games/<identifiant>.js qui exporte create(ctx) et renvoie un objet avec update, frame, priv, onAct, done et ranking.
+- Le moteur se charge du reste, vote, règles, compte à rebours, classement, points, déconnexions et affichage. Le plateau est décrit au client par de simples formes que le dessin sait afficher.
+
+### Ce qui est contrôlé par le serveur
+
+- Les votes, le démarrage des manches, les déplacements, les collisions, les éliminations, les scores et les résultats. Le client n'envoie que ses touches, ses clics et ses choix.
+- Un joueur déconnecté ne bloque jamais une manche. Il ne vote plus et ses touches sont à zéro. Il peut revenir avec le même lien.
+
+### Limites connues
+
+- Cette première version contient onze mini-jeux et non cent. Le catalogue et le moteur sont faits pour en ajouter facilement.
+- Les touches à l'écran pour téléphone sont prévues mais n'ont pas été testées sur un vrai téléphone.
+- Les tests ont été faits par des joueurs simulés qui jouent au hasard, sans humains. L'équilibrage fin des jeux reste à juger à la main.
