@@ -558,6 +558,7 @@
     const qs = [["low", "Basse"], ["medium", "Moyenne"], ["high", "Haute"]];
     const row = (title, info, control) => el("div", { class: "menu-row" }, [el("div", {}, [el("b", { text: title }), el("p", { class: "small muted", text: info })]), control]);
     const qbox = el("div", { class: "chips" }, qs.map(([v, l]) => el("button", { class: "chip" + (q === v ? " chip--on" : ""), text: l, onclick: (ev) => { store.set("golf.quality", v); V.setQuality(v); ev.target.parentNode.querySelectorAll(".chip").forEach((c) => c.classList.remove("chip--on")); ev.target.classList.add("chip--on"); } })));
+    const cbtn = el("button", { class: "btn btn--small btn--ghost", text: PicuiteGL.compat() ? "Compatibilité activée" : "Compatibilité coupée", onclick: () => PicuiteGL.setCompat(!PicuiteGL.compat()) });
     const sbtn = el("button", { class: "btn btn--small btn--ghost", text: sound.enabled ? "Son activé" : "Son coupé", onclick: (ev) => { ev.target.textContent = sound.toggle() ? "Son activé" : "Son coupé"; } });
     const keys = el("div", { class: "keys" }, [
       el("kbd", { text: "Toucher le terrain" }), el("span", { text: "Vise ce point. Le club et la force se règlent seuls pour que la balle s'y arrête, tu peux ensuite les changer." }),
@@ -575,6 +576,7 @@
     const pows = el("div", {}, GR.POWER_ORDER.map((id) => el("p", { class: "small", text: GR.POWERS[id].icon + " " + GR.POWERS[id].name + " · " + GR.POWERS[id].desc })));
     Kit.showModal("Menu", [
       row("Qualité graphique", "Basse retire les ombres et allège l'affichage, utile sur téléphone ou ordinateur modeste.", qbox),
+      row("Mode compatibilité", "Affichage 3D le plus simple possible, sans ombres ni reflets. À essayer si l'écran reste blanc ou noir, c'est le cas de certains Mac. La page se recharge. Activé par défaut sur Safari.", cbtn),
       row("Sons", "Coups, rebonds, plouf et pouvoirs.", sbtn),
       el("h3", { text: "Commandes", style: { marginTop: "0.8rem" } }), keys,
       el("button", { class: "btn btn--small btn--ghost", style: { marginTop: "0.6rem" }, text: "Revoir le tutoriel", onclick: () => { $("#modal").classList.add("hidden"); showTuto(true); } }),

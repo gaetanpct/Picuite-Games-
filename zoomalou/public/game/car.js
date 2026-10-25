@@ -46,7 +46,7 @@
     const r = {
       tr, car, tick: 0, x: st.x - Math.cos(st.h) * slot, z: st.z + Math.sin(st.h) * slot, slot, y: st.y, hd: st.h, vx: 0, vz: 0, vy: 0, air: false, idx: st.idx, prevIdx: st.idx, cp: 0, cpIdx: st.idx, cpHd: st.h,
       finished: false, finishTime: 0, boostT: 0, driftT: 0, resets: 0, hits: 0, climb: 0, steerV: 0, pitch: 0, roll: 0, lastResetTick: -999, maxSpeed: 0, onSurf: 0, wallHit: 0, landed: 0, boostEvt: 0,
-      rail: false, mag: -1, ux: 0, uz: 0, wasSolid: true,
+      rail: false, mag: -1, ux: 0, uz: 0, wasSolid: true, spin: 0,
       opts: opts || {},
     };
     r.y = sampleAt(tr, r.idx).y; return r;
@@ -56,7 +56,8 @@
     if (n <= 1) return 0; const half = tr.w[tr.start.idx] - 1.5; const sp = Math.min(2.8, (2 * half) / (n - 1)); return (i - (n - 1) / 2) * sp;
   }
   // choc venu d'un autre pilote, appliqué avant le pas suivant. Enregistré dans la course pour que le serveur puisse la rejouer
-  function nudge(r, dx, dz, dvx, dvz) { if (r.rail) return; r.x += dx; r.z += dz; r.vx += dvx; r.vz += dvz; }
+  // dspin est une vitesse de rotation ajoutée, en rad/s, qui s'éteint toute seule. Un choc de côté ou à l'arrière fait déraper et tourner la voiture
+  function nudge(r, dx, dz, dvx, dvz, dspin) { if (r.rail) return; r.x += dx; r.z += dz; r.vx += dvx; r.vz += dvz; if (dspin) r.spin = Math.max(-9, Math.min(9, (r.spin || 0) + dspin)); }
 
   function resetToCheckpoint(r) {
     const tr = r.tr, s = sampleAt(tr, r.cpIdx);
@@ -167,6 +168,7 @@
     const sgnV = vf >= 0 ? 1 : -1; const sf = Math.min(1, Math.abs(vf) / 6);
     const fall = 1 / (1 + Math.pow(Math.abs(vf) / (car.vmax * 0.68), 1.6) * 0.85);
     let yaw = -st * car.turn * sf * fall * sgnV; if (r.air) yaw *= 0.35; r.hd += yaw * DT;
+    if (r.spin) { r.hd += r.spin * DT; r.spin *= 0.9; if (Math.abs(r.spin) < 0.03) r.spin = 0; }
     // accélération
     const boosted = r.boostT > 0; if (boosted) { vmax *= 1.3; accMul += 1.1; r.boostT--; }
     if (!r.air) {
@@ -250,7 +252,7 @@
     const r = newRun(tr, carId, opts); const n = bytes.length; const frames = []; const lim = fuelTicks == null ? 1e12 : fuelTicks;
     const ev = (opts && opts.events) || []; let ei = 0;
     for (let i = 0; i < n && !r.finished; i++) {
-      while (ei < ev.length && ev[ei][0] <= i) { if (ev[ei][0] === i) nudge(r, ev[ei][1], ev[ei][2], ev[ei][3], ev[ei][4]); ei++; }
+      while (ei < ev.length && ev[ei][0] <= i) { if (ev[ei][0] === i) nudge(r, ev[ei][1], ev[ei][2], ev[ei][3], ev[ei][4], ev[ei][5]); ei++; }
       const inp = unpackInput(bytes[i]); if (i >= lim) inp.thr = 0;
       step(r, inp); if (i % 6 === 0) frames.push(r.x, r.y, r.z, r.hd, r.pitch, r.rail ? 2 : r.air ? 1 : 0, r.boostT > 0 ? 1 : 0, r.idx);
     }

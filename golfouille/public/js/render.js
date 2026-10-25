@@ -114,7 +114,7 @@
   View.loadHole = function (hole) {
     View.hole = hole; P.prepare(hole); biome = Course.BIOMES[hole.biome];
     clearHole();
-    document.getElementById("gl-host").style.background = "linear-gradient(180deg," + biome.sky[0] + "," + biome.sky[1] + " 78%)";
+    PicuiteGL.sky(scene, document.getElementById("gl-host"), biome.sky[0], biome.sky[1], T);
     scene.fog = new T.Fog(col(biome.fog), 60, biome.id === "cosmos" ? 240 : 230);
     hemi.color.set(biome.amb); hemi.groundColor.set(biome.col.rough); sun.color.set(biome.sun);
     buildTerrain(hole); buildDecor(hole); buildSpecials(hole);

@@ -91,7 +91,7 @@
   }
   View.loadTrack = function (tr) {
     View.track = tr; const B = Track.BIOMES[tr.biome]; clearTrack();
-    document.getElementById("gl-host").style.background = "linear-gradient(180deg," + B.sky[0] + "," + B.sky[1] + " 78%)";
+    PicuiteGL.sky(scene, document.getElementById("gl-host"), B.sky[0], B.sky[1], T);
     scene.fog = new T.Fog(col(B.fog), 90, B.stars ? 420 : 380); hemi.color.set(B.amb); hemi.groundColor.set(B.ground); sun.color.set(B.sun);
     const n = tr.n, X = tr.x, Y = tr.y, Z = tr.z, H = tr.h, W = tr.w, FL = tr.flags, FG = Track.FLAG;
     // repère de chaque point. Au sol la droite est horizontale et le haut est vertical. Dans une zone sans gravité on prend le vrai repère 3D

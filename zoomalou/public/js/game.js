@@ -115,7 +115,7 @@
   // ---------- pilotage ----------
   function arm() { if (G.armedAt && Date.now() - G.armedAt < 1200) return; G.armedAt = Date.now(); G.waiting = true; Kit.socket.emit("z:attempt"); }
   function onGo(m) {
-    clock(m.now); G.waiting = false; const car = G.carId || m.car || "bolide";
+    clock(m.now); G.waiting = false; if (isChrono(G.mode)) G.wantArm = false; const car = G.carId || m.car || "bolide";
     G.slotMe = m.slot || 0; G.run = { r: CA.newRun(G.track, car, { slot: G.slotMe }), bytes: [], events: [], goAt: m.goAt, fuelTicks: 1e12, fuel0: m.fuelLeft || 0, challenger: m.fuelLeft > 0, frames: [], done: false, car, cpShown: 0, out: false, finishSent: false, gptr: 0, lastGo: 0 };
     G.ghostPtr = 0; V.resetGates(); V.resetFollow(); G.armedAt = 0; G.cpBanner = 0;
     G.ghostT0 = m.goAt;
@@ -132,6 +132,14 @@
   }
   function restartAttempt() {
     const s = G.st; if (!s) return;
+    // en chrono fantôme et contact, un seul essai. Le bouton sert à abandonner, avec une confirmation par un second appui
+    if (isChrono(G.mode)) {
+      if (!G.run || G.run.done || G.run.finishSent || s.phase !== "race") return;
+      const n = performance.now();
+      if (!G.quitAsk || n - G.quitAsk > 3000) { G.quitAsk = n; setBanner("Abandonner la course", "Appuie encore une fois pour confirmer, tu n'as qu'un seul essai", 2600); return; }
+      G.quitAsk = 0; Kit.socket.emit("z:end", { kind: "quit" }); G.run = null; G.wantArm = false; V.hideCar("me"); setBanner("Course abandonnée", "En attente des autres pilotes", 3000);
+      return;
+    }
     if (s.phase === "race" || (s.phase === "turns" && s.turn && s.turn.pid === myId() && !s.turn.ended && !s.turn.auto)) {
       if (G.run && !G.run.finishSent) { Kit.socket.emit("z:end", { kind: "restart" }); }
       G.run = null; G.armedAt = 0; setTimeout(arm, 150);
@@ -224,7 +232,7 @@
     if (rec != null) feed(t < rec ? "Record battu de " + fmt(rec - t) + " s" : "Il manque " + fmt(t - rec) + " s pour battre le record");
     // l'essai suivant démarre tout seul après une courte pause
     G.afterFinish = performance.now(); G.run = run;
-    setTimeout(() => { if (G.run === run && canDrive() && !(G.st.turn && G.st.turn.ended)) { G.run = null; G.armedAt = 0; if (isChrono(G.mode)) { G.waiting = false; arm(); } } }, 2600);
+    setTimeout(() => { if (G.run === run && canDrive() && !(G.st.turn && G.st.turn.ended)) { G.run = null; G.armedAt = 0; if (isChrono(G.mode)) { G.waiting = false; setBanner("Ton temps est posé", "En attente des autres pilotes", 4000); } } }, 2600);
   }
   function bytesB64(arr) { let s = ""; for (let i = 0; i < arr.length; i += 0x8000) s += String.fromCharCode.apply(null, arr.slice(i, i + 0x8000)); return btoa(s); }
 
@@ -234,6 +242,7 @@
     m.cars.forEach((c) => {
       const prev = G.snaps[c.id]; const n = Object.assign({ at: now, vx: 0, vz: 0 }, c);
       if (prev) { const dt = (now - prev.at) / 1000; if (dt > 0.015 && dt < 0.6) { n.vx = prev.vx * 0.4 + ((c.x - prev.x) / dt) * 0.6; n.vz = prev.vz * 0.4 + ((c.z - prev.z) / dt) * 0.6; } else { n.vx = prev.vx; n.vz = prev.vz; } }
+      if (typeof c.vx === 'number' && (c.vx || c.vz)) { n.vx = c.vx; n.vz = c.vz; }
       G.snaps[c.id] = n;
     });
   }
@@ -246,13 +255,21 @@
       let best = null;
       for (let a = -1; a <= 1; a += 2) for (let b = -1; b <= 1; b += 2) {
         const ax = r.x + Math.sin(r.hd) * off * a, az = r.z + Math.cos(r.hd) * off * a, bx = o.x + Math.sin(o.h) * off * b, bz = o.z + Math.cos(o.h) * off * b;
-        const dx = ax - bx, dz = az - bz, d = Math.hypot(dx, dz), pen = 2 * R - d; if (pen > 0 && (!best || pen > best.pen)) best = { pen, nx: d > 1e-4 ? dx / d : 1, nz: d > 1e-4 ? dz / d : 0 };
+        const dx = ax - bx, dz = az - bz, d = Math.hypot(dx, dz), pen = 2 * R - d;
+        if (pen > 0 && (!best || pen > best.pen)) best = { pen, nx: d > 1e-4 ? dx / d : 1, nz: d > 1e-4 ? dz / d : 0, cx: (ax + bx) / 2, cz: (az + bz) / 2 };
       }
       if (!best) return;
-      const share = heavy ? 1 : 0.5; const push = Math.min(0.7, best.pen) * share; const rvx = r.vx - sn.vx, rvz = r.vz - sn.vz; const vn = rvx * best.nx + rvz * best.nz;
-      let dvx = 0, dvz = 0; if (vn < 0) { const j = Math.min(14, -(1.3) * vn * share); dvx = best.nx * j; dvz = best.nz * j; }
-      const dx = best.nx * push, dz = best.nz * push; CA.nudge(r, dx, dz, dvx, dvz);
-      run.events.push(r.tick, Math.round(dx * 100), Math.round(dz * 100), Math.round(dvx * 100), Math.round(dvz * 100));
+      const share = heavy ? 1 : 0.55; const push = Math.min(0.5, best.pen * 0.6) * share;
+      const rvx = r.vx - sn.vx, rvz = r.vz - sn.vz; const vn = rvx * best.nx + rvz * best.nz;
+      let dvx = 0, dvz = 0, ds = 0;
+      if (vn < -0.2 && (r.bumpCd | 0) <= r.tick) {
+        // choc élastique. La voiture la plus lente ou la plus légère est la plus déviée
+        const j = Math.min(16, -(1.55) * vn * share); dvx = best.nx * j; dvz = best.nz * j; r.bumpCd = r.tick + 5;
+        // le point d'impact loin du centre fait tourner la voiture
+        const lx = best.cx - r.x, lz = best.cz - r.z; ds = Math.max(-5, Math.min(5, (lz * dvx - lx * dvz) * 0.22));
+      }
+      const q = (v) => Math.round(v * 100); const ex = [q(best.nx * push), q(best.nz * push), q(dvx), q(dvz), q(ds)]; CA.nudge(r, ex[0] / 100, ex[1] / 100, ex[2] / 100, ex[3] / 100, ex[4] / 100); // valeurs arrondies comme sur le serveur
+      run.events.push(r.tick, ex[0], ex[1], ex[2], ex[3], ex[4]);
       if (vn < -3 && t - (run.lastBump || 0) > 250) { run.lastBump = t; V.shake(Math.min(0.5, -vn * 0.03)); Kit.sound.noise(0.1, 0.07, 0, 700); }
     });
   }
@@ -396,7 +413,7 @@
     }
     // conseils
     const tip = $("#z-tip"); let tt = "";
-    if (s && canDrive()) tt = "↑ accélérer · ↓ reculer · ← → tourner · Entrée recommencer l'essai · Maj dernier point de contrôle · C caméra";
+    if (s && canDrive()) tt = "↑ accélérer · ↓ reculer · ← → tourner · Entrée recommencer (ou abandonner en chrono) · Maj dernier point de contrôle · C caméra";
     else if (s && s.phase === "turns" && s.turn) tt = "Tu joueras dans " + Math.max(0, s.order.indexOf(myId()) - s.turn.idx) + " tour" + (s.order.indexOf(myId()) - s.turn.idx > 1 ? "s" : "") + (s.order.indexOf(myId()) <= s.turn.idx ? ", ton tour est passé." : ".");
     if (G.lastDom.tip !== tt) { tip.textContent = tt; G.lastDom.tip = tt; }
     if (G.sheet && G.sheet.kind === "end" && G.endInfo) { const left = Math.max(0, Math.ceil((G.endInfo.until - snow()) / 1000)); G.sheet.note.textContent = G.endInfo.last ? "C'est la dernière course, les résultats arrivent." : "Prochaine course dans " + left + " s."; }
@@ -443,16 +460,17 @@
     const q = store.get("zoom.quality", autoQuality()); const qs = [["low", "Basse"], ["medium", "Moyenne"], ["high", "Haute"]];
     const row = (title, info, control) => el("div", { class: "menu-row" }, [el("div", {}, [el("b", { text: title }), el("p", { class: "small muted", text: info })]), control]);
     const qbox = el("div", { class: "chips" }, qs.map(([v, l]) => el("button", { class: "chip" + (q === v ? " chip--on" : ""), text: l, onclick: (ev) => { store.set("zoom.quality", v); V.setQuality(v); ev.target.parentNode.querySelectorAll(".chip").forEach((c) => c.classList.remove("chip--on")); ev.target.classList.add("chip--on"); } })));
+    const cbtn = el("button", { class: "btn btn--small btn--ghost", text: PicuiteGL.compat() ? "Compatibilité activée" : "Compatibilité coupée", onclick: () => PicuiteGL.setCompat(!PicuiteGL.compat()) });
     const sbtn = el("button", { class: "btn btn--small btn--ghost", text: sound.enabled ? "Son activé" : "Son coupé", onclick: (ev) => { ev.target.textContent = sound.toggle() ? "Son activé" : "Son coupé"; } });
     const keys = el("div", { class: "keys" }, [
       el("kbd", { text: "↑ ↓ ← →" }), el("span", { text: "Flèche du haut pour accélérer, flèche du bas pour freiner puis reculer, flèches de côté pour tourner." }),
-      el("kbd", { text: "Entrée" }), el("span", { text: "Recommencer l'essai depuis la ligne de départ. En mode essence, l'essence déjà brûlée est perdue." }),
+      el("kbd", { text: "Entrée" }), el("span", { text: "En mode essence, recommence l'essai depuis la ligne de départ et l'essence déjà brûlée est perdue. En chrono fantôme et contact, on n'a qu'un seul essai, la touche sert à abandonner et demande une confirmation." }),
       el("kbd", { text: "Maj" }), el("span", { text: "Revenir au dernier point de contrôle franchi, le chrono continue." }),
       el("kbd", { text: "C" }), el("span", { text: "Changer de caméra." }),
-      el("kbd", { text: "Manette" }), el("span", { text: "Stick gauche pour tourner, gâchette droite pour accélérer, gauche pour freiner, carré pour revenir au point de contrôle, triangle pour recommencer." }),
+      el("kbd", { text: "Manette" }), el("span", { text: "Stick gauche pour tourner, gâchette droite pour accélérer, gauche pour freiner, carré pour revenir au point de contrôle, triangle pour recommencer ou abandonner." }),
     ]);
     const cars = el("div", {}, CA.CAR_ORDER.map((id) => el("p", { class: "small", text: CA.CARS[id].icon + " " + CA.CARS[id].name + " · " + CA.CARS[id].desc })));
-    Kit.showModal("Menu", [row("Qualité graphique", "Basse retire les ombres et allège l'affichage, utile sur téléphone ou ordinateur modeste.", qbox), row("Sons", "Moteur, points de contrôle et arrivées.", sbtn),
+    Kit.showModal("Menu", [row("Qualité graphique", "Basse retire les ombres et allège l'affichage, utile sur téléphone ou ordinateur modeste.", qbox), row("Mode compatibilité", "Affichage 3D le plus simple possible, sans ombres ni reflets. À essayer si l'écran reste blanc ou noir, c'est le cas de certains Mac. La page se recharge. Activé par défaut sur Safari.", cbtn), row("Sons", "Moteur, points de contrôle et arrivées.", sbtn),
       el("h3", { text: "Commandes", style: { marginTop: "0.8rem" } }), keys, el("h3", { text: "Les voitures", style: { marginTop: "0.8rem" } }), cars,
       el("button", { class: "btn btn--danger btn--small", style: { marginTop: "0.8rem" }, text: "Quitter la partie", onclick: () => Kit.confirm("Quitter la partie et revenir à l'accueil ?", () => { $("#modal").classList.add("hidden"); Kit.leave(); }) })]);
   }
@@ -498,7 +516,7 @@
     so.on("z:turnEnd", onTurnEnd); so.on("z:result", onResult); so.on("z:botTurn", onBotTurn); so.on("z:roundEnd", onRoundEnd); so.on("z:over", onOver);
   }
   // envoi régulier de la position pendant un essai
-  const sendPos = () => { const r = G.run; if (!r || r.done || !Kit.socket || r.countdown > 0 || !canDrive()) return; const a = r.r; const fx = Math.sin(a.hd), fz = Math.cos(a.hd); Kit.socket.emit("z:pos", { x: +a.x.toFixed(2), y: +a.y.toFixed(2), z: +a.z.toFixed(2), h: +a.hd.toFixed(3), p: +a.pitch.toFixed(3), a: a.rail ? 2 : a.air ? 1 : 0, i: +a.idx.toFixed(2), b: a.boostT > 0 ? 1 : 0 }); };
+  const sendPos = () => { const r = G.run; if (!r || r.done || !Kit.socket || r.countdown > 0 || !canDrive()) return; const a = r.r; const fx = Math.sin(a.hd), fz = Math.cos(a.hd); Kit.socket.emit("z:pos", { x: +a.x.toFixed(2), y: +a.y.toFixed(2), z: +a.z.toFixed(2), vx: +a.vx.toFixed(2), vz: +a.vz.toFixed(2), h: +a.hd.toFixed(3), p: +a.pitch.toFixed(3), a: a.rail ? 2 : a.air ? 1 : 0, i: +a.idx.toFixed(2), b: a.boostT > 0 ? 1 : 0 }); };
   setInterval(() => { if (G.mode !== "contact") sendPos(); }, 100); setInterval(() => { if (G.mode === "contact") sendPos(); }, 50);
   Kit.on("screen", (name) => { V.paused = name !== "game"; if (name === "game") setTimeout(() => { if (G.viewInit) V.resize(); }, 50); });
   Kit.on("reset", () => { G.st = null; G.track = null; G.run = null; closeSheet(); G.prev.key = ""; });
@@ -513,9 +531,9 @@
     help: [
       { title: "Le but", text: "Chaque course se joue sur un circuit généré au hasard. Il s'agit de franchir la ligne d'arrivée le plus vite possible, en passant par tous les points de contrôle." },
       { title: "Le mode essence", text: "Le premier pilote pose un temps. Ensuite chaque autre pilote, à son tour, a un réservoir limité pour le battre. Chaque essai consomme de l'essence, y compris ceux qu'on abandonne. Quand le réservoir est vide, l'essai en cours peut quand même aller jusqu'au bout. S'il bat le record il devient le nouveau record à battre, sinon il tombe en panne et passe la main." },
-      { title: "Le chrono fantôme", text: "Tout le monde part en même temps depuis la même ligne de départ, très large pour que ce soit équitable. On recommence autant qu'on veut pendant la durée choisie, et le meilleur temps de chacun compte. Les voitures des autres sont transparentes et ne gênent jamais." },
+      { title: "Le chrono fantôme", text: "Tout le monde part en même temps depuis la même ligne de départ, très large pour que ce soit équitable. Chacun n'a droit qu'à un seul essai, sans recommencer ni remettre le chrono à zéro. Le meilleur temps gagne, et la course s'arrête dès que tout le monde a fini. Les voitures des autres sont transparentes et ne gênent jamais." },
       { title: "Le chrono contact", text: "Le même principe, mais les voitures sont solides. On se pousse, on se bloque, on peut faire perdre son temps à un adversaire en lui coupant la route. Les pilotes automatiques suivent leur trajectoire, ils ne se laissent pas pousser." },
-      { title: "Piloter", text: "Les quatre flèches pilotent, haut pour accélérer, bas pour freiner et reculer, côtés pour tourner. Entrée recommence l'essai à zéro, Maj ramène au dernier point de contrôle sans arrêter le chrono. Les tapis orange donnent un coup de turbo, et un long dérapage donne un petit turbo à la sortie, surtout avec la Toupie." },
+      { title: "Piloter", text: "Les quatre flèches pilotent, haut pour accélérer, bas pour freiner et reculer, côtés pour tourner. Entrée recommence l'essai à zéro en mode essence et sert à abandonner en chrono, Maj ramène au dernier point de contrôle sans arrêter le chrono. Les tapis orange donnent un coup de turbo, et un long dérapage donne un petit turbo à la sortie, surtout avec la Toupie." },
       { title: "Les sols", text: "Le bitume accroche, la terre un peu moins, la glace très peu, et le sol collant ralentit. Chaque voiture réagit différemment, la Rallye-Pote adore la terre et la glace." },
       { title: "Les points", text: "En essence, la voiture qui détient le record à la fin gagne 3 points, et celle qui l'a détenu juste avant 1 point. En chrono, les points dépendent du classement des meilleurs temps." },
     ],
