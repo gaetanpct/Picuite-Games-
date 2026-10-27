@@ -550,3 +550,37 @@ Le meurtre mystère et Faux semblants ont été retirés. Les nouveautés de la 
 - Les tests ont été faits avec des bots et avec un navigateur sans carte graphique réelle. La fluidité sur un vrai téléphone ou un vieil ordinateur n'est pas mesurée.
 - Les touches à l'écran pour téléphone n'ont pas été testées sur un vrai téléphone.
 - Aucun test avec plusieurs humains réels. L'équilibrage fin, la vitesse de la lave, la difficulté de la course ou la force des chocs, se juge à la main avec les réglages.
+
+## Vingt-septième mise à jour, Zoomalou, routes étroites par moments et réglages allégés
+
+### Circuits
+- Les routes étroites ne sont plus permanentes. Le circuit alterne des passages larges et des passages serrés, placés au hasard. Plus la difficulté monte, plus les passages serrés sont fréquents. En facile la route reste presque toujours large, en moyen elle mélange les deux, en très très dur elle est serrée la plupart du temps.
+- Chaque course a sa propre ambiance, tirée au hasard. Une course peut être très sinueuse, une autre très rapide, une autre pleine de bosses, une autre pleine de sauts ou de murs. Deux courses ne se ressemblent plus.
+- De nouvelles pentes. Une grande montée suivie d'une longue descente, et un toboggan qui commence par descendre avant de remonter.
+- De nouveaux obstacles. Des îlots au milieu de la route qu'il faut contourner, un à gauche, le suivant à droite.
+- Un nouveau réglage, la quantité d'éléments sur le circuit, avec auto, peu, moyen ou beaucoup. En auto, elle suit la difficulté, peu d'éléments et routes larges en facile, beaucoup d'éléments en très dur.
+
+### Essence
+- La durée de l'essence est calculée toute seule d'après la longueur du circuit. Sur un long circuit d'environ une minute et demie, il y a de quoi faire plusieurs essais. Sur un court circuit, le réservoir est plus petit. Il n'y a plus de réglage à choisir.
+- L'essence se consomme dès le premier essai de chaque pilote, y compris le tout premier essai du premier pilote et celui du deuxième.
+
+### Voitures
+- Le réglage des voitures propose maintenant que le vainqueur de la dernière course choisisse la voiture de tout le monde. À la première course c'est l'hôte. C'est le réglage par défaut. Les autres choix restent, chacun la sienne ou voiture tirée au sort.
+
+### Réglages supprimés
+- Les essais pour poser un temps, toujours un seul.
+- Ce qui se passe quand un pilote abandonne, il est toujours éliminé.
+- Le temps au garage, toujours dix secondes.
+- Le choix du biome, toujours tiré au hasard à chaque course.
+- Le fantôme du record et la vue des autres pilotes, toujours actifs.
+- Le contrôle des temps, qui reste réglé comme avant, par rejeu des touches sur le serveur, sans réglage.
+
+### Fluidité
+- Quand on regarde un autre pilote, sa voiture est maintenant affichée très légèrement en retard et interpolée entre deux mesures, avec l'horloge de celui qui joue. Les positions sont envoyées deux fois plus souvent. Les à-coups et les téléportations disparaissent presque, même avec un réseau irrégulier.
+
+### Correction
+- Un bug de physique sur les murs verticaux. Une voiture qui touchait le bord gauche pouvait être projetée très loin et rester bloquée. C'est corrigé.
+
+### Limites connues
+- La fluidité en direct a été testée avec des bots et un réseau local, pas avec un vrai réseau distant. Le retard d'affichage est voulu, il dépasse un peu le dixième de seconde.
+- L'équilibre des passages étroits et des nouvelles pentes se juge à la main. Les pilotes automatiques terminent tous les circuits testés.

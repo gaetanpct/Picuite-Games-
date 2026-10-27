@@ -81,7 +81,7 @@
     clock(m.now);
     if (!G.viewInit) { V.init($("#gl-host"), store.get("zoom.quality", autoQuality())); G.viewInit = true; V.paused = false; V.onFrame = onFrame; }
     G.track = m.track; G.roundIdx = m.index; G.total = m.total; G.mode = m.mode; G.author = m.author; G.carId = m.car || G.carId; G.botPlan = null; G.order = m.order || []; G.slots = m.slots || {};
-    G.run = null; G.myBest = null; G.myBestFrames = null; G.ghostFrames = null; G.record = null; G.snaps = {}; G.turn = null; G.wantArm = false; G.armedAt = 0; G.waiting = false;
+    G.run = null; G.myBest = null; G.myBestFrames = null; G.ghostFrames = null; G.record = null; G.snaps = {}; G.bufs = {}; G.off = {}; G.turn = null; G.wantArm = false; G.armedAt = 0; G.waiting = false;
     closeSheet(); V.loadTrack(G.track); V.resize(); V.removeAllCars(); setBanner("Course " + (m.index + 1) + " sur " + m.total, G.track.name + " · " + TR.BIOMES[G.track.biome].name, 2600);
   }
   function onRecord(m) {
@@ -116,7 +116,7 @@
   function arm() { if (G.armedAt && Date.now() - G.armedAt < 1200) return; G.armedAt = Date.now(); G.waiting = true; Kit.socket.emit("z:attempt"); }
   function onGo(m) {
     clock(m.now); G.waiting = false; if (isChrono(G.mode)) G.wantArm = false; const car = m.car || G.carId || "bolide";
-    G.slotMe = m.slot || 0; G.run = { r: CA.newRun(G.track, car, { slot: G.slotMe, leave: S().leave }), bytes: [], events: [], goAt: m.goAt, fuelTicks: 1e12, fuel0: m.fuelLeft || 0, challenger: m.fuelLeft > 0, frames: [], done: false, car, cpShown: 0, out: false, finishSent: false, gptr: 0, lastGo: 0 };
+    G.slotMe = m.slot || 0; G.run = { r: CA.newRun(G.track, car, { slot: G.slotMe, leave: S().leave }), bytes: [], events: [], goAt: m.goAt, fuelTicks: 1e12, fuel0: m.fuelLeft || 0, challenger: m.role === "duel" && m.fuelLeft > 0, frames: [], done: false, car, cpShown: 0, out: false, finishSent: false, gptr: 0, lastGo: 0 };
     G.ghostPtr = 0; V.resetGates(); V.resetFollow(); G.armedAt = 0; G.cpBanner = 0;
     G.ghostT0 = m.goAt;
     const cm = me(); V.ensureCar("me", car, hexOf(cm ? cm.color : 0), false, null); engineStart();
@@ -237,8 +237,30 @@
   function bytesB64(arr) { let s = ""; for (let i = 0; i < arr.length; i += 0x8000) s += String.fromCharCode.apply(null, arr.slice(i, i + 0x8000)); return btoa(s); }
 
   // ---------- messages réseau ----------
+  // tampon d'échantillons par voiture. On affiche un peu dans le passé en interpolant entre deux mesures, avec l'horloge de l'envoyeur, pour que le mouvement reste régulier malgré les à-coups du réseau
+  G.bufs = {}; G.off = {};
+  function pushSample(c, now) {
+    const b = G.bufs[c.id] || (G.bufs[c.id] = []); const ts = c.c || now; if (b.length && ts <= b[b.length - 1].ts) return;
+    const o = now - ts; G.off[c.id] = G.off[c.id] == null ? o : Math.min(o, G.off[c.id] + 0.4);
+    b.push({ ts, x: c.x, y: c.y, z: c.z, h: c.h, p: c.p || 0, a: c.a, b: c.b, i: c.i || 0, vx: c.vx || 0, vz: c.vz || 0, car: c.car });
+    if (b.length > 40) b.splice(0, b.length - 40);
+  }
+  const wrapA = (d) => { while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
+  V.sampler = (id) => {
+    const b = G.bufs[id]; if (!b || !b.length || G.off[id] == null) return null;
+    const delay = G.mode === "contact" ? 70 : 130; const tr = Date.now() - G.off[id] - delay;
+    while (b.length > 3 && b[1].ts < tr - 600) b.shift();
+    const f = b[0], l = b[b.length - 1];
+    if (tr <= f.ts) return f;
+    if (tr >= l.ts) { const dp = Math.min(0.3, (tr - l.ts) / 1000); const air = l.a === 1; return Object.assign({}, l, { x: l.x + l.vx * dp, z: l.z + l.vz * dp, i: l.a === 2 ? l.i + (Math.hypot(l.vx, l.vz) * dp) / 2 : l.i, y: air ? l.y : l.y }); }
+    let q = 0; while (q < b.length - 2 && b[q + 1].ts <= tr) q++;
+    const A = b[q], B = b[q + 1]; if (Math.hypot(B.x - A.x, B.z - A.z) > 22 || (A.a === 2) !== (B.a === 2)) return A;
+    const u = (tr - A.ts) / Math.max(1, B.ts - A.ts);
+    return { x: A.x + (B.x - A.x) * u, y: A.y + (B.y - A.y) * u, z: A.z + (B.z - A.z) * u, h: A.h + wrapA(B.h - A.h) * u, p: A.p + (B.p - A.p) * u, a: u > 0.5 ? B.a : A.a, b: u > 0.5 ? B.b : A.b, i: A.i + (B.i - A.i) * u, vx: A.vx, vz: A.vz, car: B.car };
+  };
   function onSnap(m) {
     const now = Date.now();
+    m.cars.forEach((c) => { pushSample(c, now); });
     m.cars.forEach((c) => {
       const prev = G.snaps[c.id]; const n = Object.assign({ at: now, vx: 0, vz: 0 }, c);
       if (prev) { const dt = (now - prev.at) / 1000; if (dt > 0.015 && dt < 0.6) { n.vx = prev.vx * 0.4 + ((c.x - prev.x) / dt) * 0.6; n.vz = prev.vz * 0.4 + ((c.z - prev.z) / dt) * 0.6; } else { n.vx = prev.vx; n.vz = prev.vz; } }
@@ -316,16 +338,17 @@
     const g = $("#garage"); if (!g || !G.st || !G.track) return; const s = G.st; const cm = me();
     // on ne reconstruit le garage que si son contenu change, sinon un clic en cours serait perdu
     const secs = Math.max(0, Math.ceil((s.phaseUntil - snow()) / 1000)); const isHost0 = Kit.isHost();
-    const gkey = [G.track.name, G.carId, S().carMode, G.author, isHost0, !!(cm && cm.ready), Kit.room && Kit.room.hostId].join("|");
+    const carWho = () => (S().carMode === "random" ? "Voiture tirée au sort pour tous" : S().carMode === "winner" ? (s.chooser === myId() ? "Tu choisis la voiture de tout le monde" : nameOf(s.chooser) + " choisit la voiture de tout le monde") : "Choisis ta voiture");
+    const gkey = [G.track.name, G.carId, S().carMode, s.chooser, G.author, isHost0, !!(cm && cm.ready), Kit.room && Kit.room.hostId].join("|");
     g.classList.remove("hidden");
-    if (g.dataset.key === gkey && g.firstChild) { const t = $("#gar-secs"); if (t) t.textContent = (S().carMode === "random" ? "Voiture tirée au sort pour tous" : S().carMode === "host" ? (isHost0 ? "Tu choisis la voiture de tout le monde" : nameOf(Kit.room.hostId) + " choisit la voiture de tout le monde") : "Choisis ta voiture") + " · départ dans " + secs + " s"; return; }
+    if (g.dataset.key === gkey && g.firstChild) { const t = $("#gar-secs"); if (t) t.textContent = carWho() + " · départ dans " + secs + " s"; return; }
     g.dataset.key = gkey; g.innerHTML = "";
     const B = TR.BIOMES[G.track.biome];
     g.appendChild(el("div", { class: "garage__info" }, [el("b", { text: B.icon + " " + G.track.name }), el("span", { class: "small", text: B.name + " · " + Math.round(G.track.length) + " m · environ " + Math.round(G.track.length / 27) + " s de conduite" + (G.author ? " · temps de l'auteur " + fmtS(G.author) : "") })]));
-    const cmode = S().carMode || "own"; const isHost = Kit.isHost(); const canPick = cmode === "own" || (cmode === "host" && isHost); const cards = el("div", { class: "cars" + (canPick ? "" : " cars--locked") });
+    const cmode = S().carMode || "winner"; const canPick = cmode === "own" || (cmode === "winner" && s.chooser === myId()); const cards = el("div", { class: "cars" + (canPick ? "" : " cars--locked") });
     CA.CAR_ORDER.forEach((id) => {
       const c = CA.CARS[id]; const on = G.carId === id; const bar = (v) => el("i", { style: { width: Math.round(clamp(v, 0.08, 1) * 80) + "px" } });
-      cards.appendChild(el("button", { class: "carcard" + (on ? " carcard--on" : ""), onclick: () => { if (canPick) { Kit.socket.emit("z:car", { id }); sound.click(); } else toast(cmode === "random" ? "La voiture est tirée au sort à chaque course." : "Le premier joueur, l'hôte, choisit la voiture de tout le monde.", "info"); } }, [
+      cards.appendChild(el("button", { class: "carcard" + (on ? " carcard--on" : ""), onclick: () => { if (canPick) { Kit.socket.emit("z:car", { id }); sound.click(); } else toast(cmode === "random" ? "La voiture est tirée au sort à chaque course." : nameOf(s.chooser) + " choisit la voiture, il a gagné la dernière course ou c'est l'hôte pour la première.", "info"); } }, [
         el("b", {}, [el("span", { class: "ic", text: c.icon }), c.name]), el("p", { text: c.desc }),
         el("div", { class: "stat" }, [el("span", { text: "Vitesse" }), bar(c.vmax / 68)]), el("div", { class: "stat" }, [el("span", { text: "Accélération" }), bar(c.acc / 30)]),
         el("div", { class: "stat" }, [el("span", { text: "Adhérence" }), bar(c.grip / 7.6)]), el("div", { class: "stat" }, [el("span", { text: "Maniabilité" }), bar(c.turn / 3)]),
@@ -336,7 +359,7 @@
     g.appendChild(el("div", { class: "legend" }, [el("kbd", { text: "↑" }), el("span", { text: "accélérer" }), el("kbd", { text: "↓" }), el("span", { text: "reculer" }), el("kbd", { text: "←" }), el("kbd", { text: "→" }), el("span", { text: "tourner" }), el("kbd", { text: "Entrée" }), el("span", { text: "recommencer" }), el("kbd", { text: "Maj" }), el("span", { text: "dernier point de contrôle" })]));
     const ready = !!(cm && cm.ready);
     g.appendChild(el("div", { class: "garage__row" }, [
-      el("span", { class: "pill", id: "gar-secs", text: (isHost ? "Tu choisis la voiture de tout le monde" : nameOf(Kit.room.hostId) + " choisit la voiture de tout le monde") + " · départ dans " + secs + " s" }),
+      el("span", { class: "pill", id: "gar-secs", text: carWho() + " · départ dans " + secs + " s" }),
       el("button", { class: "btn " + (ready ? "btn--ghost" : "btn--green") + " btn--big", text: ready ? "Je ne suis plus prêt" : "Je suis prêt", onclick: () => Kit.socket.emit("z:ready") }),
     ]));
     if (cm && cm.car) { const c = V.ensureCar("me", cm.car, hexOf(cm.color), false, null); const st = G.track.start; V.setCarState("me", { x: st.x, y: st.y, z: st.z, h: st.h, p: 0, a: 0, b: 0, speed: 0 }, true); }
@@ -384,8 +407,8 @@
     { const gb = $("#btn-giveup"); const show = !!(s && s.mode === "essence" && s.phase === "turns" && s.turn && s.turn.role === "duel" && s.turn.pid === myId() && !s.turn.ended); gb.classList.toggle("hidden", !show); }
     // essence
     const fu = $("#z-fuel");
-    if (s && s.mode === "essence" && s.phase === "turns" && s.turn && s.turn.role === "duel") {
-      let left = s.turn.fuelLeft; if (run && run.challenger && !run.done && run.countdown === 0) left = run.fuel0 - run.r.tick / 60; else if (s.turn.pid !== myId() && botClock()) left = botClock().fuel; else if (s.turn.goAt && s.turn.pid !== myId()) left = s.turn.fuelLeft - Math.max(0, (snow() - s.turn.goAt) / 1000);
+    if (s && s.mode === "essence" && s.phase === "turns" && s.turn) {
+      let left = s.turn.fuelLeft; if (run && run.fuel0 > 0 && !run.done && run.countdown === 0) left = run.fuel0 - run.r.tick / 60; else if (s.turn.pid !== myId() && botClock()) left = botClock().fuel; else if (s.turn.goAt && s.turn.pid !== myId()) left = s.turn.fuelLeft - Math.max(0, (snow() - s.turn.goAt) / 1000);
       left = Math.max(0, left); fu.classList.remove("hidden"); fu.classList.toggle("z-fuel--low", left < 10);
       const txt = "⛽ " + Math.ceil(left) + " s d'essence"; if (G.lastDom.f !== txt) { fu.innerHTML = ""; fu.appendChild(el("div", { text: txt })); fu.appendChild(el("div", { class: "bar" }, [el("i", { style: { width: clamp(left / s.turn.fuel, 0, 1) * 100 + "%" } })])); G.lastDom.f = txt; } else fu.querySelector("i").style.width = clamp(left / s.turn.fuel, 0, 1) * 100 + "%";
       if (run && run.out && !run.done && run.countdown === 0 && !G.noFuelBanner) { G.noFuelBanner = true; setBanner("Réservoir vide", "Finis cet essai, c'est ton dernier", 2800); Kit.sound.fail(); }
@@ -503,8 +526,8 @@
     so.on("z:turnEnd", onTurnEnd); so.on("z:result", onResult); so.on("z:botTurn", onBotTurn); so.on("z:roundEnd", onRoundEnd); so.on("z:over", onOver);
   }
   // envoi régulier de la position pendant un essai
-  const sendPos = () => { const r = G.run; if (!r || r.done || !Kit.socket || r.countdown > 0 || !canDrive()) return; const a = r.r; const fx = Math.sin(a.hd), fz = Math.cos(a.hd); Kit.socket.emit("z:pos", { x: +a.x.toFixed(2), y: +a.y.toFixed(2), z: +a.z.toFixed(2), vx: +a.vx.toFixed(2), vz: +a.vz.toFixed(2), h: +a.hd.toFixed(3), p: +a.pitch.toFixed(3), a: a.rail ? 2 : a.air ? 1 : 0, i: +a.idx.toFixed(2), b: a.boostT > 0 ? 1 : 0 }); };
-  setInterval(() => { if (G.mode !== "contact") sendPos(); }, 100); setInterval(() => { if (G.mode === "contact") sendPos(); }, 50);
+  const sendPos = () => { const r = G.run; if (!r || r.done || !Kit.socket || r.countdown > 0 || !canDrive()) return; const a = r.r; const fx = Math.sin(a.hd), fz = Math.cos(a.hd); Kit.socket.emit("z:pos", { c: Date.now(), x: +a.x.toFixed(2), y: +a.y.toFixed(2), z: +a.z.toFixed(2), vx: +a.vx.toFixed(2), vz: +a.vz.toFixed(2), h: +a.hd.toFixed(3), p: +a.pitch.toFixed(3), a: a.rail ? 2 : a.air ? 1 : 0, i: +a.idx.toFixed(2), b: a.boostT > 0 ? 1 : 0 }); };
+  setInterval(sendPos, 50);
   Kit.on("screen", (name) => { V.paused = name !== "game"; if (name === "game") setTimeout(() => { if (G.viewInit) V.resize(); }, 50); });
   Kit.on("reset", () => { G.st = null; G.track = null; G.run = null; closeSheet(); G.prev.key = ""; });
   Kit.on("room", (r) => { if (r.status === "lobby") { G.st = null; G.run = null; closeSheet(); G.lastState = ""; } });

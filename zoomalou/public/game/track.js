@@ -70,7 +70,13 @@
     const airG = biome.gravity * AIRK;
     const targetLen = [700, 1100, 1700, 2800, 4200][size - 1] * (0.92 + rng() * 0.16);
     const maxR = [330, 440, 600, 820, 1050][size - 1];
-    const hw = [6.6, 5.6, 4.8, 4.2, 3.6][diff - 1];
+    const hwN = [6.6, 5.6, 4.8, 4.2, 3.6][diff - 1]; // demi-largeur des passages étroits
+    const hw = hwN * 1.25; // demi-largeur ordinaire, plus large
+    const elemSel = spec.elements || "auto";
+    const elemK = elemSel === "peu" ? 0.45 : elemSel === "moyen" ? 1 : elemSel === "beaucoup" ? 1.7 : [0.45, 0.75, 1, 1.35, 1.7][diff - 1];
+    // l'ambiance de la course change d'un circuit à l'autre
+    const mood = {}; ["steep", "obst", "width", "gap", "bridge", "mag", "twist", "flow"].forEach((k) => { mood[k] = 0.3 + rng() * 1.6; });
+    const narrowFrac = clamp([0, 0.18, 0.45, 0.72, 0.95][diff - 1] * (0.7 + rng() * 0.6), 0, 0.93);
     const rad = (a, b) => a + rng() * (b - a), ang = (a, b) => (a + rng() * (b - a)) * Math.PI / 180, pick = (l) => l[Math.floor(rng() * l.length)];
     const X = [], Z = [], H = [], W = [], SF = [], FL = [];
     const items = []; const starts = []; // éléments enregistrés et début de chaque pièce posée
@@ -159,10 +165,12 @@
 
     // ---------- pentes raides ----------
     function kSteep() {
-      if (!pinOK()) return null; const type = pick(["col", "creux", "russes", "falaise", "col"]); const hf = [0.6, 0.8, 1, 1.25][hillsLvl]; const Dh = rad(9, 22) * hf; const sl = rad(0.28, 0.5);
+      if (!pinOK()) return null; const type = pick(["col", "creux", "russes", "falaise", "col", "grande", "toboggan"]); const hf = [0.6, 0.8, 1, 1.25][hillsLvl]; const Dh = rad(9, 22) * hf; const sl = rad(0.28, 0.5);
       let segs;
       if (type === "col") { const L1 = Dh / sl; segs = [{ L: 24, dy: 0 }, { L: L1, dy: Dh }, { L: 14, dy: 0 }, { L: Dh / rad(0.3, 0.5), dy: -Dh }, { L: 24, dy: 0 }]; }
       else if (type === "creux") { const L1 = Dh / rad(0.3, 0.5); segs = [{ L: 24, dy: 0 }, { L: L1, dy: -Dh }, { L: 14, dy: 0 }, { L: Dh / sl, dy: Dh }, { L: 24, dy: 0 }]; }
+      else if (type === "grande") { const D3 = rad(18, 34) * hf; segs = [{ L: 24, dy: 0 }, { L: D3 / rad(0.16, 0.26), dy: D3 }, { L: 20, dy: 0 }, { L: D3 / rad(0.2, 0.3), dy: -D3 }, { L: 24, dy: 0 }]; }
+      else if (type === "toboggan") { const D3 = rad(16, 30) * hf; segs = [{ L: 24, dy: 0 }, { L: D3 / rad(0.18, 0.3), dy: -D3 }, { L: 16, dy: 0 }, { L: D3 / rad(0.16, 0.26), dy: D3 }, { L: 24, dy: 0 }]; }
       else if (type === "falaise") { const D2 = Dh * 0.8; segs = [{ L: 24, dy: 0 }, { L: D2 / 0.6, dy: -D2 }, { L: 18, dy: 0 }, { L: D2 / 0.34, dy: D2 }, { L: 24, dy: 0 }]; }
       else { const k = 3 + Math.floor(rng() * 3); const D = rad(3.5, 6) * Math.max(0.8, hf); segs = [{ L: 24, dy: 0 }]; for (let q = 0; q < k; q++) { segs.push({ L: 30, dy: D }); segs.push({ L: 30, dy: -D }); } segs.push({ L: 24, dy: 0 }); }
       const total = segs.reduce((a, s2) => a + s2.L, 0); const n = Math.round(total / STEP) + 6;
@@ -178,12 +186,14 @@
       return { lo, hi };
     }
     function kObstacles() {
-      const pattern = pick(["slalom", "slalom", "barriere", "portail"]); const cw = 2.8 + (5 - diff) * 0.35; const types = biome.id === "bonbons" ? ["cone", "barrel"] : ["cone", "barrel", "crate", "pillar"];
-      const lenS = pattern === "slalom" ? rad(120, 190) : pattern === "barriere" ? rad(110, 150) : rad(70, 100); const n = Math.round(lenS / STEP); let sf = pickSurf(); if (sf === SURF.ICE) sf = SURF.ASPHALT;
+      const pattern = pick(["slalom", "slalom", "barriere", "portail", "ilot", "ilot"]); const cw = 2.8 + (5 - diff) * 0.35; const types = biome.id === "bonbons" ? ["cone", "barrel"] : ["cone", "barrel", "crate", "pillar"];
+      const lenS = pattern === "slalom" || pattern === "ilot" ? rad(120, 190) : pattern === "barriere" ? rad(110, 150) : rad(70, 100); const n = Math.round(lenS / STEP); let sf = pickSurf(); if (sf === SURF.ICE) sf = SURF.ASPHALT;
       return { surf: sf, parts: [{ straight: lenS }], reg(i0, i1) {
         const list = []; const place = (i, u, ty, side) => { list.push({ i, u, r: OBS[ty].r, ty, side }); };
         if (pattern === "slalom") {
           const gap = pick([11, 13, 15]); const ty = pick(types); const off = rad(0.7, 1.5); let sd = rng() < 0.5 ? 1 : -1; for (let i = i0 + 10; i < i1 - 8; i += gap) { place(i, sd * off, ty, sd); sd = -sd; }
+        } else if (pattern === "ilot") {
+          const ty = pick(["pillar", "barrel", "crate"]); let sd = rng() < 0.5 ? 1 : -1; const gap = pick([20, 26]); for (let i = i0 + 12; i < i1 - 10; i += gap) { place(i, 0, ty, sd); sd = -sd; }
         } else if (pattern === "barriere") {
           const ty = pick(["crate", "barrel"]); const tp = OBS[ty]; let sd = rng() < 0.5 ? 1 : -1; const count = 2 + Math.floor(rng() * 2); const sp = Math.floor((n - 24) / count);
           for (let q = 0; q < count; q++) {
@@ -308,15 +318,15 @@
 
     // ---------- choix de la pièce suivante ----------
     function makeKind() {
-      const cands = [[1.8, kStraight], [3, kCurve], [0.7 + diff * 0.8, kHairpin], [1.6, kBends], [0.6 + diff * 0.8, kChic], [1.2, kSweep], [0.8 + diff * 0.6, kTight], [0.5 + diff * 0.5, kEsses], [0.15 + diff * 0.35, kDouble]];
+      const tw = mood.twist, fl = mood.flow; const cands = [[1.8 * fl, kStraight], [3, kCurve], [(0.7 + diff * 0.8) * tw, kHairpin], [1.6, kBends], [(0.6 + diff * 0.8) * tw, kChic], [1.2 * fl, kSweep], [(0.8 + diff * 0.6) * tw, kTight], [(0.5 + diff * 0.5) * tw, kEsses], [(0.15 + diff * 0.35) * tw, kDouble]];
       if (wild > 0) {
-        const k = wild * 0.8; const sizeOK = size >= 2;
-        if (F.steep) cands.push([2.0 * k, kSteep]);
-        if (F.obstacles) cands.push([1.6 * k, kObstacles]);
-        if (F.widths) { cands.push([0.8 * k, kNeck]); cands.push([0.6 * k, kArena]); cands.push([0.5 * k, kPulse]); }
-        if (F.gaps && sizeOK) cands.push([2.4 * k, kGap]);
-        if (F.bridges && sizeOK) { cands.push([1.1 * k, kBridge]); cands.push([0.9 * k, kCorniche]); }
-        if (F.mag && sizeOK) { cands.push([0.8 * k, kLoop]); cands.push([0.55 * k, kRoll]); cands.push([0.6 * k, kWall]); cands.push([0.4 * k, kCeiling]); }
+        const k = wild * 0.8 * elemK; const sizeOK = size >= 2;
+        if (F.steep) cands.push([2.4 * k * mood.steep, kSteep]);
+        if (F.obstacles) cands.push([1.8 * k * mood.obst, kObstacles]);
+        if (F.widths) { cands.push([0.8 * k * mood.width, kNeck]); cands.push([0.6 * k * mood.width, kArena]); cands.push([0.5 * k * mood.width, kPulse]); }
+        if (F.gaps && sizeOK) cands.push([2.4 * k * mood.gap, kGap]);
+        if (F.bridges && sizeOK) { cands.push([1.1 * k * mood.bridge, kBridge]); cands.push([0.9 * k * mood.bridge, kCorniche]); }
+        if (F.mag && sizeOK) { cands.push([0.8 * k * mood.mag, kLoop]); cands.push([0.55 * k * mood.mag, kRoll]); cands.push([0.6 * k * mood.mag, kWall]); cands.push([0.4 * k * mood.mag, kCeiling]); }
       }
       const tot = cands.reduce((a, c) => a + c[0], 0); let r = rng() * tot;
       for (let tries = 0; tries < 6; tries++) { let pickF = cands[cands.length - 1][1]; let t = r; for (const c of cands) { if ((t -= c[0]) < 0) { pickF = c[1]; break; } } const kind = pickF(); if (kind) return kind; r = rng() * tot; }
@@ -345,7 +355,18 @@
     const n = X.length;
     // largeur variable discrète sur les routes ordinaires
     if (F.widths) { const p1 = rng() * 6.28, p2 = rng() * 6.28; const special = new Uint8Array(n); items.forEach((it) => { if (it.b != null && (it.t === "region" || it.t === "neck" || it.t === "arena" || it.t === "obspat")) { for (let i = Math.max(0, it.a); i <= Math.min(n - 1, it.b); i++) special[i] = 1; } });
-      for (let i = 0; i < n; i++) if (!special[i] && !(FL[i] & (FLAG.MAG | FLAG.NOWALL))) W[i] = Math.round(W[i] * (1 + 0.07 * Math.sin(i * 0.045 + p1) + 0.05 * Math.sin(i * 0.11 + p2)) * 100) / 100; }
+      for (let i = 0; i < n; i++) if (!special[i] && !(FL[i] & (FLAG.MAG | FLAG.NOWALL))) W[i] = Math.round(W[i] * (1 + 0.07 * Math.sin(i * 0.045 + p1) + 0.05 * Math.sin(i * 0.11 + p2)) * 100) / 100;
+      // passages étroits, de temps en temps, d'autant plus souvent que le circuit est dur
+      if (narrowFrac > 0.01 && n > 140) {
+        const m = new Float32Array(n); let i = 40 + Math.floor(rng() * 40);
+        while (i < n - 40) { const Ln = Math.round(30 + rng() * 70); const Lw = Math.round(clamp(Ln * (1 - narrowFrac) / narrowFrac * (0.4 + rng() * 1.2), 18, 400)); for (let q = 0; q < Ln && i + q < n; q++) m[i + q] = 1; i += Ln + Lw; }
+        let t = m; for (let pass = 0; pass < 3; pass++) { const o = new Float32Array(n); for (let a = 0; a < n; a++) { let sum = 0, c = 0; for (let b = Math.max(0, a - 8); b <= Math.min(n - 1, a + 8); b++) { sum += t[b]; c++; } o[a] = sum / c; } t = o; }
+        const steepA = new Set(); items.forEach((it) => { if (it.t === "steep") steepA.add(it.a + 2); });
+        const blocked = new Uint8Array(n); items.forEach((it) => { if (it.b != null && (it.t === "neck" || it.t === "arena" || it.t === "obspat" || (it.t === "region" && !steepA.has(it.a)))) for (let a = Math.max(0, it.a); a <= Math.min(n - 1, it.b); a++) blocked[a] = 1; });
+        for (let a = 0; a < n; a++) if (FL[a] & (FLAG.MAG | FLAG.NOWALL | FLAG.GAP | FLAG.JUMP | FLAG.KICK)) blocked[a] = 1;
+        const dist = new Float32Array(n).fill(1e9); let dd = 1e9; for (let a = 0; a < n; a++) { dd = blocked[a] ? 0 : dd + 1; dist[a] = dd; } dd = 1e9; for (let a = n - 1; a >= 0; a--) { dd = blocked[a] ? 0 : dd + 1; if (dd < dist[a]) dist[a] = dd; }
+        for (let a = 0; a < n; a++) { const k = t[a] * clamp((dist[a] - 3) / 14, 0, 1) * clamp((a - 36) / 20, 0, 1) * clamp((n - 40 - a) / 20, 0, 1); if (k <= 0.001) continue; const nw = hwN * (0.95 + 0.1 * Math.sin(a * 0.07 + p2)); if (W[a] > nw) W[a] = Math.round((W[a] + (nw - W[a]) * k) * 100) / 100; }
+      } }
     // la ligne de départ est large, pour que tout le monde parte côte à côte. La route se resserre ensuite
     { const wS = Math.max(hw, 9.2); for (let i = 0; i < n; i++) { if (i <= 14) W[i] = Math.max(W[i], wS); else if (i < 34) { const t = (i - 14) / 20; const k = t * t * (3 - 2 * t); W[i] = Math.max(W[i], wS + (hw - wS) * k); } else break; } }
 

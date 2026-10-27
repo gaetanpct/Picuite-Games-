@@ -333,8 +333,10 @@
     if (!View.track || !renderer || View.paused) return;
     if (View.onFrame) View.onFrame(dt);
     const B = Track.BIOMES[View.track.biome];
-    Object.values(View.cars).forEach((c) => {
-      if (c.tgt) { const k = 1 - Math.exp(-14 * dt); c.st.x += (c.tgt.x - c.st.x) * k; c.st.y += (c.tgt.y - c.st.y) * k; c.st.z += (c.tgt.z - c.st.z) * k; c.st.h += wrap(c.tgt.h - c.st.h) * k; c.st.p += ((c.tgt.p || 0) - c.st.p) * k; if (c.rail) c.st.i += ((c.tgt.i || 0) - c.st.i) * k; }
+    Object.keys(View.cars).forEach((cid) => {
+      const c = View.cars[cid];
+      if (View.sampler && cid !== "me" && c.tgt && !c.ghost && c.root.visible) { const smp = View.sampler(cid); if (smp) View.setCarTarget(cid, smp); }
+      if (c.tgt) { const k = 1 - Math.exp(-(View.sampler && cid !== "me" ? 30 : 14) * dt); c.st.x += (c.tgt.x - c.st.x) * k; c.st.y += (c.tgt.y - c.st.y) * k; c.st.z += (c.tgt.z - c.st.z) * k; c.st.h += wrap(c.tgt.h - c.st.h) * k; c.st.p += ((c.tgt.p || 0) - c.st.p) * k; if (c.rail) c.st.i += ((c.tgt.i || 0) - c.st.i) * k; }
       const s = c.st; const sn = c.rail && c !== View.cars.me ? railSnap(s) : null; if (sn) c.root.position.set(sn.x, sn.y, sn.z); else c.root.position.set(s.x, s.y, s.z);
       if (c.rail && railBasis(s.i, s.h)) c.root.quaternion.setFromRotationMatrix(_m); else { c.root.rotation.order = "YXZ"; c.root.rotation.y = s.h; c.root.rotation.x = -s.p * (c.air ? 0.4 : 1); c.root.rotation.z = -(c.steer || 0) * 0.06 * clamp((c.speed || 0) / 30, 0, 1); }
       if (c.label) { const d = camera.position.distanceTo(c.root.position); c.label.visible = d > 9 && d < 170; const sc = 2.6 + d * 0.02; c.label.scale.set(sc, sc * 0.25, 1); c.label.position.y = 3.1; }

@@ -162,7 +162,7 @@
     const i0 = Math.max(0, Math.min(tr.n - 2, Math.floor(r.idx))); const wv = tr.w[i0] + (tr.w[i0 + 1] - tr.w[i0]) * (r.idx - i0); const lim = wv - HALF_W;
     r.wallHit = 0; let u = -r.ux;
     if (Math.abs(u) > lim) {
-      const sg = u > 0 ? 1 : -1; const push = u - sg * lim; r.ux += sg * push; const vn = -r.vx;
+      const sg = u > 0 ? 1 : -1; r.ux = -sg * lim; const vn = -r.vx;
       if (vn * sg > 0) { const rest = 0.22 + car.bounce; const hit = Math.abs(vn); r.vx += (1 + rest) * vn; const keep = 1 - Math.min(0.5, hit * 0.026 * (r.tr.crashK || 1) * car.wall); r.vx *= keep; r.vz *= keep; r.hits++; r.wallHit = hit; }
       r.hd += wrap(0 - r.hd) * 0.05; r.vx *= 0.995; r.vz *= 0.995;
     }
