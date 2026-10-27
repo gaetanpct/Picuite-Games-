@@ -517,6 +517,9 @@ Le meurtre mystère et Faux semblants ont été retirés. Les nouveautés de la 
 - Les commandes de la lave suivent maintenant la caméra.
 - Choc au sommet affiche le pourcentage de dégâts au dessus de chaque joueur et explique mieux la charge.
 - Graphismes, relief sur les blocs, poussières lumineuses et vignette.
+- Nouvelle option d'aide au saut dans la course des fous, le personnage saute tout seul au bord d'un trou. Espace peut aussi se remplacer par X, et Maj ou E par C.
+- Le message d'avertissement 3D est devenu une petite pastille en bas à gauche, fermable, qui disparaît seule, et il se déclenche beaucoup moins facilement.
+- Zoomalou, les voitures des autres joueurs et le fantôme restent maintenant collés à la route dans les loopings, les vrilles et les virages muraux.
 
 ### Technique
 

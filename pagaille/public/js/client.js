@@ -86,7 +86,7 @@
   }
 
   // ---------- touches ----------
-  const KEYMAP = { ArrowLeft: "l", ArrowRight: "r", ArrowUp: "u", ArrowDown: "d", q: "l", a: "l", d: "r", z: "u", w: "u", s: "d", " ": "a", Shift: "b", e: "b", Q: "l", A: "l", D: "r", Z: "u", W: "u", S: "d", E: "b" };
+  const KEYMAP = { ArrowLeft: "l", ArrowRight: "r", ArrowUp: "u", ArrowDown: "d", q: "l", a: "l", d: "r", z: "u", w: "u", s: "d", " ": "a", Enter: "a", x: "a", X: "a", Shift: "b", e: "b", c: "b", C: "b", Q: "l", A: "l", D: "r", Z: "u", W: "u", S: "d", E: "b" };
   function setKey(k, v) { if (G.keys[k] === v) return; G.keys[k] = v; sendKeys(); }
   function sendKeys() { const s = JSON.stringify(G.keys); if (s === G.sent) return; G.sent = s; if (Kit.socket) Kit.socket.emit("pg:in", G.keys); }
   const inGame = () => document.body.dataset.screen === "game" && G.st && G.st.phase === "play";
@@ -307,7 +307,7 @@
     colors: COLORS, botLevels: [{ id: "facile", label: "Facile" }, { id: "normal", label: "Normal" }, { id: "expert", label: "Expert" }], maxPlayers: 8, minPlayers: 2, schema: PR.SCHEMA,
     help: [
       { title: "Le principe", text: "De deux à huit joueurs se retrouvent dans un salon, avec ou sans bots. À chaque manche, trois mini-jeux sont proposés et tout le monde vote. Le plus voté se joue, puis les points tombent et la manche suivante commence." },
-      { title: "Les commandes", text: "Les flèches ou ZQSD déplacent. Espace est l'action principale, Maj ou E l'action secondaire. Certains jeux se jouent avec des boutons à l'écran ou à la souris. Sur téléphone, des touches apparaissent à l'écran." },
+      { title: "Les commandes", text: "Les flèches ou ZQSD déplacent. Espace est l'action principale, Maj, E ou C l'action secondaire, et X peut remplacer Espace si ton clavier bloque. Certains jeux se jouent avec des boutons à l'écran ou à la souris. Sur téléphone, des touches apparaissent à l'écran." },
       { title: "Jouer seul", text: "Appuie sur Jouer seul avec des bots, ou ajoute des bots dans le salon. Dans les réglages, le mode démo laisse les bots jouer à ta place et le jeu imposé permet de répéter un mini-jeu." },
       { title: "Les points", text: "Le premier d'un mini-jeu reçoit dix points, les suivants moins, et les égalités se partagent. Quelques bonus récompensent les beaux coups. La dernière manche peut compter double." },
       { title: "Affichage", text: "Le bouton en haut à droite change l'affichage. 3D complet, 3D allégé pour les ordinateurs lents, ou vue à plat si ton navigateur n'arrive pas à dessiner la 3D. Le bouton à côté coupe le son." },

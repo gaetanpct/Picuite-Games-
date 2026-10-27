@@ -370,30 +370,32 @@
     return isSafari;
   };
   GL.setCompat = function (on) { lsSet("gl.compat", on ? "1" : "0"); if (on) { lsSet("golf.quality", "low"); lsSet("zoom.quality", "low"); } location.reload(); };
+  // Message discret. Petit, en bas à gauche, il ne cache jamais le jeu, se ferme tout seul et se ferme aussi d'un clic.
   GL.banner = function (msg, noBtn) {
     try {
       let b = document.getElementById("gl-diag");
       if (!b) {
         b = document.createElement("div"); b.id = "gl-diag";
-        b.style.cssText = "position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:99999;max-width:92vw;background:rgba(40,10,10,0.92);color:#fff;border:2px solid #ffb84a;border-radius:14px;padding:10px 14px;font:14px/1.35 sans-serif;text-align:center";
+        b.style.cssText = "position:fixed;left:10px;bottom:10px;z-index:99999;max-width:min(320px,70vw);background:rgba(30,10,10,0.85);color:#fff;border:1px solid #ffb84a;border-radius:10px;padding:6px 26px 6px 10px;font:12px/1.3 sans-serif;text-align:left;opacity:0.9";
         document.body.appendChild(b);
       }
       b.textContent = "";
       const t = document.createElement("div"); t.textContent = msg; b.appendChild(t);
+      const x = document.createElement("span"); x.textContent = "✕"; x.style.cssText = "position:absolute;right:8px;top:4px;cursor:pointer;font-size:13px"; x.onclick = () => b.remove(); b.appendChild(x);
       if (!noBtn && !GL.compat()) {
         const bt = document.createElement("button"); bt.textContent = "Passer en mode compatibilité";
-        bt.style.cssText = "margin-top:8px;padding:6px 12px;border-radius:10px;border:0;background:#ffb84a;font-weight:700;cursor:pointer";
-        bt.onclick = () => GL.setCompat(true); b.appendChild(bt);
+        bt.style.cssText = "margin-top:6px;padding:4px 10px;border-radius:8px;border:0;background:#ffb84a;font-weight:700;cursor:pointer;font-size:12px"; bt.onclick = () => GL.setCompat(true); b.appendChild(bt);
       }
       const d = document.createElement("a"); d.textContent = "Page de diagnostic"; d.href = "common/diag.html"; d.target = "_blank";
-      d.style.cssText = "display:block;margin-top:6px;color:#ffd98a;font-size:12px"; b.appendChild(d);
+      d.style.cssText = "display:block;margin-top:4px;color:#ffd98a;font-size:11px"; b.appendChild(d);
+      clearTimeout(GL._bt); GL._bt = setTimeout(() => { try { b.remove(); } catch (e) {} }, 9000);
     } catch (e) {}
   };
   // bascule une seule fois en mode compatibilité, sinon montre la cause
   GL.fail = function (why) {
     GL.reason = why;
-    if (!GL.compat() && !ssGet("gl.auto")) { ssSet("gl.auto", "1"); lsSet("gl.compat", "1"); lsSet("golf.quality", "low"); lsSet("zoom.quality", "low"); location.reload(); return; }
-    GL.banner("Ton ordinateur n'arrive pas à dessiner la 3D normalement. Cause probable " + why + ". Ouvre la page de diagnostic et envoie une capture d'écran au créateur.", true);
+    if (why !== "écran vide" && !GL.compat() && !ssGet("gl.auto")) { ssSet("gl.auto", "1"); lsSet("gl.compat", "1"); lsSet("golf.quality", "low"); lsSet("zoom.quality", "low"); location.reload(); return; }
+    GL.banner("Affichage 3D douteux (" + why + "). Si le jeu s'affiche bien, ignore ce message.", true);
   };
   let patched = false;
   function patchMaterials(T) {
@@ -467,12 +469,12 @@
       if (!w || !h) uniform = true;
       else {
         const px = new Uint8Array(4); let first = null, diff = 0;
-        for (let i = 1; i <= 5; i++) for (let j = 1; j <= 4; j++) { gl.readPixels(Math.floor(w * i / 6), Math.floor(h * j / 5), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); const c = [px[0], px[1], px[2], px[3]]; if (!first) first = c; else diff = Math.max(diff, Math.abs(c[0] - first[0]), Math.abs(c[1] - first[1]), Math.abs(c[2] - first[2]), Math.abs(c[3] - first[3])); }
+        for (let i = 1; i <= 11; i++) for (let j = 1; j <= 8; j++) { gl.readPixels(Math.floor(w * i / 12), Math.floor(h * j / 9), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); const c = [px[0], px[1], px[2], px[3]]; if (!first) first = c; else diff = Math.max(diff, Math.abs(c[0] - first[0]), Math.abs(c[1] - first[1]), Math.abs(c[2] - first[2]), Math.abs(c[3] - first[3])); }
         uniform = diff < 4;
       }
       const calls = renderer.info && renderer.info.render ? renderer.info.render.calls : 1;
       if (uniform && calls > 0) blank++; else blank = 0;
-      if (blank >= 2) GL.fail("un écran vide malgré des objets à dessiner");
+      if (blank >= 3 && !GL.warned) { GL.warned = 1; GL.fail("écran vide"); }
     } catch (e) { /* lecture impossible, on ne dit rien */ }
   };
   // toute erreur de script s'affiche à l'écran pour pouvoir être signalée

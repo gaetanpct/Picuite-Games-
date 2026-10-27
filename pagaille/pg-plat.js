@@ -132,7 +132,17 @@ function groundAt(world, x, y, zMax, zMin) {
   let best = null; for (let i = 0; i < world.boxes.length; i++) { const bx = world.boxes[i]; if (!bx.solid) continue; const top = bx.z + bx.h; if (top > zMax || top < zMin) continue; if (!over(bx, x, y, 4)) continue; if (best == null || top > best) best = top; }
   return best;
 }
+// aide au saut. vrai si le joueur court vers un bord avec du sol atteignable de l'autre côté, il saute alors tout seul au bon moment
+function assistJump(world, b, inp) {
+  if (!b.alive || !b.grounded || b.stun > 0) return false;
+  const ix = inp.x || 0, iy = inp.y || 0, il = Math.hypot(ix, iy); if (il < 0.3) return false;
+  const sp = Math.hypot(b.vx, b.vy); if (sp < 120) return false;
+  const ux = b.vx / sp, uy = b.vy / sp, z = b.z;
+  if (groundAt(world, b.x + ux * (b.r + 16), b.y + uy * (b.r + 16), z + 20, z - 22) != null) return false;
+  for (let d = 70; d <= 190; d += 30) { if (groundAt(world, b.x + ux * (b.r + d), b.y + uy * (b.r + d), z + 60, z - 70) != null) return true; }
+  return false;
+}
 // commande simple pour aller vers (tx,ty). renvoie {x,y} dans la même convention que les touches du joueur
 function goto(b, tx, ty, speed) { const dx = tx - b.x, dy = ty - b.y, d = Math.hypot(dx, dy) || 1; const s = Math.min(1, d / (speed || 40)); return { x: dx / d * s, y: dy / d * s, d }; }
 
-module.exports = { World, body, step, separate, pawnItem, groundAt, goto, overlap, over, surfV, DEF };
+module.exports = { World, body, step, separate, pawnItem, groundAt, assistJump, goto, overlap, over, surfV, DEF };

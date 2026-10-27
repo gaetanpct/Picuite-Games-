@@ -158,7 +158,7 @@ exports.create = function (ctx) {
         const b = p.bd; p.inv = Math.max(0, (p.inv || 0) - dt);
         if (p.finished) { b.vx *= 0.9; b.vy *= 0.9; const e = Plat.step(world, b, { x: 0, y: 0 }, dt, cfg); return; }
         if (!b.alive) { p.respawn -= dt; if (p.respawn <= 0) spawn(p); return; }
-        let inp; if (ctx.isBot(p.id)) inp = botThink(p, dt); else { const i = ctx.input(p.id); const e = ctx.edge(p.id); inp = { x: i.x, y: i.y, jump: e.a, jh: i.a, dive: e.b }; }
+        let inp; if (ctx.isBot(p.id)) inp = botThink(p, dt); else { const i = ctx.input(p.id); const e = ctx.edge(p.id); inp = { x: i.x, y: i.y, jump: e.a, jh: i.a, dive: e.b }; if (ctx.opts.jumpAssist !== false && !inp.jump && Plat.assistJump(world, b, inp)) { inp.jump = true; inp.jh = true; } }
         const ev = Plat.step(world, b, inp, dt, cfg);
         ev.forEach((e) => { if (e === "jump" || e === "dbl") { ctx.snd("jump"); ctx.fx("puff", b.x, b.y, b.z, ""); } else if (e === "land") { ctx.fx("puff", b.x, b.y, b.z, ""); } else if (e === "dive") ctx.snd("whoosh"); else if (e === "void") { if (process.env.PGDBG) console.log("VOID", p.name, Math.round(b.x), Math.round(b.y), Math.round(b.z), "ni", p.ni, nodes[p.ni] && nodes[p.ni].k, nodes[p.ni] && Math.round(nodes[p.ni].y)); b.alive = false; p.falls++; p.respawn = 1.1; ctx.fx("splash", b.x, b.y, -280, "#bfe9ff"); ctx.snd("splash"); } else if (e === "bump") ctx.snd("bump"); });
         // progression et drapeaux

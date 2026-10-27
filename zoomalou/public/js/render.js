@@ -279,6 +279,14 @@
     const fr = Track.frameAt(tr, tr.mags[k], idx); const ch = Math.cos(hd), sh = Math.sin(hd);
     _fw.set(fr.tx * ch - fr.rx * sh, fr.ty * ch - fr.ry * sh, fr.tz * ch - fr.rz * sh).normalize(); _up.set(fr.ux, fr.uy, fr.uz); _lf.crossVectors(_up, _fw).normalize(); _m.makeBasis(_lf, _up, _fw); return true;
   }
+  // replace une position sur la route déroulée. Les autres voitures et le fantôme sont lissés en ligne droite entre deux positions reçues,
+  // dans un looping cette ligne droite coupe à travers la route. On garde donc seulement le décalage latéral et on recolle la voiture sur la route à l'indice lissé.
+  const _rp = { x: 0, y: 0, z: 0 };
+  function railSnap(s) {
+    const tr = View.track; if (!tr || !tr.mags) return null; const ids = Track.magMap(tr).id; const k = ids[Math.floor(clamp(s.i, 0, tr.n - 2))]; if (k < 0) return null;
+    const fr = Track.frameAt(tr, tr.mags[k], s.i); let u = (s.x - fr.px) * fr.rx + (s.y - fr.py) * fr.ry + (s.z - fr.pz) * fr.rz; const lim = (tr.w ? tr.w[Math.floor(clamp(s.i, 0, tr.n - 2))] : 8) ; u = clamp(u, -lim, lim);
+    _rp.x = fr.px + fr.rx * u; _rp.y = fr.py + fr.ry * u; _rp.z = fr.pz + fr.rz * u; return _rp;
+  }
   const _wantUp = new T.Vector3(); let wasRail = false;
   // ---------- caméra ----------
   View.follow = (id) => { followId = id; };
@@ -327,7 +335,7 @@
     const B = Track.BIOMES[View.track.biome];
     Object.values(View.cars).forEach((c) => {
       if (c.tgt) { const k = 1 - Math.exp(-14 * dt); c.st.x += (c.tgt.x - c.st.x) * k; c.st.y += (c.tgt.y - c.st.y) * k; c.st.z += (c.tgt.z - c.st.z) * k; c.st.h += wrap(c.tgt.h - c.st.h) * k; c.st.p += ((c.tgt.p || 0) - c.st.p) * k; if (c.rail) c.st.i += ((c.tgt.i || 0) - c.st.i) * k; }
-      const s = c.st; c.root.position.set(s.x, s.y, s.z);
+      const s = c.st; const sn = c.rail && c !== View.cars.me ? railSnap(s) : null; if (sn) c.root.position.set(sn.x, sn.y, sn.z); else c.root.position.set(s.x, s.y, s.z);
       if (c.rail && railBasis(s.i, s.h)) c.root.quaternion.setFromRotationMatrix(_m); else { c.root.rotation.order = "YXZ"; c.root.rotation.y = s.h; c.root.rotation.x = -s.p * (c.air ? 0.4 : 1); c.root.rotation.z = -(c.steer || 0) * 0.06 * clamp((c.speed || 0) / 30, 0, 1); }
       if (c.label) { const d = camera.position.distanceTo(c.root.position); c.label.visible = d > 9 && d < 170; const sc = 2.6 + d * 0.02; c.label.scale.set(sc, sc * 0.25, 1); c.label.position.y = 3.1; }
       c.flame.visible = !!c.boost; if (c.boost) c.flame.scale.set(0.8 + Math.random() * 0.3, 0.8 + Math.random() * 0.5, 0.8 + Math.random() * 0.3);
