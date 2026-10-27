@@ -26,7 +26,7 @@ const STEP = Track.STEP;
 const tableCache = {};
 function radiusTable(car) {
   if (tableCache[car.id]) return tableCache[car.id];
-  const c = 0.68 * car.vmax; const vs = [], rs = [];
+  const c = (car.cv || 0.68) * car.vmax; const vs = [], rs = [];
   for (let v = 2; v <= car.vmax * 1.7; v += 0.5) { const fall = 1 / (1 + Math.pow(v / c, 1.6) * 0.85); const sf = Math.min(1, v / 6); const w = car.turn * sf * fall; vs.push(v); rs.push(v / Math.max(1e-3, w)); }
   return (tableCache[car.id] = { vs, rs });
 }
@@ -35,7 +35,7 @@ function speedForRadius(car, R) {
   while (hi - lo > 1) { const m = (lo + hi) >> 1; if (t.rs[m] <= R) lo = m; else hi = m; }
   const u = (R - t.rs[lo]) / Math.max(1e-6, t.rs[hi] - t.rs[lo]); return t.vs[lo] + (t.vs[hi] - t.vs[lo]) * u;
 }
-const fallOf = (car, v) => 1 / (1 + Math.pow(Math.abs(v) / (car.vmax * 0.68), 1.6) * 0.85);
+const fallOf = (car, v) => 1 / (1 + Math.pow(Math.abs(v) / (car.vmax * (car.cv || 0.68)), 1.6) * 0.85);
 
 // ---------- trajectoire ----------
 const lineCache = new WeakMap();
@@ -108,7 +108,7 @@ function buildPlan(tr, car, th, ref) {
   for (let i = 0; i < n; i++) {
     const s = tr.surf[i]; let cap = car.vmax; let cf = 1;
     if (s === 1) { cap *= 0.93; cf = clamp(th.dirtK * (0.72 + 0.3 * car.dirt), 0.4, 1.2); } else if (s === 4) { cap *= 0.62; cf = 0.9; } else if (s === 2) cf = clamp(th.iceK * (0.35 + 1.1 * car.ice), 0.3, 1.1);
-    const vc = ks[i] > 1e-4 ? speedForRadius(car, 1 / ks[i]) * th.corner * cf : 1e9;
+    let vc = ks[i] > 1e-4 ? speedForRadius(car, 1 / ks[i]) * th.corner * cf : 1e9; if ((tr.flags[i] & Track.FLAG.NOWALL) && vc < 1e8) vc *= 0.8;
     let vr = 1e9; if (ref && th.refSpeed > 0 && ref.ok[i]) vr = th.refSpeed * ref.v[i];
     if (tr.flags[i] & Track.FLAG.NOWALL) cap *= 0.72;
     vlimA[i] = Math.min(cap * 1.02, Math.max(vc, Math.min(vr, vc * 1.35))); vlimB[i] = Math.min(cap * 1.3, Math.max(vc, Math.min(vr, vc * 1.35)));

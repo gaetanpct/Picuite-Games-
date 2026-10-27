@@ -97,7 +97,7 @@
 
   // ---------- état ----------
   function onState(s) {
-    clock(s.now); const old = G.st; G.st = s; if (s.car) G.carId = s.car;
+    clock(s.now); const old = G.st; G.st = s; { const mine = (s.players || []).find((q) => q.id === myId()); G.carId = (mine && mine.car) || s.car || G.carId; }
     if (!G.track) return;
     if (s.turn && (!G.turn || G.turn.pid !== s.turn.pid || G.turn.idx !== s.turn.idx)) { /* z:turn arrive juste avant */ }
     if (G.turn && s.turn) { G.turn.fuelLeft = s.turn.fuelLeft; G.turn.tries = s.turn.tries; G.turn.goAt = s.turn.goAt; G.turn.ended = s.turn.ended; }
@@ -115,7 +115,7 @@
   // ---------- pilotage ----------
   function arm() { if (G.armedAt && Date.now() - G.armedAt < 1200) return; G.armedAt = Date.now(); G.waiting = true; Kit.socket.emit("z:attempt"); }
   function onGo(m) {
-    clock(m.now); G.waiting = false; if (isChrono(G.mode)) G.wantArm = false; const car = G.carId || m.car || "bolide";
+    clock(m.now); G.waiting = false; if (isChrono(G.mode)) G.wantArm = false; const car = m.car || G.carId || "bolide";
     G.slotMe = m.slot || 0; G.run = { r: CA.newRun(G.track, car, { slot: G.slotMe, leave: S().leave }), bytes: [], events: [], goAt: m.goAt, fuelTicks: 1e12, fuel0: m.fuelLeft || 0, challenger: m.fuelLeft > 0, frames: [], done: false, car, cpShown: 0, out: false, finishSent: false, gptr: 0, lastGo: 0 };
     G.ghostPtr = 0; V.resetGates(); V.resetFollow(); G.armedAt = 0; G.cpBanner = 0;
     G.ghostT0 = m.goAt;
@@ -225,7 +225,7 @@
   function finishRun(run) {
     run.done = true; const r = run.r; const t = r.finishTime;
     if (!run.finishSent) { run.finishSent = true; Kit.socket.emit("z:end", { kind: "finish", bytes: bytesB64(run.bytes), time: t, ev: run.events || [] }); }
-    Kit.sound.win(); setBanner(fmtS(t), r.resets ? "Arrivée avec " + r.resets + " retour" + (r.resets > 1 ? "s" : "") : "Arrivée", 2200);
+    Kit.sound.win(); { const A = G.author; const k = A ? t / A : 0; const medal = !A ? "" : k <= 1 ? "Médaille d'auteur battue 🏆" : k <= 1.06 ? "Médaille d'or 🥇" : k <= 1.15 ? "Médaille d'argent 🥈" : k <= 1.3 ? "Médaille de bronze 🥉" : ""; const base = r.resets ? "Arrivée avec " + r.resets + " retour" + (r.resets > 1 ? "s" : "") : "Arrivée"; setBanner(fmtS(t), medal ? medal + " · " + base : base, 2800); }
     if (G.myBest == null || t < G.myBest) { G.myBest = t; G.myBestFrames = run.frames.slice(); }
     run.doneAt = performance.now();
     const rec = G.mode === "essence" && G.record ? G.record.time : null;
@@ -316,19 +316,20 @@
     const g = $("#garage"); if (!g || !G.st || !G.track) return; const s = G.st; const cm = me();
     // on ne reconstruit le garage que si son contenu change, sinon un clic en cours serait perdu
     const secs = Math.max(0, Math.ceil((s.phaseUntil - snow()) / 1000)); const isHost0 = Kit.isHost();
-    const gkey = [G.track.name, G.carId, G.author, isHost0, !!(cm && cm.ready), Kit.room && Kit.room.hostId].join("|");
+    const gkey = [G.track.name, G.carId, S().carMode, G.author, isHost0, !!(cm && cm.ready), Kit.room && Kit.room.hostId].join("|");
     g.classList.remove("hidden");
-    if (g.dataset.key === gkey && g.firstChild) { const t = $("#gar-secs"); if (t) t.textContent = (isHost0 ? "Tu choisis la voiture de tout le monde" : nameOf(Kit.room.hostId) + " choisit la voiture de tout le monde") + " · départ dans " + secs + " s"; return; }
+    if (g.dataset.key === gkey && g.firstChild) { const t = $("#gar-secs"); if (t) t.textContent = (S().carMode === "random" ? "Voiture tirée au sort pour tous" : S().carMode === "host" ? (isHost0 ? "Tu choisis la voiture de tout le monde" : nameOf(Kit.room.hostId) + " choisit la voiture de tout le monde") : "Choisis ta voiture") + " · départ dans " + secs + " s"; return; }
     g.dataset.key = gkey; g.innerHTML = "";
     const B = TR.BIOMES[G.track.biome];
     g.appendChild(el("div", { class: "garage__info" }, [el("b", { text: B.icon + " " + G.track.name }), el("span", { class: "small", text: B.name + " · " + Math.round(G.track.length) + " m · environ " + Math.round(G.track.length / 27) + " s de conduite" + (G.author ? " · temps de l'auteur " + fmtS(G.author) : "") })]));
-    const isHost = Kit.isHost(); const cards = el("div", { class: "cars" + (isHost ? "" : " cars--locked") });
+    const cmode = S().carMode || "own"; const isHost = Kit.isHost(); const canPick = cmode === "own" || (cmode === "host" && isHost); const cards = el("div", { class: "cars" + (canPick ? "" : " cars--locked") });
     CA.CAR_ORDER.forEach((id) => {
       const c = CA.CARS[id]; const on = G.carId === id; const bar = (v) => el("i", { style: { width: Math.round(clamp(v, 0.08, 1) * 80) + "px" } });
-      cards.appendChild(el("button", { class: "carcard" + (on ? " carcard--on" : ""), onclick: () => { if (isHost) { Kit.socket.emit("z:car", { id }); sound.click(); } else toast("Le premier joueur, l'hôte, choisit la voiture de tout le monde.", "info"); } }, [
+      cards.appendChild(el("button", { class: "carcard" + (on ? " carcard--on" : ""), onclick: () => { if (canPick) { Kit.socket.emit("z:car", { id }); sound.click(); } else toast(cmode === "random" ? "La voiture est tirée au sort à chaque course." : "Le premier joueur, l'hôte, choisit la voiture de tout le monde.", "info"); } }, [
         el("b", {}, [el("span", { class: "ic", text: c.icon }), c.name]), el("p", { text: c.desc }),
-        el("div", { class: "stat" }, [el("span", { text: "Vitesse" }), bar(c.vmax / 60)]), el("div", { class: "stat" }, [el("span", { text: "Accélération" }), bar(c.acc / 26)]),
-        el("div", { class: "stat" }, [el("span", { text: "Adhérence" }), bar(c.grip / 7.6)]), el("div", { class: "stat" }, [el("span", { text: "Maniabilité" }), bar(c.turn / 2.8)]),
+        el("div", { class: "stat" }, [el("span", { text: "Vitesse" }), bar(c.vmax / 68)]), el("div", { class: "stat" }, [el("span", { text: "Accélération" }), bar(c.acc / 30)]),
+        el("div", { class: "stat" }, [el("span", { text: "Adhérence" }), bar(c.grip / 7.6)]), el("div", { class: "stat" }, [el("span", { text: "Maniabilité" }), bar(c.turn / 3)]),
+        el("div", { class: "stat" }, [el("span", { text: "Turbo de dérapage" }), bar(c.drift / 1.4)]), el("div", { class: "stat" }, [el("span", { text: "Solidité aux chocs" }), bar(1.25 - c.wall * 0.75)]),
       ]));
     });
     g.appendChild(cards);

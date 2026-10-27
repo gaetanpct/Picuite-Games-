@@ -18,8 +18,8 @@
   // en vol, la pesanteur est plus forte que sur la route. Les sauts restent courts et lisibles
   const AIRK = 1.9;
   // la voiture la plus lente (Bouboule) sert de référence pour dimensionner les sauts
-  const WEAK = { vmax: 42, acc: 18 };
-  const VTOP = 82; // vitesse maximale possible en vol, turbo compris
+  const WEAK = { vmax: 45, acc: 18 };
+  const VTOP = 92; // vitesse maximale possible en vol, turbo compris
   const OBS = { cone: { r: 0.75, h: 1.4 }, barrel: { r: 1.15, h: 1.7 }, crate: { r: 1.4, h: 2.2 }, pillar: { r: 0.95, h: 5 } };
   const OBS_IDS = ["cone", "barrel", "crate", "pillar"];
 
@@ -66,11 +66,11 @@
     const diff = clamp(spec.difficulty || 3, 1, 5), size = clamp(spec.size || 2, 1, 5);
     const hillsLvl = clamp(spec.hills == null ? 2 : spec.hills, 0, 3);
     const F = Object.assign({ boosts: true, jumps: true, surfaces: true, gaps: true, steep: true, obstacles: true, widths: true, bridges: true, mag: true }, spec.features || {});
-    const wild = clamp(spec.special == null ? 2 : spec.special, 0, 4);
+    const wild = clamp(spec.special == null ? 3 : spec.special, 0, 4);
     const airG = biome.gravity * AIRK;
     const targetLen = [700, 1100, 1700, 2800, 4200][size - 1] * (0.92 + rng() * 0.16);
     const maxR = [330, 440, 600, 820, 1050][size - 1];
-    const hw = [9, 8, 7, 6.3, 5.6][diff - 1];
+    const hw = [6.6, 5.6, 4.8, 4.2, 3.6][diff - 1];
     const rad = (a, b) => a + rng() * (b - a), ang = (a, b) => (a + rng() * (b - a)) * Math.PI / 180, pick = (l) => l[Math.floor(rng() * l.length)];
     const X = [], Z = [], H = [], W = [], SF = [], FL = [];
     const items = []; const starts = []; // éléments enregistrés et début de chaque pièce posée
@@ -125,14 +125,21 @@
 
     // ---------- pièces classiques ----------
     function kStraight() {
-      const len = rad(40, 90), surf = pickSurf(); const boost = F.boosts && len > 50 && rng() < 0.6; const bump = F.jumps && len > 70 && rng() < 0.4 && surf !== SURF.ICE && pinOK();
+      const len = rad(40, 90), surf = pickSurf(); const boost = F.boosts && len > 50 && rng() < 0.4; const bump = F.jumps && len > 70 && rng() < 0.4 && surf !== SURF.ICE && pinOK();
       const n = Math.max(1, Math.round(len / STEP));
       return { surf, parts: [{ straight: len }], reg(i0, i1) {
         if (boost) { const m = i1 - Math.floor(n / 2); for (let i = 0; i < 4; i++) { const q = m - 2 + i; if (q > 2) { FL[q] |= FLAG.BOOST; SF[q] = SURF.BOOST; } } }
         if (bump) { const R = 1.0 + rng() * 0.6 + diff * 0.05; const idx = i1 - n + Math.floor(n * 0.35); const a = idx - 8, b = idx + 12; const ofs = []; for (let i = a; i <= b; i++) ofs.push(i <= idx ? R * sm((i - a) / 8) : i <= idx + 2 ? R * (1 - (i - idx) / 2) : 0); FL[idx] |= FLAG.JUMP; items.push({ t: "region", a, b, ofs }); items.push({ t: "bump", a: idx }); }
       } };
     }
-    const kCurve = () => { const s = sgn(); return { surf: pickSurf(), parts: [{ straight: rad(6, 16) }, { angle: s * ang(25, 80), radius: rad(34, 80) }] }; };
+    const exitBoost = (i1) => { for (let i = 0; i < 4; i++) { const q = i1 - 1 - i; if (q > 2) { FL[q] |= FLAG.BOOST; SF[q] = SURF.BOOST; } } };
+    const kCurve = () => { const s = sgn(); const eb = F.boosts && rng() < 0.3; return { surf: pickSurf(), parts: [{ straight: rad(6, 16) }, { angle: s * ang(25, 80), radius: rad(30, 70) }], reg(i0, i1) { if (eb) exitBoost(i1); } }; };
+    // virage serré où la route se resserre au sommet de la courbe. La trajectoire doit être exacte
+    const kTight = () => { const s = sgn(); const k = Math.max(3.1 / hw, 0.55); return { surf: pickSurf(), parts: [{ straight: rad(8, 14) }, { angle: s * ang(70, 120), radius: rad(26, 40) }, { straight: 6 }], wf: (f) => (f < 0.25 ? 1 + (k - 1) * sm(f / 0.25) : f < 0.8 ? k : k + (1 - k) * sm((f - 0.8) / 0.2)), reg(i0, i1) { items.push({ t: "neck", a: i0, b: i1 }); } }; };
+    // enchaînement rapide de petits virages en sens inverse
+    const kEsses = () => { const s = sgn(); const R = rad(17, 25); const a1 = ang(32, 48); const cnt = pick([4, 5]); const parts = []; for (let q = 0; q < cnt; q++) parts.push({ angle: (q % 2 ? -1 : 1) * s * (q === 0 || q === cnt - 1 ? a1 * 0.75 : a1 * 1.5), radius: R }); return { surf: pickSurf(), parts }; };
+    // deux épingles dans le même sens, un grand U
+    const kDouble = () => { const s = sgn(); return { surf: pickSurf(), parts: [{ straight: rad(6, 10) }, { angle: s * ang(85, 125), radius: rad(18, 26) }, { straight: rad(4, 12) }, { angle: s * ang(70, 110), radius: rad(18, 26) }] }; };
     const kHairpin = () => { const s = sgn(); return { surf: pickSurf(), parts: [{ straight: rad(6, 12) }, { angle: s * ang(110, 170), radius: rad(15, 24) }] }; };
     const kBends = () => { const s = sgn(); return { surf: pickSurf(), parts: [{ angle: s * ang(30, 70), radius: rad(38, 70) }, { angle: -s * ang(30, 70), radius: rad(38, 70) }] }; };
     const kChic = () => { const s = sgn(); return { surf: pickSurf(), parts: [{ angle: s * ang(30, 45), radius: rad(20, 28) }, { angle: -s * ang(55, 80), radius: rad(20, 28) }, { angle: s * ang(30, 45), radius: rad(20, 28) }] }; };
@@ -140,14 +147,14 @@
 
     // ---------- largeurs variables ----------
     function kNeck() {
-      const k = Math.max(3.3 / hw, 0.5); const len = rad(70, 110);
+      const k = Math.max(2.9 / hw, 0.5); const len = rad(70, 110);
       return { surf: pickSurf(), parts: [{ straight: len }], wf: (f) => (f < 0.3 ? 1 + (k - 1) * sm(f / 0.3) : f < 0.7 ? k : k + (1 - k) * sm((f - 0.7) / 0.3)), reg(i0, i1) { items.push({ t: "neck", a: i0, b: i1 }); } };
     }
     function kArena() {
       const s = sgn(); const big = Math.min(1.85, 15 / hw); return { surf: pickSurf(), parts: [{ straight: 16 }, { angle: s * ang(30, 70), radius: rad(55, 90) }, { straight: 16 }], wf: (f) => 1 + (big - 1) * Math.sin(Math.PI * clamp(f * 1.05, 0, 1)) ** 0.7, reg(i0, i1) { items.push({ t: "arena", a: i0, b: i1 }); } };
     }
     function kPulse() {
-      const cyc = pick([2, 3]); const lo = Math.max(3.6 / hw, 0.58); return { surf: pickSurf(), parts: [{ straight: rad(90, 130) }], wf: (f) => (1 + lo) / 2 + (1 - lo) / 2 * Math.cos(2 * Math.PI * cyc * f) * 1 + (cyc === 3 ? 0.2 : 0.1) * Math.sin(Math.PI * f), reg(i0, i1) { items.push({ t: "neck", a: i0, b: i1 }); } };
+      const cyc = pick([2, 3]); const lo = Math.max(3.0 / hw, 0.58); return { surf: pickSurf(), parts: [{ straight: rad(90, 130) }], wf: (f) => (1 + lo) / 2 + (1 - lo) / 2 * Math.cos(2 * Math.PI * cyc * f) * 1 + (cyc === 3 ? 0.2 : 0.1) * Math.sin(Math.PI * f), reg(i0, i1) { items.push({ t: "neck", a: i0, b: i1 }); } };
     }
 
     // ---------- pentes raides ----------
@@ -216,10 +223,23 @@
     function kBridge() {
       if (!pinOK() || room() < 400) return null;
       const Hb = rad(6, 10); const nUp = Math.ceil(1.5 * Hb / (0.2 * STEP)); const nB = Math.round(rad(40, 70)); const N = 4 + nUp + nB + nUp + 4; if (N * STEP > room() - 100) return null;
-      const wb = clamp(hw * 0.55, 3.4, 4.6) / hw; const nb = Math.min(nB, 40);
+      const wb = clamp(hw * 0.55, 3.0, 4.2) / hw; const nb = Math.min(nB, 40);
       return { surf: SURF.ASPHALT, parts: [{ straight: N * STEP }], wf: (f) => { const i = f * N; const lo = 4 + nUp * 0.5, hi = 4 + nUp + nB + nUp * 0.5; return i < lo ? 1 : i < lo + 8 ? 1 + (wb - 1) * sm((i - lo) / 8) : i < hi - 8 ? wb : i < hi ? wb + (1 - wb) * sm((i - (hi - 8)) / 8) : 1; }, reg(i0, i1) {
         const ofs = []; for (let i = 0; i < 4; i++) ofs.push(0); for (let i = 1; i <= nUp; i++) ofs.push(Hb * sm(i / nUp)); for (let i = 1; i <= nB; i++) ofs.push(Hb); for (let i = 1; i <= nUp; i++) ofs.push(Hb * (1 - sm(i / nUp))); while (ofs.length < i1 - i0 + 1) ofs.push(0); ofs.length = i1 - i0 + 1;
         for (let i = i0 + 4 + Math.floor(nUp * 0.55); i < i0 + 4 + nUp + nB + Math.floor(nUp * 0.45); i++) FL[i] |= FLAG.NOWALL;
+        items.push({ t: "region", a: i0, b: i1, ofs }); items.push({ t: "bridge", a: i0, cp: i0 + 3 });
+      } };
+    }
+
+    // ---------- corniche, route surélevée sans mur qui tourne ----------
+    function kCorniche() {
+      if (!pinOK() || room() < 420 || diff < 2) return null;
+      const s = sgn(); const Hb = rad(5, 8); const nUp = Math.ceil(1.5 * Hb / (0.2 * STEP));
+      const parts = [{ straight: STEP * (nUp + 10) }, { angle: s * ang(40, 75), radius: rad(36, 55) }, { angle: -s * ang(25, 55), radius: rad(36, 55) }, { straight: STEP * (nUp + 10) }];
+      const wb = clamp(hw * 0.62, 3.0, 4.2) / hw;
+      return { surf: SURF.ASPHALT, parts, wf: (f) => (f < 0.22 ? 1 : f < 0.33 ? 1 + (wb - 1) * sm((f - 0.22) / 0.11) : f < 0.67 ? wb : f < 0.78 ? wb + (1 - wb) * sm((f - 0.67) / 0.11) : 1), reg(i0, i1) {
+        const N = i1 - i0 + 1; const up = Math.min(nUp, Math.floor(N * 0.3)); const ofs = []; for (let i = 0; i < N; i++) { const a = i - 4, b = N - 1 - i - 4; ofs.push(Hb * Math.min(sm(Math.max(0, a) / up), sm(Math.max(0, b) / up))); }
+        for (let i = i0 + 4 + Math.floor(up * 0.55); i < i1 - 4 - Math.floor(up * 0.55); i++) FL[i] |= FLAG.NOWALL;
         items.push({ t: "region", a: i0, b: i1, ofs }); items.push({ t: "bridge", a: i0, cp: i0 + 3 });
       } };
     }
@@ -288,14 +308,14 @@
 
     // ---------- choix de la pièce suivante ----------
     function makeKind() {
-      const cands = [[2.6, kStraight], [3.6, kCurve], [0.4 + diff * 0.45, kHairpin], [2, kBends], [0.3 + diff * 0.4, kChic], [1.5, kSweep]];
+      const cands = [[1.8, kStraight], [3, kCurve], [0.7 + diff * 0.8, kHairpin], [1.6, kBends], [0.6 + diff * 0.8, kChic], [1.2, kSweep], [0.8 + diff * 0.6, kTight], [0.5 + diff * 0.5, kEsses], [0.15 + diff * 0.35, kDouble]];
       if (wild > 0) {
         const k = wild * 0.8; const sizeOK = size >= 2;
         if (F.steep) cands.push([2.0 * k, kSteep]);
         if (F.obstacles) cands.push([1.6 * k, kObstacles]);
         if (F.widths) { cands.push([0.8 * k, kNeck]); cands.push([0.6 * k, kArena]); cands.push([0.5 * k, kPulse]); }
         if (F.gaps && sizeOK) cands.push([2.4 * k, kGap]);
-        if (F.bridges && sizeOK) cands.push([1.1 * k, kBridge]);
+        if (F.bridges && sizeOK) { cands.push([1.1 * k, kBridge]); cands.push([0.9 * k, kCorniche]); }
         if (F.mag && sizeOK) { cands.push([0.8 * k, kLoop]); cands.push([0.55 * k, kRoll]); cands.push([0.6 * k, kWall]); cands.push([0.4 * k, kCeiling]); }
       }
       const tot = cands.reduce((a, c) => a + c[0], 0); let r = rng() * tot;

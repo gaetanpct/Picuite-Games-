@@ -42,14 +42,24 @@ function onDestroy(room) { if (room.g && room.g.timer) { clearInterval(room.g.ti
 const botLevelOf = (def) => (def.isBot ? def.level : "moyen");
 const isAuto = (room, def) => def.isBot || (!def.connected && def.absentAuto);
 
+// voiture d'un pilote au début d'une course selon le mode de choix
+function carFor(room, id) {
+  const g = room.g, s = room.settings; const rr = Track.mulberry32(Track.hashSeed(g.baseSeed + "car" + g.roundIdx));
+  if (s.carMode === "random") { return Car.CAR_ORDER[Math.floor(rr() * Car.CAR_ORDER.length)]; }
+  const def = room.players.find((p) => p.id === id);
+  if (s.carMode === "own" && def && def.isBot) { const r2 = Track.mulberry32(Track.hashSeed(g.baseSeed + "bc" + g.roundIdx + id)); return Car.CAR_ORDER[Math.floor(r2() * Car.CAR_ORDER.length)]; }
+  const prev = g.players[id] && g.players[id].car; if (s.carMode === "own" && prev && Car.CARS[prev]) return prev;
+  return g.car;
+}
+
 // ---------- manche ----------
 function startRound(room) {
   const g = room.g, s = room.settings;
   g.roundIdx++; if (g.roundIdx >= g.total) return finishMatch(room);
-  g.track = Rules.trackFor(s, g.baseSeed, g.roundIdx); g.author = 0;
+  g.track = Rules.trackFor(s, g.baseSeed, g.roundIdx); g.track.crashK = Rules.crashK(s); g.author = 0;
   g.trackMsg = Object.assign({}, g.track); delete g.trackMsg.spec;
   g.turn = null; g.record = null; g.results = null; g.raceEnd = 0;
-  Object.values(g.players).forEach((P) => { if (P.best != null && (P.bestAll == null || P.best < P.bestAll)) P.bestAll = P.best; P.ready = false; P.best = null; P.bestBytes = null; P.pos = null; P.att = null; P.tries = 0; P.finishes = 0; P.feed = null; P.car = g.car; P.tryCount = 0; P.bestFrames = null; P.bestCar = null; P.fuel = 0; P.out = false; P.done = false; P.botDone = false; });
+  Object.values(g.players).forEach((P) => { if (P.best != null && (P.bestAll == null || P.best < P.bestAll)) P.bestAll = P.best; P.ready = false; P.best = null; P.bestBytes = null; P.pos = null; P.att = null; P.tries = 0; P.finishes = 0; P.feed = null; P.car = carFor(room, P.id); P.tryCount = 0; P.bestFrames = null; P.bestCar = null; P.fuel = 0; P.out = false; P.done = false; P.botDone = false; });
   g.elim = []; g.stage = "open"; g.turnSeq = 0; g.target = null;
   const seats = room.players.map((p) => p.id);
   if (s.mode === "essence") {
@@ -417,9 +427,12 @@ function bind(socket, h, api) {
   const pid = () => { const p = me(); return p ? p.id : null; };
   socket.on("z:car", safe((d) => {
     if (!inGame()) return; const g = ctx.room.g;
-    if (ctx.room.hostToken !== ctx.token) return toast("Seul le premier joueur, l'hôte, choisit la voiture pour tout le monde.");
+    const mode = ctx.room.settings.carMode;
+    if (mode === "random") return toast("La voiture est tirée au sort à chaque course.");
+    if (mode !== "own" && ctx.room.hostToken !== ctx.token) return toast("Seul le premier joueur, l'hôte, choisit la voiture pour tout le monde.");
     if (g.phase !== "garage") return toast("Le garage est fermé pour cette course.");
     const id = String((d || {}).id); if (!Car.CARS[id]) return;
+    if (mode === "own") { const P = g.players[pid()]; if (!P) return; P.car = id; emitState(ctx.room); return; }
     g.car = id; Object.values(g.players).forEach((P) => { P.car = id; }); prepareBots(ctx.room); emitState(ctx.room);
   }));
   socket.on("z:ready", safe(() => { if (!inGame()) return; const g = ctx.room.g; const P = g.players[pid()]; if (!P || g.phase !== "garage") return; P.ready = !P.ready; emitState(ctx.room); }));

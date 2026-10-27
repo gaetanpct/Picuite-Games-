@@ -507,6 +507,16 @@ Le meurtre mystère et Faux semblants ont été retirés. Les nouveautés de la 
 - Tous les jeux sont jouables seul ou avec des bots. Les bots ont trois niveaux, facile, normal et expert, et se trompent, hésitent et réagissent avec un petit retard, pour rester crédibles.
 - Un joueur déconnecté peut être remplacé par un bot, puis reprendre sa place en revenant.
 
+### Zoomalou en mode compétition
+
+- Les routes sont plus étroites et les murs, les obstacles et les atterrissages ratés font perdre beaucoup plus de vitesse. Un réglage « Dégâts des chocs » permet de choisir doux, normaux ou brutaux.
+- Chacun choisit désormais sa voiture au garage. Un réglage « Choix des voitures » permet aussi de laisser l'hôte choisir pour tous, ou de tirer la voiture au sort à chaque course.
+- Les cinq voitures ont de vrais compromis. Le Pétard est le plus rapide mais freine mal, tourne mal et un mur lui coûte très cher. La Toupie dérape tout le temps et gagne un gros turbo en sortie de dérapage. Le Rallye-Pote colle sur la terre et la glace. Le Bouboule encaisse les chocs mais manque de vitesse de pointe. Le Bolide est équilibré.
+- Un dérapage commence plus tôt et un long dérapage donne un turbo plus long à la sortie.
+- Nouvelles pièces de circuit, virage qui se resserre au sommet, enchaînement rapide de petits virages, double épingle, corniche surélevée sans rebord et turbos posés en sortie de virage.
+- Une médaille s'affiche à l'arrivée selon le temps de l'auteur du circuit, bronze, argent, or ou auteur.
+- Les voitures des autres joueurs et le fantôme restent collés à la route dans les loopings.
+
 ### Dernières retouches
 
 - Lasers invisibles et Pont de verre ont été entièrement repensés en plateformes où l'on marche librement.
