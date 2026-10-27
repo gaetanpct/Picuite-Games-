@@ -9,7 +9,7 @@ const Rules = require("./public/game/rules.js");
 const Bot = require("./zoom-bot.js");
 
 const TS = Math.max(0.001, Number(process.env.ZOOM_TIME_SCALE) || 1);
-const INTRO_MS = 3500 * TS, ROUND_END_MS = 12000 * TS, FIRST_GO_MS = 3000, NEXT_GO_MS = 1300;
+const INTRO_MS = 3500 * TS, ROUND_END_MS = 6500 * TS, FIRST_GO_MS = 3000, NEXT_GO_MS = 1300;
 const IDLE_MS = 40000 * TS;
 const isChrono = (s) => s.mode === "chrono" || s.mode === "contact";
 const CHRONO_PTS = [6, 4, 3, 2, 1, 1, 1, 1];
@@ -216,11 +216,11 @@ function nextTurn(room) {
     const alive = aliveRank(room);
     if (alive.length <= 1) return endRound(room);
     const worst = alive[alive.length - 1], tgt = alive[alive.length - 2]; const P = g.players[worst];
-    if (P.fuel <= 0.05) { eliminate(room, worst, "dry"); continue; }
+    const dryNow = P.fuel <= 0.05; // sans essence, il garde un dernier essai pour reprendre la place
     setRecord(room, recordOf(room, tgt) || { time: 999, pid: tgt, car: g.car, frames: null });
-    makeTurn(room, worst, "duel", fix1(P.fuel));
+    makeTurn(room, worst, "duel", dryNow ? 0.3 : fix1(P.fuel)); if (dryNow) g.turn.last = true;
     g.api.emitAll(room, "z:turn", turnMsg(room));
-    g.api.sysChat(room, pName(room, worst) + " est dernier. Il a " + Math.round(P.fuel) + " secondes d'essence pour battre " + pName(room, tgt) + " et ses " + fmt(g.record.time) + ".");
+    g.api.sysChat(room, pName(room, worst) + " est dernier. " + (dryNow ? "Il n'a plus d'essence mais il lui reste un dernier essai pour battre " : "Il a " + Math.round(P.fuel) + " secondes d'essence pour battre ") + pName(room, tgt) + " et ses " + fmt(g.record.time) + ".");
     emitState(room); return;
   }
 }
@@ -285,7 +285,7 @@ function botTurn(room) {
     result = "set"; fuelEnd = Math.max(0, t.fuel - segs.reduce((q, x) => q + x.burn, 0));
   } else {
     let fuel = t.fuel;
-    while (fuel > 0.5 && n < 15) {
+    while ((fuel > 0.5 || (n === 0 && t.last)) && n < 15) {
       const at = botAttempt(room, P, lvl, g.baseSeed + t.pid + g.roundIdx + "c" + n + "d" + g.turnSeq, fuel, n); n++;
       segs.push({ t0: clock, dur: at.dur, burn: at.burn, kind: at.kind, frames: at.frames }); clock += at.dur + BOT_GAP; fuel -= at.burn;
       if (at.time != null && (P.best == null || at.time < P.best) && at.kind !== "beat") { /* temps meilleur que le sien mais pas assez */ }
