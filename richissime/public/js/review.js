@@ -25,6 +25,7 @@
       h("h2", { style: { margin: 0 } }, f.name),
       h("div.muted", (f.survivor ? "Toujours en vie à " : (fem ? "Morte à " : "Mort à ")) + f.age + " ans, " + (f.survivor ? "la partie s'arrête là" : f.cause)),
       h("div.rvtitle", f.title),
+      f.goal ? h("div.small", "🎯 Objectif de vie, " + f.goal.l.toLowerCase() + ", atteint à " + f.goal.pct + " pour cent. " + f.goal.line) : null,
       f.birth ? h("div.small.muted", BIRTH[f.birth].replace("Née", fem ? "Née" : "Né")) : null)));
     out.push(h("div.rvtiles",
       tile("Fortune finale", RD.money(m.net), null, m.net >= 0 ? "good" : "bad"),

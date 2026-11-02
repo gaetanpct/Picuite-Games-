@@ -18,6 +18,7 @@ const FILES = [
   "85_crime.js",
   "86_justice.js",
   "87_carrefours.js",
+  "88_casino.js",
   "90_amour.js",
   "95_sante_maladies.js",
   "97_monde.js",

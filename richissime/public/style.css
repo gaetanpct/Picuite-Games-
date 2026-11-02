@@ -385,3 +385,7 @@ svg.chart text { font-family: var(--body); font-size: 11px; fill: #3b3b48; }
 .choice .lab .hint { display: block; font-weight: 400; font-size: .82rem; color: #3b3b48; line-height: 1.25; margin-top: 2px; }
 
 .dirtyline { margin: 4px 0; padding: 4px 8px; border: 2px dashed var(--ink); border-radius: 8px; background: #f3e9d3; font-size: .85rem; font-weight: 700; }
+
+.goalcard { background: #fff7d6; border: 2px solid var(--ink); border-radius: 12px; padding: 8px 10px; margin-bottom: 10px; box-shadow: var(--shadow-sm); }
+.goalbar { height: 10px; border: 2px solid var(--ink); border-radius: 8px; background: #fff; margin: 6px 0; overflow: hidden; }
+.goalbar i { display: block; height: 100%; background: var(--gold-2); }

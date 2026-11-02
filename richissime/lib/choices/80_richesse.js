@@ -140,3 +140,38 @@ reg({ id: "fondation_memoire", grp: "social", l: "Créer une fondation en mémoi
 reg({ id: "rouvrir_son_coeur", grp: "amour", l: "Rouvrir ton cœur après le deuil", ic: "🌱", d: "Pas pour remplacer, juste pour avancer. Quelqu'un te sourit, et tu oses sourire en retour.", prio: 1,
   need: { ages: [25, 90], single: true, fn: (p) => !!p.flags.veuvage && !C.hasRel(p, "crush"), noprison: true }, cool: 1, w: 9, fit: () => 1.4,
   scene: { id: "love_rencontre", vals: { lieu: "lors d'un petit événement de quartier" } } });
+
+// ============================================================
+// Casinos, tables de jeu et paris. Les scènes sont dans content/88_casino.js, la mise suit la fortune du joueur.
+// ============================================================
+{
+// Casinos, tables de jeu et paris. Ces propositions apparaissent selon l'âge, l'argent, le caractère, le métier et les habitudes de jeu.
+// Les scènes elles-mêmes sont dans content/88_casino.js, la mise s'adapte à la fortune du joueur.
+const { reg, tier } = require("../lifekit");
+
+const arcJeu = (p) => (p.arcs && p.arcs.jeu) || 0;
+const croupier = (p) => !!(p.job && p.job.track === "casino");
+const risky = (p) => (p.traits.courage >= 55 ? 1.35 : 1) * (p.traits.prudent >= 62 ? 0.55 : p.traits.prudent <= 40 ? 1.35 : 1);
+const habit = (p) => (arcJeu(p) >= 4 ? 1.7 : arcJeu(p) >= 2 ? 1.3 : 1);
+const adult = (min, max, money, extra) => Object.assign({ ages: [min, max], noprison: true, nostudy: true, money: [money, null] }, extra || {});
+const notBanned = { noflag: "banni_casino" };
+
+reg({ id: "bj_table", grp: "casino", l: "Une soirée au blackjack", ic: "🃏", d: "Une table, un croupier, un paquet de cartes et la promesse qu'on peut s'arrêter quand on veut.", tag: "mature",
+  need: adult(18, 92, 100, notBanned), scene: "casino_blackjack", cool: 2, w: 2.5, fit: (p) => risky(p) * habit(p) * (croupier(p) ? 2.2 : 1) * (tier(p) >= 5 ? 0.5 : 1) });
+reg({ id: "poker_partie", grp: "casino", l: "Une partie de poker", ic: "♠️", d: "Entre amis, en club ou dans une arrière-salle, avec des visages impassibles et des paquets de chips.", tag: "mature",
+  need: adult(18, 90, 70), scene: "casino_poker", cool: 2, w: 2.5, fit: (p) => (p.stats.intel >= 55 ? 1.3 : 1) * risky(p) * habit(p) * (croupier(p) ? 2 : 1) });
+reg({ id: "poker_tournoi", grp: "casino", l: "Un tournoi de poker", ic: "🏆", d: "Un droit d'entrée, des caméras et la possibilité très mince de changer de vie en un week-end.", tag: "mature",
+  need: adult(21, 75, 500, notBanned), scene: "casino_poker_tournoi", cool: 4, w: 1.6, fit: (p) => ((p.stats.intel >= 58 ? 1.5 : 0.8) * risky(p) * habit(p) * (croupier(p) ? 2.5 : 1)) * (p.flags && p.flags.champion_poker ? 2 : 1) });
+reg({ id: "roulette_soir", grp: "casino", l: "Une soirée à la roulette", ic: "🎡", d: "La bille tourne et ton avenir tient sur une couleur. Tu peux aussi regarder.", tag: "mature",
+  need: adult(18, 92, 120, notBanned), scene: "casino_roulette", cool: 2, w: 2, fit: (p) => risky(p) * habit(p) * (croupier(p) ? 1.8 : 1) * (tier(p) >= 5 ? 0.5 : 1) });
+reg({ id: "machines_sous", grp: "casino", l: "Les machines à sous", ic: "🎰", d: "Des lumières, un seau de pièces et un grand moment de confiance en soi.", tag: "mature",
+  need: adult(18, 95, 40, notBanned), scene: "casino_machines", cool: 2, w: 2, fit: (p) => (p.age >= 55 ? 2 : p.age >= 40 ? 1.2 : 0.9) * habit(p) * (tier(p) >= 4 ? 0.3 : tier(p) <= 1 ? 0.8 : 1) });
+reg({ id: "salle_privee", grp: "casino", l: "La salle privée du casino", ic: "💎", d: "Fauteuils en cuir, baccara à mise élevée et des invités qui ne regardent jamais l'addition.", tag: "mature",
+  need: adult(25, 95, 8000, Object.assign({ net: [250000, null] }, notBanned)), scene: "casino_vip", cool: 3, w: 2.5, fit: (p) => (tier(p) >= 4 ? 1.6 : 1) * risky(p) * habit(p) });
+reg({ id: "paris_match", grp: "casino", l: "Parier sur un match", ic: "⚽", d: "Les cotes défilent, ton ami est sûr de son coup, et la saison est longue.", tag: "mature",
+  need: adult(18, 85, 50), scene: "paris_match", cool: 2, w: 2, fit: (p) => (p.stats.sport >= 55 ? 1.4 : 1) * risky(p) * habit(p) * (tier(p) >= 5 ? 0.4 : 1) });
+reg({ id: "poker_ligne", grp: "casino", l: "Du poker en ligne tard le soir", ic: "💻", d: "Une table sans visage, des mains rapides, et une nuit qui se prolonge sans que tu t'en aperçoives.", tag: "mature",
+  need: adult(18, 65, 40), scene: "poker_ligne_scene", cool: 2, w: 2, fit: (p) => (p.age <= 35 ? 1.5 : 1) * risky(p) * habit(p) * (tier(p) >= 4 ? 0.3 : 1) });
+reg({ id: "casino_levier", grp: "casino", l: "Lever le pied avec le jeu", ic: "🌿", d: "Les soirées de jeu deviennent trop fréquentes. Tu peux essayer de décrocher avant que ça coûte plus.", tag: "mature",
+  need: { ages: [18, 95], noprison: true, fn: (p) => arcJeu(p) >= 2 }, scene: "casino_pause", cool: 1, w: 7, fit: (p) => 1 + arcJeu(p) * 0.4 });
+}

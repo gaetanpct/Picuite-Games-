@@ -14,6 +14,12 @@ const SCHEMA = [
       { id: "ending", label: "Comment se termine la partie", type: "choice", default: "vote", info: "Quand tous les joueurs sont morts, on peut désigner le gagnant de deux façons.", options: [
         { value: "vote", label: "Par vote", icon: "🗳️", desc: "Chaque vie défile une par une, les joueurs la notent, la meilleure moyenne gagne." },
         { value: "fortune", label: "À la fortune", icon: "💰", desc: "Le plus riche à sa mort gagne, sans vote." },
+        { value: "objectif", label: "À l'objectif de vie", icon: "🎯", desc: "Chacun a un objectif de vie. Le gagnant est celui qui l'a le mieux réussi, riche ou pas. Active automatiquement les objectifs." },
+      ] },
+      { id: "goals", label: "Objectifs de vie", type: "choice", default: "secret", info: "Un objectif donne un cap à ta vie. Il est suivi en pourcentage tout au long de la partie et compte pour de bon à la fin si tu choisis la fin à l'objectif de vie.", options: [
+        { value: "off", label: "Aucun", icon: "🚫", desc: "Pas d'objectif, comme avant." },
+        { value: "secret", label: "Secret et tiré au sort", icon: "🎲", desc: "Chacun reçoit un objectif au hasard que les autres ne voient pas. Il est dévoilé à la fin." },
+        { value: "choice", label: "Chacun choisit", icon: "🎯", desc: "Chacun choisit son objectif dans le salon, et tout le monde le voit." },
       ] },
       { id: "reviewTime", label: "Temps pour noter chaque vie", type: "choice", default: "none", info: "Utilisé seulement pour la fin par vote. Dès que tout le monde a noté, on passe à la vie suivante.", options: [
         { value: "45", label: "45 secondes", icon: "⚡", desc: "Une lecture rapide." },
@@ -117,6 +123,7 @@ function normalize(input) {
     }
     out[i.id] = v;
   }));
+  if (out.ending === "objectif" && out.goals === "off") out.goals = "secret";
   return out;
 }
 

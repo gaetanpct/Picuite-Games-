@@ -16,6 +16,7 @@ const PROJECT_DOM = {
   delegue: ["social"], copains: ["social"], colo: ["social"], asso_etudiante: ["social"], vie_etudiante: ["social"], benevolat: ["care", "social"], politique_locale: ["social"], syndicat: ["social"], gala: ["social"], soiree_mondaine: ["social"], election_nationale: ["social"],
   animal: ["care", "nature"], soigner: ["care"], asso_entraide: ["care", "social"], accompagnement_deuil: ["care"],
   magouille: ["crime"], fausses_montres: ["crime"], contrebande: ["crime"], pari_clandestin: ["crime"], faux_diplome: ["crime"], detournement: ["crime"], sabotage_collegue: ["crime"], casse_bande: ["crime"], incendie_assurance: ["crime"], fausse_maladie: ["crime"], entrer_mafia: ["crime"], monter_en_grade: ["crime"], reseau_clandestin: ["crime"],
+  bj_table: ["jeu"], poker_partie: ["jeu"], poker_tournoi: ["jeu"], roulette_soir: ["jeu"], machines_sous: ["jeu"], salle_privee: ["jeu"], paris_match: ["jeu", "sport"], poker_ligne: ["jeu", "tech"], casino: ["jeu"],
   jardinage: ["nature"], jardin: ["nature"], cuisine: ["cuisine"], lego: ["tech", "hands"], cabane: ["hands"],
 };
 for (let i = 1; i <= 5; i++) PROJECT_DOM["empire_" + i] = ["business"];
@@ -27,8 +28,9 @@ const TRACK_DOM = {
   arts: ["arts", "music", "screen"], sportpro: ["sport"], politique: ["social"], ordre: ["order"], science: ["intel"], libre: ["business"], media: ["screen", "social"], agri: ["nature"], cirque: ["arts"],
   hotel: ["social"], immo: ["business"], ingenierie: ["tech", "intel"], presse: ["intel", "arts"], crime: ["crime"],
   foot: ["sport"], tennis: ["sport"], rugby: ["sport"], cyclisme: ["sport"], boxe: ["sport"], f1: ["sport", "order"], ski: ["sport"], natation: ["sport"], esport: ["tech", "screen"], danse: ["sport", "arts"], coach: ["sport"],
+  notaire: ["intel", "business"], lobbyiste: ["social", "business"], agent_artistes: ["screen", "social"], chef_orchestre: ["music"], scenariste: ["screen", "arts"], guide_montagne: ["nature", "sport"], viticulteur: ["nature", "cuisine"], ong_humanitaire: ["care", "social"], producteur_musical: ["music", "business"], romancier: ["arts", "intel"], gestionnaire_fortune: ["business", "intel"],
   chanteur: ["music"], dj: ["music"], cinema: ["screen", "arts"], humour: ["screen", "arts"], mannequin: ["screen"], createur: ["screen"], photo: ["arts", "screen"], peintre: ["arts"], gamedev: ["tech", "arts"], mode: ["arts"], archi: ["arts", "tech"], tatoueur: ["arts"],
-  coiffeur: ["social"], patisserie: ["cuisine"], cabaret: ["arts"], casino: ["business"], nuit: ["social"], hacker: ["tech"], pompier: ["order"], militaire: ["order"], astronaute: ["intel", "sport"], marin: ["nature", "sport"], artisan: ["hands"],
+  coiffeur: ["social"], patisserie: ["cuisine"], cabaret: ["arts"], casino: ["business", "jeu"], nuit: ["social"], hacker: ["tech"], pompier: ["order"], militaire: ["order"], astronaute: ["intel", "sport"], marin: ["nature", "sport"], artisan: ["hands"],
   veto: ["care", "nature"], psy: ["care"], pharmacien: ["care", "intel"], dentiste: ["care"], detective: ["order", "intel"], clerge: ["care"], explorateur: ["nature", "order"], paysagiste: ["nature"], biblio: ["intel"], consultant: ["business"], admin_ca: ["business"],
   mecene_pro: ["arts"], diplomate_honneur: ["social"], critique_gastro: ["cuisine"], sommelier: ["cuisine"], chocolatier: ["cuisine"], golf_pro: ["sport"], paparazzi: ["screen"], vendeur_douteux: ["crime", "business"], recouvrement: ["crime"], chasseur_primes: ["order", "crime"],
 };

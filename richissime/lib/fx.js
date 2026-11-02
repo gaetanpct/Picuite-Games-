@@ -125,6 +125,8 @@ function applyFx(g, p, fx, x) {
         if (m > 0 && m < 120000) { const f = p.age <= 25 ? 0.45 : p.age <= 35 ? 0.65 : p.age <= 50 ? 0.85 : 1; const blend = m <= 30000 ? 0 : (m - 30000) / 90000; m = Math.round(m * (f + (1 - f) * blend)); }
         p.cash += m; if (p.life) { if (m > 0) p.life.gains += m; else p.life.losses -= m; } break; }
       case "dette": p.debt = Math.max(0, p.debt + Math.round(v)); break;
+      // résultat net d'un pari, sans la réduction des petits gains de la jeunesse, et sans jamais passer sous zéro en espèces
+      case "gain": { let m = Math.round(v); if (m < 0) m = Math.max(m, -Math.max(0, Math.floor(p.cash))); p.cash += m; if (p.life) { if (m > 0) p.life.gains += m; else p.life.losses -= m; } break; }
       case "notes": p.school.grade = C.clamp(p.school.grade + v, 0, 100); break;
       case "rel":
         for (const sl of Object.keys(v)) { const n = slot(x, p, sl); if (n) n.close = C.clamp(n.close + v[sl], 0, 100); }

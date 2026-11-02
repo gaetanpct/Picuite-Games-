@@ -60,6 +60,7 @@ function pubPlayer(g, q, viewerSeat, extra) {
     kids: q.npcs.filter((n) => n.kind === "child" && n.alive).length,
     cause: q.death ? q.death.cause : null, deathAge: q.death ? q.death.age : null, survivor: !!(q.death && q.death.survivor),
   };
+  if (q.goal && (g.settings.goals === "choice" || !q.alive || q.seat === viewerSeat)) { const gs = require("./goals").summary(q); if (gs) o.goal = { ic: gs.ic, l: gs.l, pct: !q.alive || q.seat === viewerSeat ? gs.pct : null }; }
   if (extra && extra[q.seat]) Object.assign(o, extra[q.seat]);
   const vp = g.players[viewerSeat];
   if (vp && vp !== q) { const r = feud.roleOf(g, vp, q); o.role = { word: r.word, ic: r.ic, tone: r.tone }; }
@@ -71,6 +72,7 @@ function meView(g, p) {
   const nw = C.netWorth(p);
   return {
     seat: p.seat, name: p.name, gender: p.gender, avatar: p.avatar, alive: p.alive, age: p.age, gift: p.gift, city: p.city,
+    goal: require("./goals").progress(p), goalMode: g.settings.goals,
     stats: Object.keys(R.STATS).map((k) => ({ id: k, l: R.STATS[k].l, ic: R.STATS[k].ic, v: Math.round(p.stats[k]) })),
     traits: Object.keys(R.TRAITS).map((k) => ({ id: k, l: R.TRAITS[k].l, ic: R.TRAITS[k].ic, v: Math.round(p.traits[k]) })),
     cash: Math.round(p.cash), dirty: Math.round(p.dirty || 0), org: p.org ? { name: p.org.name, rank: require("./justice").rankLabel(p) } : null, pris: p.prison && p.pris ? { gang: p.pris.gang, rep: Math.round(p.pris.rep), plan: Math.round(p.pris.plan), dossier: Math.round(p.pris.dossier), bribed: p.pris.bribed } : null, debt: Math.round(p.debt), net: nw, tier: C.wealthTier(nw).l, tierK: C.wealthTier(nw).k,
@@ -200,6 +202,7 @@ function lifeFile(g, p) {
   p._lf = {
     seat: p.seat, name: p.name, avatar: p.avatar, gender: p.gender, age, cause: p.death ? p.death.cause : "", survivor: !!(p.death && p.death.survivor),
     title: lt.text, arche: lt.arche, birth: p.cfg ? p.cfg.startClass : null,
+    goal: require("./goals").summary(p),
     money: { net, peak: Math.round(peak.net), peakAge: peak.age, low: Math.round(low.net), lowAge: low.age, income: Math.round(p.life.income), expenses: Math.round(p.life.expenses), gains: Math.round(p.life.gains), losses: Math.round(p.life.losses), debt: Math.round(p.debt) },
     stats: Object.keys(R.STATS).map((k) => ({ id: k, ic: R.STATS[k].ic, l: R.STATS[k].l, v: Math.round(p.stats[k]) })),
     jobs: uniqJobs.slice(0, 8), jobCount: uniqJobs.length, yearsWorked: p.yearsWorked,
@@ -255,7 +258,7 @@ function finalView(g) {
   return {
     mode: g.settings.ending,
     files: g.players.map((p) => lifeFile(g, p)),
-    ranking: g.results.map((r, i) => ({ rank: i + 1, avg: r.avg === null || r.avg === undefined ? null : Math.round(r.avg * 100) / 100, votes: r.votes || 0, scores: g.review ? Object.keys(g.review.ratings[r.seat] || {}).map((k) => ({ from: g.players[Number(k)].name, v: g.review.ratings[r.seat][k] })) : [], seat: r.seat, name: r.name, avatar: g.players[r.seat].avatar, net: r.net, tier: C.wealthTier(r.net).l, age: r.age, cause: r.cause, survivor: r.survivor, status: g.players[r.seat].job ? g.players[r.seat].job.title : "", life: lifeTitle(g, g.players[r.seat], r.survivor) })),
+    ranking: g.results.map((r, i) => ({ goal: r.goal || null, rank: i + 1, avg: r.avg === null || r.avg === undefined ? null : Math.round(r.avg * 100) / 100, votes: r.votes || 0, scores: g.review ? Object.keys(g.review.ratings[r.seat] || {}).map((k) => ({ from: g.players[Number(k)].name, v: g.review.ratings[r.seat][k] })) : [], seat: r.seat, name: r.name, avatar: g.players[r.seat].avatar, net: r.net, tier: C.wealthTier(r.net).l, age: r.age, cause: r.cause, survivor: r.survivor, status: g.players[r.seat].job ? g.players[r.seat].job.title : "", life: lifeTitle(g, g.players[r.seat], r.survivor) })),
     histories: g.players.map((p) => ({ seat: p.seat, name: p.name, avatar: p.avatar, points: p.wealthHistory.slice() })),
     awards: awards(g),
     reason: g.endedReason,

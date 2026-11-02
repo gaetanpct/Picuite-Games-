@@ -117,7 +117,20 @@
       h("div.swatches", meta.colors.map((c) => h("button" + (av.color === c ? ".sel" : ""), { type: "button", "aria-label": "couleur", style: { background: c }, on: { click: () => RD.emit("room:char", { avatar: { acc: av.acc, color: c } }) } }))),
       h("label.field", "Ton don de naissance"),
       S().room && S().room.settings.giftMode === "chaos" ? h("p.small.muted", "🎲 L'hôte a choisi de tirer les dons au sort. Le tien sera une surprise à la naissance.") : null,
-      h("div.giftgrid", { style: S().room && S().room.settings.giftMode === "chaos" ? { opacity: ".4", pointerEvents: "none" } : {} }, meta.gifts.map((g) => h("button.gift" + (me.gift === g.id ? ".sel" : ""), { type: "button", on: { click: () => { RD.play("select"); RD.emit("room:char", { gift: g.id }); } } }, h("b", g.ic + " " + g.l), h("span", g.d)))));
+      h("div.giftgrid", { style: S().room && S().room.settings.giftMode === "chaos" ? { opacity: ".4", pointerEvents: "none" } : {} }, meta.gifts.map((g) => h("button.gift" + (me.gift === g.id ? ".sel" : ""), { type: "button", on: { click: () => { RD.play("select"); RD.emit("room:char", { gift: g.id }); } } }, h("b", g.ic + " " + g.l), h("span", g.d)))),
+      goalBlock(me, meta));
+  }
+
+  // choix de l'objectif de vie, ou explication quand il est tiré au sort
+  function goalBlock(me, meta) {
+    const mode = S().room && S().room.settings.goals;
+    if (mode === "secret") return h("div", h("label.field", "Ton objectif de vie"), h("p.small.muted", "🎲 Ton objectif sera tiré au sort à la naissance et gardé secret. Tu le découvriras dans ta fiche, et les autres le verront à ta mort."));
+    if (mode !== "choice") return null;
+    const sc = S().room.settings.startClass;
+    return h("div", h("label.field", "Ton objectif de vie"),
+      h("p.small.muted", "Tout le monde verra ton choix. Le pourcentage de réussite se suit pendant toute ta vie."),
+      h("div.giftgrid", (meta.goals || []).filter((g) => !g.only || sc === "modeste" || sc === "chaos").map((g) => h("button.gift" + (me.goal === g.id ? ".sel" : ""), { type: "button", on: { click: () => { RD.play("select"); RD.emit("room:char", { goal: g.id }); } } }, h("b", g.ic + " " + g.l), h("span", g.d + (g.only ? " Accessible seulement avec un départ modeste, sinon un objectif au hasard." : "")))),
+      me.goal ? null : h("p.small.muted", "Pas de choix, un objectif au hasard sera tiré pour toi.")));
   }
 
   RD.renderLobby = function (root) {

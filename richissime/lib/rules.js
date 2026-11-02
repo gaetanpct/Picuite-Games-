@@ -88,6 +88,17 @@ const TRACKS = {
 
 Object.assign(TRACKS, require("./tracks_extra"));
 Object.assign(TRACKS, require("./tracks_more"));
+// Équilibre des carrières. Les métiers savants (médecin, ingénieur, financier, avocat) rapportent plus haut dans l'échelle,
+// et certains reçoivent des primes ou des honoraires variables, pour qu'ils bâtissent une belle fortune sans coup de chance.
+{
+  const MUL = [1, 1, 1.2, 1.4, 1.6];
+  const BONUS = { sante: 0.15, tech: 0.3, finance: 0.45, science: 0.1, ingenierie: 0.12, veto: 0.12, pharmacien: 0.1, dentiste: 0.15, consultant: 0.3, actuaire: 0.15, droit: 0.3 };
+  Object.keys(BONUS).concat(["astronaute", "controleur_aerien", "urbaniste", "comptable"]).forEach((k) => {
+    const T = TRACKS[k]; if (!T || T.illicit) return;
+    T.levels = T.levels.map((lv, i) => [lv[0], Math.round(lv[1] * (MUL[Math.min(i, MUL.length - 1)] || 1) / 500) * 500].concat(lv.slice(2)));
+    if (BONUS[k] && !T.variable) T.variable = BONUS[k];
+  });
+}
 // métiers de passion, acceptés même quand on n'a pas besoin d'argent
 ["peintre", "photo", "artisan", "paysagiste", "biblio", "clerge", "explorateur", "patisserie", "cirque", "danse", "humour", "chanteur", "dj", "cinema", "tatoueur", "gamedev", "createur", "arts", "mode", "archi", "veto", "voyante", "detective", "coiffeur", "enseignement"].forEach((k) => { if (TRACKS[k]) TRACKS[k].passion = true; });
 

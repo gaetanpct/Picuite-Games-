@@ -8,6 +8,7 @@
 const IN = require("./interests");
 const C = require("./core");
 const kit = require("./lifekit");
+const GOALS = require("./goals");
 require("./choices");
 
 const LIST = kit.LIST;
@@ -19,6 +20,7 @@ const BANDS = {
   fausses_montres: [0, 3], brocante: [0, 3], magouille: [0, 3], contrebande: [0, 4], pari_clandestin: [0, 3], side: [0, 3], heures_sup: [0, 4],
   emploi_candidater: [0, 3], emploi_reseau: [0, 4], emploi_freelance: [0, 4], emploi_interim: [0, 2], emploi_concours: [0, 3], emploi_bilan: [0, 4],
   petit_boulot: [0, 2], baby_sitting: [0, 1], voyage_camping: [0, 3], fausse_maladie: [0, 4], sabotage_collegue: [0, 4], syndicat: [0, 3], loto: [0, 3],
+  bj_table: [0, 4], poker_partie: [0, 4], roulette_soir: [0, 4], machines_sous: [0, 4], paris_match: [0, 4], poker_ligne: [0, 3],
   creer: [0, 3], vide_grenier: [0, 2], epargne: [0, 3], detournement: [0, 4], casse_bande: [0, 3], incendie_assurance: [0, 3], faux_diplome: [0, 4],
 };
 function inBand(p, pr) { const b = BANDS[pr.id]; if (!b) return true; const t = kit.tier(p); return t >= b[0] && t <= b[1]; }
@@ -103,6 +105,18 @@ function offer(g, p) {
     const cands = pool.filter((pr) => !picked.includes(pr) && IN.domainsOfProject(pr).includes(tp.d) && !pr.prio);
     if (cands.length) { const pr = cands[Math.floor(rng() * cands.length)]; picked.push(pr); used[pr.grp] = (used[pr.grp] || 0) + 1; }
   }
+  // 1 ter. les occasions de jeu. Elles reviennent régulièrement pour qui a le goût du risque, l'argent ou l'habitude, et très souvent pour un croupier.
+  const gamble = pool.filter((pr) => pr.grp === "casino" && !pr.prio && !picked.includes(pr));
+  if (gamble.length && !picked.some((pr) => pr.grp === "casino") && picked.length < n) {
+    const arcJ = (p.arcs && p.arcs.jeu) || 0;
+    let q = 0.05 + (p.traits.courage - 50) / 500 - (p.traits.prudent - 50) / 600 + (p.age >= 21 && p.age <= 55 ? 0.03 : 0) + Math.min(0.3, arcJ * 0.07) + (p.job && p.job.track === "casino" ? 0.35 : 0) + (tp && tp.d === "jeu" ? 0.2 : 0);
+    q = Math.max(0.02, Math.min(0.75, q)) * (p.cash < 150 ? 0.3 : p.cash < 1000 ? 0.7 : 1);
+    if (rng() < q) {
+      const ws = gamble.map((pr) => (pr.w === undefined ? 5 : pr.w) * (pr.fit ? pr.fit(p, g) : 1) * freshness(p, g, pr) * (0.65 + rng() * 0.7));
+      const tot = ws.reduce((x, y) => x + y, 0);
+      if (tot > 0) { let r = rng() * tot, i = ws.length - 1; for (let k = 0; k < ws.length; k++) { r -= ws[k]; if (r <= 0) { i = k; break; } } picked.push(gamble[i]); used.casino = (used.casino || 0) + 1; }
+    }
+  }
   // 2. le reste, tiré au sort selon la cohérence avec la vie du joueur
   const cap = Math.max(1, Math.ceil(n / 2.5));
   const rest = pool.filter((pr) => !picked.includes(pr));
@@ -115,7 +129,7 @@ function offer(g, p) {
       const fit = pr.fit ? pr.fit(p, g) : 1;
       let lf = 1;
       if (pr.tag === "loufoque") lf = C.lerp([0, 0.4, 1, 2.2], p.cfg.loufoque) || 1;
-      return base * fit * lf * freshness(p, g, pr) * (0.65 + rng() * 0.7);
+      return base * fit * lf * GOALS.boost(p, pr) * freshness(p, g, pr) * (0.65 + rng() * 0.7);
     });
     const total = ws.reduce((a, b) => a + b, 0);
     if (total <= 0) break;
@@ -159,7 +173,7 @@ function offerPro(g, p) {
         const cap = Math.max(2, Math.ceil(n / 2));
         if ((used[pr.grp] || 0) >= cap) return 0;
         const mainBoost = Array.isArray(pr.ctx) && pr.ctx.includes(main) ? 1.5 : 1;
-        return base * fit * lf * mainBoost * freshness(p, g, pr) * (0.65 + rng() * 0.7);
+        return base * fit * lf * mainBoost * GOALS.boost(p, pr) * freshness(p, g, pr) * (0.65 + rng() * 0.7);
       });
       const total = ws.reduce((a, b) => a + b, 0);
       if (total <= 0) break;

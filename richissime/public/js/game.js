@@ -46,6 +46,7 @@
     const tabs = [["vie", "Vie"], ["rel", "Proches"], ["biens", "Biens"], ["job", "Carrière"]];
     const body = h("div");
     if (ui.tab === "vie") {
+      if (m.goal) body.appendChild(h("div.goalcard", h("div.small.muted", "Ton objectif de vie"), h("b", m.goal.ic + " " + m.goal.l), h("div.goalbar", h("i", { style: { width: m.goal.pct + "%" } })), h("div.small", m.goal.pct + " pour cent atteints, " + m.goal.line)));
       const j = m.journal;
       body.appendChild(j.length ? h("div", { "data-keepscroll": "journal", style: { maxHeight: "300px", overflow: "auto" } }, j.slice(0, 40).map((e) => h("div.jr", h("b", e.age + " ans"), " ", e.ic || "", " ", e.text))) : h("p.muted.small", "Ta vie commence. Les souvenirs s'accumuleront ici."));
       body.appendChild(openDetails("traits", "Ma personnalité", h("div", m.traits.map(statBar))));
@@ -518,6 +519,7 @@
     const top = F.ranking.slice(0, 3);
     const pods = (top.length === 3 ? order : top.map((_, i) => i)).map((i) => top[i]).filter(Boolean);
     const vote = F.mode === "vote";
+    const byGoal = F.mode === "objectif";
     const podium = h("div.podium", pods.map((r) => h("div.pod" + (r.rank === 1 ? ".first" : r.rank === 2 ? ".second" : r.rank === 3 ? ".third" : ".other"),
       h("div.rk", r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : "🥉"), RD.avatar(r.avatar, 52), h("div.nm", r.name), vote ? h("div.net", r.avg === null ? "sans note" : RD.fmtAvg(r.avg) + " sur 10") : h("div.net", RD.money(r.net)), h("div.small.muted", vote ? RD.money(r.net) : r.tier), h("div.small", r.age + " ans"))));
     const series = F.histories.map((x) => ({ name: x.name, color: x.avatar.color, points: x.points, dead: true }));
@@ -530,8 +532,9 @@
         h("div.center", h("div.ribbon", "Fin de la partie"), h("h1", { style: { fontSize: "clamp(2rem,6vw,3.6rem)" } }, F.ranking.length > 1 ? F.ranking[0].name + " remporte la partie" : "Le rideau tombe"),
           mine ? (vote ? h("p", "Tu termines ", h("b", "n° " + mine.rank), mine.avg === null ? "" : [" avec une moyenne de ", h("b", RD.fmtAvg(mine.avg) + " sur 10")], ".") : h("p", "Tu termines ", h("b", "n° " + mine.rank), " avec ", h("b", RD.money(mine.net)), ".")) : null),
         podium,
-        h("div.card", h("h3", vote ? "Classement du vote" : "Classement final"),
-          h("div.list", F.ranking.map((r) => h("div.item", h("b", r.rank + "."), RD.avatar(r.avatar, 34), h("div.main", h("b", r.name), h("div.sub", (r.survivor ? "Encore en vie" : "Mort") + " à " + r.age + " ans · " + (r.survivor ? "la partie s'arrête là" : r.cause) + (r.status ? " · " + r.status : "")), r.life ? h("div.sub", { style: { fontStyle: "italic" } }, r.life.text) : null), vote ? h("div", { style: { textAlign: "right" } }, h("b", r.avg === null ? "sans note" : RD.fmtAvg(r.avg) + " sur 10"), h("div.small.muted", RD.money(r.net))) : h("b", RD.money(r.net)))))),
+        h("div.card", h("h3", vote ? "Classement du vote" : byGoal ? "Classement des objectifs de vie" : "Classement final"),
+          h("div.list", F.ranking.map((r) => h("div.item", h("b", r.rank + "."), RD.avatar(r.avatar, 34), h("div.main", h("b", r.name), h("div.sub", (r.survivor ? "Encore en vie" : "Mort") + " à " + r.age + " ans · " + (r.survivor ? "la partie s'arrête là" : r.cause) + (r.status ? " · " + r.status : "")), r.life ? h("div.sub", { style: { fontStyle: "italic" } }, r.life.text) : null), vote ? h("div", { style: { textAlign: "right" } }, h("b", r.avg === null ? "sans note" : RD.fmtAvg(r.avg) + " sur 10"), h("div.small.muted", RD.money(r.net))) : h("div", { style: { textAlign: "right" } }, byGoal && r.goal ? h("b", r.goal.pct + " pour cent") : h("b", RD.money(r.net)), byGoal ? h("div.small.muted", RD.money(r.net)) : null))))),
+        F.ranking.some((r) => r.goal) ? h("div.card", { style: { marginTop: "14px" } }, h("h3", "Les objectifs de vie dévoilés"), h("div.list", F.ranking.filter((r) => r.goal).map((r) => h("div.item", RD.avatar(r.avatar, 34), h("div.main", h("b", r.name + " voulait " + r.goal.ic + " " + r.goal.l.toLowerCase()), h("div.goalbar", h("i", { style: { width: r.goal.pct + "%" } })), h("div.sub", r.goal.line)), h("b", r.goal.pct + " pour cent"))))) : null,
         vote ? RD.voteResults(F) : null,
         h("div.card", { style: { marginTop: "14px" } }, h("h3", "La fortune au fil des années"), RD.wealthChart(series, { height: 360 }), RD.legend(series)),
         h("div.card", { style: { marginTop: "14px" } }, h("h3", "Les trophées"), F.awards.length ? h("div.awards", F.awards.map((a) => h("div.award", h("span.ic", a.ic), h("div", h("b", a.l), h("div.small.muted", a.name + " · " + a.d))))) : h("p.muted", "Pas de trophée cette fois.")),

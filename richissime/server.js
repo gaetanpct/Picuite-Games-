@@ -60,6 +60,7 @@ function META() {
   return {
     schema: Settings.SCHEMA,
     gifts: Object.keys(R.GIFTS).map((k) => ({ id: k, l: R.GIFTS[k].l, ic: R.GIFTS[k].ic, d: R.GIFTS[k].d })),
+    goals: require("./lib/goals").list(),
     accessories: ACCESSORIES, colors: COLORS, maxPlayers: MAX_PLAYERS,
     stats: R.STATS, traits: R.TRAITS,
     scenes: kit.EVENTS.length,
@@ -71,7 +72,7 @@ function publicRoom(room, forToken) {
   return {
     code: room.code, status: room.status, hostId: host ? host.id : null, settings: room.settings,
     players: room.players.map((p, seat) => ({
-      id: p.id, seat, name: p.name, gender: p.gender, avatar: p.avatar, gift: p.gift, bot: p.isBot, ready: p.ready,
+      id: p.id, seat, name: p.name, gender: p.gender, avatar: p.avatar, gift: p.gift, goal: p.goal || null, bot: p.isBot, ready: p.ready,
       connected: p.isBot ? true : p.connected, you: p.token === forToken, auto: !!p.auto, left: !!p.left,
     })),
   };
@@ -122,7 +123,7 @@ function ensureHost(room) {
 
 // ---------- partie ----------
 function startGame(room) {
-  const players = room.players.map((p) => ({ name: p.name, gender: p.gender, gift: p.gift, avatar: p.avatar, bot: p.isBot }));
+  const players = room.players.map((p) => ({ name: p.name, gender: p.gender, gift: p.gift, goal: p.goal, avatar: p.avatar, bot: p.isBot }));
   room.settings = Settings.normalize(room.settings);
   room.engine = new Game({ settings: room.settings, rng: Math.random, timeScale: TS, players });
   room.status = "game";
@@ -204,7 +205,7 @@ function snapshotRoom(room) {
     v: 1, savedAt: Date.now(),
     room: {
       code: room.code, status: room.status, hostToken: room.hostToken, settings: room.settings, chat: room.chat.slice(-40), turbo: false, created: room.created,
-      players: room.players.map((p) => ({ id: p.id, token: p.token, name: p.name, gender: p.gender, avatar: p.avatar, gift: p.gift, isBot: p.isBot, ready: p.ready, left: !!p.left, auto: !!p.auto })),
+      players: room.players.map((p) => ({ id: p.id, token: p.token, name: p.name, gender: p.gender, avatar: p.avatar, gift: p.gift, goal: p.goal || null, isBot: p.isBot, ready: p.ready, left: !!p.left, auto: !!p.auto })),
     },
     engine: engineData,
   };
@@ -231,7 +232,7 @@ function restoreRoom(snap) {
   const room = {
     code, status: r.status === "over" ? "over" : r.status === "lobby" ? "game" : r.status, hostToken: r.hostToken, settings: r.settings || eng.settings, chat: Array.isArray(r.chat) ? r.chat : [],
     engine: eng, loop: null, created: r.created || Date.now(), turbo: false, restoredAt: Date.now(),
-    players: r.players.map((p) => ({ id: p.id || makeId(), token: p.token, socketId: null, name: cleanName(p.name, "Joueur"), gender: p.gender === "f" ? "f" : "m", avatar: cleanAvatar(p.avatar), gift: p.gift, isBot: !!p.isBot, ready: true, connected: !!p.isBot, left: !!p.left, auto: !!p.auto, disconnectedAt: p.isBot ? null : Date.now(), lastKey: null })),
+    players: r.players.map((p) => ({ id: p.id || makeId(), token: p.token, socketId: null, name: cleanName(p.name, "Joueur"), gender: p.gender === "f" ? "f" : "m", avatar: cleanAvatar(p.avatar), gift: p.gift, goal: p.goal || null, isBot: !!p.isBot, ready: true, connected: !!p.isBot, left: !!p.left, auto: !!p.auto, disconnectedAt: p.isBot ? null : Date.now(), lastKey: null })),
   };
   return room;
 }
@@ -462,12 +463,13 @@ io.on("connection", (socket) => {
     room.settings = Settings.normalize(Object.assign({}, room.settings, settings || {}));
     broadcastRoom(room);
   }));
-  socket.on("room:char", safe(({ name, gender, avatar, gift }) => {
+  socket.on("room:char", safe(({ name, gender, avatar, gift, goal }) => {
     const room = ctx.room; const p = me(); if (!room || !p || room.status !== "lobby") return;
     if (name !== undefined) p.name = cleanName(name, p.name);
     if (gender === "m" || gender === "f") p.gender = gender;
     if (avatar) p.avatar = cleanAvatar(avatar, p.avatar);
     if (gift && R.GIFTS[gift]) p.gift = gift;
+    if (goal && require("./lib/goals").GOALS[goal]) p.goal = goal;
     broadcastRoom(room);
   }));
   socket.on("room:ready", safe(({ ready }) => {
