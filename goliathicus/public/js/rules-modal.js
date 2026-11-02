@@ -44,13 +44,13 @@
     body.appendChild(section("🧩 Les pièces", [p("Plus la force est grande, plus la pièce est puissante. Le 10 est le meilleur. Le chiffre est écrit sur chaque pièce quand tu la vois."), ladder, grid]));
 
     body.appendChild(section("🌍 Le terrain", [
-      p("💧 <b>Lac</b>, infranchissable. 🌲 <b>Forêt</b>, si le défenseur y gagne un combat, il reste caché. 🟤 <b>Marais</b>, une pièce qui s'y arrête s'endort un tour. 🪨 <b>Ruines</b>, infranchissables, ce sont les restes d'un camp éliminé. 🏆 <b>Reliques</b>, en mode Conquête, chaque relique tenue au début de ton tour rapporte un point."),
+      p("💧 <b>Lac</b>, infranchissable. 🌲 <b>Forêt</b>, si le défenseur y gagne un combat, il reste caché. 🟤 <b>Marais</b>, une pièce qui s'y arrête s'endort un tour. 🪨 <b>Ruines</b>, infranchissables, ce sont les restes d'un camp éliminé. 🏆 <b>Reliques</b>, en mode Conquête, chaque relique tenue au début de ton tour rapporte un point. 🌀 <b>Portails</b>, quand l'hôte les active, une pièce qui s'arrête sur un portail libre ressort sur le portail jumeau, de la même couleur, si celui ci est libre. 🐌 <b>Marais d'escargot</b>, le marais laissé par un Escargot ou par un événement sèche au bout de quelques tours de table."),
     ]));
 
     body.appendChild(section("🛡️ Les modes de jeu", [
-      p("<b>Classique</b>, croque l'Œuf. <b>Conquête</b>, pas d'œuf par défaut, tiens les reliques et atteins l'objectif de points (de 8 à 100 selon ce que l'hôte choisit). <b>Chasse au roi</b>, pas d'œuf, la partie est perdue quand ton Roi tombe (un duel de deux rois est gagné par l'attaquant)."),
-      p("En plus, il y a les <b>Équipes</b> 2 contre 2, le <b>Brouillard</b> (tu ne vois que près de tes pièces), <b>Chaos</b> (événements surprise), et <b>Express</b> (petit plateau, 10 minutes)."),
-      p("<b>Légion des merveilles</b>, tout le monde a le même noyau d'armée classique, et chacun choisit en secret ses pièces spéciales pour les places libres (Cavalier, Assassin, Reflet, Chauve-souris, Golem, Fantôme, Bombardier, Porte-Étendard, Sentinelle, Phénix, Messagère). Les pièces spéciales sont aussi disponibles en composition sur mesure."),
+      p("<b>Classique</b>, croque l'Œuf. <b>Conquête</b>, pas d'œuf par défaut, tiens les reliques et atteins l'objectif de points (de 8 à 100 selon ce que l'hôte choisit). <b>Chasse au roi</b>, pas d'œuf, la partie est perdue quand ton Roi tombe (un duel de deux rois est gagné par l'attaquant). <b>Trophées</b>, pas d'œuf, chaque pièce adverse éliminée te rapporte à peu près son prix en points, et le premier à atteindre l'objectif gagne à la fin du tour de table."),
+      p("En plus, il y a les <b>Équipes</b> 2 contre 2, le <b>Brouillard</b> (tu ne vois que près de tes pièces), <b>Chaos</b> (événements surprise), <b>Express</b> (petit plateau, 10 minutes), les <b>Portails</b> et la <b>Phalange</b> (deux pièces identiques côte à côte gagnent un point de force)."),
+      p("<b>Légion des merveilles</b>, tout le monde a le même noyau d'armée classique, et chacun choisit en secret ses pièces spéciales pour les places libres (Cavalier, Assassin, Reflet, Chauve-souris, Golem, Fantôme, Bombardier, Porte-Étendard, Sentinelle, Phénix, Messagère, Gladiateur, Escargot, Bouffon). Les pièces spéciales sont aussi disponibles en composition sur mesure."),
       p("<b>Composition sur mesure</b>, chaque joueur fabrique sa propre armée avec le même budget, sans limite de temps, avant le placement. La composition adverse reste secrète sauf si l'hôte choisit de la dévoiler."),
     ]));
 

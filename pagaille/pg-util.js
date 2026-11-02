@@ -18,4 +18,12 @@ function norm2(x, y) { const l = Math.hypot(x, y); return l > 1 ? [x / l, y / l]
 function angDiff(a, b) { let d = b - a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return d; }
 const lerp = (a, b, k) => a + (b - a) * k;
 function pick(arr, rnd) { return arr[Math.floor(rnd() * arr.length)]; }
-module.exports = { angDiff, lerp, pick, clamp, mulberry32, hashSeed, shuffle, rankFromFalls, ringPositions, norm2 };
+// classe des joueurs selon un score (plus grand = mieux, ou plus petit si asc). Les égalités forment un groupe
+function rankByScore(list, score, asc, eps) {
+  const sorted = list.slice().sort((a, b) => (asc ? score(a) - score(b) : score(b) - score(a))); const groups = [];
+  sorted.forEach((p) => { const last = groups[groups.length - 1]; if (last && Math.abs(score(last[0]) - score(p)) <= (eps || 0)) last.push(p); else groups.push([p]); });
+  return groups.map((g) => g.map((p) => p.id));
+}
+// répartit des joueurs en équipes au hasard. renvoie un tableau d'équipes qui contiennent des identifiants
+function randomTeams(ids, k, rnd) { const a = shuffle(ids, rnd); const out = []; for (let i = 0; i < k; i++) out.push([]); a.forEach((id, i) => out[i % k].push(id)); return out; }
+module.exports = { rankByScore, randomTeams, angDiff, lerp, pick, clamp, mulberry32, hashSeed, shuffle, rankFromFalls, ringPositions, norm2 };

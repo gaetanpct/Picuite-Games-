@@ -33,18 +33,18 @@
       noise: 3.5, aggression: 1.0, danger: 0.75, progress: 1.0, useKnowledge: 1, powerChance: 0.6, placement: "smart", think: [650, 1300], flagGuard: 1, hunt: 1,
     },
     expert: {
-      id: "expert", label: "Dragon", icon: "🐲", desc: "Calcule tout, se souvient de tout, n'oublie jamais une tarte.",
-      noise: 0.8, aggression: 1.1, danger: 1.2, progress: 1.1, useKnowledge: 1, powerChance: 1, placement: "smart", think: [800, 1600], flagGuard: 1.5, hunt: 1.7,
+      id: "expert", label: "Dragon", icon: "🐲", desc: "Calcule tout, se souvient de tout, n'oublie jamais une tarte, et anticipe la riposte avant de jouer.",
+      master: true, look: 1, adapt: true, noise: 0.8, aggression: 1.1, danger: 1.2, progress: 1.1, useKnowledge: 1, powerChance: 1, placement: "smart", think: [800, 1600], flagGuard: 1.5, hunt: 1.7,
     },
     master: {
-      id: "master", label: "Roi Stratège", icon: "👑", desc: "Comprend vraiment le jeu. Il estime ce que cache chaque pièce, protège ses pièces clés et traque les tiennes, le Roi, le Dragon, les Nains et les Rats.",
-      master: true, noise: 0.15, aggression: 1.0, danger: 1.0, progress: 1.0, useKnowledge: 1, powerChance: 1, placement: "master", think: [900, 1800], flagGuard: 1.5, hunt: 1.5,
+      id: "master", label: "Roi Stratège", icon: "👑", desc: "Comprend vraiment le jeu. Il anticipe la riposte, tend des pièges défendus, bluffe, prépare des fourchettes et change de style à chaque partie. Il remarque aussi si tu attaques beaucoup ou si tu attends, et s'adapte.",
+      master: true, look: 2, persona: true, adapt: true, noise: 0.15, aggression: 1.0, danger: 1.0, progress: 1.0, useKnowledge: 1, powerChance: 1, placement: "master", think: [900, 1800], flagGuard: 1.5, hunt: 1.5,
     },
   };
 
   const NAMES = ["Bouzelouf", "Tigrou", "Daddy", "Mommy", "Pupuce", "Zaza", "Khalamité", "BadGyal", "Yakak", "Maître Picut", "Tonton Gaufre", "Mamie Tartine"];
 
-  function newMemory() { return { known: {}, lastSeq: 0, lastFrom: {}, moveCount: 0, lastCombatRound: 0, belief: {}, exposed: {}, lastSeen: {}, trail: {}, plan: null, lastMover: null, enemyAct: {}, tick: 0 }; }
+  function newMemory() { return { known: {}, lastSeq: 0, lastFrom: {}, moveCount: 0, lastCombatRound: 0, belief: {}, exposed: {}, lastSeen: {}, trail: {}, plan: null, lastMover: null, enemyAct: {}, tick: 0, grow: {}, opp: {}, persona: null, op: null }; }
 
   function rankOf(t) { return PIECES[t].rank; }
   function val(t, mode) {
@@ -75,12 +75,19 @@
   // bonus d'étendard d'une pièce, d'après les étendards alliés collés à elle (type connu de l'IA)
   function bannerBoost(view, p) {
     const t = view.typeOf(p);
-    if (!t || PIECES[t].banner || !view.state.settings.specialPieces) return 0;
+    if (!t) return 0;
+    const st = view.state.settings;
+    let grow = 0;
+    if (PIECES[t].grow) grow = Math.min(3, p.grow || (view.mem && view.mem.grow[p.id]) || 0);
+    let ban = 0, ph = 0;
     for (const [dr, dc] of DIRS) {
       const q = view.grid.get(K(p.r + dr, p.c + dc));
-      if (q && q.owner === p.owner && view.typeOf(q) === "etendard") return Number(view.state.settings.bannerBoost) || 1;
+      if (!q || q.owner !== p.owner) continue;
+      const qt = view.typeOf(q);
+      if (st.specialPieces && !PIECES[t].banner && qt === "etendard") ban = Number(st.bannerBoost) || 1;
+      if (st.phalange && PIECES[t].mobile && qt === t) ph = 1;
     }
-    return 0;
+    return grow + Math.max(ban, ph);
   }
 
   // ce que le souffle d'un Bombardier emporterait autour de la cible, positif si ça touche surtout l'ennemi
@@ -176,6 +183,11 @@
       mem.lastSeq = Math.max(mem.lastSeq, ev.seq);
       if (ev.kind === "combat") {
         mem.lastCombatRound = Math.max(mem.lastCombatRound || 0, ev.round || 0);
+        // le Gladiateur grandit à chaque victoire, on s'en souvient même quand il redevient inconnu
+        if (ev.attacker && ev.attacker.type === "gladiateur" && ev.result === "attWins") mem.grow[ev.attacker.id] = Math.min(3, (mem.grow[ev.attacker.id] || 0) + 1);
+        if (ev.defender && ev.defender.type === "gladiateur" && ev.result === "defWins") mem.grow[ev.defender.id] = Math.min(3, (mem.grow[ev.defender.id] || 0) + 1);
+        // modèle de l'adversaire, à quelle fréquence attaque-t-il plutôt que d'avancer
+        if (ev.attacker && state.players[ev.attacker.owner] && state.players[ev.attacker.owner].team !== myTeam) { const o = mem.opp[ev.attacker.owner] || (mem.opp[ev.attacker.owner] = { att: 0, mov: 0 }); o.att++; }
         if (ev.attacker && ev.attacker.type) mem.known[ev.attacker.id] = ev.attacker.type;
         if (ev.defender && ev.defender.type) mem.known[ev.defender.id] = ev.defender.type;
         // mes pièces qui ont survécu à un combat sont connues des adversaires
@@ -188,12 +200,13 @@
         tr.push(K(ev.from.r, ev.from.c)); if (tr.length > 8) tr.shift();
         mem.lastMover = ev.pieceId;
       } else if (ev.kind === "move" && state.players[ev.owner].team !== myTeam) {
+        const oo = mem.opp[ev.owner] || (mem.opp[ev.owner] = { att: 0, mov: 0 }); oo.mov++;
         const ea = mem.enemyAct[ev.pieceId] || (mem.enemyAct[ev.pieceId] = { moves: 0, last: 0 });
         ea.moves++; ea.last = state.round;
         learnFromEnemyMove(mem, state, ev, byId);
       }
     });
-    state.pieces.forEach((p) => { if (p.type) mem.known[p.id] = p.type; });
+    state.pieces.forEach((p) => { if (p.type) mem.known[p.id] = p.type; if (p.grow) mem.grow[p.id] = Math.max(mem.grow[p.id] || 0, p.grow); });
   }
 
   // Un adversaire qui s'approche (ou s'éloigne) d'une de mes pièces révèle un peu son rang.
@@ -279,8 +292,8 @@
     const consider = (t, prob) => {
       const r = fight(myT, t, view.mode, ba, t === "etendard" ? 0 : bd);
       const vt = val(t, view.mode);
-      if (r === "win") { ev += prob * (vt + 0.5); pWin += prob; }
-      else if (r === "lose") { ev -= prob * vm; pLose += prob; }
+      if (r === "win") { ev += prob * (vt + 0.5 - (t === "bouffon" ? jesterCost(vm) : 0)); pWin += prob; }
+      else if (r === "lose") { ev -= prob * (vm - (myT === "bouffon" ? jesterCost(vt) : 0)); pLose += prob; }
       else { ev += prob * (vt - vm); }
     };
     const mixKnow = known && (level.useKnowledge >= 1 || rng() < level.useKnowledge);
@@ -294,6 +307,9 @@
     if (!mixKnow && vm <= 5) info = 4;
     return { ev, pWin, pLose, info, known: !!mixKnow };
   }
+
+  // un Bouffon battu endort son vainqueur, ça coûte un peu de temps et expose la pièce
+  function jesterCost(v) { return 1.5 + 0.25 * v; }
 
   // probabilité que l'ennemi e batte mon unité de type t s'il m'attaque
   function threatOn(view, e, myType) {
@@ -635,7 +651,7 @@
     });
     // le reste : lutins et petites pièces devant, grosses pièces au milieu
     const rest = pending.filter((p) => !out[p.id]);
-    const frontClass = (t) => t === "lutin" || t === "garde" || t === "archere" || t === "rat" || t === "fantome" || t === "chauvesouris" || t === "cavalier";
+    const frontClass = (t) => t === "gladiateur" || t === "bouffon" || t === "escargot" || t === "lutin" || t === "garde" || t === "archere" || t === "rat" || t === "fantome" || t === "chauvesouris" || t === "cavalier";
     const frontPieces = shuffle(rest.filter((p) => frontClass(p.type)));
     const midPieces = shuffle(rest.filter((p) => !frontClass(p.type)));
     // le roi et le dragon évitent la première ligne
@@ -683,6 +699,9 @@
 
   function masterView(state, mem) {
     const view = buildView(state, mem);
+    view.mem = mem;
+    view.portalTwin = new Map();
+    ((state.board && state.board.portals) || []).forEach((pt) => { view.portalTwin.set(K(pt.a.r, pt.a.c), pt.b); view.portalTwin.set(K(pt.b.r, pt.b.c), pt.a); });
     view.cache = new Map();
     view.depth = {};
     view.enemies = state.pieces.filter((p) => state.players[p.owner].team !== view.myTeam);
@@ -808,8 +827,8 @@
       const r = fight(myT, t, view.mode, bannerBoost(view, p), t === "etendard" ? 0 : bannerBoost(view, e));
       const vt = roleValue(view, t, false) + proxBonus(view, e, t);
       expV += pr * vt;
-      if (r === "win") { ev += pr * vt; pWin += pr; }
-      else if (r === "lose") { ev -= pr * vm * TUNE.lossMul; pLose += pr; }
+      if (r === "win") { ev += pr * (vt - (t === "bouffon" ? jesterCost(vm) : 0)); pWin += pr; }
+      else if (r === "lose") { ev -= pr * (vm * (view.lossMul || TUNE.lossMul) - (myT === "bouffon" ? jesterCost(vt) : 0)); pLose += pr; }
       else ev += pr * (vt - vm);
     });
     const known = !!view.typeOf(e);
@@ -861,16 +880,216 @@
     return (1 - keep) * exposed;
   }
 
+  // =====================================================================
+  // IA STRATÈGE, deuxième génération
+  //  - elle anticipe la riposte, si je joue ici, que peut-il me prendre, et pourrai-je reprendre derrière
+  //  - elle crée des menaces (fourchettes) que l'adversaire ne peut pas toutes parer
+  //  - elle garde un caractère par partie (assaut, forteresse, piégeur, rôdeur, bluffeur)
+  //  - elle apprend comment l'adversaire joue, il attaque beaucoup ou il attend
+  //  - elle prend plus ou moins de risques selon l'avantage matériel
+  // =====================================================================
+  const PERSONAS = {
+    equilibre: { name: "équilibré", aggr: 1, danger: 1.2, scout: 1.7, guard: 1, bait: 1, hide: 1, bluff: 1, patience: 1.8, thr: 1 },
+    assaut: { name: "assaut", aggr: 1.2, danger: 1.0, scout: 1.4, guard: 0.85, bait: 0.7, hide: 0.7, bluff: 0.8, patience: 1.1, thr: 1.4 },
+    forteresse: { name: "forteresse", aggr: 0.85, danger: 1.4, scout: 1.4, guard: 1.5, bait: 1.2, hide: 1.3, bluff: 0.7, patience: 2.3, thr: 0.8 },
+    piegeur: { name: "piégeur", aggr: 0.95, danger: 1.25, scout: 1.5, guard: 1.2, bait: 2.0, hide: 1.6, bluff: 1.1, patience: 1.9, thr: 1 },
+    rodeur: { name: "rôdeur", aggr: 1.0, danger: 1.2, scout: 2.2, guard: 0.9, bait: 1, hide: 1, bluff: 1.2, patience: 1.6, thr: 1.1 },
+    bluffeur: { name: "bluffeur", aggr: 1.05, danger: 1.15, scout: 1.6, guard: 0.9, bait: 1.4, hide: 1.8, bluff: 2.0, patience: 1.6, thr: 1.2 },
+  };
+  const PERSONA_IDS = ["equilibre", "assaut", "forteresse", "piegeur", "rodeur", "bluffeur"];
+
+  function personaOf(mem, level, rng) {
+    if (!mem.persona) {
+      const pool = level.persona ? PERSONA_IDS : ["equilibre"];
+      if (typeof process !== "undefined" && process.env && process.env.PERSONA && PERSONAS[process.env.PERSONA]) { mem.persona = process.env.PERSONA; return PERSONAS[mem.persona]; }
+      mem.persona = pool[Math.floor(rng() * pool.length)];
+    }
+    const base = PERSONAS[mem.persona] || PERSONAS.equilibre;
+    if (typeof process !== "undefined" && process.env && process.env.PJSON) return Object.assign({}, base, JSON.parse(process.env.PJSON));
+    return base;
+  }
+
+  // Part des attaques dans les coups de l'adversaire, avec un a priori prudent
+  function aggrOf(mem, owner) {
+    const o = mem.opp[owner];
+    if (!o) return 0.22;
+    return (o.att + 2.5) / (o.att + o.mov + 11);
+  }
+
+  function growthOf(view, p) { return Math.min(3, p.grow || (view.mem && view.mem.grow[p.id]) || 0); }
+
+  // Un portail vide dont le jumeau est libre emmène la pièce de l'autre côté
+  function landOf(view, p, r, c) {
+    const tw = view.portalTwin.get(K(r, c));
+    if (tw && !view.grid.get(K(r, c)) && !view.grid.get(K(tw.r, tw.c))) return tw;
+    if (tw && !view.grid.get(K(r, c)) && view.grid.get(K(tw.r, tw.c)) && view.grid.get(K(tw.r, tw.c)).id === p.id) return { r, c };
+    return { r, c };
+  }
+
+  // Matériel estimé de chaque camp (pièces connues + contenu probable des inconnues)
+  function materialBalance(view) {
+    const state = view.state; let mine = 0; const en = {};
+    state.pieces.forEach((p) => {
+      const t = view.typeOf(p);
+      const isMine = state.players[p.owner].team === view.myTeam;
+      if (isMine) { mine += t ? val(t, view.mode) : 6; return; }
+      if (t) en[p.owner] = (en[p.owner] || 0) + val(t, view.mode);
+    });
+    view.enemyOwners.forEach((o) => {
+      const pool = view.pools[o] || {}; let s = 0;
+      Object.keys(pool).forEach((t) => { if (pool[t] > 0 && PIECES[t]) s += pool[t] * val(t, view.mode); });
+      en[o] = (en[o] || 0) + s;
+    });
+    const owners = view.enemyOwners.length || 1; let avg = 0; view.enemyOwners.forEach((o) => { avg += en[o] || 0; }); avg /= owners;
+    return (mine - avg) / Math.max(1, mine + avg);
+  }
+
+  // ---------- monde virtuel pour anticiper ----------
+  // mods { moverId, to ({r,c} ou null si la pièce disparaît), removeEnemy (id), exposeMover }
+  function buildWorld(view, mods) {
+    const ov = new Map(); const mine = [], enemies = [];
+    view.state.pieces.forEach((p) => {
+      const isMine = view.state.players[p.owner].team === view.myTeam;
+      if (p.id === mods.moverId) {
+        ov.set(K(p.r, p.c), null);
+        if (mods.to) { const q = Object.assign({}, p, { r: mods.to.r, c: mods.to.c, moved: true, ghostExposed: !!mods.exposeMover }); ov.set(K(q.r, q.c), q); mine.push(q); }
+        return;
+      }
+      if (mods.removeEnemy === p.id) { ov.set(K(p.r, p.c), null); return; }
+      (isMine ? mine : enemies).push(p);
+    });
+    return {
+      mine, enemies, ov,
+      occ: (r, c) => { const k = K(r, c); return ov.has(k) ? ov.get(k) : view.grid.get(k); },
+    };
+  }
+
+  function maxReachOf(types) {
+    let m = 1;
+    for (let i = 0; i < types.length; i++) { const d = PIECES[types[i][0]]; if (d.long) return 99; if (d.reach && d.reach > m) m = d.reach; }
+    return m;
+  }
+
+  // Qui, parmi mes pièces, pourrait revenir sur la case (r,c) au coup suivant, et avec quelle probabilité de gagner contre le type t
+  function recaptureP(view, W, r, c, t, exceptId) {
+    let best = 0;
+    for (let i = 0; i < W.mine.length; i++) {
+      const m = W.mine[i];
+      if (m.id === exceptId || m.frozen > 0) continue;
+      const d = PIECES[m.type]; if (!d.mobile) continue;
+      const dist = Math.abs(m.r - r) + Math.abs(m.c - c);
+      if (dist === 0) continue;
+      if (dist > 1) {
+        if (!(d.long || (d.reach && dist <= d.reach)) || (m.r !== r && m.c !== c)) continue;
+        const dr = Math.sign(r - m.r), dc = Math.sign(c - m.c); let x = m.r + dr, y = m.c + dc, clear = true;
+        while (x !== r || y !== c) { if (view.blocked(x, y) || W.occ(x, y)) { clear = false; break; } x += dr; y += dc; }
+        if (!clear) continue;
+      }
+      const f = fight(m.type, t, view.mode, bannerBoost(view, m), 0);
+      const v = f === "win" ? 1 : f === "tie" ? 0.5 : 0;
+      if (v > best) best = v;
+      if (best >= 1) break;
+    }
+    return best;
+  }
+
+  // Risque que je cours dans ce monde, ce que l'adversaire peut me prendre au coup suivant, net de mes reprises.
+  // bait = ce que j'espère gagner si l'adversaire tombe dans un piège défendu.
+  function worldRisk(view, mem, W, mdl) {
+    let best = 0, rest = 0, bait = 0;
+    for (let i = 0; i < W.enemies.length; i++) {
+      const e = W.enemies[i];
+      if (e.frozen > 0) continue;
+      const d = dMap(view, mem, e);
+      const types = []; let pm = 0;
+      Object.keys(d).forEach((t) => { if (d[t] > 0 && PIECES[t].mobile) { types.push([t, d[t]]); pm += d[t]; } });
+      if (!types.length) continue;
+      const lim = maxReachOf(types);
+      const known = !!view.typeOf(e);
+      const ag = known ? 1 : Math.min(0.95, 0.35 + 1.5 * aggrOf(mem, e.owner));
+      for (let di = 0; di < 4; di++) {
+        let r = e.r + DIRS[di][0], c = e.c + DIRS[di][1], k = 1;
+        while (k <= lim && !view.blocked(r, c)) {
+          const q = W.occ(r, c);
+          if (q) {
+            if (state_isMine(view, q)) {
+              const Vq = roleValue(view, q.type, true);
+              const keyPiece = q.type === "oeuf" || (view.mode === "kinghunt" && q.type === "roi");
+              const qb = bannerBoost(view, q);
+              let E = 0;
+              for (let ti = 0; ti < types.length; ti++) {
+                const t = types[ti][0], pr = types[ti][1]; const dd = PIECES[t];
+                if (k > 1 && !(dd.long || (dd.reach && k <= dd.reach))) continue;
+                const f = fight(t, q.type, view.mode, 0, qb);
+                const Vt = roleValue(view, t, false);
+                if (f === "win") E += pr * (Vq - (keyPiece ? 0 : recaptureP(view, W, q.r, q.c, t, q.id) * Vt));
+                else if (f === "tie") E += pr * (Vq - Vt);
+                else E -= pr * Vt;
+              }
+              const exposedQ = mem.exposed[q.id] || q.ghostExposed || q.type === "oeuf" ? true : false;
+              let pa;
+              if (known || exposedQ) pa = E > 0 ? 1 : 0.06; else pa = ag;
+              if (E > 0) { const v = pa * E; if (v > best) { rest += best; best = v; } else rest += v; }
+              else if (!known && !exposedQ) bait += pa * (-E);
+            }
+            break;
+          }
+          r += DIRS[di][0]; c += DIRS[di][1]; k++;
+        }
+      }
+    }
+    return { risk: best + 0.3 * rest, bait };
+  }
+  function state_isMine(view, q) { return view.state.players[q.owner].team === view.myTeam; }
+
+  // Menaces que je crée, fourchettes comprises. L'adversaire ne peut parer qu'une menace par tour.
+  function worldThreat(view, mem, W, level) {
+    const found = [];
+    for (let i = 0; i < W.mine.length; i++) {
+      const m = W.mine[i];
+      if (m.frozen > 0) continue;
+      const md = PIECES[m.type]; if (!md.mobile) continue;
+      const lim = md.long ? 99 : md.reach || 1;
+      for (let di = 0; di < 4; di++) {
+        let r = m.r + DIRS[di][0], c = m.c + DIRS[di][1], k = 1;
+        while (k <= lim && !view.blocked(r, c)) {
+          const q = W.occ(r, c);
+          if (q) {
+            if (!state_isMine(view, q)) {
+              const a = evAttackM(view, mem, m, q, level);
+              const v = a.ev + a.info * 0.4;
+              if (v > 0.5) found.push({ t: q.id, v });
+            }
+            break;
+          }
+          r += DIRS[di][0]; c += DIRS[di][1]; k++;
+        }
+      }
+    }
+    if (!found.length) return 0;
+    found.sort((a, b) => b.v - a.v);
+    const seen = new Set(); let total = 0, w = 1;
+    for (let i = 0; i < found.length && seen.size < 3; i++) { if (seen.has(found[i].t)) continue; seen.add(found[i].t); total += found[i].v * w; w *= 0.45; }
+    return total;
+  }
+
   function chooseMoveMaster(state, mem, level, rng) {
     const view = masterView(state, mem);
     const { me, mode } = view;
+    const persona = personaOf(mem, level, rng);
     const round = state.round;
+    const deep = level.look >= 2;
+    // avantage matériel, plus on est devant plus on évite le risque, plus on est derrière plus on tente
+    const lead = materialBalance(view);
+    view.lossMul = Math.max(0.8, Math.min(2.1, TUNE.lossMul * (1 + lead * 0.9)));
     const quiet = round - (mem.lastCombatRound || 0);
-    const impatience = Math.min(16, Math.max(0, (quiet - 6) * 1.0));
+    const impatience = Math.min(16, Math.max(0, (quiet - 6 * persona.patience) * (lead < -0.1 ? 1.25 : lead > 0.15 ? 0.7 : 1)));
+    // l'adversaire qui attaque peu se laisse approcher
+    let oppAggr = 0.25; { let n = 0, s = 0; view.enemyOwners.forEach((o) => { s += aggrOf(mem, o); n++; }); if (n) oppAggr = s / n; }
+    const passive = level.adapt && oppAggr < 0.17;
+    const reckless = level.adapt && oppAggr > 0.38;
     const protect = view.protect;
     const relics = state.board.relics || [];
-    const enemyMobile = view.enemies.filter((e) => { const k = view.typeOf(e); return k ? PIECES[k].mobile : (e.moved || true); });
-    // voisins libres de ce que je protège
     let openNeighbors = [];
     if (protect) {
       DIRS.forEach(([dr, dc]) => {
@@ -882,23 +1101,23 @@
     }
     const nearestEnemyToProtect = protect ? Math.min(99, ...view.enemies.filter((e) => view.typeOf(e) ? PIECES[view.typeOf(e)].mobile : e.moved || round > 3).map((e) => Math.abs(e.r - protect.r) + Math.abs(e.c - protect.c))) : 99;
     const threatened = nearestEnemyToProtect <= 5;
+    // trophées, plus un adversaire approche de l'objectif plus il faut se battre
+    let bountyU = 0;
+    if (mode === "bounty") { const T = Number(state.settings.bountyTarget) || 60; let top = 0; state.players.forEach((pl) => { if (pl.team !== view.myTeam && !pl.eliminated) top = Math.max(top, pl.score || 0); }); const mine = state.players[me].score || 0; bountyU = Math.max(0, Math.min(2, (top / T) * 1.6 + Math.max(0, top - mine) / T)); }
 
-    // cibles les plus intéressantes (pour s'en rapprocher)
     const attractive = new Map();
     view.mine.forEach((p) => {
       if (!state.legal[p.id]) return;
       const arr = [];
       view.enemies.forEach((e) => {
         const a = evAttackM(view, mem, p, e, level);
-        const score = a.ev + a.info * 0.5;
+        const score = a.ev + a.info * 0.5 * persona.scout;
         if (score > 0.5) arr.push({ e, score });
       });
       arr.sort((x, y) => y.score - x.score);
       attractive.set(p.id, arr.slice(0, 3));
     });
 
-    const cands = [];
-    // plan suivi : une pièce, une cible, tant que ça reste intéressant
     const planScore = (p, e) => {
       if (!PIECES[p.type].mobile || (p.type === "roi" && mode !== "kinghunt" && round < 30)) return 0;
       const a = evAttackM(view, mem, p, e, level);
@@ -908,48 +1127,47 @@
     };
     const plan = pickPlan(state, mem, view, planScore, (t) => roleValue(view, t, t === "rat" ? true : false));
     const cq = conquestCtx(state, view);
+
+    // ---- premier passage, évaluation rapide de tous les coups ----
+    const cands = [];
     view.mine.forEach((p) => {
       const dests = state.legal[p.id];
       if (!dests) return;
       const Vp = roleValue(view, p.type, true);
       const curDanger = dangerAt(view, mem, p, p.r, p.c, null, null);
       const vac = K(p.r, p.c);
-      dests.forEach(([r, c]) => {
-        const target = view.grid.get(K(r, c));
-        let score = 0;
-        if (target && state.players[target.owner].team !== view.myTeam) {
-          const a = evAttackM(view, mem, p, target, level);
-          score += a.ev * level.aggression * TUNE.aggr + a.info * TUNE.scout - a.reveal;
-          if (a.pWin > 0) {
-            const dg = dangerAt(view, mem, p, r, c, target.id, vac);
-            score -= Vp * dg * a.pWin * 0.7;
-          }
-          // gros bonus quand je sais que je gagne : sécurité
+      const neverMoved = !p.moved && !mem.exposed[p.id];
+      dests.forEach(([r0, c0]) => {
+        const target = view.grid.get(K(r0, c0));
+        const isAtk = target && state.players[target.owner].team !== view.myTeam;
+        const L = isAtk ? { r: r0, c: c0 } : landOf(view, p, r0, c0);
+        const r = L.r, c = L.c;
+        let score = 0, dangerPart = 0, a = null;
+        if (isAtk) {
+          a = evAttackM(view, mem, p, target, level);
+          score += a.ev * level.aggression * TUNE.aggr * persona.aggr * (mode === "bounty" ? 1 + bountyU * 0.3 : 1) + a.info * TUNE.scout * persona.scout - a.reveal;
+          if (a.pWin > 0) { dangerPart = -Vp * dangerAt(view, mem, p, r, c, target.id, vac) * a.pWin * 0.7; }
           if (a.known && a.pWin === 1) score += 1.5;
-          // un nain qui sait ce qu'il fait sur du fixe
           if (!a.known && !target.moved && p.type === "nain" && round > 6) score += 3 * level.hunt;
           score += impatience * (a.pLose < 0.6 ? 1 : 0.3);
+          if (passive && !a.known && a.pLose < 0.5) score += 1.2;
           if (plan && plan.mover.id === p.id && plan.tgt.id === target.id) score += plan.urgent ? 14 : 3;
         } else {
-          // simple déplacement
           const dgNew = dangerAt(view, mem, p, r, c, null, vac);
-          score -= (dgNew - curDanger) * Vp * TUNE.danger * (plan && plan.urgent && plan.mover.id === p.id ? 0.1 : 1);
-          // approcher les cibles intéressantes
+          dangerPart = -(dgNew - curDanger) * Vp * TUNE.danger * (plan && plan.urgent && plan.mover.id === p.id ? 0.1 : 1);
           const targets = attractive.get(p.id) || [];
           targets.forEach(({ e, score: sc }) => {
             const d0 = Math.abs(e.r - p.r) + Math.abs(e.c - p.c);
             const d1 = Math.abs(e.r - r) + Math.abs(e.c - c);
             score += (d0 - d1) * Math.min(2.6, 0.18 * sc + 0.3) * level.progress;
           });
-          // pas de cible : avancer doucement vers l'ennemi le plus proche, sauf les pièces clés
           if (!targets.length) {
             const cur = nearest(view.enemies, p.r, p.c), nxt = nearest(view.enemies, r, c);
-            let prog = (cur - nxt) * TUNE.prog * (1 + impatience * 0.12);
+            let prog = (cur - nxt) * TUNE.prog * (1 + impatience * 0.12) * (passive ? 1.25 : 1);
             if (p.type === "roi" || p.type === "oeuf") prog *= 0.1;
             else if (PIECES[p.type].rank >= 8 && round < 10 && impatience === 0) prog *= 0.3;
             score += prog;
           }
-          // reliques
           if (relics.length) {
             const onRelic = (x, y) => relics.some((q) => q.r === x && q.c === y);
             if (onRelic(r, c)) score += 9;
@@ -961,29 +1179,73 @@
             }
           }
           score -= trailPenalty(mem, p, r, c, 3.4);
-          if (plan && plan.mover.id === p.id) {
-            score += stepGain(view, plan.tgt, p, r, c) * (plan.urgent ? 12 : 1.8);
-          } else if (mem.lastMover === p.id) score += 0.6;
-          // défense : occuper les accès à l'Œuf (ou au Roi) quand l'ennemi approche
+          if (plan && plan.mover.id === p.id) score += stepGain(view, plan.tgt, p, r, c) * (plan.urgent ? 12 : 1.8);
+          else if (mem.lastMover === p.id) score += 0.6;
           if (protect && p.id !== protect.id && threatened) {
             const isGuardCell = (key) => openNeighbors.includes(key);
-            if (isGuardCell(K(r, c)) && !isGuardCell(K(p.r, p.c))) score += 7 * level.flagGuard * (Vp < 14 ? 1 : 0.5);
-            if (isGuardCell(K(p.r, p.c)) && !isGuardCell(K(r, c))) score -= 8 * level.flagGuard;
+            if (isGuardCell(K(r, c)) && !isGuardCell(K(p.r, p.c))) score += 7 * level.flagGuard * persona.guard * (Vp < 14 ? 1 : 0.5);
+            if (isGuardCell(K(p.r, p.c)) && !isGuardCell(K(r, c))) score -= 8 * level.flagGuard * persona.guard;
             const dB = Math.abs(p.r - protect.r) + Math.abs(p.c - protect.c);
             const dA = Math.abs(r - protect.r) + Math.abs(c - protect.c);
-            if (dB <= 3 && dA > dB) score -= 2.5 * level.flagGuard;
+            if (dB <= 3 && dA > dB) score -= 2.5 * level.flagGuard * persona.guard;
           }
-          // le Roi (hors chasse au roi) reste un atout à ne pas gaspiller
           if (p.type === "roi" && round < 30 && mode !== "kinghunt" && impatience < 6) score -= 0.6;
+          // les marais endorment, les forêts cachent
+          const tr = state.board.terrain[r][c];
+          if (tr === "marsh" && state.board.terrain[p.r][p.c] !== "marsh") score -= (0.9 + Vp * 0.12) * (nearest(view.enemies, r, c) <= 3 ? 1.8 : 1);
+          // phalange, rester collé à une pièce identique
+          if (state.settings.phalange && PIECES[p.type].mobile) {
+            const adj = (x, y) => DIRS.some(([dr, dc]) => { const q = view.grid.get(K(x + dr, y + dc)); return q && q.owner === me && q.id !== p.id && q.type === p.type; });
+            if (adj(r, c) && !adj(p.r, p.c)) score += 0.9; else if (!adj(r, c) && adj(p.r, p.c)) score -= 0.6;
+          }
+          // ne pas se trahir, une grosse pièce qui n'a jamais bougé garde son mystère tant qu'elle n'a rien à faire
+          if (neverMoved && Vp >= 9 && nearest(view.enemies, r, c) > 3 && impatience < 5) score -= 0.12 * Vp * persona.hide;
+          // une petite pièce discrète qui s'avance fait croire à une grosse
+          if (neverMoved && Vp <= 6 && PIECES[p.type].mobile && nearest(view.enemies, r, c) < nearest(view.enemies, p.r, p.c) && nearest(view.enemies, r, c) >= 3) score += 0.45 * persona.bluff;
         }
         score += extraTerms(view, cq, level, p, r, c, target);
         score += (rng() - 0.5) * level.noise;
-        cands.push({ pieceId: p.id, to: [r, c], score });
+        cands.push({ pieceId: p.id, to: [r0, c0], score, dangerPart, atk: a, target: isAtk ? target : null, p, L, Vp });
       });
     });
     if (!cands.length) return null;
-    cands.sort((a, b) => b.score - a.score);
-    return cands[0];
+    // ---- second passage, on regarde la riposte pour les meilleurs coups ----
+    cands.forEach((cd) => { cd.s1 = cd.score + cd.dangerPart; });
+    cands.sort((a, b) => b.s1 - a.s1);
+    if (!level.look) return cands[0];
+    const K2 = Math.min(cands.length, deep ? 18 : 10);
+    const baseW = buildWorld(view, { moverId: null });
+    const baseR = worldRisk(view, mem, baseW, null).risk;
+    const baseT = worldThreat(view, mem, baseW, level);
+    const thrW = 0.32 * persona.thr * (reckless ? 0.7 : passive ? 1.2 : 1) * (deep ? 1 : 0.7);
+    const dW = TUNE.danger * persona.danger * (reckless ? 1.15 : 1);
+    const baitW = (deep ? 0.22 : 0.1) * persona.bait * (reckless ? 1.5 : passive ? 0.5 : 1);
+    for (let i = 0; i < K2; i++) {
+      const cd = cands[i]; const p = cd.p;
+      let rsk = 0, bait = 0, thr = 0;
+      if (!cd.target) {
+        const W = buildWorld(view, { moverId: p.id, to: cd.L });
+        const wr = worldRisk(view, mem, W, null); rsk = wr.risk; bait = wr.bait; thr = deep ? worldThreat(view, mem, W, level) : 0;
+      } else {
+        // issue incertaine, on pondère les trois mondes possibles
+        const a = cd.atk; const e = cd.target; const d = dMap(view, mem, e);
+        let pw = 0, pl = 0, pt = 0;
+        Object.keys(d).forEach((t) => { const f = fight(p.type, t, view.mode, bannerBoost(view, p), t === "etendard" ? 0 : bannerBoost(view, e)); if (f === "win") pw += d[t]; else if (f === "lose") pl += d[t]; else pt += d[t]; });
+        const tot = pw + pl + pt || 1; pw /= tot; pl /= tot; pt /= tot;
+        const worlds = [];
+        if (pw > 0.001) worlds.push([pw, { moverId: p.id, to: cd.L, removeEnemy: e.id, exposeMover: !!state.settings.survivorsRevealed }]);
+        if (pl > 0.001) worlds.push([pl, { moverId: p.id, to: null }]);
+        if (pt > 0.001) worlds.push([pt, { moverId: p.id, to: null, removeEnemy: e.id }]);
+        worlds.forEach(([w, mods]) => { const W = buildWorld(view, mods); const wr = worldRisk(view, mem, W, null); rsk += w * wr.risk; if (deep && w >= 0.25) thr += w * worldThreat(view, mem, W, level); });
+        // la dangerPart du premier passage était un résumé, la remplace
+      }
+      const keepFirst = cd.target ? 0 : 0;
+      cd.score = cd.score + keepFirst - (rsk - baseR) * dW * (cd.target ? 0.9 : 1) + bait * baitW + (thr - baseT) * thrW;
+      // sécurité de la pièce clé, jamais de coup qui met l'objectif à protéger en prise
+      cd.r2 = rsk;
+    }
+    const top = cands.slice(0, K2).sort((a, b) => b.score - a.score);
+    return top[0];
   }
 
   function chooseMoveAny(state, mem, level, rng) {
@@ -1033,8 +1295,8 @@
     } else guard.forEach((b) => put(b, pick([...free], (x) => depthKey(x) * 2)));
     lures.forEach((b) => put(b, pick([...free], (x) => -Math.abs(depthKey(x) - 0.45) * 3 + (rng() < 0.3 ? 1 : 0))));
     // préférence de profondeur par type (0 = ligne de front, 1 = fond)
-    const pref = { lutin: 0.0, rat: 0.25, garde: 0.2, archere: 0.3, fantome: 0.2, cavalier: 0.3, assassin: 0.5, reflet: 0.35, chauvesouris: 0.2, golem: 0.6, bombardier: 0.3, etendard: 0.4, sentinelle: 0.35, phenix: 0.6, messagere: 0.25, chevalier: 0.4, troll: 0.5, nain: 0.55, sorcier: 0.65, dragon: 0.7, roi: 0.8 };
-    const order = ["roi", "dragon", "sorcier", "phenix", "golem", "nain", "sentinelle", "etendard", "troll", "chevalier", "cavalier", "assassin", "reflet", "rat", "archere", "chauvesouris", "bombardier", "messagere", "garde", "fantome", "lutin"];
+    const pref = { gladiateur: 0.3, escargot: 0.4, bouffon: 0.3, lutin: 0.0, rat: 0.25, garde: 0.2, archere: 0.3, fantome: 0.2, cavalier: 0.3, assassin: 0.5, reflet: 0.35, chauvesouris: 0.2, golem: 0.6, bombardier: 0.3, etendard: 0.4, sentinelle: 0.35, phenix: 0.6, messagere: 0.25, chevalier: 0.4, troll: 0.5, nain: 0.55, sorcier: 0.65, dragon: 0.7, roi: 0.8 };
+    const order = ["roi", "dragon", "sorcier", "phenix", "golem", "nain", "sentinelle", "etendard", "troll", "chevalier", "cavalier", "assassin", "reflet", "rat", "archere", "chauvesouris", "bombardier", "messagere", "gladiateur", "escargot", "bouffon", "garde", "fantome", "lutin"];
     rest.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
     rest.forEach((p) => {
       const want = pref[p.type] != null ? pref[p.type] : 0.4;
@@ -1061,7 +1323,9 @@
     const special = state.settings.specialPieces;
     if (info.legion) {
       const slots = info.legion.slots;
-      const seqL = (levelId === "hard" || levelId === "expert" || level.master) ? ["golem", "phenix", "sentinelle", "assassin", "etendard", "reflet", "cavalier", "chauvesouris", "messagere", "bombardier", "fantome", "golem", "cavalier"] : ["cavalier", "fantome", "reflet", "bombardier", "chauvesouris", "messagere", "assassin", "golem", "sentinelle", "cavalier", "fantome"];
+      const seqL = (levelId === "hard" || levelId === "expert" || level.master) ? ["golem", "phenix", "gladiateur", "sentinelle", "assassin", "etendard", "reflet", "bouffon", "cavalier", "chauvesouris", "messagere", "gladiateur", "bombardier", "fantome", "golem", "cavalier"] : ["cavalier", "gladiateur", "fantome", "reflet", "bombardier", "bouffon", "chauvesouris", "messagere", "assassin", "escargot", "golem", "sentinelle", "cavalier", "fantome"];
+      // un caractère de partie différent donne une armée différente, le départ dans la liste change
+      if (level.master && rng() < 0.3) seqL.unshift(["escargot", "bouffon", "gladiateur"][Math.floor(rng() * 3)]);
       const pickL = {};
       let got = 0;
       const start = Math.floor(rng() * seqL.length);
@@ -1081,11 +1345,11 @@
     };
     if (level.master || levelId === "hard" || levelId === "expert") {
       // base solide, puis on équilibre
-      const seq = ["dragon", "sorcier", "rat", "nain", "nain", "tarte", "tarte", "lutin", "lutin", "troll", "chevalier", "sentinelle", "phenix", "nain", "tarte", "etendard", "archere", "bombardier", "messagere", "lutin", "sorcier", "troll", "chevalier", "garde", "dragon", "lutin", "archere", "garde", "tarte", "nain", "troll", "garde", "lutin", "rat"];
+      const seq = ["dragon", "sorcier", "rat", "nain", "nain", "tarte", "tarte", "lutin", "lutin", "troll", "chevalier", "sentinelle", "phenix", "nain", "tarte", "etendard", "gladiateur", "archere", "bombardier", "messagere", "lutin", "sorcier", "troll", "chevalier", "garde", "dragon", "lutin", "archere", "garde", "tarte", "nain", "troll", "garde", "lutin", "rat"];
       if (state.settings.mode === "kinghunt") seq.splice(seq.indexOf("rat"), 1);
       for (let round = 0; round < 3; round++) seq.forEach((t) => { if (total < room) add(t); });
     } else {
-      const bag = ["rat", "lutin", "nain", "garde", "archere", "chevalier", "troll", "sorcier", "dragon", "tarte", "lutin", "garde", "sentinelle", "messagere", "bombardier"];
+      const bag = ["rat", "lutin", "nain", "garde", "archere", "chevalier", "troll", "sorcier", "dragon", "tarte", "lutin", "garde", "sentinelle", "messagere", "bombardier", "gladiateur", "bouffon"];
       let guard = 0;
       while (total < room && guard++ < 200) { if (!add(bag[Math.floor(rng() * bag.length)])) { if (cost > budget - 3) break; } }
     }

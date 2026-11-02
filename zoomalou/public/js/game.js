@@ -274,7 +274,7 @@
     Object.keys(G.snaps).forEach((id) => {
       if (id === myId()) return; const sn = G.snaps[id]; if (t - sn.at > 450) return; const c = V.cars[id]; if (!c || !c.init || !c.root.visible || c.ghost) return;
       const o = c.st;
-      const share = 0.8; const hit = CA.contactVs(r, { x: o.x, z: o.z, h: o.h, y: o.y, vx: sn.vx, vz: sn.vz }, share, (r.bumpCd | 0) <= r.tick); if (!hit) return;
+      const share = 0.8; const hit = CA.contactVs(r, { x: o.x, z: o.z, h: o.h, y: o.y, vx: sn.vx, vz: sn.vz, car: sn.car }, share, (r.bumpCd | 0) <= r.tick); if (!hit) return;
       if (hit.bump) r.bumpCd = r.tick + 5; const vn = hit.vn;
       const q = (v) => Math.round(v * 100); const ex = [q(hit.dx), q(hit.dz), q(hit.dvx), q(hit.dvz), q(hit.ds)]; CA.nudge(r, ex[0] / 100, ex[1] / 100, ex[2] / 100, ex[3] / 100, ex[4] / 100); // valeurs arrondies comme sur le serveur
       run.events.push(r.tick, ex[0], ex[1], ex[2], ex[3], ex[4]);
@@ -344,7 +344,7 @@
     if (g.dataset.key === gkey && g.firstChild) { const t = $("#gar-secs"); if (t) t.textContent = carWho() + " · départ dans " + secs + " s"; return; }
     g.dataset.key = gkey; g.innerHTML = "";
     const B = TR.BIOMES[G.track.biome];
-    g.appendChild(el("div", { class: "garage__info" }, [el("b", { text: B.icon + " " + G.track.name }), el("span", { class: "small", text: B.name + " · " + Math.round(G.track.length) + " m · environ " + Math.round(G.track.length / 27) + " s de conduite" + (G.author ? " · temps de l'auteur " + fmtS(G.author) : "") })]));
+    g.appendChild(el("div", { class: "garage__info" }, [el("b", { text: B.icon + " " + G.track.name }), el("span", { class: "small", text: B.name + (B.identity ? " (" + B.identity.toLowerCase() + ")" : "") + " · " + Math.round(G.track.length) + " m · environ " + Math.round(G.track.length / 27) + " s de conduite" + (G.author ? " · temps de l'auteur " + fmtS(G.author) : "") })]));
     const cmode = S().carMode || "winner"; const canPick = cmode === "own" || (cmode === "winner" && s.chooser === myId()); const cards = el("div", { class: "cars" + (canPick ? "" : " cars--locked") });
     CA.CAR_ORDER.forEach((id) => {
       const c = CA.CARS[id]; const on = G.carId === id; const bar = (v) => el("i", { style: { width: Math.round(clamp(v, 0.08, 1) * 80) + "px" } });

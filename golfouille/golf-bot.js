@@ -13,7 +13,7 @@ const LEVELS = {
   champion: { id: "champion", label: "Champion", yawErr: 1.1, powErr: 0.04, think: [1100, 2500], dirs: 7, pick: 2, usePower: 0.85 },
   prodige: { id: "prodige", label: "Prodige", yawErr: 0.35, powErr: 0.015, think: [800, 1700], dirs: 9, pick: 1, usePower: 1 },
 };
-const RANGE = { driver: 62, iron: 48, wedge: 31, lob: 14, putter: 13, ricochet: 43, rocket: 105 };
+const RANGE = { driver: 80, iron: 58, wedge: 31, putter: 15, ricochet: 44 };
 const gauss = (r) => (r() + r() + r() - 1.5) * 1.6;
 
 function normAng(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
@@ -32,7 +32,7 @@ function planShot(hole, ball, ctx, level, rng) {
   if (Math.abs(normAng(toCarrot - toCup)) > 0.05) baseYaws.push(toCarrot);
   const offs = lv.dirs === 3 ? [-4, 0, 4] : lv.dirs === 5 ? [-9, -4, 0, 4, 9] : lv.dirs === 7 ? [-14, -8, -4, 0, 4, 8, 14] : [-20, -14, -8, -4, 0, 4, 8, 14, 20];
   const yaws = []; baseYaws.forEach((b) => offs.forEach((o) => yaws.push(b + (o * Math.PI) / 180)));
-  const clubs = ctx.clubs.filter((c) => c !== "rocket" || (D > 75 && rng() < 0.7));
+  const clubs = ctx.clubs.slice(); const surf0 = Physics.surfAt(hole, ball.x, ball.z);
   // clubs dont la portée convient le mieux
   const ranked = clubs.map((c) => ({ c, d: Math.abs(RANGE[c] - Math.min(D, RANGE[c] * 1.1)) + (RANGE[c] < D * 0.45 ? 40 : 0) })).sort((a, b) => a.d - b.d).slice(0, lv.id === "debutant" ? 2 : 3).map((x) => x.c);
   if (D < 18 && clubs.includes("putter") && !ranked.includes("putter")) ranked.push("putter");
@@ -40,19 +40,14 @@ function planShot(hole, ball, ctx, level, rng) {
   ranked.forEach((c) => {
     const club = Rules.CLUBS[c]; const R = RANGE[c];
     const need = Math.min(1, Math.max(0.28, Math.min(D, R) / R));
-    // les bots un peu forts essaient aussi un tir plus haut ou plus bas
-    const hs = !Rules.hasHeight(club) || ctx.noHeight ? [2] : lv.id === "debutant" ? [2] : lv.id === "moyen" ? [2, 3] : [2, 3, 1];
-    hs.forEach((h) => {
-      const loft = Rules.loftFor(c, h); const ratio = club.loft > 0 && loft > 0 ? Math.sqrt(Math.sin(2 * club.loft * Math.PI / 180) / Math.max(0.2, Math.sin(2 * loft * Math.PI / 180))) : 1;
-      const nd = Math.min(1, Math.max(0.2, need * Math.min(1.7, Math.max(0.55, ratio))));
-      const pows = c === "putter" || c === "lob" ? [need * 0.8, need * 0.95, need, need * 1.12, need * 1.3] : h === 2 ? [need * 0.85, need, Math.min(1, need * 1.1)] : [nd * 0.8, nd, Math.min(1, nd * 1.2)];
-      pows.forEach((p) => { p = Math.min(1, Math.max(0.15, p)); yaws.forEach((yaw) => cands.push({ club: c, yaw, power: p, def: club, height: h, loft })); });
-    });
+    const pows = c === "putter" ? [need * 0.8, need * 0.95, need, need * 1.12, need * 1.3] : [need * 0.85, need, Math.min(1, need * 1.1)];
+    pows.forEach((p) => { p = Math.min(1, Math.max(0.15, p)); yaws.forEach((yaw) => cands.push({ club: c, yaw, power: p, def: club, height: 2, loft: club.loft })); });
   });
   const mult = ctx.turbo ? 1.5 : 1; const half = ctx.glu ? 0.5 : 1;
   const results = [];
   cands.forEach((cd) => {
-    const r = Physics.simulate(hole, ball, { yaw: cd.yaw, speed: cd.def.speed * cd.power * mult * half, loft: cd.loft != null ? cd.loft : cd.def.loft, lob: !!cd.def.lob }, { t0: ctx.t0, wind: hole.wind, walls: ctx.walls, ice: ctx.ice, magnet: ctx.magnet, skip: !!cd.def.skip, maxTime: 22, cupMul: ctx.cupMul });
+    const sh = Rules.shotFor(cd.club, cd.power, cd.yaw, surf0); sh.speed *= mult * half;
+    const r = Physics.simulate(hole, ball, sh, { t0: ctx.t0, wind: hole.wind, walls: ctx.walls, ice: ctx.ice, magnet: ctx.magnet, skip: !!cd.def.skip, maxTime: 22, cupMul: ctx.cupMul });
     let sc;
     if (r.outcome === "sunk") sc = -2000 - (r.dur);
     else {
@@ -60,8 +55,6 @@ function planShot(hole, ball, ctx, level, rng) {
       const sf = Physics.surfAt(hole, r.end.x, r.end.z);
       if (r.outcome === "water" || r.outcome === "lava") sc += 55; else if (r.outcome === "ob") sc += 75;
       else if (sf === Physics.S.SAND) sc += 7; else if (sf === Physics.S.MUD) sc += 9; else if (sf === Physics.S.ROUGH) sc += 3.5;
-      // légère préférence pour économiser les fusées
-      if (cd.club === "rocket") sc += 6;
     }
     results.push({ cd, sc });
   });

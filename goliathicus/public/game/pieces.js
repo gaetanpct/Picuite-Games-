@@ -30,10 +30,13 @@
     etendard: { id: "etendard", name: "Porte-Étendard", short: "Étendard", icon: "🚩", rank: 3, cost: 7, mobile: true, banner: true, special: true, max: 2, desc: "Les pièces alliées juste à côté de lui gagnent de la force dans les combats. Ça ne change pas les règles spéciales comme les tartes, le Rat ou l'Assassin." },
     sentinelle: { id: "sentinelle", name: "Sentinelle", short: "Sentinelle", icon: "🦉", rank: 4, cost: 6, mobile: true, sentinel: true, special: true, max: 2, desc: "Toute pièce ennemie qui passe à côté d'elle est démasquée pour toujours, mais seulement pour ton camp. Les ennemis ne savent pas qui les a repérés." },
     phenix: { id: "phenix", name: "Phénix", short: "Phénix", icon: "🐦‍🔥", rank: 7, cost: 12, mobile: true, phoenix: true, special: true, max: 1, desc: "La première fois qu'il est éliminé, il renaît face cachée dans ton camp, endormi un tour." },
+    gladiateur: { id: "gladiateur", name: "Gladiateur", short: "Gladiateur", icon: "🤺", rank: 3, cost: 7, mobile: true, grow: true, special: true, max: 2, desc: "Il commence faible, mais gagne un point de force à chaque combat gagné, jusqu'à trois points de plus. Laisse le grandir sur de petites proies, et ne le perds pas trop tôt." },
+    escargot: { id: "escargot", name: "Escargot Visqueux", short: "Escargot", icon: "🐌", rank: 2, cost: 6, mobile: true, slime: true, special: true, max: 2, desc: "Chaque case qu'il quitte devient un marais pendant quelques tours de table. Une pièce qui s'y arrête s'endort. Il barre la route, mais ça gêne tout le monde." },
+    bouffon: { id: "bouffon", name: "Bouffon du Roi", short: "Bouffon", icon: "🤡", rank: 2, cost: 5, mobile: true, jester: true, special: true, max: 2, desc: "Faible, mais sa blague est contagieuse. La pièce qui le bat éclate de rire et s'endort pendant deux de ses tours, bien en vue de tout le monde." },
     messagere: { id: "messagere", name: "Messagère", short: "Messagère", icon: "🕊️", rank: 2, cost: 6, mobile: true, messenger: true, special: true, max: 2, desc: "Quand elle se déplace sans combattre, tu rejoues tout de suite une seconde pièce. Une seule fois par tour." },
   };
 
-  const ORDER = ["oeuf", "tarte", "rat", "lutin", "nain", "garde", "archere", "chevalier", "troll", "sorcier", "dragon", "roi", "fantome", "cavalier", "assassin", "reflet", "chauvesouris", "golem", "bombardier", "etendard", "sentinelle", "phenix", "messagere"];
+  const ORDER = ["oeuf", "tarte", "rat", "lutin", "nain", "garde", "archere", "chevalier", "troll", "sorcier", "dragon", "roi", "fantome", "cavalier", "assassin", "reflet", "chauvesouris", "golem", "bombardier", "etendard", "sentinelle", "phenix", "messagere", "gladiateur", "escargot", "bouffon"];
 
   // Les quatre maisons. Chacune a un pouvoir à usage limité.
   const HOUSES = [
@@ -86,6 +89,7 @@
       mixte: { name: "Mixte", icon: "🌟", desc: "Un peu de tout.", counts: { golem: 1, cavalier: 1, assassin: 1, reflet: 1, chauvesouris: 1, fantome: 1 } },
       mystique: { name: "Mystique", icon: "🐦‍🔥", desc: "Un Phénix, une Sentinelle et un Porte-Étendard pour une armée qui voit et qui renaît.", counts: { phenix: 1, sentinelle: 2, etendard: 2, messagere: 1 } },
       chaos: { name: "Chaos", icon: "💣", desc: "Des Bombardiers et des Messagères, pour tout faire sauter et jouer deux fois.", counts: { bombardier: 2, messagere: 2, cavalier: 1, assassin: 1 } },
+      arene: { name: "Arène", icon: "🤺", desc: "Des Gladiateurs qui grandissent, des Escargots qui barrent la route et des Bouffons qui endorment leurs vainqueurs.", counts: { gladiateur: 2, escargot: 2, bouffon: 2 } },
     },
     12: {
       aerienne: { name: "Aérienne", icon: "🦇", desc: "Vitesse et vol.", counts: { chauvesouris: 1, cavalier: 2 } },
@@ -93,6 +97,7 @@
       mixte: { name: "Mixte", icon: "🌟", desc: "Un peu de tout.", counts: { cavalier: 1, assassin: 1, golem: 1 } },
       mystique: { name: "Mystique", icon: "🐦‍🔥", desc: "Phénix et Sentinelle.", counts: { phenix: 1, sentinelle: 1, etendard: 1 } },
       chaos: { name: "Chaos", icon: "💣", desc: "Bombardier et Messagère.", counts: { bombardier: 1, messagere: 1, cavalier: 1 } },
+      arene: { name: "Arène", icon: "🤺", desc: "Gladiateur, Escargot et Bouffon.", counts: { gladiateur: 1, escargot: 1, bouffon: 1 } },
     },
   };
   function legionSlots(size) { const L = LEGION[size] || LEGION[24]; return size - 1 - countsTotal(L.core); }
@@ -103,6 +108,9 @@
     tarte: { name: "Pluie de tartes", icon: "🥧", text: "Une tarte géante s'écrase au centre et bloque définitivement la case." },
     fete: { name: "Fête au village", icon: "🎉", text: "Tout le monde a bien mangé, chaque maison regagne une charge de pouvoir." },
     pont: { name: "Pont miraculeux", icon: "🌉", text: "Un lac s'assèche, une nouvelle case est praticable." },
+    sieste: { name: "Sieste générale", icon: "😴", text: "Une chaleur étrange s'abat sur le royaume. La pièce la plus avancée de chaque joueur s'endort pour deux tours." },
+    escargots: { name: "Procession d'escargots", icon: "🐌", text: "Une horde d'escargots traverse le centre et laisse du marais derrière elle, pour quelques tours." },
+    oubli: { name: "Cloche de l'oubli", icon: "🔔", text: "Une cloche étrange sonne et tout le monde oublie qui est qui. Toutes les pièces redeviennent cachées." },
     brouillard: { name: "Brouillard soudain", icon: "🌫️", text: "Un brouillard épais tombe pendant un tour de table complet. Visibilité réduite à 1 case." },
   };
 
@@ -197,7 +205,7 @@
       // Pas d'œuf : le roi est la cible. On le remplace par un garde.
       if (counts.oeuf) { counts.garde = (counts.garde || 0) + counts.oeuf; delete counts.oeuf; }
       if (!counts.roi) counts.roi = 1;
-    } else if (settings.mode === "conquest" && !settings.conquestEgg) {
+    } else if ((settings.mode === "conquest" && !settings.conquestEgg) || settings.mode === "bounty") {
       // pas d'œuf en conquête : la place devient un garde
       if (counts.oeuf) { counts.garde = (counts.garde || 0) + counts.oeuf; delete counts.oeuf; }
     } else if (!counts.oeuf) {
@@ -261,5 +269,6 @@
     return out;
   }
 
-  return { PIECES, ORDER, HOUSES, ARMIES, LEGION, LEGION_PRESETS, legionSlots, CHAOS_EVENTS, armySizeFor, budgetFor, countsCost, countsTotal, resolveArmy, finalizeCounts, sanitizeCustom };
+  function bountyValue(type) { const d = PIECES[type]; return d ? Math.max(1, d.cost + (d.mobile ? 1 : 0)) : 0; }
+  return { bountyValue, PIECES, ORDER, HOUSES, ARMIES, LEGION, LEGION_PRESETS, legionSlots, CHAOS_EVENTS, armySizeFor, budgetFor, countsCost, countsTotal, resolveArmy, finalizeCounts, sanitizeCustom };
 });

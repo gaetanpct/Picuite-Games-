@@ -521,3 +521,10 @@ input[type="text"]:focus { border-color: var(--plum-3); box-shadow: 0 0 0 4px rg
 
 .army-row__desc { grid-column: 2 / -1; font-size: 0.74rem; line-height: 1.25; color: var(--ink-soft); white-space: normal; margin-top: -0.1rem; }
 .army-row__name { min-width: 0; overflow-wrap: anywhere; }
+
+/* portails */
+.tile--portal { box-shadow: inset 0 0 0 2px var(--pc), inset 0 0 14px color-mix(in srgb, var(--pc) 55%, transparent); }
+.tile__portal { position: absolute; font-size: 1.2em; filter: drop-shadow(0 0 5px var(--pc)); animation: portalSpin 5s linear infinite; }
+.tile__portal-n { position: absolute; right: 3px; bottom: 1px; font-size: 0.42em; font-weight: 800; color: #fff; background: var(--pc); border-radius: 8px; padding: 0 4px; line-height: 1.35; }
+@keyframes portalSpin { to { transform: rotate(360deg); } }
+.pv--portal { color: #fff; font-size: 9px; display: grid; place-items: center; background-image: radial-gradient(circle, #8f7bff, transparent 80%); }

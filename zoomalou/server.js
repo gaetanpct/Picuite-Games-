@@ -13,7 +13,7 @@ const COLORS = [
 
 module.exports = function mount(server, prefix) {
   const game = {
-    dir: __dirname, id: "zoomalou", maxPlayers: 6, minPlayers: 1, colors: COLORS,
+    dir: __dirname, id: "zoomalou", maxPlayers: 8, minPlayers: 1, colors: COLORS,
     botNames: ["Vroum", "Dérapage", "Turbo-Tom", "Pneu-Lisse", "Klaxonne", "Rond-Point", "Pit-Stop", "Gomme", "Frein-à-Main", "Mach Zéro"],
     botLevels: Object.values(Bot.LEVELS).map((l) => ({ id: l.id, label: l.label })),
     defaults: Rules.defaults, normalize: (s) => Rules.normalize(s),

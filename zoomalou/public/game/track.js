@@ -29,19 +29,19 @@
   const sm = (t) => { t = t < 0 ? 0 : t > 1 ? 1 : t; return t * t * (3 - 2 * t); };
 
   const BIOMES = {
-    cote: { id: "cote", name: "Côte", icon: "🏖️", sky: ["#4fc8ff", "#fff3d6"], fog: "#d8f1ff", sun: "#fff3d0", amb: "#c8ecff", ground: "#f0dc9c", road: "#5b606c", wall: "#ffffff", curb: ["#ff5a4a", "#ffffff"], gravity: 9.8, plan: { dirt: 0.0, ice: 0, slow: 0.22 },
+    cote: { id: "cote", phys: {}, identity: "Route classique, la référence pour comparer", name: "Côte", icon: "🏖️", sky: ["#4fc8ff", "#fff3d6"], fog: "#d8f1ff", sun: "#fff3d0", amb: "#c8ecff", ground: "#f0dc9c", road: "#5b606c", wall: "#ffffff", curb: ["#ff5a4a", "#ffffff"], gravity: 9.8, plan: { dirt: 0.0, ice: 0, slow: 0.22 },
       deco: ["palm", "palm", "rock", "parasol"], names: ["Corniche Salée", "Route des Mouettes", "Plage Express", "Marée Basse", "Phare en Vue"] },
-    desert: { id: "desert", name: "Désert", icon: "🌵", sky: ["#ffa94a", "#fff0cf"], fog: "#ffe2b0", sun: "#fff0c0", amb: "#ffe0b0", ground: "#e9b868", road: "#6a5a4a", wall: "#f2d29a", curb: ["#c0552a", "#f6e2b4"], gravity: 9.8, plan: { dirt: 0.5, ice: 0, slow: 0.12 },
+    desert: { id: "desert", phys: { wind: 2.4, grip: 0.97 }, identity: "Vents de sable qui poussent la voiture de côté", name: "Désert", icon: "🌵", sky: ["#ffa94a", "#fff0cf"], fog: "#ffe2b0", sun: "#fff0c0", amb: "#ffe0b0", ground: "#e9b868", road: "#6a5a4a", wall: "#f2d29a", curb: ["#c0552a", "#f6e2b4"], gravity: 9.8, plan: { dirt: 0.5, ice: 0, slow: 0.12 },
       deco: ["cactus", "cactus", "rock", "rock"], names: ["Piste Poussiéreuse", "Mirage Rapide", "Canyon Sec", "Dune Furieuse", "Oasis Express"] },
-    neige: { id: "neige", name: "Neige", icon: "⛄", sky: ["#9fd4ff", "#f4fbff"], fog: "#e6f3ff", sun: "#ffffff", amb: "#d0e8ff", ground: "#f4f9ff", road: "#4a5666", wall: "#dff0ff", curb: ["#2a6fb0", "#ffffff"], gravity: 9.8, plan: { dirt: 0, ice: 0.45, slow: 0.1 },
+    neige: { id: "neige", phys: { grip: 0.86, accel: 0.95 }, identity: "Adhérence réduite partout, glace fréquente", name: "Neige", icon: "⛄", sky: ["#9fd4ff", "#f4fbff"], fog: "#e6f3ff", sun: "#ffffff", amb: "#d0e8ff", ground: "#f4f9ff", road: "#4a5666", wall: "#dff0ff", curb: ["#2a6fb0", "#ffffff"], gravity: 9.8, plan: { dirt: 0, ice: 0.45, slow: 0.1 },
       deco: ["pine", "pine", "snowman", "rock"], names: ["Piste Verglacée", "Col Blanc", "Tobogan Fou", "Sapin Givré", "Lac Gelé"] },
-    foret: { id: "foret", name: "Forêt", icon: "🌲", sky: ["#6ed49a", "#e9ffe2"], fog: "#b9ecc4", sun: "#fff6c0", amb: "#a8e8b8", ground: "#3f9a50", road: "#4a4f46", wall: "#8a6a3a", curb: ["#8a5a2a", "#e8d8a8"], gravity: 9.8, plan: { dirt: 0.4, ice: 0, slow: 0.25 },
+    foret: { id: "foret", phys: { grip: 0.92, vmax: 0.98 }, identity: "Sol humide, moins d'adhérence et terre fréquente", name: "Forêt", icon: "🌲", sky: ["#6ed49a", "#e9ffe2"], fog: "#b9ecc4", sun: "#fff6c0", amb: "#a8e8b8", ground: "#3f9a50", road: "#4a4f46", wall: "#8a6a3a", curb: ["#8a5a2a", "#e8d8a8"], gravity: 9.8, plan: { dirt: 0.4, ice: 0, slow: 0.25 },
       deco: ["tree", "tree", "pine", "mushroom", "rock"], names: ["Sentier des Cerfs", "Racines Folles", "Sous-Bois Rapide", "Champignon Express", "Clairière Piégeuse"] },
-    volcan: { id: "volcan", name: "Volcan", icon: "🌋", sky: ["#6a2a3a", "#ff9a5a"], fog: "#d8785a", sun: "#ffc890", amb: "#ff9a70", ground: "#3e3038", road: "#2e2830", wall: "#6a4a50", curb: ["#ff5a1a", "#ffd84a"], gravity: 9.8, plan: { dirt: 0.2, ice: 0, slow: 0.15 },
+    volcan: { id: "volcan", phys: { boost: 1.4, accel: 1.04 }, identity: "Les turbos sont beaucoup plus puissants", name: "Volcan", icon: "🌋", sky: ["#6a2a3a", "#ff9a5a"], fog: "#d8785a", sun: "#ffc890", amb: "#ff9a70", ground: "#3e3038", road: "#2e2830", wall: "#6a4a50", curb: ["#ff5a1a", "#ffd84a"], gravity: 9.8, plan: { dirt: 0.2, ice: 0, slow: 0.15 },
       deco: ["rock", "rock", "crystal", "crystal"], names: ["Coulée Rouge", "Cratère Express", "Cendres Chaudes", "La Fournaise", "Cheminée Folle"] },
-    bonbons: { id: "bonbons", name: "Bonbons", icon: "🍭", sky: ["#ffb3e0", "#fff4fb"], fog: "#ffd9f0", sun: "#fff0f8", amb: "#ffd0ee", ground: "#c98cf0", road: "#8a5a9a", wall: "#ffffff", curb: ["#ff4aa8", "#ffe14a"], gravity: 9.8, plan: { dirt: 0, ice: 0.05, slow: 0.35 },
+    bonbons: { id: "bonbons", phys: { bounce: 0.2, grip: 1.12, vmax: 0.97 }, identity: "Sol collant et réceptions qui rebondissent", name: "Bonbons", icon: "🍭", sky: ["#ffb3e0", "#fff4fb"], fog: "#ffd9f0", sun: "#fff0f8", amb: "#ffd0ee", ground: "#c98cf0", road: "#8a5a9a", wall: "#ffffff", curb: ["#ff4aa8", "#ffe14a"], gravity: 9.8, plan: { dirt: 0, ice: 0.05, slow: 0.35 },
       deco: ["lolli", "cane", "gummy", "lolli"], names: ["Route Guimauve", "Chocolat Fondu", "Sucre d'Orge", "Gelée Rapide", "Caramel Express"] },
-    neon: { id: "neon", name: "Néon", icon: "🪐", sky: ["#07041f", "#3a1f7a"], fog: "#241250", sun: "#c8c0ff", amb: "#6a60c0", ground: "#14104a", road: "#1e1a50", wall: "#5affd8", curb: ["#ff4a8a", "#5affd8"], gravity: 4.6, stars: true, plan: { dirt: 0, ice: 0.2, slow: 0.05 },
+    neon: { id: "neon", phys: { accel: 1.08, grip: 0.94 }, identity: "Gravité faible, grands sauts et voiture plus nerveuse", name: "Néon", icon: "🪐", sky: ["#07041f", "#3a1f7a"], fog: "#241250", sun: "#c8c0ff", amb: "#6a60c0", ground: "#14104a", road: "#1e1a50", wall: "#5affd8", curb: ["#ff4a8a", "#5affd8"], gravity: 4.6, stars: true, plan: { dirt: 0, ice: 0.2, slow: 0.05 },
       deco: ["pylon", "pylon", "asteroid", "crystal"], names: ["Orbite Néon", "Anneau Lumineux", "Piste Stellaire", "Comète Express", "Voie Lactée"] },
   };
   const BIOME_IDS = Object.keys(BIOMES);
@@ -368,7 +368,7 @@
         for (let a = 0; a < n; a++) { const k = t[a] * clamp((dist[a] - 3) / 14, 0, 1) * clamp((a - 36) / 20, 0, 1) * clamp((n - 40 - a) / 20, 0, 1); if (k <= 0.001) continue; const nw = hwN * (0.95 + 0.1 * Math.sin(a * 0.07 + p2)); if (W[a] > nw) W[a] = Math.round((W[a] + (nw - W[a]) * k) * 100) / 100; }
       } }
     // la ligne de départ est large, pour que tout le monde parte côte à côte. La route se resserre ensuite
-    { const wS = Math.max(hw, 9.2); for (let i = 0; i < n; i++) { if (i <= 14) W[i] = Math.max(W[i], wS); else if (i < 34) { const t = (i - 14) / 20; const k = t * t * (3 - 2 * t); W[i] = Math.max(W[i], wS + (hw - wS) * k); } else break; } }
+    { const wS = Math.max(hw, 10.6); for (let i = 0; i < n; i++) { if (i <= 14) W[i] = Math.max(W[i], wS); else if (i < 34) { const t = (i - 14) / 20; const k = t * t * (3 - 2 * t); W[i] = Math.max(W[i], wS + (hw - wS) * k); } else break; } }
 
     // ---------- hauteurs ----------
     const noiseF = (() => { const r2 = mulberry32(hashSeed(spec.seed + "hy")); const a = [], b = []; for (let i = 0; i < 6; i++) { a.push(r2() * 6.28); b.push(0.5 + r2()); } return (t) => { let s = 0; for (let i = 0; i < 3; i++) s += Math.sin(t * (0.011 + i * 0.013) * (1 + b[i] * 0.4) + a[i]) / (1 + i); return s; }; })();

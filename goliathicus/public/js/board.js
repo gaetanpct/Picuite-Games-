@@ -68,6 +68,8 @@
     const armOwner = {};
     b.arms.forEach((arm) => arm.cells.forEach(([r, c]) => { armOwner[K(r, c)] = arm.seat; }));
     const relics = new Set((b.relics || []).map((x) => K(x.r, x.c)));
+    const portalIdx = {};
+    (b.portals || []).forEach((pt, i) => { portalIdx[K(pt.a.r, pt.a.c)] = i; portalIdx[K(pt.b.r, pt.b.c)] = i; });
     const ruins = new Set((b.ruins || []).map((x) => K(x[0], x[1])));
     const layer = el("div", { class: "layer layer--tiles" });
     for (let r = 0; r < b.rows; r++) for (let c = 0; c < b.cols; c++) {
@@ -89,6 +91,12 @@
         d.dataset.seat = owner;
       }
       if (relics.has(k)) d.appendChild(el("span", { class: "tile__relic", text: "🏆" }));
+      if (portalIdx[k] !== undefined) {
+        d.classList.add("tile--portal");
+        d.style.setProperty("--pc", ["#7b5cff", "#ff7a3c", "#17b8a6", "#e0409a"][portalIdx[k] % 4]);
+        d.appendChild(el("span", { class: "tile__portal", text: "🌀" }));
+        d.appendChild(el("span", { class: "tile__portal-n", text: String(portalIdx[k] + 1) }));
+      }
       if (t === "forest") d.appendChild(el("span", { class: "tile__deco", text: "🌲" }));
       if (t === "marsh") d.appendChild(el("span", { class: "tile__deco", text: "🫧" }));
       if (t === "lake") d.appendChild(el("span", { class: "tile__deco tile__deco--wave", text: "〰️" }));
@@ -142,11 +150,11 @@
     return e;
   }
 
-  function setPieceFace(e, type) {
+  function setPieceFace(e, type, grow) {
     const d = type ? PIECES[type] : null;
     const ico = e.querySelector(".piece__ico"), rk = e.querySelector(".piece__rank");
     if (ico.textContent !== (d ? d.icon : "")) ico.textContent = d ? d.icon : "";
-    const rt = d ? (d.bomb ? "💣" : d.id === "oeuf" ? "" : String(d.rank)) : "";
+    const rt = d ? (d.bomb ? "💣" : d.id === "oeuf" ? "" : String(d.rank + (grow || 0))) : "";
     if (rk.textContent !== rt) rk.textContent = rt;
     e.classList.toggle("is-up", !!d);
     e.dataset.type = type || "";
@@ -159,7 +167,7 @@
 
   function render(view) {
     const state = view.state;
-    const newSig = [state.board.rows, state.board.cols, mySide(state), JSON.stringify(state.board.terrain), state.board.ruins.length, state.players.map((p) => p.house).join(""), state.board.relics.length].join("|");
+    const newSig = [state.board.rows, state.board.cols, mySide(state), JSON.stringify(state.board.terrain), JSON.stringify(state.board.portals || []), state.board.ruins.length, state.players.map((p) => p.house).join(""), state.board.relics.length].join("|");
     vt = GoliathBoards.viewTransform(state.board, mySide(state));
     const newCell = computeCell(state);
     current = { view, state };
@@ -214,7 +222,7 @@
         e.style.fontSize = Math.round(cell * 0.5) + "px";
         placeEl(e, v.r, v.c);
       }
-      setPieceFace(e, p.type);
+      setPieceFace(e, p.type, p.grow);
       e.classList.toggle("piece--mine", mine);
       e.classList.toggle("piece--enemy", !mine);
       e.classList.toggle("is-sleep", p.frozen > 0);
@@ -329,6 +337,7 @@
       if (loseA) ga.classList.add("piece--dying");
       if (loseD) gd.classList.add("piece--dying");
       if (ev.result === "defused") puff(d.at.r, d.at.c, "🔧", "puff--small");
+      if (ev.jester) puff(d.at.r, d.at.c, "🤡", "puff--small");
       (ev.rebirth || []).forEach((x) => puff(x.to.r, x.to.c, "🐦‍🔥", "puff--small"));
     });
     T(1650, () => { ga.remove(); gd.remove(); });
@@ -347,7 +356,8 @@
 
   function playChaos(ev) {
     wrapEl.classList.remove("shake"); void wrapEl.offsetWidth; wrapEl.classList.add("shake");
-    (ev.cells || []).forEach((x) => puff(x.r, x.c, "🌀", "puff--small"));
+    const ico = (GoliathPieces.CHAOS_EVENTS[ev.chaos] || {}).icon || "🌀";
+    (ev.cells || []).forEach((x) => puff(x.r, x.c, ico, "puff--small"));
     UI.Sound.chaos();
   }
 
@@ -355,5 +365,11 @@
     const e = pieceEls.get(id); return e ? e : null;
   }
 
-  window.Board = { init, render, playCombat, playPower, playChaos, lockPieces, setSpeed, puff, pixelOfPiece, relayout: () => { if (current) relayout(); } };
+  function playTeleport(ev) {
+    if (!vt || !ev.via) return;
+    puff(ev.via.r, ev.via.c, "🌀", "puff--small");
+    setTimeout(() => puff(ev.to.r, ev.to.c, "🌀", "puff--small"), 260 * speed);
+  }
+
+  window.Board = { playTeleport, init, render, playCombat, playPower, playChaos, lockPieces, setSpeed, puff, pixelOfPiece, relayout: () => { if (current) relayout(); } };
 })();

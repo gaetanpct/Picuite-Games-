@@ -14,13 +14,13 @@
   // Surfaces. roll = freinage au sol en m/s2, e = rebond, damp = perte à l'impact, stick = pente qui retient la balle.
   const S = { FAIRWAY: 0, GREEN: 1, ROUGH: 2, SAND: 3, WATER: 4, ICE: 5, MUD: 6, LAVA: 7, BOUNCY: 8, VOID: 9 };
   const SURF = [
-    { id: 0, name: "Fairway", roll: 1.2, rollv: 0.55, e: 0.35, damp: 0.5, stick: 0.05 },
-    { id: 1, name: "Green", roll: 0.8, rollv: 0.3, e: 0.3, damp: 0.7, stick: 0.035 },
-    { id: 2, name: "Rough", roll: 3.5, rollv: 1.5, e: 0.15, damp: 0.3, stick: 0.14 },
-    { id: 3, name: "Sable", roll: 7, rollv: 3.5, e: 0.03, damp: 0.12, stick: 0.3 },
+    { id: 0, name: "Fairway", roll: 1.1, rollv: 0.42, e: 0.35, damp: 0.6, stick: 0.05 },
+    { id: 1, name: "Green", roll: 0.75, rollv: 0.26, e: 0.3, damp: 0.72, stick: 0.035 },
+    { id: 2, name: "Rough", roll: 2.4, rollv: 0.6, e: 0.15, damp: 0.5, stick: 0.12 },
+    { id: 3, name: "Sable", roll: 4.2, rollv: 1.1, e: 0.03, damp: 0.38, stick: 0.24 },
     { id: 4, name: "Eau", roll: 0, rollv: 0, e: 0, damp: 1, stick: 0, liquid: "water" },
     { id: 5, name: "Glace", roll: 0.06, rollv: 0.01, e: 0.3, damp: 1, stick: 0.004 },
-    { id: 6, name: "Boue", roll: 8, rollv: 3, e: 0.02, damp: 0.12, stick: 0.35 },
+    { id: 6, name: "Boue", roll: 4.8, rollv: 1.0, e: 0.02, damp: 0.4, stick: 0.28 },
     { id: 7, name: "Lave", roll: 0, rollv: 0, e: 0, damp: 1, stick: 0, liquid: "lava" },
     { id: 8, name: "Gelée", roll: 0.5, rollv: 0.1, e: 0.9, damp: 0.98, stick: 0.03 },
     { id: 9, name: "Vide", roll: 0, rollv: 0, e: 0, damp: 1, stick: 0 },
@@ -105,7 +105,7 @@
     const wind = opts.wind || [0, 0];
     const t0 = opts.t0 || 0;
     const loft = (shot.loft * Math.PI) / 180;
-    const sp = shot.speed;
+    const sp = shot.speed; const wm = shot.windMul == null ? 1 : shot.windMul; const soft = !!(shot.soft || shot.lob);
     let x = ball.x, z = ball.z, y = ball.y;
     let vx = Math.sin(shot.yaw) * Math.cos(loft) * sp, vz = Math.cos(shot.yaw) * Math.cos(loft) * sp, vy = Math.sin(loft) * sp;
     const frames = [Math.round(x * 100), Math.round(y * 100), Math.round(z * 100)];
@@ -145,8 +145,8 @@
         const speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
         const drag = 0.0011 * speed;
         ax -= vx * drag; az -= vz * drag; ay -= vy * drag;
-        ax += wind[0]; az += wind[1];
-        if (opts.gust) { ax += opts.gust[0]; az += opts.gust[1]; }
+        ax += wind[0] * wm; az += wind[1] * wm;
+        if (opts.gust) { ax += opts.gust[0] * wm; az += opts.gust[1] * wm; }
       }
       // aimant du trou
       if (opts.magnet) {
@@ -176,9 +176,9 @@
           if (wasAir) { const vi = Math.abs(vn); if (vi > 2.2) ev("bounce", { s: surf, v: +vi.toFixed(1) }); }
           if (vn < 0) {
             let e = sf.e; if (-vn < 1.6 && surf !== S.BOUNCY) e = 0;
-            if (shot.lob && surf !== S.BOUNCY) e *= 0.4;
+            if (soft && surf !== S.BOUNCY) e *= 0.35;
             vx -= (1 + e) * vn * nx; vy -= (1 + e) * vn * ny; vz -= (1 + e) * vn * nz;
-            if (-vn > 2) { const base = (surf === S.SAND && opts.sandPro) ? 0.8 : sf.damp; const d = 1 - (1 - base) * Math.min(1.25, Math.max(0.35, -vn / 8)); vx *= d; vz *= d; if (shot.lob) { vx *= 0.8; vz *= 0.8; } }
+            if (-vn > 2) { const base = (surf === S.SAND && opts.sandPro) ? 0.8 : sf.damp; const d = 1 - (1 - base) * Math.min(1.25, Math.max(0.35, -vn / 8)); vx *= d; vz *= d; if (soft) { vx *= 0.7; vz *= 0.7; } }
           }
           // frottement de roulement quand la balle colle au sol
           const vn2 = vx * nx + vy * ny + vz * nz;

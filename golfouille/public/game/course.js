@@ -126,8 +126,10 @@
     };
 
     // relief le long du chemin
-    const amp = hillsLv * 2.1;
-    const ph = [rng() * 6.28, rng() * 6.28, rng() * 6.28]; const wl1 = 32 + rng() * 22, wl2 = 15 + rng() * 9; const tilt = (rng() - 0.5) * hillsLv * 0.05;
+    // la pente maximale du relief est plafonnée selon le niveau choisi, pour que la balle monte et descende toujours de façon lisible
+    const slopeMax = [0, 0.1, 0.19, 0.3][hillsLv];
+    const ph = [rng() * 6.28, rng() * 6.28, rng() * 6.28]; const wl1 = 32 + rng() * 22, wl2 = 15 + rng() * 9; const tilt = (rng() - 0.5) * hillsLv * 0.035;
+    const amp = slopeMax / (0.62 * 2 * Math.PI / wl1 + 0.38 * 2 * Math.PI / wl2);
     const elevS = (s) => amp * (0.62 * Math.sin((2 * Math.PI * s) / wl1 + ph[0]) + 0.38 * Math.sin((2 * Math.PI * s) / wl2 + ph[1])) + tilt * s;
     const e0 = elevS(0);
     const elev = (s) => elevS(s) - e0 + 2;
@@ -198,12 +200,12 @@
       const band = loc.hw + rb; const dd = Math.max(0, loc.d - band);
       let hgt = elev(loc.s);
       const fade = smooth(loc.s / 8) * smooth((L - loc.s) / 8 + 0.3);
-      hgt += hillsLv * 1.1 * noise(x * 0.09, z * 0.09) * fade * smooth(1.4 - loc.d / (loc.hw + 1)) + hillsLv * 0.55 * noise(x * 0.23 + 9, z * 0.23) * fade;
+      hgt += slopeMax * 4.2 * noise(x * 0.09, z * 0.09) * fade * smooth(1.4 - loc.d / (loc.hw + 1)) + slopeMax * 0.7 * noise(x * 0.23 + 9, z * 0.23) * fade;
       // murs naturels de chaque côté
       hgt += dd < 6 ? 0.2 * dd * dd : 7.2 + (dd - 6) * 1.6;
       // plateforme du départ et du trou
-      const dt = Math.hypot(x - tee.x, z - tee.z); if (dt < teeZone + 3) hgt = lerp(hgt, elev(tee.s), smooth(1 - (dt - teeZone) / 3));
-      const dc = Math.hypot(x - cupP.x, z - cupP.z); if (dc < cupZone + 3) hgt = lerp(hgt, elev(cupP.s), smooth(1 - (dc - cupZone) / 3));
+      const dt = Math.hypot(x - tee.x, z - tee.z); if (dt < teeZone + 6) hgt = lerp(hgt, elev(tee.s), smooth(1 - (dt - teeZone) / 6));
+      const dc = Math.hypot(x - cupP.x, z - cupP.z); if (dc < cupZone + 7) hgt = lerp(hgt, elev(cupP.s), smooth(1 - (dc - cupZone) / 7));
       // creux des pièges
       for (let q = 0; q < blobs.length; q++) {
         const bl = blobs[q]; if (Math.abs(loc.s - bl.s) > bl.a * 2.2) continue;

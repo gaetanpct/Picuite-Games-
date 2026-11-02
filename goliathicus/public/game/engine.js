@@ -12,6 +12,8 @@
   const { PIECES, HOUSES, CHAOS_EVENTS } = Pieces;
   const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
   const MAX_ROUNDS = 300;
+  const SLIME_ROUNDS = 5;
+  const GROW_MAX = 3;
   const QUIET_TURNS_PER_PLAYER = 50;
 
   const K = (r, c) => r + "," + c;
@@ -37,6 +39,8 @@
       this.terrain = this.board.terrain.map((row) => row.slice());
       this.ruins = new Set();
       this.relics = this.board.relics.slice();
+      this.portals = (this.board.portals || []).map((x) => ({ a: { r: x.a.r, c: x.a.c }, b: { r: x.b.r, c: x.b.c } }));
+      this.slime = [];
       this.pieces = [];
       this.graveyard = [];
       this.events = [];
@@ -141,7 +145,42 @@
     alivePlayers() { return this.players.filter((p) => !p.eliminated); }
     fogActive() { return !!this.settings.fog || this.tempFog > 0; }
     fogRadius() { return this.tempFog > 0 ? 1 : this.settings.fogRadius; }
-    isTargetMode() { if (this.settings.mode === "kinghunt") return "roi"; if (this.settings.mode === "conquest" && !this.settings.conquestEgg) return null; return "oeuf"; }
+    isTargetMode() { if (this.settings.mode === "kinghunt") return "roi"; if (this.settings.mode === "bounty") return null; if (this.settings.mode === "conquest" && !this.settings.conquestEgg) return null; return "oeuf"; }
+
+    // Portail jumeau d'une case, ou null
+    portalAt(r, c) {
+      for (const pt of this.portals) {
+        if (pt.a.r === r && pt.a.c === c) return pt.b;
+        if (pt.b.r === r && pt.b.c === c) return pt.a;
+      }
+      return null;
+    }
+    // Là où une pièce qui s'arrête sur (r,c) finit vraiment, en tenant compte du portail
+    landing(p, r, c) {
+      const tw = this.portalAt(r, c);
+      if (tw && !this.grid[tw.r][tw.c] && !this.ruins.has(K(tw.r, tw.c)) && this.passable(tw.r, tw.c) && !this._mirrorBlocked(p, tw.r, tw.c)) return tw;
+      return { r, c };
+    }
+
+    // Marais laissé par l'Escargot ou les événements, il sèche au bout de quelques tours de table
+    _slimeCell(r, c) {
+      if (!this.inBounds(r, c)) return false;
+      const old = this.slime.find((x) => x.r === r && x.c === c);
+      if (old) { old.until = Math.max(old.until, this.round + SLIME_ROUNDS); return true; }
+      if (this.terrain[r][c] !== "plain" || this.portalAt(r, c) || this.relics.some((x) => x.r === r && x.c === c)) return false;
+      this.terrain[r][c] = "marsh";
+      this.slime.push({ r, c, until: this.round + SLIME_ROUNDS });
+      return true;
+    }
+    _dry() {
+      if (!this.slime.length) return;
+      this.slime = this.slime.filter((x) => {
+        if (this.round <= x.until) return true;
+        if (this.terrain[x.r][x.c] === "marsh") this.terrain[x.r][x.c] = "plain";
+        return false;
+      });
+      this._bump();
+    }
 
     _pushEvent(ev) {
       ev.seq = ++this.seq;
@@ -170,7 +209,7 @@
         }
         const pcs = types.map((type) => ({
           id: "p" + pi + "-" + (id++), owner: pi, type, r: -1, c: -1, alive: true, moved: false,
-          revealedAll: false, revealedTo: new Set(), frozen: 0, hist: [], kills: 0,
+          revealedAll: false, revealedTo: new Set(), frozen: 0, hist: [], kills: 0, growth: 0,
         }));
         pcs.forEach((p) => this.pieces.push(p));
         this._autoPlace(pi, "random");
@@ -362,6 +401,7 @@
 
     _recordMove(p, r, c) {
       // l'historique garde les cases successivement occupées (détection des allers-retours)
+      if (PIECES[p.type].slime && this.phase === "playing") this._slimeCell(p.r, p.c);
       if (!p.hist.length) p.hist.push(K(p.r, p.c));
       this.grid[p.r][p.c] = null;
       p.r = r; p.c = c;
@@ -380,12 +420,16 @@
       pl.stats.cells += dist;
       const target = this.grid[r][c];
       if (!target) {
-        this._recordMove(p, r, c);
-        if (this.terrain[r][c] === "marsh") { p.frozen = 2; p.pubFreeze = true; } else if (PIECES[p.type].slow) { p.frozen = 2; p.pubFreeze = false; }
-        this._pushEvent({
-          kind: "move", pieceId: p.id, owner: pi, from, to: { r, c }, cells: [from, { r, c }],
-          text: this.pname(pi) + " avance une pièce.",
-        });
+        const land = this.landing(p, r, c);
+        const via = land.r !== r || land.c !== c ? { r, c } : null;
+        this._recordMove(p, land.r, land.c);
+        if (this.terrain[land.r][land.c] === "marsh") { p.frozen = 2; p.pubFreeze = true; } else if (PIECES[p.type].slow) { p.frozen = 2; p.pubFreeze = false; }
+        const mv = {
+          kind: "move", pieceId: p.id, owner: pi, from, to: { r: land.r, c: land.c }, cells: via ? [from, via, { r: land.r, c: land.c }] : [from, { r: land.r, c: land.c }],
+          text: this.pname(pi) + (via ? " traverse un portail." : " avance une pièce."),
+        };
+        if (via) mv.via = via;
+        this._pushEvent(mv);
         if (PIECES[p.type].messenger && this.settings.messengerBonus && !this.messengerUsed) {
           this.messengerUsed = true;
           if (!(pl.bonus > 0)) pl.bonus = 1;
@@ -400,13 +444,16 @@
 
     // Force en combat, avec le bonus des étendards alliés voisins (jamais cumulé)
     _effRank(p) {
-      const base = PIECES[p.type].rank;
-      if (!this.settings.specialPieces || PIECES[p.type].banner) return base;
-      const near = DIRS.some(([dr, dc]) => {
+      const base = PIECES[p.type].rank + (PIECES[p.type].grow ? Math.min(GROW_MAX, p.growth || 0) : 0);
+      let boost = 0;
+      const near = (test) => DIRS.some(([dr, dc]) => {
         const q = this.inBounds(p.r + dr, p.c + dc) ? this.grid[p.r + dr][p.c + dc] : null;
-        return q && q.alive && q.owner === p.owner && PIECES[q.type].banner;
+        return q && q.alive && q.owner === p.owner && test(q);
       });
-      return near ? base + (Number(this.settings.bannerBoost) || 1) : base;
+      if (this.settings.specialPieces && !PIECES[p.type].banner && near((q) => PIECES[q.type].banner)) boost = Number(this.settings.bannerBoost) || 1;
+      // phalange, deux pièces identiques côte à côte se renforcent, sans cumuler avec l'étendard
+      if (this.settings.phalange && PIECES[p.type].mobile && near((q) => q.type === p.type)) boost = Math.max(boost, 1);
+      return base + boost;
     }
 
     // Renaissance du Phénix, retourne true si la pièce renaît
@@ -524,9 +571,14 @@
       // application
       const reveal = (piece) => { piece.revealedAll = true; };
       const reborn = [];
+      const bountyGain = {};
       const toGrave = (piece, by) => {
         if (this._rebirth(piece)) { reborn.push(piece); return; }
         piece.alive = false; this.grid[piece.r][piece.c] = null;
+        if (by && this.settings.mode === "bounty" && this.players[by.owner].team !== this.players[piece.owner].team) {
+          const gain = Pieces.bountyValue(piece.type);
+          this.players[by.owner].score += gain; bountyGain[by.owner] = (bountyGain[by.owner] || 0) + gain;
+        }
         const g = { id: piece.id, owner: piece.owner, type: piece.type, evSeq: this.seq + 1 };
         if (this.settings.bombsHidden && PIECES[piece.type].bomb && by) g.hideTeams = [this.players[by.owner].team, this.players[piece.owner].team];
         this.graveyard.push(g);
@@ -561,6 +613,13 @@
       } else {
         toGrave(att, def); toGrave(def, att);
       }
+      // le Gladiateur grandit à chaque victoire, le Bouffon endort celui qui le bat
+      const grew = [];
+      if (result === "attWins" && A.grow && att.alive) { att.growth = Math.min(GROW_MAX, (att.growth || 0) + 1); grew.push(att); }
+      if (result === "defWins" && Dd.grow && def.alive) { def.growth = Math.min(GROW_MAX, (def.growth || 0) + 1); grew.push(def); }
+      if (result === "attWins" && def.type === "bouffon" && att.alive) { att.frozen = Math.max(att.frozen, 3); att.pubFreeze = true; ev.text += " 🤡 Éclat de rire ! " + na + " s'endort pour deux tours."; ev.jester = { id: att.id }; }
+      if (result === "defWins" && att.type === "bouffon" && def.alive) { def.frozen = Math.max(def.frozen, 2); def.pubFreeze = true; ev.text += " 🤡 Éclat de rire ! " + nd + " s'endort pour deux tours."; ev.jester = { id: def.id }; }
+      grew.forEach((q) => { if (!(inForest && q === def && result === "defWins")) ev.text += " 🤺 Le Gladiateur de " + this.pname(q.owner) + " gagne en force (" + (PIECES[q.type].rank + q.growth) + ")."; });
       if (result === "blast" && this.settings.blastRadius !== "off") {
         const victims = [];
         DIRS.forEach(([dr, dc]) => {
@@ -574,6 +633,10 @@
           ev.text += " Le souffle emporte " + victims.map((q) => PIECES[q.type].icon + " de " + this.pname(q.owner)).join(", ") + " !";
           victims.forEach((q) => { this.players[q.owner].stats.lost++; toGrave(q, att); });
         }
+      }
+      if (this.settings.mode === "bounty") {
+        const parts = Object.keys(bountyGain).map((o) => this.pname(Number(o)) + " +" + bountyGain[o]);
+        if (parts.length) { ev.text += " 🎯 " + parts.join(", ") + "."; ev.bounty = bountyGain; }
       }
       if (reborn.length) {
         ev.text += " " + reborn.map((q) => "🐦‍🔥 Le Phénix de " + this.pname(q.owner) + " renaît de ses cendres, caché dans son camp !").join(" ");
@@ -790,6 +853,7 @@
       if (idx <= prev) {
         if (this._scoreRelics()) return;
         this.round++;
+        this._dry();
         if (this.tempFog > 0) this.tempFog--;
         if (this.round > MAX_ROUNDS) { this._finishByMaterial("⏳ Le temps de la bataille est écoulé. On compte les points."); return; }
         this.current = idx;
@@ -804,7 +868,24 @@
 
     // Les points de reliques tombent pour tout le monde en même temps, à la fin de chaque tour de table.
     // Retourne true si la partie est finie.
+    _checkBounty() {
+      if (this.phase !== "playing") return false;
+      const target = this.settings.bountyTarget;
+      const reached = this.players.filter((p) => !p.eliminated && p.score >= target);
+      if (!reached.length) return false;
+      const best = Math.max(...reached.map((p) => p.score));
+      const top = reached.filter((p) => p.score === best);
+      if (new Set(top.map((p) => p.team)).size > 1) {
+        this._pushEvent({ kind: "info", cells: [], text: "⚖️ Égalité parfaite au sommet des trophées, la bataille continue jusqu'à ce qu'un camp prenne l'avantage." });
+        return false;
+      }
+      const winners = this.players.filter((p) => p.team === top[0].team && !p.eliminated).map((p) => p.seat);
+      this._finish(winners, "bounty");
+      return true;
+    }
+
     _scoreRelics() {
+      if (this.settings.mode === "bounty") return this._checkBounty();
       if (this.settings.mode !== "conquest" || this.phase !== "playing") return false;
       this.players.forEach((pl, pi) => {
         if (pl.eliminated) return;
@@ -834,13 +915,19 @@
         const pl = this.players[this.current];
         this.turnPowerUsed = false;
         this.messengerUsed = false;
+        if (!this.hasLegalMove(this.current) && this.myPieces(this.current).some((x) => PIECES[x.type].mobile && x.frozen > 0)) {
+          // tout est endormi, pas de déroute, on passe son tour le temps du réveil
+          this._pushEvent({ kind: "info", cells: [], text: "😴 " + pl.name + " n'a que des pièces endormies et passe son tour." });
+          this._advance();
+          return;
+        }
         if (!this.hasLegalMove(this.current)) {
           this._eliminate(this.current, "Plus aucune pièce ne peut bouger, c'est la déroute.", null);
           if (this._checkLastStanding()) return;
           // passe au suivant sans compter comme tour calme
           let idx = this.current; let g2 = 0;
           do { idx = (idx + 1) % this.n; g2++; } while (this.players[idx].eliminated && g2 <= this.n + 1);
-          if (idx <= this.current) { if (this._scoreRelics()) return; this.round++; }
+          if (idx <= this.current) { if (this._scoreRelics()) return; this.round++; this._dry(); }
           this.current = idx; this.turn++;
           continue;
         }
@@ -875,7 +962,7 @@
       const id = pool[Math.floor(this.rng() * pool.length)];
       const ev = CHAOS_EVENTS[id];
       const isRelic = (r, c) => this.relics.some((x) => x.r === r && x.c === c);
-      const neutralFree = () => this.board.neutral.filter(([r, c]) => this.terrain[r][c] === "plain" && !this.grid[r][c] && !this.ruins.has(K(r, c)) && !isRelic(r, c));
+      const neutralFree = () => this.board.neutral.filter(([r, c]) => this.terrain[r][c] === "plain" && !this.grid[r][c] && !this.ruins.has(K(r, c)) && !isRelic(r, c) && !this.portalAt(r, c));
       let cells = [];
       let kind = id;
       if (id === "boue") {
@@ -899,6 +986,24 @@
         else kind = "melange";
       }
       if (kind === "fete" && !this.settings.powers) kind = "melange";
+      if (kind === "escargots") {
+        const free = Boards.shuffle(neutralFree(), this.rng).slice(0, 4);
+        free.forEach(([r, c]) => { if (this._slimeCell(r, c)) cells.push({ r, c }); });
+        if (!cells.length) kind = "melange";
+      }
+      if (kind === "sieste") {
+        const mr = (this.board.rows - 1) / 2, mc = (this.board.cols - 1) / 2;
+        this.players.forEach((pl, pi) => {
+          if (pl.eliminated) return;
+          const cs = this.myPieces(pi).filter((x) => PIECES[x.type].mobile && x.frozen === 0 && !(this.settings.mode === "kinghunt" && x.type === "roi"))
+            .sort((a, b) => (Math.abs(a.r - mr) + Math.abs(a.c - mc)) - (Math.abs(b.r - mr) + Math.abs(b.c - mc)));
+          if (cs.length > 1) { cs[0].frozen = 2; cs[0].pubFreeze = true; cells.push({ r: cs[0].r, c: cs[0].c }); }
+        });
+        if (!cells.length) kind = "melange";
+      }
+      if (kind === "oubli") {
+        this.pieces.forEach((x) => { if (x.alive) { x.revealedAll = false; x.revealedTo = new Set(); } });
+      }
       if (kind === "melange") {
         const cands = this.pieces.filter((p) => p.alive && PIECES[p.type].mobile && !(this.settings.mode === "kinghunt" && p.type === "roi"));
         Boards.shuffle(cands, this.rng);
@@ -953,6 +1058,7 @@
         pieces.push({
           id: p.id, owner: p.owner, r: p.r, c: p.c, moved: p.moved, frozen: (mine || known || p.pubFreeze) ? p.frozen : 0,
           type: known ? p.type : null,
+          grow: known && PIECES[p.type].grow ? Math.min(GROW_MAX, p.growth || 0) : 0,
           secret: known && !mine && !p.revealedAll && this.phase !== "finished", // connu par un pouvoir
           unknown: !known,
         });
@@ -992,6 +1098,7 @@
           kind: this.board.kind, rows: this.board.rows, cols: this.board.cols, terrain: this.terrain,
           ruins: [...this.ruins].map((s) => s.split(",").map(Number)),
           relics: this.relics,
+          portals: this.portals,
           arms: this.board.arms.map((a) => ({ seat: a.seat, side: a.side, cells: a.cells })),
           sides: this.board.sides,
         },
@@ -1038,7 +1145,7 @@
         return out;
       }
       switch (ev.kind) {
-        case "move": out.owner = ev.owner; out.pieceId = ev.pieceId; out.from = ev.from; out.to = ev.to; break;
+        case "move": out.owner = ev.owner; out.pieceId = ev.pieceId; out.from = ev.from; out.to = ev.to; if (ev.via) out.via = ev.via; break;
         case "combat":
           out.result = ev.result; out.attacker = ev.attacker; out.defender = ev.defender;
           if (ev.splash) out.splash = ev.splash;

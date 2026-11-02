@@ -157,7 +157,7 @@ Deux jeux arrivent sur l'accueil, Golfouille et Zoomalou. Ils partagent un petit
 - Golf en 3D avec des terrains générés à l'infini. Un bouton Générer un autre terrain dans le salon montre un aperçu, et Jouer ce parcours fixe la graine pour que tout le monde joue exactement le même trou.
 - Huit biomes (prairie, désert, neige, jungle, volcan, plage, bonbons, cosmos), chacun avec son décor et ses obstacles.
 - Course au trou. Le premier arrivé marque le plus de points, et l'on joue en tour par tour ou tous en même temps selon le réglage.
-- Plusieurs clubs (driver, fer, cale, lob, putter) avec des portées et des trajectoires différentes, une jauge de puissance à maintenir, une aide de visée réglable (aucune, points ou trajectoire).
+- Cinq clubs (driver, fer, cale, ricochet, putter) qui ont chacun leur caractère, une jauge de puissance à maintenir, une aide de visée réglable (aucune, points ou trajectoire).
 - De petits pouvoirs ramassés sur le terrain pour gêner les autres, avec un choix de cible. Leur fréquence et leur apparition se règlent.
 - Bots à quatre niveaux, reconnexion, mode solo.
 - Le serveur calcule chaque coup avec la même physique que le client, donc personne ne peut tricher sur la distance.
@@ -472,7 +472,7 @@ Pagaille Party est un party game en ligne de deux à huit joueurs, dans l'esprit
 - Nombre de manches et nombre personnalisé, ambiance compétitive ou chaotique, niveau de chaos, dernière manche double.
 - Temps pour voter, temps pour lire les règles et durée des mini-jeux (courts, normaux, longs).
 - Éviter deux fois de suite le même jeu, et activer ou désactiver chaque mini-jeu un par un.
-- Réglages propres à un jeu. Longueur de la mèche de la bombe, difficulté de la course, vitesse de la lave, météores du sumo, événements de l'arène du choc au sommet. Chacun change vraiment le déroulement du jeu.
+- Réglages propres à un jeu. Longueur de la mèche de la bombe, difficulté de la course, météores du sumo, météores et plots du choc au sommet. Chacun change vraiment le déroulement du jeu.
 - Un bot remplace un joueur déconnecté, réglable.
 - Mode démo, où des bots jouent à la place de l'hôte, pour regarder le jeu tourner.
 - Jeu imposé pour tester, qui force un mini-jeu précis à chaque manche. Utile pour essayer un seul jeu, seul, avec des bots.
@@ -482,23 +482,27 @@ Pagaille Party est un party game en ligne de deux à huit joueurs, dans l'esprit
 - Un classement est établi à chaque manche. Dix points pour le premier, puis des points décroissants selon le nombre de joueurs, et les égalités se partagent les points.
 - Des bonus récompensent les beaux coups, comme démasquer le meurtrier, éjecter le plus d'adversaires, monter le plus haut ou n'être jamais tombé. Les surprises du mode chaos peuvent doubler les points.
 
-### Les treize mini-jeux
+### Les dix-sept mini-jeux
 
 | Jeu | Joueurs | Principe |
 |---|---|---|
 | Bombe en voiture | 2 à 8 | Des voitures en 3D, une bombe qui passe au contact, des trous dans le sol. Mèche réglable. |
 | Course des fous | 2 à 8 | Une vraie course d'obstacles avec plateformes mobiles, balanciers, pistons, escaliers, poutre étroite et drapeaux de reprise. Trois difficultés. |
-| Lave montante | 2 à 8 | Une tour de plateformes en spirale, une lave qui monte à vitesse réglable, un combat au sommet. |
 | Sumo glissant | 2 à 8 | Visée secrète, lancer simultané sur la glace, plateforme qui rétrécit, météores en option. |
-| Choc au sommet | 2 à 8 | Une arène où l'on se charge, se repousse et s'écrase, avec bumpers, vagues et météores. |
+| Choc au sommet | 2 à 8 | Deux boutons, frapper en fonçant et parer. Un pourcentage de dégâts fait voler de plus en plus loin, un disque doré au centre soigne, l'arène rétrécit par paliers. |
 | Couleur cible | 2 à 8 | Une couleur est annoncée, les autres dalles tombent. Après quelques tours les couleurs s'éteignent avant la chute. |
 | Sol en miettes | 2 à 8 | Deux étages de dalles qui s'abîment sous les pas et se fissurent avec le temps. |
 | Dalles de mémoire | 2 à 8 | Des dalles s'allument, le sol s'éteint, il faut courir sur une dalle qui était allumée. |
 | Lasers invisibles | 2 à 8 | Une plateforme ronde où l'on marche librement. Ton laser pointe toujours devant toi. Pendant le placement personne ne voit rien, à la révélation ceux qui se tiennent sur un laser tombent, puis la plateforme rétrécit. |
-| Pont de verre | 2 à 8 | Deux dalles identiques par rangée, une seule se brise. On marche, on saute et on se pousse en liberté. Un mur laser avance derrière tout le monde pour forcer les choix. |
-| Faites des groupes | 3 à 8 | Un nombre est annoncé, il faut se retrouver sur une plateforme avec exactement ce nombre de joueurs. |
+| Pont de verre | 2 à 8 | Des dalles espacées, deux ou trois par rangée, une seule sûre. Il faut sauter d'une dalle à l'autre, tester, se pousser. Un mur laser avance derrière tout le monde. |
 | Ruée vers l'or | 2 à 8 | Répartir en secret des mineurs entre des gisements, avec une banque sûre et des conflits. |
 | Cagnotte qui grimpe | 2 à 8 | Cinq coups où l'on encaisse avant une explosion au moment inconnu, en interface plate. |
+| Tir à la corde | 2 à 8 | Deux équipes tirées au hasard, on tire en appuyant au rythme d'un battement. Premier à deux manches. |
+| Chrono aveugle | 2 à 8 | Un temps cible, un chronomètre qui s'éteint de plus en plus tôt. Le plus petit écart gagne. |
+| Le bon compte | 2 à 8 | Un tableau de dessins disparaît, puis une question d'observation avec des points de rapidité. |
+| Course des cases | 2 à 8 | Un plateau en serpent, une carte de 1 à 6 jouée en secret, les cartes identiques se percutent. |
+| Territoires | 2 à 8 | On repeint le sol en marchant, par équipes tirées au hasard à partir de quatre joueurs, avec éclaboussures et seaux dorés. |
+| Suite logique | 2 à 8 | Suites de nombres, de lettres et de dessins avec un trou, à trouver le plus vite possible. |
 
 Le meurtre mystère et Faux semblants ont été retirés. Les nouveautés de la version précédente sont la Course des fous, le Choc au sommet, les Dalles de mémoire et la Ruée vers l'or. Les autres jeux ont été refaits en 3D avec des bots. Un jeu qui ne convient pas au nombre de joueurs présents n'est jamais proposé.
 
@@ -524,7 +528,6 @@ Le meurtre mystère et Faux semblants ont été retirés. Les nouveautés de la 
 - Maj ou E permet de se pousser un peu dans les jeux de dalles et sur le pont, sans éjecter quelqu'un d'un seul coup.
 - Les plateformes qui tombent dans la course des fous réapparaissent après quelques secondes.
 - La ruée vers l'or se joue avec quatre mineurs par tour au lieu de six.
-- Les commandes de la lave suivent maintenant la caméra.
 - Choc au sommet affiche le pourcentage de dégâts au dessus de chaque joueur et explique mieux la charge.
 - Graphismes, relief sur les blocs, poussières lumineuses et vignette.
 - Nouvelle option d'aide au saut dans la course des fous, le personnage saute tout seul au bord d'un trou. Espace peut aussi se remplacer par X, et Maj ou E par C.
@@ -549,7 +552,7 @@ Le meurtre mystère et Faux semblants ont été retirés. Les nouveautés de la 
 
 - Les tests ont été faits avec des bots et avec un navigateur sans carte graphique réelle. La fluidité sur un vrai téléphone ou un vieil ordinateur n'est pas mesurée.
 - Les touches à l'écran pour téléphone n'ont pas été testées sur un vrai téléphone.
-- Aucun test avec plusieurs humains réels. L'équilibrage fin, la vitesse de la lave, la difficulté de la course ou la force des chocs, se juge à la main avec les réglages.
+- Aucun test avec plusieurs humains réels. L'équilibrage fin, la difficulté de la course ou la force des chocs, se juge à la main avec les réglages.
 
 ## Vingt-septième mise à jour, Zoomalou, routes étroites par moments et réglages allégés
 
@@ -584,3 +587,67 @@ Le meurtre mystère et Faux semblants ont été retirés. Les nouveautés de la 
 ### Limites connues
 - La fluidité en direct a été testée avec des bots et un réseau local, pas avec un vrai réseau distant. Le retard d'affichage est voulu, il dépasse un peu le dixième de seconde.
 - L'équilibre des passages étroits et des nouvelles pentes se juge à la main. Les pilotes automatiques terminent tous les circuits testés.
+
+## Vingt-huitième mise à jour, Zoomalou, grande mise à jour
+
+### Jouer à huit
+- Les salons de Zoomalou accueillent maintenant jusqu'à huit joueurs, humains et pilotes automatiques confondus. La ligne de départ est plus large pour que huit voitures partent côte à côte.
+
+### Synchronisation
+- Les positions sont envoyées vingt fois par seconde, et affichées avec un très léger retard en interpolant entre deux mesures, ce qui garde les voitures des autres fluides même quand le réseau saute. En mode contact le retard d'affichage est encore plus court.
+- Une voiture ne peut pas être vue exactement au même instant par tout le monde, puisque chacun la conduit chez lui. Ce que fait le jeu est de rendre le décalage le plus petit possible et de ne plus le faire sentir.
+
+### Physique
+- Les chocs entre voitures tiennent compte de la masse, de la vitesse et de l'angle. Un contact de côté dévie légèrement, un choc par l'arrière pousse la voiture de devant, un gros choc coupe le turbo et fait tourner la voiture. Plus de rebond disproportionné qui envoie une voiture en l'air.
+- La voiture reste collée au sol sur les cassures de pente légères au lieu de décoller à chaque descente, et son nez suit la pente. En l'air, il suit sa trajectoire.
+
+### Deux nouvelles voitures
+- Mastodonte, un poids lourd qui démarre lentement, se moque des montées et des murs, et repousse les autres voitures.
+- Libellule, légère, vive et fragile, reine du mini turbo de dérapage.
+
+### Chaque carte a son identité
+- Côte, la route de référence. Désert, des vents de sable qui poussent de côté. Neige, une adhérence réduite partout. Forêt, un sol humide. Volcan, des turbos beaucoup plus puissants. Bonbons, un sol collant et des réceptions qui rebondissent. Néon, gravité faible et voiture plus nerveuse. L'identité de la carte s'affiche au garage.
+
+### Pilotes automatiques
+- Chaque pilote automatique a maintenant un caractère tiré au hasard à chaque course, régulier, prudent, kamikaze, collé au bord droit ou gauche, perfectionniste, fantasque ou offensif. Quatre champions ne roulent plus sur la même ligne et ne font plus le même temps. Le niveau règle l'efficacité, le caractère règle la manière.
+
+### Limites connues
+- Les caractères des pilotes ont été vérifiés sur la ligne suivie, les temps et les erreurs, pas encore en regardant des dépassements en vrai.
+- Les vents, l'adhérence et les turbos de chaque carte sont réglés à l'oreille et se jugent en jouant.
+- La synchronisation en direct n'a pas été testée sur un vrai réseau distant.
+
+## Vingt-neuvième mise à jour, la grosse mise à jour finale
+
+Cette mise à jour touche cinq jeux. Les noms de fichiers, les réglages et les parties en cours restent compatibles avec la version précédente.
+
+### Pagaille Party
+- Choc au sommet est entièrement refait. Deux boutons seulement, frapper en fonçant et parer. Chaque coup encaissé monte un pourcentage de dégâts et fait voler plus loin, une parade réussie fait vaciller l'attaquant, le sommet au centre soigne, l'arène rétrécit par paliers annoncés, le dernier debout gagne.
+- Lave montante et Faites des groupes sont retirés. Course des fous et Pont de verre ont été corrigés.
+- Six nouveaux mini-jeux, Tir à la corde en rythme, Chrono aveugle, Le bon compte, Course des cases, Territoires et Suite logique. Le catalogue compte maintenant dix-sept jeux.
+- Les trois jeux proposés au vote sont tirés en mélangeant les familles (mouvement, stratégie, timing, tête), en favorisant les jeux les moins joués et en évitant de reproposer la famille du jeu précédent.
+
+### Golfouille
+- Le sac est réduit à cinq clubs, Driver, Fer, Cale, Ricochet et Putter. Chacun a un rôle clair et une fiche en étoiles pour la puissance, la précision et la hauteur.
+- Les lancers, les pentes, les rebonds, le sable, le rough et la boue suivent les mêmes règles pour tout le monde. L'aperçu du joueur et les pilotes automatiques utilisent exactement la même physique que le serveur.
+- Les parcours sont plus équitables, les pilotes automatiques jouent autour du par au lieu de dominer ou de s'effondrer.
+
+### Goliathicus
+- Les pilotes automatiques jouent sur plusieurs tours. Ils simulent les réponses de l'adversaire, repèrent les fourchettes, tendent des appâts, bluffent et s'adaptent à la façon de jouer des humains. Ils ont six caractères, équilibré, assaut, forteresse, piégeur, rôdeur et bluffeur.
+- Trois nouvelles pièces, le Gladiateur qui grandit à chaque victoire, l'Escargot qui laisse une trace de marais et le Bouffon qui endort la pièce qui l'attaque ou qui l'élimine.
+- Cases portails posées par paires symétriques, Phalange (deux pièces identiques côte à côte gagnent un point de force), un nouveau mode Trophées où chaque pièce éliminée rapporte des points, et un nouveau préréglage d'armée Arène.
+- Trois événements du chaos, la sieste, la fuite des escargots et l'oubli de la case de départ.
+- Une pièce ne peut plus se retrouver sur une ruine après l'élimination d'un joueur dans une partie à quatre, ce défaut était dû aux portails.
+
+### Richissime Destiny
+- Un vrai circuit casino. Blackjack, poker entre amis, tournoi de poker, roulette, machines à sous, salle privée, paris sportifs et poker en ligne. La mise suit la fortune du joueur, les propositions apparaissent selon l'âge, l'argent, le caractère et le métier, environ une année sur quatre pour un adulte avec un peu d'argent.
+- Les habitudes de jeu laissent des traces sur plusieurs années. Compter les cartes peut valoir un bannissement de huit ans, trop jouer mène à une addiction, un créancier peut se présenter, et on peut décider de lever le pied.
+- Onze objectifs de vie, richissime, célèbre, carrière exceptionnelle, grande famille, influence, vie d'expériences, vie chaotique, réussir malgré un départ difficile, tout perdre puis tout regagner, honnêteté et bonheur. Le réglage Objectifs de vie propose aucun objectif, un objectif secret tiré au sort, ou un choix dans le salon. Le pourcentage de réussite se suit dans la fiche du joueur et tout est dévoilé à la fin.
+- Une nouvelle fin de partie, à l'objectif de vie, où le gagnant est celui qui a le mieux réussi sa vie, riche ou pas. Dans la fin par vote, le résultat de l'objectif apparaît dans la fiche de chaque vie.
+- Onze nouveaux métiers (notaire, lobbyiste, agent d'artistes, chef d'orchestre, scénariste, guide de haute montagne, vigneron, humanitaire, producteur musical, romancier, gestionnaire de fortune) et des métiers savants mieux payés en haut de l'échelle, avec des primes pour la finance et la technologie.
+- Des grands tournants sur plusieurs années, scandale de fortune, rivalité ou alliance d'affaires qui se règle quelques années plus tard, testament et fondation, cercle d'influence, et six événements très rares comme le mécène anonyme, la vidéo virale ou l'invitation sur l'île d'un milliardaire.
+- Rien n'a été retiré. Tous les choix de vie, scènes, métiers, placements et styles de vie de la version précédente existent encore.
+
+### Limites connues
+- Les nouveaux équilibres de Richissime Destiny (taux de réussite des objectifs, gains au casino, salaires revalorisés) ont été mesurés sur des parties de pilotes automatiques, pas à la main, et se jugent en jouant.
+- Les nouveaux mini-jeux de Pagaille Party et l'équilibre des parcours de Golfouille se jugent en jouant.
+- Les pilotes automatiques de Goliathicus battent nettement l'ancienne version sur une partie classique, mais leur niveau face à de vrais joueurs expérimentés n'a pas été mesuré.

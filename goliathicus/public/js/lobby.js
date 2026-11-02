@@ -231,6 +231,7 @@
       arm.cells.forEach(([r, c]) => { owner[r + "," + c] = pl ? HOUSES[pl.house % HOUSES.length].color : "#bbb"; });
     });
     const relics = new Set((board.relics || []).map((x) => x.r + "," + x.c));
+    const portalSet = new Set(); (board.portals || []).forEach((pt) => { portalSet.add(pt.a.r + "," + pt.a.c); portalSet.add(pt.b.r + "," + pt.b.c); });
     const neutralSet = new Set((board.neutral || []).map((x) => x[0] + "," + x[1]));
     for (let r = 0; r < board.rows; r++) for (let c = 0; c < board.cols; c++) {
       const t = board.terrain[r][c];
@@ -246,6 +247,7 @@
       }
       if (owner[k]) d.style.background = owner[k];
       if (relics.has(k)) { d.classList.add("pv--relic"); d.textContent = "★"; }
+      if (portalSet.has(k)) { d.classList.add("pv--portal"); d.textContent = "◎"; }
       box.appendChild(d);
     }
     $("#board-preview-note").textContent = (board.kind === "duel" ? "Duel" : "Croix à " + n + " camps") + " · " + board.rows + "×" + board.cols + (s.terrain === "random" || s.terrain === "wild" ? " · relief tiré au sort à chaque partie" : s.terrain === "custom" ? (isHost() ? " · clique sur les cases du centre pour poser le décor" : " · décor posé par l'hôte") : "");

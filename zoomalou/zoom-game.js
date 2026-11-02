@@ -110,10 +110,10 @@ function planBotAttempt(room, def) {
     const seedStr = g.baseSeed + def.id + g.roundIdx + "k" + k; P.botN = k + 1;
     // en mode contact le pilote roule vraiment sur le serveur, pour qu'on puisse le pousser, le faire tourner et qu'il se rattrape
     if (room.settings.mode === "contact") {
-      const lv = Bot.createLive(track, P.car, lvl, seedStr, { slot, ref: use && use.frames, refTag: tag, push: k, maxSeconds: Math.min(240, capOf(track)) });
+      const lv = Bot.createLive(track, P.car, lvl, seedStr, { slot, ref: use && use.frames, refTag: tag, push: k, maxSeconds: Math.min(240, capOf(track)), persona: g.baseSeed + def.id + g.roundIdx });
       P.live = { lv, at: Math.max(g.goAt, Date.now() + 50), n: 0, frames: [], done: false }; P.tryCount = (P.tryCount || 0) + 1; P.botDone = true; return;
     }
-    const r = Bot.simulateRun(track, P.car, lvl, seedStr, capOf(track), { slot, ref: use && use.frames, refTag: tag, push: k });
+    const r = Bot.simulateRun(track, P.car, lvl, seedStr, capOf(track), { slot, ref: use && use.frames, refTag: tag, push: k, persona: g.baseSeed + def.id + g.roundIdx });
     const now = Date.now(); const at = Math.max(g.goAt, P.nextAt || 0, now + 50);
     if (!r.finished) { P.botDone = true; P.done = true; return; }
     const rp = Car.replay(track, P.car, r.bytes, null, { slot });
@@ -140,8 +140,8 @@ function botContacts(room, def, P, r, now) {
   const g = room.g; if (r.tick < 2 || r.rail) return;
   room.players.forEach((od) => {
     if (od.id === def.id) return; const Q = g.players[od.id]; if (!Q) return; let o = null;
-    if (Q.live && !Q.live.done) { const q = Q.live.lv.r; if (Q.live.n > 0) o = { x: q.x, z: q.z, h: q.hd, y: q.y, vx: q.vx, vz: q.vz }; }
-    else if (Q.pos && Q.att && !Q.done && now - Q.pos.t < 400) { const age = Math.min(0.2, (now - Q.pos.t) / 1000); o = { x: Q.pos.x + Q.pos.vx * age, z: Q.pos.z + Q.pos.vz * age, h: Q.pos.h, y: Q.pos.y, vx: Q.pos.vx, vz: Q.pos.vz }; }
+    if (Q.live && !Q.live.done) { const q = Q.live.lv.r; if (Q.live.n > 0) o = { x: q.x, z: q.z, h: q.hd, y: q.y, vx: q.vx, vz: q.vz, car: Q.car }; }
+    else if (Q.pos && Q.att && !Q.done && now - Q.pos.t < 400) { const age = Math.min(0.2, (now - Q.pos.t) / 1000); o = { x: Q.pos.x + Q.pos.vx * age, z: Q.pos.z + Q.pos.vz * age, h: Q.pos.h, y: Q.pos.y, vx: Q.pos.vx, vz: Q.pos.vz, car: Q.car }; }
     if (!o) return;
     const hit = Car.contactVs(r, o, CAR_SHARE, (r.bumpCd | 0) <= r.tick); if (!hit) return;
     if (hit.bump) r.bumpCd = r.tick + 5; Car.nudge(r, hit.dx, hit.dz, hit.dvx, hit.dvz, hit.ds);

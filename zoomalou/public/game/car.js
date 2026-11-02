@@ -13,13 +13,16 @@
   // vmax en m/s, acc en m/s2, turn vitesse de rotation maximale en rad/s, grip adhérence latérale en 1/s
   // wall et hill règlent la casse au choc et la gêne en côte, boostK la puissance des turbos, drift la récompense du dérapage
   const CARS = {
-    bolide: { id: "bolide", name: "Bolide", icon: "🏎️", color: "#e8453c", vmax: 52, acc: 21, brake: 38, turn: 2.2, grip: 6.8, dirt: 0.7, ice: 0.18, drift: 0.7, bounce: 0, wall: 1, hill: 1, cv: 0.68, boostK: 1, desc: "La voiture équilibrée. Rapide, stable, elle pardonne un peu les erreurs de trajectoire." },
-    rallye: { id: "rallye", name: "Rallye-Pote", icon: "🚙", color: "#3aa653", vmax: 47, acc: 20, brake: 36, turn: 2.1, grip: 5.6, dirt: 1.35, ice: 0.9, drift: 0.6, bounce: 0, wall: 0.8, hill: 0.75, cv: 0.7, boostK: 1, desc: "Reine de la terre et de la glace où elle colle mieux qu'ailleurs, mais sur le bitume elle glisse et perd du temps." },
-    petard: { id: "petard", name: "Pétard", icon: "🚀", color: "#f08a24", vmax: 68, acc: 30, brake: 30, turn: 1.55, grip: 5.4, dirt: 0.45, ice: 0.08, drift: 0.35, bounce: 0, wall: 1.5, hill: 1.5, cv: 0.48, boostK: 1.15, desc: "Une fusée sur roues, la plus rapide en ligne droite. Il freine mal, tourne mal et chaque mur fait très mal." },
-    toupie: { id: "toupie", name: "Toupie", icon: "🌀", color: "#8a55c8", vmax: 49, acc: 19.5, brake: 33, turn: 3.0, grip: 3.5, dirt: 0.8, ice: 0.3, drift: 1.05, bounce: 0, wall: 1.1, hill: 1.1, cv: 0.9, boostK: 0.9, desc: "Elle glisse tout le temps. Très vive dans les virages, et un long dérapage lui donne un énorme turbo à la sortie." },
-    bouboule: { id: "bouboule", name: "Bouboule", icon: "🫧", color: "#25b9b0", vmax: 47, acc: 18, brake: 34, turn: 2.4, grip: 7.0, dirt: 0.85, ice: 0.35, drift: 0.5, bounce: 0.35, wall: 0.3, hill: 0.65, cv: 0.75, boostK: 1, desc: "Ronde et rebondissante. Les murs et les obstacles la ralentissent à peine, mais elle manque de vitesse de pointe." },
+    bolide: { id: "bolide", name: "Bolide", icon: "🏎️", color: "#e8453c", vmax: 52, acc: 21, brake: 38, turn: 2.2, grip: 6.8, dirt: 0.7, ice: 0.18, drift: 0.7, bounce: 0, wall: 1, hill: 1, cv: 0.68, boostK: 1, mass: 1, desc: "La voiture équilibrée. Rapide, stable, elle pardonne un peu les erreurs de trajectoire." },
+    rallye: { id: "rallye", name: "Rallye-Pote", icon: "🚙", color: "#3aa653", vmax: 47, acc: 20, brake: 36, turn: 2.1, grip: 5.6, dirt: 1.35, ice: 0.9, drift: 0.6, bounce: 0, wall: 0.8, hill: 0.75, cv: 0.7, boostK: 1, mass: 1.15, desc: "Reine de la terre et de la glace où elle colle mieux qu'ailleurs, mais sur le bitume elle glisse et perd du temps." },
+    petard: { id: "petard", name: "Pétard", icon: "🚀", color: "#f08a24", vmax: 68, acc: 30, brake: 30, turn: 1.55, grip: 5.4, dirt: 0.45, ice: 0.08, drift: 0.35, bounce: 0, wall: 1.5, hill: 1.5, cv: 0.48, boostK: 1.15, mass: 0.9, desc: "Une fusée sur roues, la plus rapide en ligne droite. Il freine mal, tourne mal et chaque mur fait très mal." },
+    toupie: { id: "toupie", name: "Toupie", icon: "🌀", color: "#8a55c8", vmax: 49, acc: 19.5, brake: 33, turn: 3.0, grip: 3.5, dirt: 0.8, ice: 0.3, drift: 1.05, bounce: 0, wall: 1.1, hill: 1.1, cv: 0.9, boostK: 0.9, mass: 0.8, desc: "Elle glisse tout le temps. Très vive dans les virages, et un long dérapage lui donne un énorme turbo à la sortie." },
+    bouboule: { id: "bouboule", name: "Bouboule", icon: "🫧", color: "#25b9b0", vmax: 47, acc: 18, brake: 34, turn: 2.4, grip: 7.0, dirt: 0.85, ice: 0.35, drift: 0.5, bounce: 0.35, wall: 0.3, hill: 0.65, cv: 0.75, boostK: 1, mass: 0.7, desc: "Ronde et rebondissante. Les murs et les obstacles la ralentissent à peine, mais elle manque de vitesse de pointe." },
   };
-  const CAR_ORDER = ["bolide", "rallye", "petard", "toupie", "bouboule"];
+  // deux nouvelles voitures. Le Mastodonte est un poids lourd qui pousse les autres et encaisse les murs, la Libellule est légère, très vive et fragile, reine du mini turbo
+  CARS.mastodonte = { id: "mastodonte", name: "Mastodonte", icon: "🚜", color: "#7a6a4a", vmax: 50, acc: 17, brake: 40, turn: 1.75, grip: 7.8, dirt: 0.9, ice: 0.4, drift: 0.4, bounce: 0, wall: 0.3, hill: 0.35, cv: 0.75, boostK: 0.9, mass: 1.9, desc: "Un poids lourd. Il démarre lentement mais rien ne l'arrête, les montées ne lui font rien, les murs à peine et il envoie valser les autres voitures. Il tourne large." };
+  CARS.libellule = { id: "libellule", name: "Libellule", icon: "🦋", color: "#d94fb0", vmax: 55, acc: 24, brake: 34, turn: 2.6, grip: 4.6, dirt: 0.6, ice: 0.15, drift: 1.25, bounce: 0, wall: 1.3, hill: 1.2, cv: 0.62, boostK: 1.25, mass: 0.7, desc: "Légère comme une plume. Elle accélère fort, tourne vite et son dérapage donne de gros mini turbos. Les chocs et les montées la secouent, un contact avec le Mastodonte la fait voler." };
+  const CAR_ORDER = ["bolide", "rallye", "petard", "toupie", "bouboule", "mastodonte", "libellule"];
   const HALF_W = 1.05;
   const BOOST_TICKS = 70;
   const BOOST_MAX = 150;
@@ -59,7 +62,7 @@
   }
   // choc venu d'un autre pilote, appliqué avant le pas suivant. Enregistré dans la course pour que le serveur puisse la rejouer
   // dspin est une vitesse de rotation ajoutée, en rad/s, qui s'éteint toute seule. Un choc de côté ou à l'arrière fait déraper et tourner la voiture
-  function nudge(r, dx, dz, dvx, dvz, dspin) { if (r.rail) return; r.x += dx; r.z += dz; r.vx += dvx; r.vz += dvz; if (dspin) r.spin = Math.max(-9, Math.min(9, (r.spin || 0) + dspin)); }
+  function nudge(r, dx, dz, dvx, dvz, dspin) { if (r.rail) return; r.x += dx; r.z += dz; r.vx += dvx; r.vz += dvz; if (Math.hypot(dvx, dvz) > 5) { r.boostT = 0; r.driftT = 0; } if (dspin) r.spin = Math.max(-9, Math.min(9, (r.spin || 0) + dspin)); }
 
   // choc entre deux voitures faites chacune de deux cercles. r est ma voiture, o l'autre {x,z,h,y,vx,vz}. Renvoie le décalage et l'impulsion à appliquer à r, ou null.
   // La même formule sert au client pour lui même et au serveur pour les pilotes automatiques, donc les deux voitures réagissent de la même façon
@@ -71,10 +74,12 @@
       if (pen > 0 && (!best || pen > best.pen)) best = { pen, nx: d > 1e-4 ? dx / d : 1, nz: d > 1e-4 ? dz / d : 0, cx: (ax + bx) / 2, cz: (az + bz) / 2 };
     }
     if (!best) return null;
-    const push = Math.min(0.85, best.pen * 0.95) * share; const vn = (r.vx - o.vx) * best.nx + (r.vz - o.vz) * best.nz; let dvx = 0, dvz = 0, ds = 0;
+    // choc avec masses. share est la part de l'impulsion reçue par ma voiture, plus l'autre est lourde plus je reçois. Restitution faible, donc pas de rebond disproportionné
+    const mr = (r.car && r.car.mass) || 1, mo = (o.car && CARS[o.car] && CARS[o.car].mass) || 1; share = mo / (mr + mo);
+    const push = Math.min(0.7, best.pen * 0.9) * share * 1.25; const vn = (r.vx - o.vx) * best.nx + (r.vz - o.vz) * best.nz; let dvx = 0, dvz = 0, ds = 0;
     if (vn < -0.2 && canBump) {
-      const j = Math.min(26, -1.9 * vn * share); dvx = best.nx * j; dvz = best.nz * j;
-      const lx = best.cx - r.x, lz = best.cz - r.z; ds = Math.max(-8, Math.min(8, (lz * dvx - lx * dvz) * 0.34));
+      const e = 0.28; const j = Math.min(18, -(1 + e) * vn * share); dvx = best.nx * j; dvz = best.nz * j;
+      const lx = best.cx - r.x, lz = best.cz - r.z; ds = Math.max(-5, Math.min(5, (lz * dvx - lx * dvz) * 0.26));
     }
     return { dx: best.nx * push, dz: best.nz * push, dvx, dvz, ds, vn, bump: dvx !== 0 || dvz !== 0 };
   }
@@ -87,6 +92,7 @@
     r.x = s.x; r.z = s.z; r.y = s.y; r.hd = s.h; r.vx = 0; r.vz = 0; r.vy = 0; r.air = false; r.idx = r.cpIdx; r.prevIdx = r.cpIdx; r.boostT = 0; r.driftT = 0; r.climb = 0; r.resets++; r.lastResetTick = r.tick; r.rail = false; r.mag = -1; r.wasSolid = true; r.pitch = 0;
   }
 
+  const SNAP = 0.05; // débattement de suspension, la voiture reste collée au sol sur les cassures de pente légères
   const OBS_CAR = 1.1; // rayon d'une voiture pour les obstacles
   const STEP = Track.STEP;
   const airGOf = (tr) => tr.airG || tr.gravity * Track.AIRK;
@@ -182,7 +188,8 @@
     const fx = Math.sin(r.hd), fz = Math.cos(r.hd), rx = -Math.cos(r.hd), rz = Math.sin(r.hd);
     let vf = r.vx * fx + r.vz * fz, vl = r.vx * rx + r.vz * rz;
     const sp = sampleAt(tr, r.idx); const surf = r.air ? S.ASPHALT : sp.surf; r.onSurf = surf;
-    let gripMul = 1, vmax = car.vmax, accMul = 1, drag = 0.0;
+    const ph = r.phys || (r.phys = (Track.BIOMES[tr.biome] && Track.BIOMES[tr.biome].phys) || {});
+    let gripMul = ph.grip || 1, vmax = car.vmax * (ph.vmax || 1), accMul = ph.accel || 1, drag = 0.0;
     if (surf === S.DIRT) { gripMul = car.dirt; vmax *= 0.93; drag = 0.35; }
     else if (surf === S.ICE) { gripMul = car.ice; drag = 0.05; }
     else if (surf === S.SLOW) { gripMul = 0.9; vmax *= 0.62; accMul = 0.75; drag = 1.1; }
@@ -193,7 +200,8 @@
     let yaw = -st * car.turn * sf * fall * sgnV; if (r.air) yaw *= 0.35; r.hd += yaw * DT;
     if (r.spin) { r.hd += r.spin * DT; r.spin *= 0.9; if (Math.abs(r.spin) < 0.03) r.spin = 0; }
     // accélération
-    const boosted = r.boostT > 0; if (boosted) { vmax *= 1.3; accMul += 1.1; r.boostT--; }
+    const boosted = r.boostT > 0; if (boosted) { const bk = ph.boost || 1; vmax *= 1 + 0.3 * bk; accMul += 1.1 * bk; r.boostT--; }
+    if (ph.wind && !r.air) { vl += ph.wind * Math.sin(r.tick * 0.021 + r.idx * 0.018) * Math.sin(r.tick * 0.0067 + 1.3) * DT * 6; }
     if (!r.air) {
       if (inp.thr) { const k = 1 - Math.pow(Math.max(0, vf) / vmax, 2); vf += car.acc * accMul * Math.max(0, k) * DT; if (vf > vmax) vf -= (vf - vmax) * Math.min(1, DT * 2); }
       if (inp.brk) { if (vf > 0.4) vf = Math.max(0, vf - car.brake * DT); else vf = Math.max(-12, vf - car.acc * 0.55 * DT); }
@@ -246,7 +254,7 @@
     const offroad = (nowall || r.out) && Math.abs(u) > ps.w + 0.2; let solid = ps.solid && !offroad; const gy = solid ? ps.y : -1e9;
     if (!r.air) {
       const freeY = r.y + r.climb * DT - 0.5 * gAir * DT * DT;
-      if (!solid || (gy < freeY - 0.012 && Math.hypot(r.vx, r.vz) > 6)) { r.air = true; r.vy = r.climb - gAir * DT; r.y = freeY; }
+      if (!solid || (gy < freeY - (0.012 + SNAP) && Math.hypot(r.vx, r.vz) > 6)) { r.air = true; r.vy = r.climb - gAir * DT; r.y = freeY; }
       else { r.climb = (gy - r.y) / DT; if (r.climb > 30) r.climb = 30; if (r.climb < -30) r.climb = -30; r.y = gy; }
     } else {
       r.vy -= gAir * DT; r.y += r.vy * DT;
@@ -255,7 +263,7 @@
       } else if (solid && r.y <= gy) {
         const impact = -r.vy; r.y = gy; r.air = false; r.landed = impact; r.climb = 0;
         const sf2 = 1 - Math.min(0.3, Math.max(0, impact - 2.5) * 0.026 * (r.tr.crashK || 1)); r.vx *= sf2; r.vz *= sf2;
-        if (car.bounce && impact > 4) { r.air = true; r.vy = impact * car.bounce; r.y = gy + 0.02; }
+        const bnc = car.bounce + (ph.bounce || 0); if (bnc && impact > 4) { r.air = true; r.vy = impact * bnc; r.y = gy + 0.02; }
       }
     }
     r.wasSolid = solid;
@@ -266,7 +274,8 @@
     if (r.y < tr.groundY - 6) resetToCheckpoint(r);
     const spd = Math.hypot(r.vx, r.vz); if (spd > r.maxSpeed) r.maxSpeed = spd;
     // visuel
-    r.pitch = Math.atan(ps.slope);
+    { const hs = Math.max(1e-6, Math.hypot(r.vx, r.vz)); const target = r.air ? Math.atan2(r.vy, Math.max(hs, 4)) : Math.atan(sampleAt(tr, Math.min(tr.n - 2, r.idx + 1.2)).slope * 0.6 + ps.slope * 0.4);
+      r.pitch += (target - r.pitch) * (r.air ? 0.12 : 0.35); }
     progress(r);
   }
 

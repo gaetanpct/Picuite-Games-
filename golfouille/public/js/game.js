@@ -122,10 +122,10 @@
   // hauteur utilisée pour un club, celle choisie pour le club en main et l'angle habituel pour les autres
   const heightOf = (clubId) => (S().heightControl === false || clubId !== G.club ? GR.HEIGHT_DEFAULT : G.height);
   function simShot(me, clubId, power, yaw) {
-    const club = GR.CLUBS[clubId]; let speed = club.speed * power; if (me.fx.turbo) speed = Math.min(speed * 1.5, 60); if (me.fx.glu) speed *= 0.5;
+    const club = GR.CLUBS[clubId]; const sh = GR.shotFor(clubId, power, yaw, GP.surfAt(G.hole, me.x, me.z)); if (me.fx.turbo) sh.speed = Math.min(sh.speed * 1.5, 60); if (me.fx.glu) sh.speed *= 0.5;
     const opts = { t0: (snow() - G.st.playStart) / 1000, wind: G.st.wind, walls: G.st.walls.map((w) => ({ x1: w.x1, z1: w.z1, x2: w.x2, z2: w.z2, h: w.h })), skip: !!club.skip, ice: me.fx.ice, magnet: me.fx.magnet, cupMul: 1 };
     if (S().powersOn) opts.orbs = G.st.orbs.filter((o) => !o.taken).map((o) => ({ id: o.id, x: o.x, z: o.z, taken: false }));
-    return GP.simulate(G.hole, { x: me.x, y: me.y, z: me.z }, { yaw, speed, loft: GR.loftFor(clubId, heightOf(clubId)), lob: !!club.lob }, opts);
+    return GP.simulate(G.hole, { x: me.x, y: me.y, z: me.z }, sh, opts);
   }
   const reach = (me, res) => dist2(res.end.x, res.end.z, me.x, me.z);
   // trouve la force qui amène la balle à la distance voulue avec ce club
@@ -139,10 +139,10 @@
   function allowedClubs(me) { return GR.CLUB_ORDER.filter((c) => S().clubs.includes(c) && !(GR.CLUBS[c].limited && me && me.rocketUsed)); }
   // le caddie compare les clubs pour une distance donnée et garde le plus confortable
   function bestClub(me, yaw, d) {
-    const pool = allowedClubs(me).filter((c) => ["putter", "wedge", "iron", "driver"].includes(c) || (c === "lob" && d < 14));
+    const pool = allowedClubs(me).filter((c) => ["putter", "wedge", "iron", "driver"].includes(c));
     let best = null;
     pool.forEach((c) => {
-      const r = solvePower(me, c, yaw, d); const comfort = Math.abs(r.p - 0.72) + (r.p >= 0.98 ? 0.4 : 0) + (c === "putter" ? (d < 12 ? -0.2 : 0.6) : 0) + (c === "driver" ? 0.04 : 0) + (c === "lob" ? 0.25 : 0);
+      const r = solvePower(me, c, yaw, d); const comfort = Math.abs(r.p - 0.72) + (r.p >= 0.98 ? 0.4 : 0) + (c === "putter" ? (d < 12 ? -0.2 : 0.6) : 0) + (c === "driver" ? 0.04 : 0);
       if (!best || comfort < best.comfort) best = { club: c, p: r.p, comfort, ok: r.ok };
     });
     return best || { club: "putter", p: 0.5, ok: true };
@@ -330,7 +330,7 @@
       el("h2", { text: "Comment taper" }),
       step(1, "Vise", "Touche le terrain à l'endroit où tu veux que la balle s'arrête. Le jeu choisit le club et la force pour toi. Tu peux aussi glisser pour tourner. La carte en haut à gauche marche pareil."),
       step(2, "Regarde la zone", "L'arc blanc est le vol de la balle jusqu'à son atterrissage, et le grand cercle montre où elle devrait finir en roulant. Ce n'est pas exact, le vent, le sol et ton erreur de frappe jouent. L'hôte peut changer cette aide dans les réglages."),
-      step(3, "Choisis club et hauteur", "La colonne de clubs sur le côté va du plus puissant en haut au moins puissant en bas, avec la portée en mètres. Les flèches à côté règlent la hauteur. Un tir bas file droit mais cogne les arbres, un tir haut passe au dessus. Les boutons plus et moins règlent la force."),
+      step(3, "Choisis ton club", "La colonne de clubs sur le côté va du plus puissant en haut au moins puissant en bas, avec la portée en mètres. Il y a cinq clubs et chacun a sa personnalité, la fiche du club s'affiche à côté. Les boutons plus et moins règlent la force."),
       step(4, "Tape", "Appuie sur Taper, ou sur espace. Le bouton boussole fait viser le caddie, et le premier arrivé dans le trou marque le plus de points."),
       el("button", { class: "btn btn--accent btn--big", text: "Compris, c'est parti", onclick: () => { store.set("golf.tuto", "1"); $("#tuto").remove(); } }),
     ])]);
@@ -398,7 +398,8 @@
   }
   function renderHeight() {
     const box = $("#hud-height"); if (!box) return; const c = GR.CLUBS[G.club];
-    const on = S().heightControl !== false && GR.hasHeight(c);
+    box.style.display = "none"; if (box.dataset.key === "off") return; box.dataset.key = "off"; box.innerHTML = ""; return;
+    const on = false;
     const key = on + "|" + G.club + "|" + G.height; if (box.dataset.key === key) return; box.dataset.key = key; box.innerHTML = "";
     box.classList.toggle("heightbox--off", !on);
     if (!on) { box.appendChild(el("span", { class: "heightbox__fix", text: S().heightControl === false ? "Hauteur fixe" : c.loft ? "Hauteur fixe" : "Au sol" })); return; }
@@ -408,16 +409,19 @@
     box.appendChild(el("span", { class: "heightbox__nm", text: GR.HEIGHT_NAMES[G.height] }));
     box.appendChild(el("button", { class: "round-btn round-btn--small", id: "h-down", title: "Tir plus bas, plus tendu, mais il cogne les arbres (touche F)", text: "▼", disabled: G.height <= 0, onclick: () => setHeight(G.height - 1) }));
   }
+  const SURF_NAME = { 2: "le rough", 3: "le sable", 6: "la boue" };
   function renderClubCard() {
     const box = $("#hud-clubcard"); if (!box) return; const c = GR.CLUBS[G.club]; const st = GR.stars(c); const rg = G.ranges[G.club];
-    const key = G.club + "|" + G.height + "|" + rg + "|" + S().heightControl; if (box.dataset.key === key) return; box.dataset.key = key; box.innerHTML = "";
-    const on = S().heightControl !== false && GR.hasHeight(c);
+    const me = myState(); const surf = me && G.hole ? GP.surfAt(G.hole, me.x, me.z) : 0; const lie = GR.lieFor(G.club, surf);
+    const key = G.club + "|" + rg + "|" + surf; if (box.dataset.key === key) return; box.dataset.key = key; box.innerHTML = "";
     box.appendChild(el("b", { text: c.icon + " " + c.name })); box.appendChild(el("em", { text: c.role }));
     box.appendChild(el("div", { class: "clubcard__row" }, [el("span", { text: "Puissance" }), el("span", { class: "pips", text: pips(st.pow, 5) })]));
     box.appendChild(el("div", { class: "clubcard__row" }, [el("span", { text: "Hauteur" }), el("span", { class: "pips", text: c.loft ? pips(st.hi, 5) : "au sol" })]));
     box.appendChild(el("div", { class: "clubcard__row" }, [el("span", { text: "Précision" }), el("span", { class: "pips", text: pips(st.acc, 5) })]));
     box.appendChild(el("p", { class: "small", text: c.fly }));
-    box.appendChild(el("p", { class: "small muted", text: (rg ? "Portée maximale d'ici environ " + rg + " m" : "") + (on ? ", tir " + GR.HEIGHT_NAMES[G.height].toLowerCase() + "." : ".") }));
+    if (lie.pow < 1 || lie.err > 1) box.appendChild(el("p", { class: "small warn", text: "Depuis " + (SURF_NAME[surf] || "ici") + ", ce club garde " + Math.round(lie.pow * 100) + " pour cent de sa puissance et dévie " + (lie.err > 1.25 ? "beaucoup" : "un peu") + " plus." }));
+    else if (surf === 2 || surf === 3 || surf === 6) box.appendChild(el("p", { class: "small good", text: "Depuis " + SURF_NAME[surf] + ", ce club ne perd rien." }));
+    box.appendChild(el("p", { class: "small muted", text: rg ? "Portée maximale d'ici environ " + rg + " m." : "" }));
   }
   function setClub(id) {
     const me = myState(); G.club = id; G.clubManual = true; G.height = GR.HEIGHT_DEFAULT; sound.click();
@@ -539,7 +543,7 @@
       if (document.body.dataset.screen !== "game") return; if (/INPUT|TEXTAREA|SELECT/.test((e.target.tagName || ""))) return;
       const k = e.key.toLowerCase(); G.keys[k] = true;
       if (k === " " || k === "enter") { e.preventDefault(); if (!G.charging && !e.repeat) { G.charging = true; G.chargeAt = performance.now(); G.chargeBase = G.power; } }
-      else if (/^[1-7]$/.test(k)) { const list = GR.CLUB_ORDER.filter((c) => S().clubs.includes(c)); const id = list[+k - 1]; if (id) { const me = myState(); if (!(GR.CLUBS[id].limited && me && me.rocketUsed)) setClub(id); } }
+      else if (/^[1-5]$/.test(k)) { const list = GR.CLUB_ORDER.filter((c) => S().clubs.includes(c)); const id = list[+k - 1]; if (id) { const me = myState(); if (!(GR.CLUBS[id].limited && me && me.rocketUsed)) setClub(id); } }
       else if (k === "arrowup" || k === "z" || k === "w") { e.preventDefault(); G.power = clamp(G.power + (e.shiftKey ? 0.1 : 0.02), 0.05, 1); G.aimDist = null; }
       else if (k === "arrowdown" || k === "s") { e.preventDefault(); G.power = clamp(G.power - (e.shiftKey ? 0.1 : 0.02), 0.05, 1); G.aimDist = null; }
       else if (k === "r" || k === "pageup") { e.preventDefault(); setHeight(G.height + 1); }
@@ -565,8 +569,7 @@
       el("kbd", { text: "Glisser" }), el("span", { text: "Tourner la visée et incliner la caméra." }),
       el("kbd", { text: "Flèches gauche droite" }), el("span", { text: "Tourner la visée. Avec Maj, tourner plus finement." }),
       el("kbd", { text: "Flèches haut bas" }), el("span", { text: "Régler la force du coup, ou les boutons plus et moins." }),
-      el("kbd", { text: "1 à 7" }), el("span", { text: "Choisir son club, du plus puissant au moins puissant. La portée en mètres est écrite sur chaque bouton." }),
-      el("kbd", { text: "R et F" }), el("span", { text: "Régler la hauteur du tir. R pour plus haut, F pour plus bas. Les boutons flèches à côté des clubs font pareil." }),
+      el("kbd", { text: "1 à 5" }), el("span", { text: "Choisir son club, du plus puissant au moins puissant. La portée en mètres est écrite sur chaque bouton." }),
       el("kbd", { text: "V" }), el("span", { text: "Vue du dessus pour voir toute la trajectoire et toucher la cible." }),
       el("kbd", { text: "C" }), el("span", { text: "Le caddie vise vers le trou et choisit le club conseillé." }),
       el("kbd", { text: "Espace" }), el("span", { text: "Un appui rapide tape avec la force réglée. Un appui long charge la force, on relâche pour taper." }),
@@ -713,8 +716,8 @@
     help: [
       { title: "Le but", text: "Chaque trou est un terrain tiré au hasard, avec son décor et ses pièges. Mets ta balle dans le trou en un minimum de coups, et si possible avant les autres." },
       { title: "Viser", text: "Touche le terrain à l'endroit où tu veux que la balle s'arrête, le jeu règle alors le club et la force. Une aide montre l'arc de la balle et un grand cercle d'arrivée, sans dire exactement où elle rebondit. L'hôte peut la remplacer par la trajectoire exacte, une simple flèche ou rien du tout. Le bouton carte donne une vue du dessus et le bouton boussole fait viser le caddie." },
-      { title: "Taper", text: "Les clubs sont dans la colonne sur le côté, rangés du plus puissant au moins puissant, avec leur portée en mètres. Les flèches haut et bas à côté règlent la hauteur du tir, les boutons plus et moins règlent la force. Appuie sur Taper ou sur espace. Un appui long charge la force, on relâche pour frapper." },
-      { title: "Les clubs et la hauteur", text: "Du plus puissant au moins puissant, la fusée est un coup monstrueux utilisable une fois par trou, le driver va très loin avec un vol tendu, le fer est le bon à tout faire, le ricochet saute sur l'eau, la cale monte haut, le lob retombe presque à la verticale et le putter roule au sol en restant le plus précis. Chaque club se joue de très bas à très haut. Un tir bas file droit et roule mais cogne les arbres et les obstacles, un tir haut les passe. Le jeu conseille un club, mais tu choisis." },
+      { title: "Taper", text: "Les clubs sont dans la colonne sur le côté, rangés du plus puissant au moins puissant, avec leur portée en mètres. Les boutons plus et moins règlent la force. Appuie sur Taper ou sur espace. Un appui long charge la force, on relâche pour frapper." },
+      { title: "Les cinq clubs", text: "Le driver est le grand frappeur, il va très loin et roule longtemps mais dévie facilement. Le fer est le régulier, bon partout. La cale monte haut, passe les arbres, retombe et s'arrête net, et c'est la seule qui sort du sable et de l'herbe haute sans perdre de puissance. Le ricochet est un tir rasant qui saute sur l'eau et que le vent ne gêne presque pas. Le putter roule au sol, le plus précis, parfait sur le green. Dans le sable, la boue et l'herbe haute, les clubs perdent de la puissance et dévient plus, sauf la cale. Le jeu conseille un club, mais tu choisis." },
       { title: "Les orbes et les pouvoirs", text: "Roule sur une orbe dorée pour gagner un pouvoir au hasard. Certains aident ta balle, d'autres embêtent un adversaire. Ils se lancent à tout moment, même pendant que la balle des autres roule." },
       { title: "Les pièges", text: "Eau, lave et sortie de terrain coûtent un coup. Le sable et la boue freinent, la glace fait glisser, la gelée fait rebondir. Les moulins, barrières, trampolines et portails sont des animations du terrain que l'hôte peut régler." },
       { title: "Les points", text: "Le premier dans le trou gagne 10 points, puis 7, 5, 3, 2 et 1. Un trou en un ajoute 5 points. Dans le décompte arrivée et coups, chaque coup sous le par du trou rapporte 2 points de plus. Dans le décompte aux coups, il n'y a pas de points et le moins de coups gagne. Le détail s'affiche à la fin de chaque trou." },

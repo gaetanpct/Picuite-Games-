@@ -69,7 +69,9 @@ function pickOptions(room, n) {
   const out = [];
   // on évite de proposer trois jeux du même genre
   while (out.length < 3 && pool.length) {
-    const w = pool.map((m) => (1 / (1 + (g.plays[m.id] || 0) * 1.2)) * (out.some((o) => o.kind === m.kind) ? 0.35 : 1)); const tot = w.reduce((a, b) => a + b, 0); let r = Math.random() * tot; let k = 0;
+    // on mélange les familles de jeux (mouvement, tête, stratégie, timing) pour que les trois choix ne se ressemblent pas
+    const famPlays = {}; Cat.GAMES.forEach((m) => { famPlays[m.fam] = (famPlays[m.fam] || 0) + (g.plays[m.id] || 0); }); const lastFam = g.lastGame && Cat.byId[g.lastGame] ? Cat.byId[g.lastGame].fam : null;
+    const w = pool.map((m) => (1 / (1 + (g.plays[m.id] || 0) * 1.2)) * (1 / (1 + (famPlays[m.fam] || 0) * 0.25)) * (out.some((o) => o.kind === m.kind) ? 0.35 : 1) * (out.some((o) => o.fam === m.fam) ? 0.3 : 1) * (m.fam === lastFam ? 0.6 : 1)); const tot = w.reduce((a, b) => a + b, 0); let r = Math.random() * tot; let k = 0;
     for (; k < pool.length - 1; k++) { r -= w[k]; if (r <= 0) break; }
     out.push(pool[k]); pool.splice(k, 1);
   }

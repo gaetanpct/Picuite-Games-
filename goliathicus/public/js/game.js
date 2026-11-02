@@ -93,7 +93,7 @@
     events.forEach((ev) => {
       if (ev.kind === "move") {
         lastCells = [ev.from, ev.to];
-        if (ev.owner !== st.you) UI.Sound.move(); else UI.Sound.move();
+        if (ev.via) { Board.playTeleport(ev); UI.Sound.power(); } else UI.Sound.move();
       } else if (ev.kind === "combat") {
         lastCells = [ev.attacker.from, ev.defender.at];
         Board.playCombat(ev, st);
@@ -300,6 +300,7 @@
     const box = $("#player-cards");
     box.innerHTML = "";
     const conq = st.settings.mode === "conquest";
+    const bnty = st.settings.mode === "bounty";
     st.players.forEach((p) => {
       const h = HOUSES[p.house % HOUSES.length];
       const auto = st.autoSeats && st.autoSeats[p.seat] && !p.isAI;
@@ -319,6 +320,7 @@
             st.phase === "setup" ? el("span", { text: p.ready ? "✅ prêt" : "⏳ place…" }) : null,
           ]),
           conq ? el("div", { class: "relic-bar", title: "Points de reliques" }, [el("i", { style: { width: Math.min(100, (p.score / st.settings.relicTarget) * 100) + "%" } }), el("span", { text: "🏆 " + p.score + "/" + st.settings.relicTarget })]) : null,
+          bnty ? el("div", { class: "relic-bar", title: "Points de trophées" }, [el("i", { style: { width: Math.min(100, (p.score / st.settings.bountyTarget) * 100) + "%" } }), el("span", { text: "🎯 " + p.score + "/" + st.settings.bountyTarget })]) : null,
         ]),
       ]);
       box.appendChild(card);

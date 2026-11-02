@@ -153,7 +153,7 @@ exports.create = function (ctx) {
     done: false,
     update(dt) {
       t += dt; world.step(dt);
-      dynBoxes.forEach((d) => { if (d.drop) { if (d.timer >= 0) { d.timer -= dt; if (d.timer < 0 && !d.fall) d.fall = 1; } if (d.fall && !d.gone) { d.fall += dt * 10; d.b.vz = 0; d.b.z -= 520 * dt * d.fall * 0.2 - 0; if (d.b.z < d.base - 40 && d.b.solid) d.b.solid = false; if (d.b.z < d.base - 600) { d.gone = true; d.regen = 3.2; } } if (d.gone) { d.regen -= dt; if (d.regen <= 0) { d.gone = false; d.fall = 0; d.timer = -1; d.b.z = d.base; d.b.vz = 0; d.b.solid = true; } } } });
+      dynBoxes.forEach((d) => { if (d.drop) { if (d.timer >= 0) { d.timer -= dt; if (d.timer < 0 && !d.fall) d.fall = 1; } if (d.fall && !d.gone) { d.fall += dt * 10; d.b.vz = 0; d.b.z -= 520 * dt * d.fall * 0.2 - 0; if (d.b.z < d.base - 40 && d.b.solid) d.b.solid = false; if (d.b.z < d.base - 600) { d.gone = true; d.regen = 2.4; d.goneT = 0; } } if (d.gone) { d.regen -= dt; d.goneT = (d.goneT || 0) + dt; if (d.regen <= 0 || d.goneT > 5) { d.gone = false; d.fall = 0; d.timer = -1; d.b.z = d.base; d.b.vz = 0; d.b.solid = true; } } } });
       P.forEach((p) => {
         const b = p.bd; p.inv = Math.max(0, (p.inv || 0) - dt);
         if (p.finished) { b.vx *= 0.9; b.vy *= 0.9; const e = Plat.step(world, b, { x: 0, y: 0 }, dt, cfg); return; }
@@ -162,7 +162,7 @@ exports.create = function (ctx) {
         const ev = Plat.step(world, b, inp, dt, cfg);
         ev.forEach((e) => { if (e === "jump" || e === "dbl") { ctx.snd("jump"); ctx.fx("puff", b.x, b.y, b.z, ""); } else if (e === "land") { ctx.fx("puff", b.x, b.y, b.z, ""); } else if (e === "dive") ctx.snd("whoosh"); else if (e === "void") { if (process.env.PGDBG) console.log("VOID", p.name, Math.round(b.x), Math.round(b.y), Math.round(b.z), "ni", p.ni, nodes[p.ni] && nodes[p.ni].k, nodes[p.ni] && Math.round(nodes[p.ni].y)); b.alive = false; p.falls++; p.respawn = 1.1; ctx.fx("splash", b.x, b.y, -280, "#bfe9ff"); ctx.snd("splash"); } else if (e === "bump") ctx.snd("bump"); });
         // progression et drapeaux
-        const pr = U.clamp((startY - b.y) / total, 0, 1); if (pr > p.prog) p.prog = pr;
+        const pr = U.clamp((startY - b.y) / total, 0, 1); if (pr > p.prog + 0.004) { p.prog = pr; p.stuckT = 0; } else if (!p.finished) { p.stuckT = (p.stuckT || 0) + dt; if (p.stuckT > 14 && b.grounded) { p.stuckT = 0; b.alive = false; p.respawn = 0.3; ctx.announce(p.name + " est remis au dernier drapeau", 1800); } }
         for (let i = p.cp + 1; i < cps.length; i++) { if (b.y < cps[i].y + 40 && b.grounded && Math.abs(b.z - cps[i].z) < 30) { p.cp = i; ctx.fx("coin", cps[i].x, cps[i].y, cps[i].z + 40, ""); ctx.snd("flag"); if (ctx.n <= 4 || true) ctx.announce(p.name + " passe un drapeau", 1200); } }
         // arrivée
         if (b.y < finishLineY && b.grounded && b.z > cz - 40 && !p.finished) { p.finished = finishers.length + 1; p.finT = t; finishers.push(p); ctx.fx("confetti", b.x, b.y, b.z + 40, ""); ctx.snd(p.finished === 1 ? "win" : "coin"); ctx.announce(p.name + " franchit la ligne en " + (p.finished === 1 ? "premier" : p.finished + "e position"), 2600); if (!firstAt) firstAt = t; }
@@ -179,7 +179,7 @@ exports.create = function (ctx) {
     },
     frame() {
       const items = [];
-      dynBoxes.forEach((d) => { if (d.gone) return; const b = d.b; items.push({ t: "box", id: d.id, x: b.x, y: b.y, z: b.z, w: b.w, d: b.d, h: d.cap ? b.h - 7 : b.h, rot: b.rot, c: d.c, sm: 40 }); if (d.cap) items.push({ t: "box", id: d.id + "c", x: b.x, y: b.y, z: b.z + b.h - 7, w: b.w + 2, d: b.d + 2, h: 7, c: d.cap, ns: 1, rot: b.rot, sm: 40 }); });
+      dynBoxes.forEach((d) => { if (d.gone) return; const b = d.b; items.push({ t: "box", id: d.id, x: b.x, y: b.y, z: b.z, w: b.w, d: b.d, h: d.cap ? b.h - 7 : b.h, rot: b.rot, c: d.drop && (d.timer >= 0 || d.fall) ? "#e8704a" : d.c, sm: 40 }); if (d.cap) items.push({ t: "box", id: d.id + "c", x: b.x, y: b.y, z: b.z + b.h - 7, w: b.w + 2, d: b.d + 2, h: 7, c: d.cap, ns: 1, rot: b.rot, sm: 40 }); });
       cps.forEach((c, i) => items.push({ t: "flag", id: "f" + i, x: c.flag.x, y: c.flag.y, z: c.flag.z, c: "#ff4d6d", on: P.some((p) => p.cp >= i) ? 1 : 0 }));
       P.forEach((p) => { const b = p.bd; if (!b.alive) return; items.push(Plat.pawnItem(b, p, { badge: p.finished === 1 ? "🏆" : p.finished ? "🏁" : "", st: p.finished === 1 ? "win" : "", ghost: p.inv > 0 ? 1 : 0, sc: 1 })); });
       const prog = P.map((p) => ({ id: p.id, k: p.k, n: p.name, p: p.finished ? 1 : p.prog, out: !p.bd.alive }));

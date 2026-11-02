@@ -100,27 +100,23 @@ function shoot(room, pid, data) {
   if (s.playMode === "tour" && g.turnPid !== pid) return { error: "Ce n'est pas encore ton tour." };
   const clubId = String(data.club || "putter"); const allowed = s.clubs.includes(clubId) ? clubId : "putter";
   const club = Rules.CLUBS[allowed];
-  if (club.limited && P.rocketUsed) return { error: "Tu as déjà utilisé la fusée sur ce trou." };
   let yaw = Number(data.yaw); let power = Number(data.power);
   if (!isFinite(yaw) || !isFinite(power)) return { error: "Coup invalide." };
   power = Math.max(0.05, Math.min(1, power));
-  // hauteur du tir, de 0 très bas à 4 très haut, 2 est l'angle habituel du club
-  const hRaw = Number(data.height); const height = s.heightControl === false || !isFinite(hRaw) ? Rules.HEIGHT_DEFAULT : Math.max(0, Math.min(4, Math.round(hRaw)));
-  const loft = Rules.loftFor(allowed, height);
-  if (club.limited) P.rocketUsed = true;
-  // erreur de coup
+  // la position de la balle compte, un club souffre dans le sable, la boue ou l'herbe haute, la cale non
+  const surf = Physics.surfAt(g.hole, P.x, P.z); const lie = Rules.lieFor(allowed, surf);
   const prec = s.precision;
-  const sigma = club.err * prec * (0.35 + 0.65 * power);
+  const sigma = club.err * lie.err * prec * (0.35 + 0.65 * power);
   yaw += (gauss(rng) * sigma * Math.PI) / 180;
-  power = Math.max(0.03, power * (1 + gauss(rng) * 0.025 * prec));
-  let speed = club.speed * power;
-  if (P.fx.turbo) { speed = Math.min(speed * 1.5, 60); }
-  if (P.fx.glu) speed *= 0.5;
-  const opts = { t0: tRel(g), wind: g.wind, walls: activeWalls(g).map((w) => ({ x1: w.x1, z1: w.z1, x2: w.x2, z2: w.z2, h: w.h })), skip: !!club.skip, sandPro: false, ice: !!P.fx.ice, magnet: !!P.fx.magnet, cupMul: 1 };
+  power = Math.max(0.03, power * (1 + gauss(rng) * 0.02 * prec));
+  const shot = Rules.shotFor(allowed, power, yaw, surf);
+  if (P.fx.turbo) { shot.speed = Math.min(shot.speed * 1.5, 60); }
+  if (P.fx.glu) shot.speed *= 0.5;
+  const opts = { t0: tRel(g), wind: g.wind, walls: activeWalls(g).map((w) => ({ x1: w.x1, z1: w.z1, x2: w.x2, z2: w.z2, h: w.h })), skip: !!club.skip, ice: !!P.fx.ice, magnet: !!P.fx.magnet, cupMul: 1 };
   if (P.fx.gust) { const a = yaw + (rng() < 0.5 ? 1 : -1) * Math.PI / 2; opts.gust = [Math.sin(a) * 3.4, Math.cos(a) * 3.4]; }
   if (s.powersOn) opts.orbs = g.orbs.filter((o) => !o.taken).map((o) => ({ id: o.id, x: o.x, z: o.z, taken: false }));
   const ball = { x: P.x, y: P.y, z: P.z };
-  const res = Physics.simulate(g.hole, ball, { yaw, speed, loft, lob: !!club.lob }, opts);
+  const res = Physics.simulate(g.hole, ball, shot, opts);
   P.stats.longest = Math.max(P.stats.longest, Math.hypot(res.end.x - P.x, res.end.z - P.z));
   P.prevRest = P.lastRest; P.lastRest = null;
   P.strokes++; P.moving = true; P.lastClub = allowed;
@@ -130,7 +126,7 @@ function shoot(room, pid, data) {
   P.pending = res;
   // les orbes ramassées disparaissent tout de suite pour les autres
   res.picked.forEach((id) => { const o = g.orbs.find((q) => q.id === id); if (o) { o.taken = true; o.by = pid; o.respawnAt = s.orbRespawn ? Date.now() + s.orbRespawn * 1000 * TS : 0; } });
-  g.api.emitAll(room, "golf:shot", { pid, club: allowed, height, t0: Date.now(), tRel: opts.t0, frames: res.frames, events: res.events, outcome: res.outcome, dur: res.dur, picked: res.picked, strokes: P.strokes });
+  g.api.emitAll(room, "golf:shot", { pid, club: allowed, height: 2, t0: Date.now(), tRel: opts.t0, frames: res.frames, events: res.events, outcome: res.outcome, dur: res.dur, picked: res.picked, strokes: P.strokes });
   emitState(room, true);
   return { ok: true };
 }

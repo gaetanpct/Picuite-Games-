@@ -174,7 +174,30 @@
       }
     }
 
-    return { kind: duel ? "duel" : "cross", rows, cols, terrain, arms, neutral, relics, sides, express, grand, depth: D };
+    // --- portails ---
+    // Les cases sont choisies par symétrie du plateau, donc chaque camp a le même accès aux portails.
+    const portals = [];
+    if (settings.magicTiles) {
+      const relicSet = new Set(relics.map((x) => key(x.r, x.c)));
+      const wanted = grand ? 2 : 1;
+      const used = new Set();
+      // les cases à une case du bord de la zone neutre, hors lacs et reliques
+      const cands = neutral.filter(([r, c]) => {
+        const edge = duel ? Math.min(r - D, D + M - 1 - r) : Math.min(r - D, c - D, D + C - 1 - r, D + C - 1 - c);
+        return edge === 1 || (grand && edge === 2);
+      });
+      shuffle(cands, rng);
+      for (const [r, c] of cands) {
+        if (portals.length >= wanted * (duel ? 1 : 2)) break;
+        const orbit = orbitOf(r, c);
+        if (orbit.some(([a, b]) => used.has(key(a, b)) || relicSet.has(key(a, b)) || terrain[a][b] !== "plain")) continue;
+        orbit.forEach(([a, b]) => used.add(key(a, b)));
+        if (duel) portals.push({ a: { r: orbit[0][0], c: orbit[0][1] }, b: { r: orbit[1][0], c: orbit[1][1] } });
+        else { portals.push({ a: { r: orbit[0][0], c: orbit[0][1] }, b: { r: orbit[2][0], c: orbit[2][1] } }); portals.push({ a: { r: orbit[1][0], c: orbit[1][1] }, b: { r: orbit[3][0], c: orbit[3][1] } }); }
+      }
+    }
+
+    return { kind: duel ? "duel" : "cross", rows, cols, terrain, arms, neutral, relics, portals, sides, express, grand, depth: D };
   }
 
   // Rotation d'affichage : place le camp du joueur en bas de l'écran.

@@ -17,6 +17,27 @@ const LEVELS = {
   prodige: { id: "prodige", label: "Prodige", evals: 110, ms: 3200, noise: 0.004, pace: 1.0, paceJit: 0.003, corner: 1.0, clear: 0.6, lineK: 1.0, lapse: 0, useRef: 1, push: 0.03 },
 };
 
+// personnalités. Chaque pilote automatique a un caractère tiré d'après sa graine, pour que quatre champions ne roulent pas pareil
+const ARCH = [
+  { id: "regulier", label: "régulier", risk: -0.6, lat: 0, steady: 0.5, lapseK: 0.3 },
+  { id: "prudent", label: "prudent", risk: -1, lat: 0.15, steady: 0.7, lapseK: 0.5 },
+  { id: "kamikaze", label: "kamikaze", risk: 1, lat: -0.3, steady: 2.2, lapseK: 3 },
+  { id: "droite", label: "colle le bord droit", risk: 0.2, lat: 0.6, steady: 1, lapseK: 1 },
+  { id: "gauche", label: "colle le bord gauche", risk: 0.2, lat: -0.6, steady: 1, lapseK: 1 },
+  { id: "optimiseur", label: "cherche la trajectoire parfaite", risk: 0.5, lat: 0, steady: 0.35, lapseK: 0.2 },
+  { id: "fantasque", label: "fantasque", risk: 0.1, lat: 0.4, steady: 2.6, lapseK: 2.2 },
+  { id: "offensif", label: "attaque les dépassements", risk: 0.8, lat: 0.5, steady: 1.2, lapseK: 1.4 },
+];
+function personaOf(seed) {
+  const h = Track.hashSeed("per2" + seed); const a = ARCH[h % ARCH.length]; const r2 = Track.mulberry32(h);
+  return Object.assign({}, a, { risk: clamp(a.risk + (r2() - 0.5) * 0.3, -1, 1), lat: clamp(a.lat + (r2() - 0.5) * 0.3, -1, 1) });
+}
+function applyPersona(th, lv, per) {
+  if (!per) return lv;
+  th.corner *= 1 + 0.07 * per.risk; th.brake *= 1 - 0.12 * per.risk; th.lat = per.lat;
+  return Object.assign({}, lv, { noise: lv.noise * per.steady, lapse: lv.lapse * per.lapseK, pace: lv.pace * (1 + 0.03 * per.risk) });
+}
+
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const wrap = (a) => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 const STEP = Track.STEP;
@@ -91,6 +112,7 @@ function buildPlan(tr, car, th, ref) {
   for (let i = 0; i < n; i++) {
     let u = base.u[i] * th.lineK;
     if (ref && th.refBlend > 0 && ref.ok[i]) { u = u * (1 - th.refBlend) + clamp(ref.u[i], base.lo[i] - th.clear * 0.5, base.hi[i] + th.clear * 0.5) * th.refBlend; }
+    if (th.lat) u += th.lat * 0.55 * (base.hi[i] - base.lo[i]) / 2;
     u = clamp(u, base.lo[i], base.hi[i]);
     lx[i] = X[i] + base.nx[i] * u; lz[i] = Z[i] + base.nz[i] * u;
   }
@@ -217,23 +239,25 @@ function thetaFor(tr, carId, levelId, frames, refTag) {
 
 // simule un essai complet d'un pilote automatique. opts.ref images d'inspiration, opts.refTag leur nom, opts.slot départ, opts.push essais précédents ratés
 function simulateRun(tr, carId, levelId, seed, maxSeconds, opts) {
-  opts = opts || {}; const lv = LEVELS[levelId] || LEVELS.moyen; const rnd = Track.mulberry32(Track.hashSeed("per" + seed));
+  opts = opts || {}; let lv = LEVELS[levelId] || LEVELS.moyen; const rnd = Track.mulberry32(Track.hashSeed("per" + seed));
   const ref = opts.ref && lv.useRef ? refFromFrames(tr, opts.ref) : null; const refTag = ref ? opts.refTag || "ref" : "";
   const th = Object.assign({}, thetaFor(tr, carId, levelId, ref ? opts.ref : null, refTag)); const k = opts.push || 0;
   th.corner *= 1 + lv.push * k + (rnd() - 0.5) * lv.paceJit; th.brake *= 1 + (rnd() - 0.5) * lv.paceJit;
+  lv = applyPersona(th, lv, opts.persona ? personaOf(opts.persona) : null);
   const pace = clamp(lv.pace * (1 + (rnd() - 0.5) * lv.paceJit * 2), 0.5, 1.05);
   const res = run(tr, carId, th, lv, seed, { ref, slot: opts.slot, pace, maxSeconds: maxSeconds || 240 });
   const r = res.r; return { bytes: Uint8Array.from(res.bytes), finished: r.finished, time: r.finishTime, resets: r.resets, hits: r.hits, ticks: r.tick, maxSpeed: r.maxSpeed };
 }
 // pilote automatique qui roule en direct, un pas à la fois, avec le même réglage que simulateRun. Il réagit à tout ce qui le pousse
 function createLive(tr, carId, levelId, seed, opts) {
-  opts = opts || {}; const lv = LEVELS[levelId] || LEVELS.moyen; const rnd = Track.mulberry32(Track.hashSeed("per" + seed));
+  opts = opts || {}; let lv = LEVELS[levelId] || LEVELS.moyen; const rnd = Track.mulberry32(Track.hashSeed("per" + seed));
   const ref = opts.ref && lv.useRef ? refFromFrames(tr, opts.ref) : null; const refTag = ref ? opts.refTag || "ref" : "";
   const th = Object.assign({}, thetaFor(tr, carId, levelId, ref ? opts.ref : null, refTag)); const k = opts.push || 0;
   th.corner *= 1 + lv.push * k + (rnd() - 0.5) * lv.paceJit; th.brake *= 1 + (rnd() - 0.5) * lv.paceJit;
+  lv = applyPersona(th, lv, opts.persona ? personaOf(opts.persona) : null);
   const pace = clamp(lv.pace * (1 + (rnd() - 0.5) * lv.paceJit * 2), 0.5, 1.05);
   const car = Car.CARS[carId] || Car.CARS.bolide; const L = buildPlan(tr, car, th, ref); const r = Car.newRun(tr, carId, { slot: opts.slot || 0 });
   const mem = { noise: 0, stuck: 0, lapse: 0, sat: false, rev: 0, revSteer: 0, tries: 0, pace };
   return { r, maxTicks: Math.floor((opts.maxSeconds || 240) * 60), step() { Car.step(r, Car.quant(drive(r, L, th, lv, rnd, mem))); } };
 }
-module.exports = { LEVELS, simulateRun, createLive, prepare, prepareSync, refFromFrames };
+module.exports = { personaOf, ARCH, LEVELS, simulateRun, createLive, prepare, prepareSync, refFromFrames };
