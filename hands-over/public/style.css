@@ -1,0 +1,88 @@
+/* Hands Over — plateau télé sombre, rouge sang et néons */
+#screen-game { background: #0a0206; color: #fff; }
+#screen-game.screen--active { position: fixed; top: 0; right: 0; bottom: 0; left: 0; height: auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.ho-view { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 0; background: #0a0206; }
+.ho-canvas { width: 100%; height: 100%; display: block; }
+.ho-menu { position: absolute; top: 0.5rem; right: 0.6rem; z-index: 8; }
+.ho-ui { position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; min-height: 0; pointer-events: none; }
+.ho-ui > * { pointer-events: auto; }
+.ho-top { padding: 0.5rem 3.4rem 0.2rem 0.7rem; display: flex; flex-direction: column; gap: 0.3rem; background: linear-gradient(180deg, rgba(10, 2, 6, 0.85), rgba(10, 2, 6, 0)); }
+.ho-round { font-family: var(--font-title); font-size: 1rem; color: #ff3b4e; letter-spacing: 0.05em; text-shadow: 0 2px 0 #000; }
+.ho-quip { font-style: italic; font-size: 0.86rem; color: #ffd9d0; min-height: 1.2em; text-shadow: 0 1px 3px #000; }
+.ho-players { display: flex; gap: 0.35rem; overflow-x: auto; scrollbar-width: none; padding-bottom: 0.2rem; }
+.ho-players::-webkit-scrollbar { display: none; }
+.ho-chip { flex: none; display: flex; align-items: center; gap: 0.35rem; background: rgba(0, 0, 0, 0.55); border: 2px solid rgba(255, 255, 255, 0.18); border-radius: 99px; padding: 0.12rem 0.6rem 0.12rem 0.4rem; font-size: 0.82rem; }
+.ho-chip--you { border-color: #ff3b4e; }
+.ho-chip--ghost { opacity: 0.55; border-style: dashed; }
+.ho-chip--in { box-shadow: 0 0 10px #ffd23f; border-color: #ffd23f; }
+.ho-chip .nm { max-width: 7.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ho-hands { letter-spacing: 0.04em; }
+.ho-timer { margin: 0.1rem 0.7rem 0; height: 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.ho-timer i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #ff3b4e, #ffd23f); transition: width 0.25s linear; }
+.ho-stage-top { flex: 0 0 22%; min-height: 110px; pointer-events: none; }
+.ho-main { flex: 1; overflow-y: auto; padding: 0.4rem 0.7rem 5.2rem; display: flex; flex-direction: column; gap: 0.6rem; max-width: 760px; width: 100%; margin: 0 auto; }
+.ho-card { background: rgba(18, 6, 10, 0.88); border: 2px solid rgba(230, 57, 70, 0.45); border-radius: 18px; padding: 0.8rem 0.95rem; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5); }
+.ho-card h2 { font-family: var(--font-title); font-weight: 400; font-size: 1.45rem; margin: 0 0 0.3rem; color: #fff; }
+.ho-card h3 { font-family: var(--font-title); font-weight: 400; font-size: 1.05rem; margin: 0 0 0.35rem; color: #ff6b78; }
+.ho-fam { font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; color: #ffd23f; }
+.ho-sub { font-size: 0.88rem; color: rgba(255, 255, 255, 0.82); margin: 0.2rem 0; }
+.ho-hint { text-align: center; font-size: 0.86rem; color: rgba(255, 255, 255, 0.78); margin: 0.2rem 0; }
+.ho-ctrl { display: flex; align-items: center; justify-content: center; gap: 0.7rem; flex-wrap: wrap; padding: 0.2rem 0; }
+.ho-cards { display: flex; gap: 0.45rem; flex-wrap: wrap; }
+.ho-cardbtn { flex: 1 1 140px; text-align: left; padding: 0.5rem 0.65rem; border-radius: 14px; border: 2px solid rgba(255, 210, 63, 0.5); background: rgba(255, 210, 63, 0.08); color: #fff; font: inherit; cursor: pointer; }
+.ho-cardbtn b { display: block; font-size: 0.95rem; }
+.ho-cardbtn small { color: rgba(255, 255, 255, 0.75); font-size: 0.76rem; line-height: 1.2; display: block; }
+.ho-targets { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0.4rem 0; }
+.ho-pill { padding: 0.3rem 0.7rem; border-radius: 99px; border: 2px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.08); color: #fff; font: inherit; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; }
+.ho-pill--on { border-color: #ff3b4e; background: rgba(255, 59, 78, 0.25); }
+.ho-pill:disabled { opacity: 0.45; }
+/* crocodile */
+.ho-croco { position: relative; margin: 0.3rem auto; width: min(100%, 420px); }
+.ho-croco__jaw { background: radial-gradient(circle at 50% 30%, #3f8f3f, #1c4f22); border: 4px solid #0b2a10; border-radius: 40px 40px 60px 60px; padding: 1.2rem 0.9rem 0.8rem; position: relative; }
+.ho-croco__eyes { position: absolute; top: -18px; left: 12%; right: 12%; display: flex; justify-content: space-between; }
+.ho-croco__eyes i { width: 34px; height: 34px; border-radius: 50%; background: #ffe86a; border: 3px solid #0b2a10; position: relative; }
+.ho-croco__eyes i::after { content: ""; position: absolute; left: 14px; top: 6px; width: 6px; height: 20px; background: #000; border-radius: 4px; }
+.ho-teeth { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.4rem; margin-top: 0.4rem; }
+.ho-tooth { aspect-ratio: 0.8; border-radius: 6px 6px 14px 14px; border: 3px solid #b8b0a0; background: #fff8e8; color: #333; font: inherit; font-size: 0.7rem; font-weight: 700; cursor: pointer; position: relative; padding: 0; transition: transform 0.15s; }
+.ho-tooth:disabled { cursor: default; }
+.ho-tooth--down { transform: translateY(14px) scale(0.92); background: #b8b0a0; color: #555; }
+.ho-tooth--bite { background: #ff3b4e; color: #fff; animation: hobite 0.5s ease-out; }
+.ho-tooth--trap { background: #ffb0b0; }
+@keyframes hobite { 0% { transform: scale(1); } 40% { transform: scale(1.5) rotate(6deg); } 100% { transform: scale(1); } }
+.ho-croco--bite .ho-croco__jaw { animation: hoshake 0.5s; }
+@keyframes hoshake { 0%, 100% { transform: translate(0); } 20% { transform: translate(-6px, 4px); } 40% { transform: translate(6px, -4px); } 60% { transform: translate(-4px, 2px); } }
+.ho-turn { text-align: center; font-family: var(--font-title); font-size: 1.15rem; margin: 0.2rem 0; }
+.ho-turn--me { color: #ffd23f; animation: kbob 1s ease-in-out infinite; }
+.ho-hot { position: absolute; top: 2px; right: 2px; font-size: 0.55rem; background: #ffd23f; color: #000; border-radius: 6px; padding: 0 3px; }
+/* épreuves génériques */
+.ho-nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); gap: 0.4rem; }
+.ho-num { padding: 0.8rem 0; border-radius: 14px; border: 3px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.08); color: #fff; font: inherit; font-family: var(--font-title); font-size: 1.5rem; cursor: pointer; }
+.ho-num--on { border-color: #ffd23f; background: rgba(255, 210, 63, 0.25); }
+.ho-pads { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; max-width: 340px; margin: 0.4rem auto; }
+.ho-pad { aspect-ratio: 1.3; border-radius: 22px; border: 4px solid rgba(0, 0, 0, 0.5); font: inherit; cursor: pointer; opacity: 0.5; transition: opacity 0.1s, transform 0.1s; }
+.ho-pad--lit { opacity: 1; transform: scale(1.06); box-shadow: 0 0 26px currentColor; }
+.ho-big { display: block; width: 100%; padding: 2.4rem 0.5rem; font-family: var(--font-title); font-size: 2rem; border-radius: 24px; border: 4px solid rgba(0, 0, 0, 0.5); color: #fff; cursor: pointer; }
+.ho-big--wait { background: #7a0f1c; } .ho-big--go { background: #1faa59; box-shadow: 0 0 40px #1faa59; } .ho-big--done { background: #444; }
+.ho-bar { position: relative; height: 54px; border-radius: 16px; background: rgba(255, 255, 255, 0.1); border: 3px solid rgba(255, 255, 255, 0.3); overflow: hidden; margin: 0.6rem 0; }
+.ho-bar__zone { position: absolute; top: 0; bottom: 0; background: rgba(255, 210, 63, 0.55); border-left: 3px solid #ffd23f; border-right: 3px solid #ffd23f; }
+.ho-bar__cur { position: absolute; top: -2px; bottom: -2px; width: 8px; margin-left: -4px; background: #fff; border-radius: 4px; box-shadow: 0 0 12px #fff; }
+.ho-digits { display: flex; gap: 0.5rem; justify-content: center; margin: 0.5rem 0; }
+.ho-digit { width: 64px; height: 76px; border-radius: 14px; border: 3px solid #ffd23f; background: rgba(255, 210, 63, 0.1); color: #fff; font-family: var(--font-title); font-size: 2.2rem; cursor: pointer; }
+.ho-log { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.88rem; max-height: 180px; overflow-y: auto; }
+.ho-logline { display: flex; gap: 0.5rem; align-items: center; padding: 0.15rem 0.4rem; background: rgba(255, 255, 255, 0.06); border-radius: 8px; }
+.ho-logline b { font-family: var(--font-title); letter-spacing: 0.15em; }
+.ho-q { font-family: var(--font-title); font-size: 2rem; text-align: center; margin: 0.6rem 0; }
+.ho-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.ho-choice { padding: 0.9rem 0; border-radius: 14px; border: 3px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.08); color: #fff; font-family: var(--font-title); font-size: 1.4rem; cursor: pointer; }
+.ho-choice--on { border-color: #ffd23f; background: rgba(255, 210, 63, 0.2); }
+.ho-word { font-family: var(--font-title); font-size: 1.8rem; text-align: center; color: #ffd23f; margin: 0.3rem 0; }
+.ho-clues { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+.ho-fing { display: flex; gap: 0.4rem; justify-content: center; margin: 0.4rem 0; }
+.ho-fing button { width: 60px; height: 60px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.08); color: #fff; font-family: var(--font-title); font-size: 1.5rem; cursor: pointer; }
+.ho-fing button.on { border-color: #ffd23f; background: rgba(255, 210, 63, 0.25); }
+.ho-bomb { text-align: center; font-size: 5rem; animation: kbob 0.6s ease-in-out infinite; }
+.ho-prog { display: flex; gap: 0.25rem; flex-wrap: wrap; align-items: center; font-size: 0.82rem; }
+.ho-judge__loss { font-family: var(--font-title); font-size: 1.2rem; color: #ff6b78; }
+.ho-note { font-size: 0.86rem; color: #ffd9d0; margin: 0.15rem 0; }
+.ho-ghostbar { text-align: center; font-size: 0.85rem; color: #cfe8ff; padding: 0.2rem; }
+@media (max-width: 520px) { .ho-stage-top { flex-basis: 20%; min-height: 90px; } }

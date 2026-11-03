@@ -1,0 +1,17 @@
+{
+ "name": "Hands Over",
+ "order": 11,
+ "tagline": "Un jeu télé d'épouvante où chaque défaite coûte une main.",
+ "pitch": "Un plateau de télévision sombre, un présentateur au sourire trop large et des épreuves courtes, crocodile dentiste, mémoire, réflexes, précision, déduction et bluff. Chaque épreuve perdue coûte une main. Cartes d'influence, pactes et trahisons, fantômes qui reviennent hanter les vivants, et sept modes dont survie, équipes, tournoi, express et chaos.",
+ "tags": ["2 à 8 joueurs", "15 à 30 minutes", "Avec robots"],
+ "steps": [
+  "Une épreuve rapide est annoncée, on prépare cartes et pactes.",
+  "Tout le monde joue en même temps ou chacun son tour.",
+  "Le ou les perdants laissent une main sur le plateau."
+ ],
+ "note": "Se joue en solo contre tous, en équipes ou en tournoi.",
+ "for": "Pour ceux qui aiment l'humour noir et les parties qui tournent mal.",
+ "colors": ["#e63946", "#12060a"],
+ "cta": "Jouer à Hands Over",
+ "logo": "logos/hands-over.svg"
+}

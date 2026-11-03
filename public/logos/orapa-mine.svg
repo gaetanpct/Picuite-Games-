@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Logo Orapa Mine">
+<circle cx="80" cy="80" r="70" fill="#0c1633" stroke="#050a1c" stroke-width="6"/>
+<path d="M22 118 L22 70 Q80 22 138 70 L138 118 Z" fill="#26304f" stroke="#050a1c" stroke-width="5" stroke-linejoin="round"/>
+<path d="M8 96 L58 96" stroke="#ff3b4e" stroke-width="5" stroke-linecap="round"/>
+<path d="M58 96 L84 70" stroke="#ff3b4e" stroke-width="5" stroke-linecap="round"/>
+<path d="M84 70 L84 36" stroke="#ff3b4e" stroke-width="5" stroke-linecap="round"/>
+<path d="M84 70 L132 70" stroke="#ffd23f" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+<polygon points="58,84 72,96 58,108 44,96" fill="#7fd6ff" stroke="#050a1c" stroke-width="4" stroke-linejoin="round"/>
+<polygon points="84,58 96,70 84,82 72,70" fill="#c9a7ff" stroke="#050a1c" stroke-width="4" stroke-linejoin="round"/>
+<polygon points="112,98 124,110 112,122 100,110" fill="#2fd66b" stroke="#050a1c" stroke-width="4" stroke-linejoin="round"/>
+<circle cx="84" cy="34" r="6" fill="#fff" opacity="0.9"/>
+</svg>

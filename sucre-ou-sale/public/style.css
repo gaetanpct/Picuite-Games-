@@ -1,0 +1,114 @@
+/* Sucré ou Salé — plateau de jeu télé, ampoules, rose bonbon contre turquoise sel */
+#screen-game { background: #190522; color: #fff; --t: 0; }
+#screen-game.screen--active { position: fixed; top: 0; right: 0; bottom: 0; left: 0; height: auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.sos-bg { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 0; overflow: hidden; background: radial-gradient(circle at 50% -10%, rgba(255, 95, 168, calc(0.35 + var(--t) * 0.25)), transparent 55%), linear-gradient(#240a38, #12031c); transition: background 1s; }
+.sos-spot { position: absolute; top: -20%; width: 55%; height: 130%; background: conic-gradient(from 180deg at 50% 0, transparent 160deg, rgba(255, 244, 200, 0.14) 180deg, transparent 200deg); transform-origin: 50% 0; animation: sosSweep 9s ease-in-out infinite; }
+.sos-spot--l { left: -5%; } .sos-spot--r { right: -5%; animation-direction: reverse; animation-delay: -4s; }
+@keyframes sosSweep { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg); } }
+.sos-floor { position: absolute; left: 0; right: 0; bottom: 0; height: 28%; background: repeating-conic-gradient(rgba(255, 255, 255, 0.07) 0 25%, transparent 0 50%) 0 0 / 56px 56px; transform: perspective(300px) rotateX(55deg); transform-origin: 50% 100%; opacity: 0.8; }
+.sos-hot .sos-bg { animation: sosHot 1.4s ease-in-out infinite; }
+@keyframes sosHot { 50% { filter: hue-rotate(-25deg) brightness(1.2); } }
+.sos-top { position: relative; z-index: 2; padding: 0.55rem 0.8rem 0.3rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.sos-round { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.04em; color: var(--accent-1); text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4); padding-right: 3rem; }
+.sos-scores { display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 0.2rem; scrollbar-width: none; }
+.sos-scores::-webkit-scrollbar { display: none; }
+.sos-chip { flex: none; display: flex; align-items: center; gap: 0.35rem; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.18); border-radius: 99px; padding: 0.15rem 0.6rem 0.15rem 0.4rem; font-size: 0.85rem; }
+.sos-chip .nm { max-width: 8.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sos-chip b { color: var(--accent-1); font-variant-numeric: tabular-nums; }
+.sos-chip--ex { border-color: var(--accent-1); box-shadow: 0 0 14px rgba(255, 210, 63, 0.55); }
+.sos-chip--you { background: rgba(255, 95, 168, 0.3); }
+.sos-chip--off { opacity: 0.45; }
+.sos-timer { position: relative; z-index: 2; margin: 0.1rem 0.8rem 0; height: 14px; border-radius: 8px; background: rgba(255, 255, 255, 0.14); overflow: hidden; }
+.sos-timer i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #27d3c3, #ffd23f); transition: width 0.25s linear; }
+.sos-timer span { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 700; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7); }
+.sos-timer--hot i { background: linear-gradient(90deg, #ff2d2d, #ff8a1f); animation: sosPulse 0.5s ease-in-out infinite; }
+@keyframes sosPulse { 50% { opacity: 0.5; } }
+.sos-menu { position: absolute; top: 0.5rem; right: 0.6rem; z-index: 5; }
+.sos-stage { position: relative; z-index: 1; flex: 1; overflow-y: auto; padding: 0.6rem 0.8rem 5rem; display: flex; flex-direction: column; gap: 0.75rem; width: 100%; max-width: 760px; margin: 0 auto; }
+.sos-card { background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(6px); border: 2px solid rgba(255, 255, 255, 0.16); border-radius: 20px; padding: 0.9rem 1rem; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35); }
+.sos-card h2 { font-family: var(--font-title); font-weight: 400; font-size: 1.35rem; margin: 0 0 0.5rem; }
+.sos-card h3 { font-family: var(--font-title); font-weight: 400; font-size: 1.1rem; margin: 0 0 0.4rem; }
+.sos-wait { text-align: center; }
+.sos-hint { margin: 0.2rem 0; font-size: 0.9rem; color: rgba(255, 255, 255, 0.82); text-align: center; }
+.sos-ball { width: 5rem; height: 5rem; margin: 0 auto 0.4rem; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff 0, #d7a8ff 18%, #7a3fb0 60%, #3a1560 100%); box-shadow: 0 0 30px rgba(190, 130, 255, 0.8), inset 0 -8px 18px rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; font-size: 2.2rem; animation: sosBall 3s ease-in-out infinite; }
+.sos-ball--sm { width: 2.8rem; height: 2.8rem; font-size: 1.3rem; margin: 0; flex: none; }
+@keyframes sosBall { 50% { transform: translateY(-6px) scale(1.04); box-shadow: 0 0 44px rgba(220, 160, 255, 0.95), inset 0 -8px 18px rgba(0, 0, 0, 0.4); } }
+.sos-extra { display: flex; align-items: center; gap: 0.7rem; background: rgba(0, 0, 0, 0.35); border: 2px solid rgba(255, 210, 63, 0.4); border-radius: 18px; padding: 0.5rem 0.8rem; }
+.sos-extra > div:last-child { display: flex; flex-direction: column; }
+.sos-extra--me { border-color: var(--accent-1); box-shadow: 0 0 18px rgba(255, 210, 63, 0.4); }
+.sos-secret { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; margin-top: 0.4rem; padding: 0.5rem; border-radius: 14px; background: linear-gradient(135deg, rgba(255, 210, 63, 0.35), rgba(255, 95, 168, 0.25)); border: 2px dashed var(--accent-1); }
+.sos-secret span { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.8; }
+.sos-secret b { font-family: var(--font-title); font-weight: 400; font-size: 1.7rem; color: var(--accent-1); }
+.sos-hand { display: flex; align-items: stretch; gap: 0.4rem; }
+.sos-vs { align-self: center; font-family: var(--font-title); opacity: 0.7; }
+.sos-side { flex: 1; display: flex; flex-direction: column; gap: 0.15rem; justify-content: center; padding: 0.8rem 0.5rem; border-radius: 16px; border: 3px solid transparent; color: #fff; font-size: 1.05rem; text-align: center; min-height: 4.4rem; }
+.sos-side small { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.85; }
+.sos-side b { font-family: var(--font-title); font-weight: 400; font-size: 1.15rem; line-height: 1.15; }
+.sos-side--A { background: linear-gradient(160deg, #ff5fa8, #c4287a); border-color: #ffc2e0; }
+.sos-side--B { background: linear-gradient(160deg, #1fb3b3, #0f6f86); border-color: #b5f3f0; }
+.sos-side:active { transform: scale(0.97); }
+.sos-jokers .small { margin: 0 0 0.4rem; }
+.sos-jrow { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.sos-jcard { display: flex; flex-direction: column; gap: 0.25rem; align-items: center; padding: 0.4rem 0.6rem; border-radius: 12px; background: rgba(0, 0, 0, 0.3); }
+.sos-dil-wrap { display: flex; flex-direction: column; gap: 0.5rem; }
+.sos-event { display: flex; flex-direction: column; gap: 0.1rem; text-align: center; padding: 0.55rem 0.8rem; border-radius: 16px; background: linear-gradient(135deg, #ffd23f, #ff8a1f); color: #2a0a3d; animation: sosPop 0.5s ease-out; }
+.sos-event b { font-family: var(--font-title); font-weight: 400; font-size: 1.2rem; }
+@keyframes sosPop { from { transform: scale(0.8) rotate(-2deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.sos-dilemma { animation: sosIn 0.5s ease-out both; }
+@keyframes sosIn { from { transform: translateY(-14px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
+.sos-dil { position: relative; display: flex; align-items: stretch; border-radius: 22px; padding: 6px; background: #12031c; border: 4px solid transparent; background-clip: padding-box; box-shadow: 0 0 0 4px #ffd23f, 0 0 0 7px #7a3fb0, 0 12px 30px rgba(0, 0, 0, 0.45); }
+.sos-dil::after { content: ""; position: absolute; top: -13px; left: 10px; right: 10px; height: 8px; background: radial-gradient(circle, #fff6b0 0 2.5px, transparent 3px) 0 0 / 18px 8px repeat-x; animation: sosBulbs 1s steps(2) infinite; }
+@keyframes sosBulbs { 50% { opacity: 0.35; } }
+.sos-half { flex: 1; display: flex; flex-direction: column; gap: 0.15rem; align-items: center; justify-content: center; text-align: center; padding: 0.9rem 0.5rem; border-radius: 16px; transition: opacity 0.4s, transform 0.4s, filter 0.4s; position: relative; }
+.sos-half small { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.85; }
+.sos-half b { font-family: var(--font-title); font-weight: 400; font-size: clamp(1.1rem, 4.4vw, 1.5rem); line-height: 1.15; }
+.sos-half--A { background: linear-gradient(160deg, #ff5fa8, #c4287a); }
+.sos-half--B { background: linear-gradient(160deg, #1fb3b3, #0f6f86); }
+.sos-half--on { box-shadow: 0 0 0 4px #fff, 0 0 26px rgba(255, 255, 255, 0.55); transform: scale(1.04); z-index: 1; }
+.sos-half--off { opacity: 0.35; filter: grayscale(0.6); transform: scale(0.97); }
+.sos-tick { position: absolute; top: 4px; right: 8px; font-size: 1.2rem; }
+.sos-mid { display: flex; align-items: center; padding: 0 0.3rem; font-family: var(--font-title); opacity: 0.8; }
+.sos-verdict { margin: 0.4rem 0 0; text-align: center; font-size: 0.92rem; color: var(--accent-1); }
+.sos-gridwrap { padding: 0.2rem 0; }
+.sos-grid { display: grid; gap: 0.45rem; }
+.sos-grid--3 { grid-template-columns: repeat(3, 1fr); } .sos-grid--4 { grid-template-columns: repeat(4, 1fr); } .sos-grid--5 { grid-template-columns: repeat(5, 1fr); }
+.sos-word { position: relative; min-height: 3.6rem; padding: 0.3rem 0.25rem; border-radius: 14px; border: 3px solid rgba(255, 255, 255, 0.28); background: linear-gradient(160deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05)); color: #fff; font-size: clamp(0.72rem, 2.7vw, 0.95rem); font-weight: 600; line-height: 1.1; display: flex; align-items: center; justify-content: center; text-align: center; transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s; overflow: hidden; }
+.sos-word:disabled { opacity: 1; cursor: default; }
+.sos-word:not(:disabled):active { transform: scale(0.95); }
+.sos-word__t { word-break: break-word; hyphens: auto; }
+.sos-word__m { position: absolute; bottom: 2px; left: 0; right: 0; display: flex; justify-content: center; gap: 2px; font-size: 0.7rem; }
+.sos-word__m .dotc { width: 0.7rem; height: 0.7rem; border: 1px solid #fff; }
+.sos-word--mark { border-color: #ffd23f; }
+.sos-word--mine { border-color: #ff5fa8; box-shadow: 0 0 14px rgba(255, 95, 168, 0.7); background: rgba(255, 95, 168, 0.22); }
+.sos-word--secret { border-color: #ffd23f; background: linear-gradient(160deg, rgba(255, 210, 63, 0.5), rgba(255, 210, 63, 0.1)); box-shadow: 0 0 18px rgba(255, 210, 63, 0.7); }
+.sos-word--part { border-style: dashed; }
+.sos-word--final { border-color: #7aff9a; box-shadow: 0 0 16px rgba(122, 255, 154, 0.7); }
+.sos-word--gone { opacity: 0.32; filter: grayscale(1); transform: scale(0.92); }
+.sos-word--gone .sos-word__t { text-decoration: line-through; }
+.sos-word__x { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; font-size: 2.4rem; color: #ff4b3e; opacity: 0.85; }
+.sos-word--just { animation: sosShred 0.7s ease-out; }
+@keyframes sosShred { 0% { opacity: 1; filter: none; transform: scale(1.1) rotate(0); } 40% { transform: scale(1.05) rotate(-5deg); filter: brightness(1.6); } 100% { opacity: 0.32; filter: grayscale(1); transform: scale(0.92); } }
+.sos-ctrl { display: flex; flex-direction: column; gap: 0.5rem; align-items: center; }
+.sos-hint-card { text-align: center; }
+.sos-result { display: flex; flex-direction: column; gap: 0.5rem; text-align: center; }
+.sos-gone { display: flex; flex-direction: column; animation: sosPop 0.4s ease-out; }
+.sos-bust { display: flex; flex-direction: column; padding: 0.7rem; border-radius: 14px; background: linear-gradient(135deg, #ff2d2d, #8a0f3c); animation: sosShake 0.5s; }
+.sos-bust b { font-family: var(--font-title); font-weight: 400; font-size: 1.4rem; }
+@keyframes sosShake { 0%, 100% { transform: none; } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
+.sos-reveal { text-align: center; }
+.sos-flip { perspective: 600px; }
+.sos-flip b { display: inline-block; font-family: var(--font-title); font-weight: 400; font-size: clamp(1.8rem, 8vw, 2.8rem); color: var(--accent-1); text-shadow: 0 4px 0 rgba(0, 0, 0, 0.4); animation: sosFlip 0.9s ease-out; }
+@keyframes sosFlip { from { transform: rotateX(90deg) scale(0.5); opacity: 0; } to { transform: none; opacity: 1; } }
+.sos-grp--ok { border-color: #7aff9a; } .sos-grp--ko { border-color: #ff8a7a; }
+.sos-gains { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.sos-gain { display: inline-flex; align-items: center; gap: 0.3rem; background: rgba(122, 255, 154, 0.18); border-radius: 99px; padding: 0.2rem 0.7rem; font-weight: 700; }
+.sos-recap { display: flex; flex-direction: column; gap: 0.35rem; }
+.sos-recap__row { display: flex; flex-direction: column; border-bottom: 1px dashed rgba(255, 255, 255, 0.15); padding-bottom: 0.25rem; }
+.sos-awards { display: flex; flex-direction: column; gap: 0.5rem; }
+.sos-award { display: flex; gap: 0.7rem; align-items: center; border-left: 5px solid var(--hc, #fff); padding-left: 0.6rem; }
+.sos-award__ic { font-size: 2rem; }
+.sos-award__nm { display: flex; align-items: center; gap: 0.3rem; }
+.sos-flash { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 6; display: flex; align-items: center; justify-content: center; background: rgba(10, 0, 20, 0.7); pointer-events: none; }
+.sos-flash.hidden { display: none; }
+.sos-flash__in { max-width: 80%; text-align: center; padding: 1.2rem 1.5rem; border-radius: 24px; background: linear-gradient(135deg, #ffd23f, #ff5fa8); color: #2a0a3d; display: flex; flex-direction: column; gap: 0.3rem; animation: sosPop 0.5s ease-out; box-shadow: 0 0 60px rgba(255, 210, 63, 0.7); }
+.sos-flash__in b { font-family: var(--font-title); font-weight: 400; font-size: 2rem; }

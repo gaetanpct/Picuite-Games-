@@ -651,3 +651,74 @@ Cette mise à jour touche cinq jeux. Les noms de fichiers, les réglages et les 
 - Les nouveaux équilibres de Richissime Destiny (taux de réussite des objectifs, gains au casino, salaires revalorisés) ont été mesurés sur des parties de pilotes automatiques, pas à la main, et se jugent en jouant.
 - Les nouveaux mini-jeux de Pagaille Party et l'équilibre des parcours de Golfouille se jugent en jouant.
 - Les pilotes automatiques de Goliathicus battent nettement l'ancienne version sur une partie classique, mais leur niveau face à de vrais joueurs expérimentés n'a pas été mesuré.
+
+## Trentième mise à jour, Zoomalou, circuits aléatoires, points et cumul des temps
+
+Cette mise à jour ne touche que Zoomalou. Les réglages, les salons et les parties restent compatibles avec la version précédente.
+
+### Circuits différents à chaque course
+- Un nouveau réglage, Circuits différents à chaque course, permet de cocher ce qui change au hasard d'une course à l'autre, quel que soit le mode de jeu. Longueur (courte, moyenne ou longue), difficulté (facile, intermédiaire ou difficile), quantité d'éléments (peu, moyenne ou beaucoup) et relief (plat, doux, vallonné ou montagneux). Les quatre points se cochent séparément ou ensemble. Un point coché remplace le réglage du même nom.
+- Deux courses de suite ne reprennent jamais la même valeur pour un même point, donc le circuit change vraiment. Avec la même graine, les tirages sont identiques pour tout le monde.
+- Ce qui a été tiré au sort s'affiche dans le garage, au départ de la course, dans l'aperçu du salon et dans le tableau de fin de course.
+- Les dégâts des chocs ont leur propre option, Dégâts des chocs aléatoires, indépendante des circuits. Quand elle est activée, doux, normaux ou brutaux sont tirés à chaque course sans répéter la valeur précédente, et le réglage fixe disparaît du salon.
+- La sortie de piste reste un réglage fixe et n'est jamais tirée au sort.
+
+### Les pilotes automatiques changent de voiture
+- Quand un pilote automatique a gagné la dernière course et doit choisir la voiture de tout le monde, il la choisit lui même. Avant, il gardait toujours la même. Son choix tient compte de ses goûts personnels, du style de conduite qu'il a sur cette course (prudent, kamikaze, attaquant...), de la longueur du circuit, des passages techniques, des côtes, du décor et des dégâts des chocs. Il explique son choix dans le salon.
+- En mode Chacun la sienne, les pilotes automatiques choisissent eux aussi d'après le prochain circuit et évitent de reprendre la voiture de la course précédente.
+
+### Gagner par le cumul des temps
+- Un nouveau réglage, Qui gagne la compétition, pour les modes chrono fantôme et chrono contact. Trois règles. Classement et points, comme avant. Cumul des temps, on additionne le meilleur temps de chaque pilote sur toutes les courses et le plus petit total gagne. Mixte, on additionne la place au classement des points et la place au classement des temps cumulés, le plus petit total gagne et le meilleur temps cumulé départage.
+- Un pilote qui n'a pas de temps sur une course reçoit le temps du dernier de cette course plus cinq secondes. Si personne n'a de temps, la course ne compte pas.
+- Les temps cumulés sont calculés par le serveur à partir des temps validés, et envoyés à tout le monde. Ils apparaissent en direct dans le tableau, à la fin de chaque course et dans le classement final, avec la place de chacun.
+
+### Un barème de points plus juste
+- Chaque place d'une course rapporte un nombre de points différent, de la première à la dernière. Le dernier marque un point, chaque place gagnée en rapporte un de plus, et le haut du classement reçoit un petit bonus. Le barème s'adapte au nombre de pilotes. À sept pilotes, 9, 7, 5, 4, 3, 2 et 1. À huit pilotes, 11, 9, 7, 5, 4, 3, 2 et 1. À deux pilotes, 3 et 1.
+- Un pilote sans temps ne marque rien. Deux temps identiques au centième de seconde partagent la place du dessus.
+- Le mode essence utilise le même barème, d'après l'ordre final de la course (le dernier debout, puis les éliminés du plus tardif au plus précoce).
+
+### Jouer à huit
+- Les salons, le garage, la ligne de départ, la synchronisation des voitures, les tableaux et le podium ont été vérifiés à sept et huit pilotes, humains et automates mélangés, avec toutes les options aléatoires activées et plusieurs courses d'affilée.
+
+### Limites connues
+- Le choix de voiture des pilotes automatiques se juge en jouant, ses pondérations ont été vérifiées par simulation et pas avec de vraies parties.
+- La synchronisation à huit n'a pas été testée sur un vrai réseau distant, seulement en local.
+
+## Trente et unième mise à jour, quatre nouveaux jeux
+
+Quatre jeux complets arrivent d'un coup, avec leurs salons privés à code de quatre lettres, leurs réglages d'hôte expliqués, leurs robots à plusieurs niveaux, la reconnexion et le son désactivable. Ils portent les numéros 8 à 11 sur l'accueil. Les sept jeux précédents ne sont pas modifiés.
+
+### Sucré ou Salé, jeu télé de déduction
+- Un Extralucide connaît un mot caché dans une grille et répond à des dilemmes absurdes. Les autres éliminent les mots qui ne collent pas, sans jamais retirer le bon.
+- 243 mots en 8 catégories et 175 dilemmes, chacun relié aux mots par des mots clés. Le serveur n'envoie le mot secret qu'à l'Extralucide, puis à la révélation.
+- Modes classique, express, expert, chaos, équipes, tournoi et personnalisé. Quatre événements qui brouillent les pistes, dilemme inversé, bonus, sablier et mot qui revient.
+- Les robots Naïf, Futé et Génie raisonnent vraiment, ils comparent les mots avec les dilemmes déjà vus.
+
+### Orapa Mine, déduction avec des lasers
+- Un Directeur cache des pierres dans une mine et les explorateurs tirent des rayons colorés depuis les bords. Filtres, miroirs, obsidienne, prismes, séparateurs et opales dévient, colorent ou absorbent la lumière.
+- Chaque mine est vérifiée par le générateur. Toutes les pierres comptent et aucune variante plus simple ne donne les mêmes résultats.
+- Modes classique, course, mines croisées, coopération, équipes, énigmes et campagne de douze mines. Trois niveaux d'affichage des trajets, mystère, partiel et complet.
+- La grotte 3D est une vue pour le plaisir des yeux, le jeu se joue sur un carnet 2D.
+- Le robot Novice, Futé ou Génie formule des hypothèses et choisit ses tirs selon ce qu'ils peuvent lui apprendre.
+
+### Fart Together, la bouée qui avance au vent
+- Tout l'équipage est assis autour d'une bouée. Chacun vise et pousse, la bouée avance, tourne, penche et chavire selon les forces de tout le monde. Pour la redresser, la moitié de l'équipage doit pousser ensemble.
+- Dix parcours générés avec courants, rapides, chutes, rampes, trampolines, glace, fromage fondu, vent et canards géants.
+- Modes aventure, contre-la-montre, course, survie, parcours infini, huit défis, arène et défi du jour. Option chaos avec rafales, pets géants, hoquets, vagues et commandes inversées.
+- Quatre styles de pet équilibrés. Les chapeaux et les visages sont décoratifs et se débloquent avec la progression.
+- Le serveur simule la physique, le client interpole et dessine en 3D.
+
+### Hands Over, jeu télé d'épouvante
+- Un plateau sombre, un présentateur au grand sourire et des épreuves courtes. Chaque épreuve perdue coûte une main et sans main on devient fantôme.
+- Dix épreuves. Le crocodile dentiste avec cinq variantes, le Simon des ténèbres, réflexes et chaises, stop pile, le coffre à code, la bombe, calcul éclair, collision, l'imposteur et les doigts.
+- Cinq cartes d'influence, des pactes secrets fidèles ou traîtres, et des fantômes qui continuent de jouer et de se venger.
+- Modes classique, survie, équipes, tournoi, express, chaos et personnalisé.
+
+### Limites connues
+- Les parties ont été jouées en simulation avec des robots et dans un navigateur de test. Aucun essai n'a été fait avec de vrais joueurs sur plusieurs appareils.
+- Dans Fart Together, les déblocages, les records et le défi du jour sont gardés sur l'appareil. Ils ne sont pas vérifiés par le serveur, donc un joueur peut les modifier.
+- Dans Fart Together, la visée et la physique sont réglées par simulation. Le ressenti en vrai jeu reste à ajuster.
+- Dans Hands Over, les épreuves de réflexe et de précision comptent le temps de réception sur le serveur. Une mauvaise connexion peut donc fausser quelques centièmes.
+- Sucré ou Salé compte 175 dilemmes et pas des centaines. Orapa Mine joue en 2D, sa vue 3D ne sert pas à interagir.
+- Les images 3D n'ont pas été vérifiées sur Safari ni sur de vieux téléphones. Le mode compatibilité existant s'applique.
+

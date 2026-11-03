@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Logo Fart Together">
+<circle cx="80" cy="80" r="70" fill="#0b2a3a" stroke="#04141d" stroke-width="6"/>
+<path d="M14 112 Q40 98 66 112 T118 112 T150 108 L150 140 L14 140 Z" fill="#2fb6e8" stroke="#04141d" stroke-width="4" stroke-linejoin="round"/>
+<ellipse cx="82" cy="94" rx="46" ry="22" fill="#ffd23f" stroke="#04141d" stroke-width="5"/>
+<ellipse cx="82" cy="92" rx="22" ry="9" fill="#2fb6e8" stroke="#04141d" stroke-width="4"/>
+<circle cx="64" cy="66" r="13" fill="#ffc9a0" stroke="#04141d" stroke-width="4"/>
+<circle cx="100" cy="66" r="13" fill="#ff8ac4" stroke="#04141d" stroke-width="4"/>
+<circle cx="60" cy="64" r="2.4" fill="#04141d"/><circle cx="68" cy="64" r="2.4" fill="#04141d"/>
+<circle cx="96" cy="64" r="2.4" fill="#04141d"/><circle cx="104" cy="64" r="2.4" fill="#04141d"/>
+<circle cx="30" cy="78" r="9" fill="#d8ffc4" opacity="0.9"/><circle cx="18" cy="70" r="6" fill="#d8ffc4" opacity="0.7"/><circle cx="12" cy="84" r="4" fill="#d8ffc4" opacity="0.6"/>
+</svg>

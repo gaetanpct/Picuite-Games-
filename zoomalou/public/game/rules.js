@@ -22,7 +22,12 @@
   const fmtMult = (v) => v + " fois";
   const SCHEMA = [
     { category: "🏁 La partie", rules: [
-      { id: "rounds", label: "Nombre de courses", type: "range", min: 1, max: 12, step: 1, default: 5, info: "Chaque course se joue sur un nouveau circuit généré pour toi." },
+      { id: "rounds", label: "Nombre de courses", type: "range", min: 1, max: 12, step: 1, default: 5, info: "Chaque course se joue sur un nouveau circuit généré pour toi. À chaque course, chaque place rapporte un nombre de points différent. Le dernier en marque un, le premier en marque le plus, et un pilote sans temps ne marque rien." },
+      { id: "winRule", label: "Qui gagne la compétition", type: "cards", default: "points", options: [
+        { value: "points", label: "Classement et points", icon: "🏅", desc: "Chaque course rapporte des points selon la place. Le plus de points au total gagne." },
+        { value: "temps", label: "Cumul des temps", icon: "⏱️", desc: "On additionne le meilleur temps de chaque pilote sur toutes les courses. Le plus petit total gagne. Un pilote sans temps reçoit celui du dernier de la course plus cinq secondes." },
+        { value: "mixte", label: "Mixte", icon: "⚖️", desc: "On additionne la place au classement des points et la place au classement des temps cumulés. Le plus petit total gagne, et à égalité le meilleur temps cumulé l'emporte." },
+      ], showIf: { mode: ["chrono", "contact"] }, info: "Ne concerne que les modes chrono. En mode essence, le classement se fait toujours aux points." },
       { id: "mode", label: "Mode de jeu", type: "cards", default: "essence", options: [
         { value: "essence", label: "Essence", icon: "⛽", desc: "Chaque pilote a un réservoir proportionnel à la durée du circuit, et chaque essai en consomme, y compris le premier. Chacun pose un temps, puis le dernier du classement joue avec l'essence qui lui reste pour battre l'avant-dernier. Tant qu'il reste dernier c'est encore à lui. Sans essence, il garde un tout dernier essai pour reprendre la place, et s'il le rate il est éliminé. Les duels peuvent donc se répéter longtemps. Le dernier pilote en course gagne." },
         { value: "chrono", label: "Chrono fantôme", icon: "👻", desc: "Tout le monde part en même temps depuis la même ligne, n'a droit qu'à un seul essai sans recommencer, et le meilleur temps gagne. Les voitures sont des fantômes, elles ne se touchent jamais." },
@@ -41,13 +46,20 @@
       { id: "difficulty", label: "Difficulté du circuit", type: "range", min: 1, max: 5, step: 1, default: 3, info: "En facile la route est presque toujours large avec peu d'éléments. En moyen, des passages larges et des passages étroits se mélangent. En très très dur, la route est serrée la plupart du temps, avec des virages serrés, des corniches sans rebord et beaucoup d'éléments. Les passages étroits tombent au hasard, chaque course est différente." },
       { id: "elements", label: "Quantité d'éléments sur le circuit", type: "chips", default: "auto", options: [{ value: "auto", label: "Selon la difficulté" }, { value: "peu", label: "Peu" }, { value: "moyen", label: "Moyenne" }, { value: "beaucoup", label: "Beaucoup" }], info: "Règle le nombre de virages serrés, de sauts, d'obstacles, de ponts et de montées. Selon la difficulté, un circuit facile en a peu et reste large, un circuit très difficile en a beaucoup et se resserre souvent." },
       { id: "hills", label: "Relief", type: "range", min: 0, max: 3, step: 1, default: 2, format: (v) => ["plat", "doux", "vallonné", "montagneux"][v], info: "Les bosses font décoller la voiture, les côtes la ralentissent." },
+      { id: "rnd", label: "Circuits différents à chaque course", type: "multi", default: [], options: [
+        { value: "size", label: "Longueur", icon: "📏", desc: "Court, moyen ou long, tiré au sort à chaque course." },
+        { value: "difficulty", label: "Difficulté", icon: "🎯", desc: "Facile, intermédiaire ou difficile, tiré au sort à chaque course." },
+        { value: "elements", label: "Quantité d'éléments", icon: "🧩", desc: "Peu, moyenne ou beaucoup d'obstacles, de tremplins, de virages et de turbos." },
+        { value: "hills", label: "Relief", icon: "⛰️", desc: "Plat, doux, vallonné ou montagneux, tiré au sort à chaque course." },
+      ], info: "Coche ce qui doit changer au hasard d'une course à l'autre, quel que soit le mode. Un point coché remplace le réglage du même nom juste au dessus. Deux courses de suite ne reprennent jamais la même valeur. Les dégâts des chocs se règlent à part, dans la conduite, et la sortie de piste ne change jamais." },
       { id: "features", label: "Animations du circuit", type: "multi", default: FEATURE_OPTIONS.map((f) => f.value), options: FEATURE_OPTIONS, info: "Décoche ce que tu n'aimes pas. Chaque élément est tiré au sort selon le biome et la difficulté." },
       { id: "seed", label: "Graine du parcours", type: "text", default: "", max: 20, placeholder: "Laisse vide pour du hasard", info: "Écris un mot pour rejouer exactement les mêmes circuits plus tard ou avec des amis." },
     ] },
     { category: "🚗 La conduite", rules: [
       { id: "botPace", label: "Vitesse des tours des pilotes automatiques", type: "chips", default: 2, options: [{ value: 1, label: "Normale" }, { value: 2, label: "Deux fois plus vite" }, { value: 4, label: "Quatre fois plus vite" }], showIf: { mode: "essence" }, info: "Les pilotes automatiques roulent en direct, essai après essai, avec leur essence qui baisse. Accélérer évite d'attendre quand ils ont un grand réservoir." },
       { id: "leave", label: "Sortie de piste", type: "chips", default: "mur", options: [{ value: "mur", label: "Murs infranchissables" }, { value: "cp", label: "Sortie permise, retour au point de contrôle" }, { value: "zero", label: "Sortie permise, retour au départ" }], info: "Sur Murs infranchissables, les bords du circuit arrêtent toujours la voiture, c'est le mode assisté. Sur les deux autres, un saut trop haut ou trop long peut passer par dessus la barrière. La voiture sort alors du circuit et retombe, puis elle repart soit du dernier point de contrôle, soit de la ligne de départ. Le chrono continue de tourner pendant ce temps." },
-      { id: "crash", label: "Dégâts des chocs", type: "chips", default: "normal", options: [{ value: "doux", label: "Doux" }, { value: "normal", label: "Normaux" }, { value: "brutal", label: "Brutaux" }], info: "Règle ce que coûte un choc contre un mur, un obstacle ou un atterrissage raté. Avec des chocs brutaux, un frottement de mur te fait perdre beaucoup de vitesse, comme en course de compétition. En doux, les erreurs se pardonnent plus facilement." },
+      { id: "crashRnd", label: "Dégâts des chocs aléatoires", type: "bool", default: false, info: "Si c'est activé, les dégâts des chocs sont tirés au sort à chaque course, doux, normaux ou brutaux, sans jamais répéter la valeur de la course précédente. Cette option est indépendante des circuits aléatoires." },
+      { id: "crash", label: "Dégâts des chocs", showIf: { crashRnd: false }, type: "chips", default: "normal", options: [{ value: "doux", label: "Doux" }, { value: "normal", label: "Normaux" }, { value: "brutal", label: "Brutaux" }], info: "Règle ce que coûte un choc contre un mur, un obstacle ou un atterrissage raté. Avec des chocs brutaux, un frottement de mur te fait perdre beaucoup de vitesse, comme en course de compétition. En doux, les erreurs se pardonnent plus facilement." },
     ] },
   ];
   const allRules = () => SCHEMA.reduce((a, c) => a.concat(c.rules), []);
@@ -69,11 +81,39 @@
   }
   function pickBiome(s, i, r) { const l = s.biomes; if (s.biomeOrder === "unique") return l[0]; if (s.biomeOrder === "ordre") return l[i % l.length]; return l[Math.floor(r() * l.length)]; }
   // génère le circuit numéro index d'une partie, identique pour le serveur et pour l'aperçu du salon
+  // valeurs tirées au sort pour la course numéro index. Chaque paramètre a son propre tirage et ne reprend jamais la valeur de la course d'avant
+  const RND_SETS = { size: [1, 2, 3], difficulty: ["facile", "moyen", "dur"], elements: ["peu", "moyen", "beaucoup"], hills: [0, 1, 2, 3], crash: ["doux", "normal", "brutal"] };
+  const RND_LABEL = { size: { 1: "courte", 2: "moyenne", 3: "longue" }, difficulty: { facile: "facile", moyen: "intermédiaire", dur: "difficile" }, elements: { peu: "peu d'éléments", moyen: "éléments moyens", beaucoup: "beaucoup d'éléments" }, hills: { 0: "plat", 1: "relief doux", 2: "vallonné", 3: "montagneux" }, crash: { doux: "chocs doux", normal: "chocs normaux", brutal: "chocs brutaux" } };
+  const DIFF_VALUE = (tier, r) => (tier === "facile" ? 1 + Math.floor(r() * 2) : tier === "dur" ? 4 + Math.floor(r() * 2) : 3);
+  function drawFor(key, baseSeed, index) {
+    const set = RND_SETS[key]; let prev = null, v = null;
+    for (let i = 0; i <= index; i++) { const r = Track.mulberry32(Track.hashSeed(baseSeed + "rnd" + key + i)); let pick = set[Math.floor(r() * set.length)]; if (pick === prev) pick = set[(set.indexOf(pick) + 1 + Math.floor(r() * (set.length - 1))) % set.length]; v = pick; prev = pick; }
+    return v;
+  }
+  // réglages réellement utilisés pour la course index, avec ce qui a été tiré au sort
+  function paramsFor(s, baseSeed, index) {
+    const rnd = s.rnd || []; const p = { size: s.trackSize, difficulty: s.difficulty, elements: s.elements, hills: s.hills, drawn: [] };
+    if (rnd.includes("size")) { p.size = drawFor("size", baseSeed, index); p.drawn.push(RND_LABEL.size[p.size]); }
+    if (rnd.includes("difficulty")) { const tier = drawFor("difficulty", baseSeed, index); const r = Track.mulberry32(Track.hashSeed(baseSeed + "dv" + index)); p.difficulty = DIFF_VALUE(tier, r); p.drawn.push(RND_LABEL.difficulty[tier]); }
+    if (rnd.includes("elements")) { p.elements = drawFor("elements", baseSeed, index); p.drawn.push(RND_LABEL.elements[p.elements]); }
+    if (rnd.includes("hills")) { p.hills = drawFor("hills", baseSeed, index); p.drawn.push(RND_LABEL.hills[p.hills]); }
+    return p;
+  }
   function trackFor(s, baseSeed, index) {
     const r = Track.mulberry32(Track.hashSeed(baseSeed + "#" + index));
-    const biome = pickBiome(s, index, r);
-    return Track.generate({ seed: baseSeed + "#" + index, biome, size: s.trackSize, difficulty: s.difficulty, hills: s.hills, elements: s.elements, features: { boosts: s.features.includes("boosts"), jumps: s.features.includes("jumps"), surfaces: s.features.includes("surfaces"), gaps: s.features.includes("gaps"), steep: s.features.includes("steep"), obstacles: s.features.includes("obstacles"), widths: s.features.includes("widths"), bridges: s.features.includes("bridges"), mag: s.features.includes("mag") } });
+    const biome = pickBiome(s, index, r); const pp = paramsFor(s, baseSeed, index);
+    const tr = Track.generate({ seed: baseSeed + "#" + index, biome, size: pp.size, difficulty: pp.difficulty, hills: pp.hills, elements: pp.elements, features: { boosts: s.features.includes("boosts"), jumps: s.features.includes("jumps"), surfaces: s.features.includes("surfaces"), gaps: s.features.includes("gaps"), steep: s.features.includes("steep"), obstacles: s.features.includes("obstacles"), widths: s.features.includes("widths"), bridges: s.features.includes("bridges"), mag: s.features.includes("mag") } });
+    tr.drawn = pp.drawn.slice(); if (s.crashRnd) tr.drawn.push(RND_LABEL.crash[crashKey(s, baseSeed, index)]);
+    return tr;
   }
-  const crashK = (s) => ({ doux: 0.5, normal: 1, brutal: 1.6 }[s && s.crash] || 1);
-  return { SCHEMA, defaults, normalize, trackFor, allRules, crashK };
+  const CRASH_K = { doux: 0.5, normal: 1, brutal: 1.6 };
+  const crashKey = (s, baseSeed, index) => (s && s.crashRnd ? drawFor("crash", baseSeed || "", index || 0) : (s && s.crash) || "normal");
+  const crashK = (s, baseSeed, index) => CRASH_K[crashKey(s, baseSeed, index)] || 1;
+  // barème des points pour n pilotes, une valeur différente par place. La dernière place vaut 1, chaque place de plus ajoute 1, et le haut du classement reçoit un bonus
+  function scale(n) {
+    n = Math.max(1, Math.floor(n)); const b = Math.max(1, Math.round(n / 3)); const out = [];
+    for (let i = 0; i < n; i++) out.push(n - i + Math.max(0, b - i));
+    return out;
+  }
+  return { SCHEMA, defaults, normalize, trackFor, allRules, crashK, crashKey, paramsFor, scale };
 });

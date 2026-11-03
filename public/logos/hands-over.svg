@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Logo Hands Over">
+<circle cx="80" cy="80" r="70" fill="#12060a" stroke="#050204" stroke-width="6"/>
+<path d="M30 130 L52 20 L108 20 L130 130 Z" fill="#e63946" opacity="0.22"/>
+<path d="M54 118 L54 70 Q54 62 61 62 Q66 62 66 70 L66 50 Q66 42 73 42 Q79 42 79 50 L79 46 Q79 38 86 38 Q92 38 92 46 L92 52 Q92 44 99 44 Q105 44 105 52 L105 92 Q105 118 82 122 Q62 124 54 118 Z" fill="#f3e3cf" stroke="#050204" stroke-width="5" stroke-linejoin="round"/>
+<path d="M30 124 L130 124" stroke="#e63946" stroke-width="6" stroke-linecap="round"/>
+<circle cx="34" cy="38" r="7" fill="#ffd23f"/><circle cx="128" cy="30" r="5" fill="#ffd23f" opacity="0.8"/>
+<path d="M62 100 Q82 112 102 100" stroke="#050204" stroke-width="4" fill="none" stroke-linecap="round"/>
+</svg>

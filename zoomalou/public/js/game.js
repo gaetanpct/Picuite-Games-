@@ -82,7 +82,7 @@
     if (!G.viewInit) { V.init($("#gl-host"), store.get("zoom.quality", autoQuality())); G.viewInit = true; V.paused = false; V.onFrame = onFrame; }
     G.track = m.track; G.roundIdx = m.index; G.total = m.total; G.mode = m.mode; G.author = m.author; G.carId = m.car || G.carId; G.botPlan = null; G.order = m.order || []; G.slots = m.slots || {};
     G.run = null; G.myBest = null; G.myBestFrames = null; G.ghostFrames = null; G.record = null; G.snaps = {}; G.bufs = {}; G.off = {}; G.turn = null; G.wantArm = false; G.armedAt = 0; G.waiting = false;
-    closeSheet(); V.loadTrack(G.track); V.resize(); V.removeAllCars(); setBanner("Course " + (m.index + 1) + " sur " + m.total, G.track.name + " · " + TR.BIOMES[G.track.biome].name, 2600);
+    closeSheet(); V.loadTrack(G.track); V.resize(); V.removeAllCars(); setBanner("Course " + (m.index + 1) + " sur " + m.total, G.track.name + " · " + TR.BIOMES[G.track.biome].name + (G.track.drawn && G.track.drawn.length ? " · " + G.track.drawn.join(", ") : ""), 3400);
   }
   function onRecord(m) {
     G.record = { time: m.time, pid: m.pid, car: m.car, frames: m.frames }; if (!isChrono(G.mode)) { G.ghostFrames = m.frames; G.ghostCar = m.car; G.ghostPtr = 0; }
@@ -304,19 +304,19 @@
   function onRoundEnd(m) {
     clock(m.now); G.endInfo = m; G.run = null;
     const tbl = el("table", { class: "tbl" }, [
-      el("thead", {}, [el("tr", {}, [el("th", { text: "Pilote" }), el("th", { class: "r", text: "Meilleur temps" }), el("th", { class: "r", text: "Essais" }), el("th", { class: "r", text: "Points" }), el("th", { class: "r", text: "Total" })])]),
-      el("tbody", {}, m.rows.map((r) => { const p = stP(r.id) || {}; const car = CA.CARS[r.car]; return el("tr", {}, [el("td", {}, [el("span", { class: "dotc", style: { background: hexOf(p.color) } }), (r.winner ? "🏆 " : "") + (p.name || "?") + (car ? " " + car.icon : "")]), el("td", { class: "r", text: r.best == null ? "-" : fmtS(r.best) }), el("td", { class: "r", text: String(r.tries || 0) }), el("td", { class: "r", text: "+" + r.pts }), el("td", { class: "r", text: String(r.total) })]); })),
+      el("thead", {}, [el("tr", {}, [el("th", { text: "Pilote" }), el("th", { class: "r", text: "Meilleur temps" }), el("th", { class: "r", text: "Essais" }), el("th", { class: "r", text: "Points" }), el("th", { class: "r", text: "Total" })].concat(m.rule && m.rule !== "points" ? [el("th", { class: "r", text: "Cumul des temps" })] : []))]),
+      el("tbody", {}, m.rows.map((r) => { const p = stP(r.id) || {}; const car = CA.CARS[r.car]; const cumCell = m.rule && m.rule !== "points" ? [el("td", { class: "r", text: r.cum == null ? "-" : fmtS(r.cum) + (r.pen ? " (sans temps, " + fmtS(r.counted) + " comptées)" : "") + (m.cumRank && m.cumRank[r.id] ? ", " + m.cumRank[r.id] + (m.cumRank[r.id] === 1 ? "er" : "e") : "") })] : []; return el("tr", {}, [el("td", {}, [el("span", { class: "dotc", style: { background: hexOf(p.color) } }), (r.winner ? "🏆 " : "") + (p.name || "?") + (car ? " " + car.icon : "")]), el("td", { class: "r", text: r.best == null ? "-" : fmtS(r.best) }), el("td", { class: "r", text: String(r.tries || 0) }), el("td", { class: "r", text: "+" + r.pts }), el("td", { class: "r", text: String(r.total) })].concat(cumCell)); })),
     ]);
     const note = el("p", { id: "sheet-next", class: "muted small", text: "" });
-    const info = el("p", { class: "muted", text: m.track + (m.author ? " · temps de l'auteur " + fmtS(m.author) : "") + (m.recordTime && m.mode === "essence" ? " · temps du vainqueur " + fmtS(m.recordTime) : "") });
+    const info = el("p", { class: "muted", text: m.track + (m.drawn && m.drawn.length ? " · " + m.drawn.join(", ") : "") + (m.rule === "temps" ? " · le meilleur cumul des temps gagne" : m.rule === "mixte" ? " · places aux points et aux temps cumulés" : "") + (m.author ? " · temps de l'auteur " + fmtS(m.author) : "") + (m.recordTime && m.mode === "essence" ? " · temps du vainqueur " + fmtS(m.recordTime) : "") });
     openSheet([el("h2", { text: "Course " + (m.index + 1) + " terminée" }), info, tbl, note]); G.sheet = { kind: "end", note };
   }
   function onOver(m) {
     G.endInfo = null; const rows = m.rows; const top = rows.slice(0, 3); const order = top.length === 1 ? [top[0]] : top.length === 2 ? [top[1], top[0]] : [top[1], top[0], top[2]];
     const pod = el("div", { class: "podium" }, order.map((r) => el("div", { class: "pod pod--" + r.rank }, [el("div", { class: "pod__ball", style: { background: hexOf(r.color) } }), el("div", { class: "pod__nm", text: r.name }), el("div", { class: "pod__bar", text: String(r.rank) })])));
     const tbl = el("table", { class: "tbl" }, [
-      el("thead", {}, [el("tr", {}, [el("th", { text: "" }), el("th", { text: "Pilote" }), el("th", { class: "r", text: "Points" }), el("th", { class: "r", text: "Courses gagnées" }), el("th", { class: "r", text: "Meilleur temps" })])]),
-      el("tbody", {}, rows.map((r) => el("tr", {}, [el("td", { text: String(r.rank) }), el("td", {}, [el("span", { class: "dotc", style: { background: hexOf(r.color) } }), r.name + (r.left ? " (parti)" : "")]), el("td", { class: "r", text: String(r.pts) }), el("td", { class: "r", text: String(r.wins) }), el("td", { class: "r", text: r.bestAll == null ? "-" : fmtS(r.bestAll) })]))),
+      el("thead", {}, [el("tr", {}, [el("th", { text: "" }), el("th", { text: "Pilote" }), el("th", { class: "r", text: "Points" }), el("th", { class: "r", text: "Courses gagnées" }), el("th", { class: "r", text: "Meilleur temps" })].concat(m.rule && m.rule !== "points" ? [el("th", { class: "r", text: "Cumul des temps" })] : []).concat(m.rule === "mixte" ? [el("th", { class: "r", text: "Places points + temps" })] : []))]),
+      el("tbody", {}, rows.map((r) => el("tr", {}, [el("td", { text: String(r.rank) }), el("td", {}, [el("span", { class: "dotc", style: { background: hexOf(r.color) } }), r.name + (r.left ? " (parti)" : "")]), el("td", { class: "r", text: String(r.pts) }), el("td", { class: "r", text: String(r.wins) }), el("td", { class: "r", text: r.bestAll == null ? "-" : fmtS(r.bestAll) })].concat(m.rule && m.rule !== "points" ? [el("td", { class: "r", text: r.cum == null ? "-" : fmtS(r.cum) + (r.dnf ? " (" + r.dnf + " sans temps)" : "") })] : []).concat(m.rule === "mixte" ? [el("td", { class: "r", text: r.rkPts + " + " + r.rkTime + " = " + r.mix })] : [])))),
     ]);
     const host = Kit.isHost();
     const btns = el("div", { class: "row" }, [
@@ -324,7 +324,7 @@
       el("button", { class: "btn btn--ghost", text: "Quitter", onclick: () => Kit.confirm("Quitter la partie et revenir à l'accueil ?", () => Kit.leave()) }),
       host ? el("button", { class: "btn btn--accent", text: "Retour au salon", onclick: () => Kit.backToLobby() }) : el("span", { class: "muted small", text: "L'hôte peut relancer une partie depuis le salon." }),
     ]);
-    openSheet([el("h2", { text: "Fin de la partie" }), pod, tbl, btns]); G.sheet = { kind: "over" }; sound.win(); V.setOrbit(true);
+    openSheet([el("h2", { text: "Fin de la partie" }), el("p", { class: "muted small", style: { textAlign: "center" }, text: m.rule === "temps" ? "Victoire au cumul des temps" : m.rule === "mixte" ? "Victoire mixte, places aux points et aux temps cumulés" : "Victoire aux points" }), pod, tbl, btns]); G.sheet = { kind: "over" }; sound.win(); V.setOrbit(true);
   }
 
   // ---------- éléments d'interface ----------
@@ -344,7 +344,7 @@
     if (g.dataset.key === gkey && g.firstChild) { const t = $("#gar-secs"); if (t) t.textContent = carWho() + " · départ dans " + secs + " s"; return; }
     g.dataset.key = gkey; g.innerHTML = "";
     const B = TR.BIOMES[G.track.biome];
-    g.appendChild(el("div", { class: "garage__info" }, [el("b", { text: B.icon + " " + G.track.name }), el("span", { class: "small", text: B.name + (B.identity ? " (" + B.identity.toLowerCase() + ")" : "") + " · " + Math.round(G.track.length) + " m · environ " + Math.round(G.track.length / 27) + " s de conduite" + (G.author ? " · temps de l'auteur " + fmtS(G.author) : "") })]));
+    g.appendChild(el("div", { class: "garage__info" }, [el("b", { text: B.icon + " " + G.track.name }), el("span", { class: "small", text: B.name + (B.identity ? " (" + B.identity.toLowerCase() + ")" : "") + " · " + Math.round(G.track.length) + " m · environ " + Math.round(G.track.length / 27) + " s de conduite" + (G.author ? " · temps de l'auteur " + fmtS(G.author) : "") })].concat(G.track.drawn && G.track.drawn.length ? [el("span", { class: "small", style: { display: "block" }, text: "Tiré au sort pour cette course, " + G.track.drawn.join(", ") })] : [])));
     const cmode = S().carMode || "winner"; const canPick = cmode === "own" || (cmode === "winner" && s.chooser === myId()); const cards = el("div", { class: "cars" + (canPick ? "" : " cars--locked") });
     CA.CAR_ORDER.forEach((id) => {
       const c = CA.CARS[id]; const on = G.carId === id; const bar = (v) => el("i", { style: { width: Math.round(clamp(v, 0.08, 1) * 80) + "px" } });
@@ -367,14 +367,14 @@
   function renderBoard() {
     const s = G.st; if (!s) return; const box = $("#z-board"); box.innerHTML = "";
     const ess = s.mode === "essence";
-    box.appendChild(el("h4", {}, [el("span", { text: (ess ? "Essence" : s.mode === "contact" ? "Contact" : "Fantôme") + " · course " + Math.min(s.total, s.roundIdx + 1) }), el("span", { text: ess ? "temps · essence" : "meilleur · pts" })]));
+    box.appendChild(el("h4", {}, [el("span", { text: (ess ? "Essence" : s.mode === "contact" ? "Contact" : "Fantôme") + " · course " + Math.min(s.total, s.roundIdx + 1) }), el("span", { text: ess ? "temps · essence" : (S().winRule === "temps" ? "meilleur · cumul" : "meilleur · pts") })]));
     let list = s.players.slice();
     if (ess && s.stage !== "open") list.sort((a, b) => (!!a.out - !!b.out) || (a.best == null) - (b.best == null) || a.best - b.best);
     else if (ess && s.order && s.order.length) list.sort((a, b) => s.order.indexOf(a.id) - s.order.indexOf(b.id));
     else list.sort((a, b) => (a.best == null) - (b.best == null) || a.best - b.best);
     list.forEach((p) => {
       const turn = ess && s.turn && s.turn.pid === p.id && s.phase === "turns"; const holder = ess && s.record && s.record.pid === p.id && s.stage === "duel" && !p.out;
-      let right = String(p.pts);
+      let right = String(p.pts); if (!ess && S().winRule === "temps") right = p.cum == null ? "-" : fmt(p.cum);
       if (ess) right = p.out ? "éliminé" : s.stage === "duel" ? Math.round(turn && s.turn.fuelLeft != null ? s.turn.fuelLeft : p.fuel) + " s" : "-";
       box.appendChild(el("div", { class: "brow" + (p.id === myId() ? " brow--you" : "") + (turn ? " brow--turn" : "") + (ess && p.out ? " brow--out" : "") }, [
         el("i", { style: { background: hexOf(p.color) } }), el("span", { class: "nm", text: (holder ? "🎯 " : "") + p.name + (p.isBot || p.auto ? " 🤖" : !p.connected ? " 💤" : "") }),
@@ -496,13 +496,14 @@
     const s = room.settings; const host = Kit.isHost(); const seeded = !!(s.seed && s.seed.trim());
     if (!seeded && !G.prev.seed) G.prev.seed = Math.random().toString(36).slice(2, 8);
     const seed = seeded ? s.seed.trim() : G.prev.seed; if (seeded && G.prev.idx >= s.rounds) G.prev.idx = 0; const idx = seeded ? G.prev.idx : 0;
-    const key = JSON.stringify([s.biomes, s.biomeOrder, s.trackSize, s.difficulty, s.hills, s.features, seed, idx]);
+    const key = JSON.stringify([s.biomes, s.biomeOrder, s.trackSize, s.difficulty, s.elements, s.hills, s.features, s.rnd, s.crashRnd, seed, idx]);
     if (key !== G.prev.key) { try { G.prev.track = ZR.trackFor(s, seed, idx); } catch (e) { G.prev.track = null; console.error(e); } G.prev.key = key; }
     box.innerHTML = ""; const t = G.prev.track; if (!t) return; const B = TR.BIOMES[t.biome];
     const cv = el("canvas", { width: 340, height: 340, style: { width: "170px", height: "170px", borderRadius: "12px", background: "#14172b", flex: "none" } });
     const jumps = t.flags.filter((f) => f & 2).length, boosts = (() => { let c = 0, p = false; for (let i = 0; i < t.n; i++) { const b = !!(t.flags[i] & 1); if (b && !p) c++; p = b; } return c; })();
     const info = el("div", { style: { flex: 1, minWidth: "140px" } }, [
       el("div", { class: "meta", text: B.icon + " " + t.name }), el("p", { class: "small", text: B.name + " · " + Math.round(t.length) + " m · environ " + Math.round(t.length / 27) + " s de conduite" }),
+      t.drawn && t.drawn.length ? el("p", { class: "small", text: "Tiré au sort pour cette course, " + t.drawn.join(", ") }) : null,
       el("p", { class: "small muted", text: elementsText(t) }),
       el("p", { class: "small muted", text: (jumps ? jumps + " bosse" + (jumps > 1 ? "s" : "") + " à sauter. " : "") + (boosts ? boosts + " tapis turbo. " : "") + (t.surf.some((v) => v === 2) ? "De la glace. " : "") + (t.surf.some((v) => v === 1) ? "De la terre. " : "") + (t.surf.some((v) => v === 4) ? "Un sol collant. " : "") }),
       el("p", { class: "small muted", text: seeded ? "Parcours fixé par la graine " + seed + (s.rounds > 1 ? ". Course " + (idx + 1) + " sur " + s.rounds + "." : ".") : "Simple aperçu d'un circuit possible. Fixe la graine pour jouer exactement celui-ci." }),

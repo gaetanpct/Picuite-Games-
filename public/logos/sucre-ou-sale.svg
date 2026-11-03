@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Logo Sucré ou Salé">
+<circle cx="80" cy="80" r="70" fill="#2a0a3d" stroke="#14041f" stroke-width="6"/>
+<path d="M40 128 L120 128 L108 112 L52 112 Z" fill="#7a3fb0" stroke="#14041f" stroke-width="5" stroke-linejoin="round"/>
+<circle cx="80" cy="76" r="44" fill="#ffb3d9" stroke="#14041f" stroke-width="6"/>
+<path d="M80 32 A44 44 0 0 1 80 120 Z" fill="#9fe7ff"/>
+<path d="M80 32 L80 120" stroke="#14041f" stroke-width="5"/>
+<circle cx="80" cy="76" r="44" fill="none" stroke="#14041f" stroke-width="6"/>
+<g fill="#fff" stroke="#14041f" stroke-width="3" stroke-linejoin="round"><rect x="50" y="56" width="16" height="16" rx="3" transform="rotate(-12 58 64)"/><rect x="56" y="82" width="14" height="14" rx="3" transform="rotate(10 63 89)"/></g>
+<g fill="#14041f"><circle cx="96" cy="62" r="3"/><circle cx="106" cy="74" r="3"/><circle cx="94" cy="86" r="3"/><circle cx="104" cy="94" r="3"/></g>
+<path d="M60 44 Q66 38 74 38" stroke="#fff" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.8"/>
+<g fill="#ffd84a" stroke="#14041f" stroke-width="3" stroke-linejoin="round"><path d="M128 28 l4 9 9 4 -9 4 -4 9 -4 -9 -9 -4 9 -4 z"/></g>
+</svg>
