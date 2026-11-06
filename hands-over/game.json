@@ -1,17 +1,24 @@
 {
- "name": "Hands Over",
+ "name": "Main Morte",
  "order": 11,
- "tagline": "Un jeu télé d'épouvante où chaque défaite coûte une main.",
- "pitch": "Un plateau de télévision sombre, un présentateur au sourire trop large et des épreuves courtes, crocodile dentiste, mémoire, réflexes, précision, déduction et bluff. Chaque épreuve perdue coûte une main. Cartes d'influence, pactes et trahisons, fantômes qui reviennent hanter les vivants, et sept modes dont survie, équipes, tournoi, express et chaos.",
- "tags": ["2 à 8 joueurs", "15 à 30 minutes", "Avec robots"],
+ "tagline": "Un jeu télé d'épouvante où l'on perd une main à chaque défaite, et un ami à chaque trahison.",
+ "pitch": "Un plateau de télévision sombre, un présentateur au sourire trop large et douze épreuves, crocodile dentiste, mémoire, réflexes, précision, déduction, bluff, duel des mains et main chaude. Chaque épreuve commence par une vraie lecture des règles, avec le temps qu'il faut. Neuf cartes d'influence, des pactes secrets où l'on peut trahir, des fantômes qui reviennent hanter les vivants, trois durées de partie et sept modes dont survie, équipes, tournoi, express et chaos.",
+ "tags": [
+  "2 à 8 joueurs",
+  "15 à 30 minutes",
+  "Avec robots"
+ ],
  "steps": [
-  "Une épreuve rapide est annoncée, on prépare cartes et pactes.",
-  "Tout le monde joue en même temps ou chacun son tour.",
+  "Chaque épreuve s'explique d'abord, tout le monde lit à son rythme.",
+  "On joue des cartes et on scelle des pactes, fidèles ou traîtres.",
   "Le ou les perdants laissent une main sur le plateau."
  ],
  "note": "Se joue en solo contre tous, en équipes ou en tournoi.",
  "for": "Pour ceux qui aiment l'humour noir et les parties qui tournent mal.",
- "colors": ["#e63946", "#12060a"],
- "cta": "Jouer à Hands Over",
+ "colors": [
+  "#e63946",
+  "#12060a"
+ ],
+ "cta": "Jouer à Main Morte",
  "logo": "logos/hands-over.svg"
 }

@@ -33,5 +33,29 @@
     const dx = lv.x[lo + 1] - lv.x[lo], dz = lv.z[lo + 1] - lv.z[lo]; const l = Math.hypot(dx, dz) || 1;
     return { x, z, tx: dx / l, tz: dz / l, hw: lv.hw[lo] + (lv.hw[lo + 1] - lv.hw[lo]) * t, h: lv.h[lo] + (lv.h[lo + 1] - lv.h[lo]) * t, i: lo };
   }
-  return { nearest, obsPos, pointAt };
+  // ---------- zones de contrôle des sièges (serveur et client) ----------
+  // Angle theta dans le repère de la bouée, direction (sin theta, cos theta), zéro vers l'avant, positif vers la gauche de l'écran.
+  const TAU = Math.PI * 2, SEAT_R = 1.15;
+  const wrap = (a) => { while (a > Math.PI) a -= TAU; while (a < -Math.PI) a += TAU; return a; };
+  const seatCache = {};
+  function seatAngles(n) {
+    if (seatCache[n]) return seatCache[n]; const c = [];
+    for (let i = 0; i < n; i++) { let a = wrap(Math.PI + (n % 2 ? i : i + 0.5) * TAU / n); if (a >= Math.PI - 1e-9) a -= TAU; c.push(a); }
+    c.sort((x, y) => y - x); seatCache[n] = c; return c;
+  }
+  function seatAngle(n, k) { return n <= 1 ? Math.PI : seatAngles(n)[k % n]; }
+  function seatPos(n, k) { if (n <= 1) return [0, -0.45]; const a = seatAngle(n, k); return [Math.sin(a) * SEAT_R, Math.cos(a) * SEAT_R]; }
+  // la zone d'un siège, le secteur de la bouée qui lui appartient
+  function zoneOf(n, k) { return n <= 1 ? { c: Math.PI, h: Math.PI } : { c: seatAngle(n, k), h: Math.PI / n }; }
+  // le cône de poussée, on pousse toujours vers l'intérieur de la bouée, jamais vers l'extérieur
+  function aimCone(n, k) { return n <= 1 ? { c: 0, h: Math.PI } : { c: wrap(seatAngle(n, k) + Math.PI), h: Math.PI / 2 }; }
+  function clampAim(n, k, a) { const cn = aimCone(n, k); if (cn.h >= Math.PI - 1e-6) return wrap(a); const d = wrap(a - cn.c); return wrap(cn.c + Math.max(-cn.h, Math.min(cn.h, d))); }
+  function roleOf(n, k) {
+    if (n <= 1) return { id: "pilote", name: "Pilote", icon: "🧭", desc: "Tu diriges seul toute la bouée, dans toutes les directions." };
+    const cn = aimCone(n, k), f = Math.cos(cn.c), side = Math.sin(zoneOf(n, k).c);
+    if (f > 0.55) return { id: "moteur", name: "Moteur", icon: "🚀", desc: "Assis à l'arrière, tu pousses la bouée vers l'avant. Sans toi, personne n'avance vraiment." };
+    if (f < -0.55) return { id: "gouvernail", name: side > 0 ? "Gouvernail gauche" : "Gouvernail droit", icon: "🛞", desc: "Assis à l'avant, tu pousses vers l'arrière et sur le côté. Tu freines et tu fais pivoter le nez de la bouée." };
+    return { id: "flanc", name: side > 0 ? "Rame gauche" : "Rame droite", icon: "🛶", desc: side > 0 ? "Sur le flanc gauche, ta poussée fait tourner la bouée vers la droite. Pousse en arrière pour tourner à gauche." : "Sur le flanc droit, ta poussée fait tourner la bouée vers la gauche. Pousse en arrière pour tourner à droite." };
+  }
+  return { nearest, obsPos, pointAt, wrap, SEAT_R, seatAngle, seatPos, zoneOf, aimCone, clampAim, roleOf };
 });

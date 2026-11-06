@@ -64,3 +64,17 @@
 .ft-award { display: flex; gap: 0.7rem; align-items: center; padding: 0.3rem 0; }
 .ft-award__ic { font-size: 2rem; }
 @media (max-width: 520px) { .ft-count { font-size: 4.6rem; } .ft-time { font-size: 1.25rem; } }
+
+/* Zones de contrôle, radar et rôle */
+.ft-radar { position: absolute; right: 0.6rem; bottom: 4.4rem; width: 128px; height: 128px; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5)); }
+.ft-role { position: absolute; left: 0.7rem; top: 6.6rem; display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.7rem 0.3rem 0.5rem; border-radius: 14px; background: rgba(4, 22, 32, 0.7); border: 2px solid rgba(255, 255, 255, 0.35); }
+.ft-role__ic { font-size: 1.6rem; }
+.ft-role b { display: block; font-family: var(--font-title); font-weight: 400; font-size: 1rem; }
+.ft-role small { font-size: 0.72rem; color: rgba(255, 255, 255, 0.78); }
+.ft-zonerow { display: flex; gap: 0.9rem; align-items: center; flex-wrap: wrap; }
+.ft-zonecv { width: 160px; height: 160px; flex: none; }
+.ft-line--me { font-weight: 700; }
+@media (max-width: 520px) { .ft-radar { width: 104px; height: 104px; bottom: 4.2rem; } .ft-role { top: 5.4rem; } }
+.ft-helpline { padding-right: 9rem; padding-left: 1rem; text-align: left; }
+@media (max-width: 520px) { .ft-helpline { padding-right: 7.6rem; font-size: 0.78rem; } }
+.ft-zonerow > div { flex: 1 1 240px; }

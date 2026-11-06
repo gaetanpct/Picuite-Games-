@@ -1,17 +1,24 @@
 {
- "name": "Sucré ou Salé",
+ "name": "Cristal Tordu",
  "order": 8,
  "tagline": "Un mot secret, des dilemmes absurdes, une grille qui se vide.",
- "pitch": "Un jeu télé de déduction. Un joueur est l'Extralucide et connaît un mot caché dans une grille. Il répond à des dilemmes comme brosse à dents ou brosse WC, les autres éliminent les mots qui ne collent pas, sans jamais éliminer le bon. Six modes, des événements qui brouillent les pistes, des robots qui raisonnent vraiment et près de deux cents dilemmes.",
- "tags": ["2 à 8 joueurs", "15 à 30 minutes", "Avec robots"],
+ "pitch": "Un jeu télé de déduction. Un joueur est l'Extralucide et connaît un mot caché dans une grille, parfois le prénom d'un joueur. Il reçoit des dilemmes tirés au hasard et doit relier son mot à l'un d'eux, même de loin. Les autres éliminent les mots qui ne collent pas, gardent leurs doutes sur des post-it et peuvent annoncer leur mot en avance pour gagner du temps. Six modes, des événements qui brouillent les pistes, des robots qui raisonnent vraiment et près de trois cents dilemmes.",
+ "tags": [
+  "2 à 8 joueurs",
+  "15 à 30 minutes",
+  "Avec robots"
+ ],
  "steps": [
-  "L'Extralucide reçoit un mot secret et des dilemmes.",
-  "Il choisit le côté qui lui ressemble, les autres éliminent des mots.",
-  "On finit par désigner le mot secret, sans l'avoir éliminé."
+  "L'Extralucide reçoit des dilemmes au hasard et en choisit un.",
+  "Il désigne le côté qui lui ressemble, les autres éliminent des mots.",
+  "On peut annoncer le mot en avance, sans jamais avoir éliminé le bon."
  ],
  "note": "Se joue ensemble, en équipes ou chacun pour soi.",
  "for": "Pour les esprits tordus qui aiment deviner ce que pense l'autre.",
- "colors": ["#ff5fa8", "#2a0a3d"],
- "cta": "Jouer à Sucré ou Salé",
+ "colors": [
+  "#ff5fa8",
+  "#2a0a3d"
+ ],
+ "cta": "Jouer à Cristal Tordu",
  "logo": "logos/sucre-ou-sale.svg"
 }

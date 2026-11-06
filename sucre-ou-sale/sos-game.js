@@ -14,7 +14,9 @@ const shuffle = (a) => { const r = a.slice(); for (let i = r.length - 1; i > 0; 
 const defOf = (room, id) => room.players.find((p) => p.id === id);
 const present = (room) => room.players.filter((p) => !p.left);
 const active = (p) => p && !p.left && (p.isBot || p.connected);
-const wordById = (id) => WORDS[id];
+const wordById = (room, id) => { const r = room.g && room.g.r; const w = r && r.grid.find((x) => x.id === id); return w || WORDS[id] || { name: "?" }; };
+const NAME_BASE = 10000;
+const TRAITS = ["drole", "calme", "energie", "serieux", "mignon", "bruyant", "fete", "paresseux", "intelligent", "aventure", "courage", "doux", "agressif", "rapide", "romantique", "propre", "crade", "famille", "sage", "stress", "musique", "sport", "jeune", "adulte", "celebre", "luxe", "secret", "nature"];
 const dilById = (id) => DILEMMAS[id];
 const PICK_MS = 30000 * TS, RESULT_MS = 4200 * TS, REVEAL_MS = 16000 * TS, VERDICT_MS = 30000 * TS;
 
@@ -34,7 +36,7 @@ function start(room, api) {
     order.push(perm.shift());
   }
   const g = room.g = { api, s, order, round: -1, rounds: nRounds, phase: "wait", phaseUntil: 0, phaseTotal: 1, scores: {}, stats: {}, usedWords: new Set(), usedDil: new Set(), history: [], timer: null, over: false, mem: {}, seq: 0 };
-  room.players.forEach((p) => { g.scores[p.id] = 0; g.stats[p.id] = { correct: 0, busts: 0, extraOk: 0, extraRounds: 0, fastest: 0 }; });
+  room.players.forEach((p) => { g.scores[p.id] = 0; g.stats[p.id] = { correct: 0, busts: 0, extraOk: 0, extraRounds: 0, fast: 0 }; });
   api.sysChat(room, "C'est parti pour " + nRounds + " manche" + (nRounds > 1 ? "s" : "") + ". Un Extralucide, un mot secret, des dilemmes.");
   g.timer = setInterval(() => { try { tick(room); } catch (e) { console.error("tick sos", e); } }, 250);
   nextRound(room);
@@ -42,14 +44,25 @@ function start(room, api) {
 function onDestroy(room) { if (room.g && room.g.timer) { clearInterval(room.g.timer); room.g.timer = null; } }
 
 // ---------- préparation d'une manche ----------
-function buildGrid(room, extraWord) {
+function playerWord(room, p) {
+  const g = room.g; g.traits = g.traits || {};
+  if (!g.traits[p.id]) { const t = shuffle(TRAITS).slice(0, 6); g.traits[p.id] = t; }
+  const t = g.traits[p.id];
+  return { id: NAME_BASE + room.players.indexOf(p), name: p.name, cat: "prenom", tags: t, tagset: new Set(t), player: p.id };
+}
+function buildGrid(room) {
   const g = room.g, s = g.s; const cats = new Set(s.wcats);
-  let pool = WORDS.filter((w) => cats.has(w.cat) && !g.usedWords.has(w.id));
-  if (pool.length < s.grid + 2) { g.usedWords.clear(); pool = WORDS.filter((w) => cats.has(w.cat)); }
-  const picked = shuffle(pool).slice(0, s.grid);
-  // la grille ne doit pas contenir deux mots trop proches, on s'assure d'une variété de familles
+  // au moins deux prénoms de joueurs, parfois trois, jamais mis en avant
+  let nm = [];
+  if (s.names) {
+    const pp = shuffle(present(room)); const n = pp.length >= 5 && rng() < 0.3 ? 3 : Math.min(2, pp.length);
+    nm = pp.slice(0, n).map((p) => playerWord(room, p));
+  }
+  let pool = WORDS.filter((w) => cats.has(w.cat) && !g.usedWords.has(w.id) && !nm.some((x) => x.name.toLowerCase() === w.name.toLowerCase()));
+  if (pool.length < s.grid + 2) { g.usedWords.clear(); pool = WORDS.filter((w) => cats.has(w.cat) && !nm.some((x) => x.name.toLowerCase() === w.name.toLowerCase())); }
+  const picked = shuffle(pool).slice(0, Math.max(2, s.grid - nm.length));
   picked.forEach((w) => g.usedWords.add(w.id));
-  return picked;
+  return shuffle(picked.concat(nm));
 }
 function nextRound(room) {
   const g = room.g, s = g.s;
@@ -64,7 +77,8 @@ function nextRound(room) {
   const extraId = g.order[g.round];
   const guessers = present(room).filter((p) => p.id !== extraId).map((p) => p.id);
   const grid = buildGrid(room);
-  const secret = grid[Math.floor(rng() * grid.length)];
+  const cand = grid.filter((w) => w.player !== extraId);
+  const secret = cand[Math.floor(rng() * cand.length)];
   const quota = Rules.quotaFor(s.grid, s.steps);
   // groupes d'enquêteurs
   let groups = [];
@@ -72,8 +86,8 @@ function nextRound(room) {
   if (play === "solo") groups = guessers.map((id) => ({ members: [id] }));
   else if (play === "equipes") { const sh = shuffle(guessers); groups = [{ members: [] }, { members: [] }]; sh.forEach((id, i) => groups[i % 2].members.push(id)); }
   else groups = [{ members: guessers.slice() }];
-  groups.forEach((gr, i) => { gr.id = i; gr.elim = new Set(); gr.marks = {}; gr.validated = new Set(); gr.finals = {}; gr.busted = false; gr.bustStep = -1; gr.final = null; gr.ok = null; gr.lockedAt = 0; gr.timedOut = false; });
-  g.r = { extraId, grid, secret, quota, groups, play, step: -1, picks: [], hand: [], event: null, jokerUsed: false, needPicks: 1, steps: [], elimLog: [], timerScale: 1, reveal: null, botAt: {}, resultInfo: null };
+  groups.forEach((gr, i) => { gr.id = i; gr.elim = new Set(); gr.marks = {}; gr.validated = new Set(); gr.finals = {}; gr.busted = false; gr.bustStep = -1; gr.early = {}; gr.pins = new Set(); gr.notes = []; gr.earlyLeft = 0; gr.earlyStep = -1; gr.final = null; gr.ok = null; gr.lockedAt = 0; gr.timedOut = false; });
+  g.r = { extraId, grid, secret, quota, groups, play, step: -1, picks: [], hand: [], event: null, jokerUsed: false, rerolled: false, needPicks: 1, steps: [], elimLog: [], timerScale: 1, reveal: null, botAt: {}, resultInfo: null };
   g.mem = {};
   groups.forEach((gr) => gr.members.forEach((id) => { const p = defOf(room, id); if (p && p.isBot) g.mem[id] = Bot.newMemory(p.level); }));
   g.stats[extraId].extraRounds++;
@@ -84,36 +98,26 @@ function nextRound(room) {
 function aliveFor(r, gr) { return r.grid.filter((w) => !gr.elim.has(w.id)); }
 function aliveAny(r) { return r.grid.filter((w) => r.groups.some((gr) => !gr.busted && !gr.elim.has(w.id))); }
 function liveGroups(r) { return r.groups.filter((gr) => !gr.busted); }
+function openGroups(r) { return r.groups.filter((gr) => !gr.busted && gr.final === null); }
 
 // ---------- tirage des cartes ----------
+// la main est tirée au hasard, le mot secret n'entre jamais dans le choix
 function drawHand(room) {
   const g = room.g, s = g.s, r = g.r;
   const cats = new Set(s.dcats); const D = s.difficulty;
   const LW = D === 1 ? [6, 3, 0.3] : D === 2 ? [3, 4, 2] : [0.5, 3, 6];
-  const catW = (c) => (s.chaosMix ? (c === "A" || c === "D" ? 5 : 0.6) : 1);
+  const names = r.grid.some((w) => w.player);
+  const catW = (c) => { let w = s.chaosMix ? (c === "A" || c === "D" ? 5 : 0.6) : 1; if (c === "P") w *= names ? 2.2 : 0.35; return w; };
   let pool = DILEMMAS.filter((d) => cats.has(d.cat) && !g.usedDil.has(d.id));
-  if (pool.length < s.hand * 3) { g.usedDil.clear(); pool = DILEMMAS.filter((d) => cats.has(d.cat)); }
-  const alive = aliveAny(r); const hand = [];
-  const evalCard = (d) => {
-    const sA = Bot.ov(r.secret.tagset, d.ta), sB = Bot.ov(r.secret.tagset, d.tb), diff = sA - sB; const sign = Math.sign(diff);
-    let el = 0; if (sign) alive.forEach((w) => { if (w.id !== r.secret.id && Bot.margin(w, d) * sign < 0) el++; });
-    return { diff: Math.abs(diff), el };
-  };
-  const minDiff = D === 1 ? 2 : 1;
-  for (let relax = 0; relax < 3 && hand.length < s.hand; relax++) {
-    const cands = shuffle(pool).filter((d) => !hand.some((h) => h.id === d.id));
-    const weights = cands.map((d) => LW[d.lvl - 1] * catW(d.cat) + 0.01);
-    // tirage pondéré avec filtre
-    for (let tries = 0; tries < 400 && hand.length < s.hand; tries++) {
-      let tot = weights.reduce((a, b) => a + b, 0), x = rng() * tot, idx = 0;
-      for (let i = 0; i < weights.length; i++) { x -= weights[i]; if (x <= 0) { idx = i; break; } }
-      const d = cands[idx]; if (!d || hand.some((h) => h.id === d.id)) continue;
-      const ev = evalCard(d);
-      const ok = relax === 0 ? ev.diff >= minDiff && ev.el >= Math.min(2, alive.length - 1) : relax === 1 ? ev.diff >= 1 && ev.el >= 1 : true;
-      if (ok) hand.push(d);
-    }
+  if (pool.length < s.hand * 4) { g.usedDil.clear(); pool = DILEMMAS.filter((d) => cats.has(d.cat)); }
+  const hand = [];
+  while (hand.length < s.hand && pool.length) {
+    const weights = pool.map((d) => LW[d.lvl - 1] * catW(d.cat) + 0.01);
+    let x = rng() * weights.reduce((a, b) => a + b, 0), idx = pool.length - 1;
+    for (let i = 0; i < weights.length; i++) { x -= weights[i]; if (x <= 0) { idx = i; break; } }
+    hand.push(pool[idx]); pool.splice(idx, 1);
   }
-  return hand.slice(0, s.hand);
+  return hand;
 }
 
 // ---------- étapes ----------
@@ -121,20 +125,20 @@ function nextStep(room) {
   const g = room.g, r = g.r, s = g.s;
   r.step++;
   // fin de partie de manche si plus de dilemmes ou si tout le monde est au clair
-  const liv = liveGroups(r);
+  const liv = openGroups(r);
   if (!liv.length) return startReveal(room);
   if (r.step >= s.steps || liv.every((gr) => aliveFor(r, gr).length <= 1)) return startVerdict(room);
   r.picks = []; r.event = null; r.needPicks = 1; r.timerScale = 1;
   const rate = s.events === "often" ? 0.5 : s.events === "rare" ? 0.2 : 0;
   if (rate > 0 && rng() < rate && r.step > 0) {
     const opts = ["inverse", "sablier"]; if (s.hand >= 2) opts.push("bonus");
-    if (r.groups.some((gr) => !gr.busted && gr.elim.size > 0)) opts.push("revient");
+    if (r.groups.some((gr) => !gr.busted && gr.final === null && gr.elim.size > 0)) opts.push("revient");
     const e = opts[Math.floor(rng() * opts.length)]; r.event = { id: e, label: EVENTS[e].label, text: EVENTS[e].text };
     if (e === "bonus") r.needPicks = 2;
     if (e === "sablier") r.timerScale = 0.5;
     if (e === "revient") {
-      const un = []; r.groups.forEach((gr) => { if (!gr.busted) gr.elim.forEach((id) => { if (!un.includes(id)) un.push(id); }); });
-      if (un.length) { const w = un[Math.floor(rng() * un.length)]; r.groups.forEach((gr) => gr.elim.delete(w)); r.event.word = wordById(w).name; r.event.text = "Le mot « " + wordById(w).name + " » revient sur la grille."; }
+      const un = []; r.groups.forEach((gr) => { if (!gr.busted && gr.final === null) gr.elim.forEach((id) => { if (!un.includes(id)) un.push(id); }); });
+      if (un.length) { const w = un[Math.floor(rng() * un.length)]; r.groups.forEach((gr) => gr.elim.delete(w)); r.event.word = wordById(room, w).name; r.event.text = "Le mot « " + wordById(room, w).name + " » revient sur la grille."; }
     }
   }
   startPick(room);
@@ -167,16 +171,23 @@ function doPick(room, cardId, side, auto) {
     g.seq++; scheduleBot(room, true); emitAll(room); return true;
   }
   r.steps.push({ step: r.step, picks: r.picks.map((p) => ({ a: p.a, b: p.b, side: p.side, meaning: p.meaning, inv: p.inv })), event: r.event ? r.event.label : null });
-  r.groups.forEach((gr) => { gr.marks = {}; gr.validated = new Set(); });
+  r.groups.forEach((gr) => { gr.marks = {}; gr.validated = new Set(); gr.early = {}; });
   const talk = Math.round(g.s.talk * 1000 * r.timerScale * TS * (r.needPicks > 1 ? 1.25 : 1));
   setPhase(room, "elim", talk);
   scheduleBot(room, false);
   emitAll(room); return true;
 }
-function autoPick(room) {
+function reroll(room) {
+  const g = room.g, r = g.r; if (g.phase !== "pick" || !g.s.reroll || r.rerolled || r.picks.length) return false;
+  r.rerolled = true; r.hand = drawHand(room); r.hand.forEach((d) => g.usedDil.add(d.id)); g.seq++;
+  return true;
+}
+function autoPick(room, timeout) {
   const g = room.g, r = g.r; const ex = defOf(room, r.extraId);
   const lvl = ex && ex.isBot ? ex.level : "fute";
   const inv = !!(r.event && r.event.id === "inverse");
+  // un robot sans rien d'exploitable relance sa main quand il le peut
+  if (!timeout && ex && ex.isBot && g.s.reroll && !r.rerolled && !r.picks.length && Bot.handQuality(lvl, r.hand, r.secret) < 1) { if (reroll(room)) { scheduleBot(room, true); emitAll(room); return; } }
   const c = Bot.chooseCard(lvl, r.hand, r.secret, aliveAny(r), g.s.joker && !r.jokerUsed, inv);
   doPick(room, c.card, c.side, !(ex && ex.isBot));
 }
@@ -185,7 +196,7 @@ function autoPick(room) {
 function members(room, gr) { return gr.members.map((id) => defOf(room, id)).filter((p) => p && !p.left); }
 function activeMembers(room, gr) { return members(room, gr).filter(active); }
 function mark(room, gr, pid, wordId) {
-  const g = room.g, r = g.r; if (g.phase !== "elim" || gr.busted || gr.elim.has(wordId) || gr.validated.has(pid)) return false;
+  const g = room.g, r = g.r; if (g.phase !== "elim" || gr.busted || gr.final !== null || gr.elim.has(wordId) || gr.validated.has(pid)) return false;
   if (!gr.members.includes(pid)) return false; if (!r.grid.some((w) => w.id === wordId)) return false;
   const mine = Object.keys(gr.marks).filter((k) => gr.marks[k].has(pid)).length;
   const has = gr.marks[wordId] && gr.marks[wordId].has(pid);
@@ -205,9 +216,41 @@ function resolveGroup(room, gr) {
 }
 function endElim(room) {
   const g = room.g, r = g.r;
-  const info = r.groups.map((gr) => { if (gr.busted) return { id: gr.id, elim: [], busted: true }; const out = resolveGroup(room, gr); return { id: gr.id, elim: out, busted: gr.busted }; });
+  const info = r.groups.map((gr) => {
+    if (gr.busted) return { id: gr.id, elim: [], busted: true };
+    if (gr.final !== null) return { id: gr.id, elim: [], locked: true };
+    const contested = Object.keys(gr.marks).map(Number).filter((id) => !gr.elim.has(id));
+    const out = resolveGroup(room, gr);
+    out.forEach((id) => gr.pins.delete(id));
+    gr.notes.push({ step: r.step, elim: out, contested: contested.filter((id) => !out.includes(id)), pins: Array.from(gr.pins) });
+    return { id: gr.id, elim: out, busted: gr.busted };
+  });
   r.resultInfo = { step: r.step, groups: info };
   setPhase(room, "result", RESULT_MS); emitAll(room);
+}
+// ---------- trouver le mot avant la fin des dilemmes ----------
+function earlyNeed(room, gr) {
+  const g = room.g, r = g.r; const size = Math.max(1, activeMembers(room, gr).length);
+  return r.play === "solo" ? 1 : g.s.elim === "un" ? 1 : g.s.elim === "unanimite" ? size : Math.floor(size / 2) + 1;
+}
+function earlyVote(room, gr, pid, wordId) {
+  const g = room.g, r = g.r; if (g.phase !== "elim" || gr.busted || gr.final !== null || !gr.members.includes(pid)) return false;
+  if (wordId === -1) { delete gr.early[pid]; return true; }
+  if (gr.elim.has(wordId) || !r.grid.some((w) => w.id === wordId)) return false;
+  gr.early[pid] = wordId; gr.validated.add(pid);
+  checkEarly(room, gr); return true;
+}
+function checkEarly(room, gr) {
+  const g = room.g, r = g.r; if (gr.final !== null) return;
+  const act = activeMembers(room, gr).map((p) => p.id); const tally = {};
+  act.forEach((id) => { const w = gr.early[id]; if (w !== undefined) tally[w] = (tally[w] || 0) + 1; });
+  const need = earlyNeed(room, gr); const hit = Object.keys(tally).filter((k) => tally[k] >= need);
+  if (hit.length !== 1) return;
+  const w = +hit[0];
+  gr.final = w; gr.ok = w === r.secret.id; gr.lockedAt = Date.now(); gr.earlyStep = r.step; gr.earlyLeft = Math.max(0, g.s.steps - r.step - 1);
+  g.api.sysChat(room, (r.play === "coop" ? "Le groupe" : "Une équipe") + " annonce son mot en avance, il reste " + gr.earlyLeft + " dilemme" + (gr.earlyLeft > 1 ? "s" : "") + " non joué" + (gr.earlyLeft > 1 ? "s" : "") + ".");
+  if (!openGroups(r).length) return startReveal(room);
+  emitAll(room); maybeEndElim(room);
 }
 function afterResult(room) {
   const g = room.g, r = g.r;
@@ -220,7 +263,7 @@ function startVerdict(room) {
   const g = room.g, r = g.r;
   r.groups.forEach((gr) => { gr.validated = new Set(); gr.finals = {}; });
   // un seul mot restant, la réponse est automatique
-  liveGroups(r).forEach((gr) => { const al = aliveFor(r, gr); if (al.length === 1) { gr.final = al[0].id; gr.ok = true; gr.lockedAt = Date.now(); gr.auto = true; } });
+  openGroups(r).forEach((gr) => { const al = aliveFor(r, gr); if (al.length === 1) { gr.final = al[0].id; gr.ok = true; gr.lockedAt = Date.now(); gr.auto = true; gr.earlyLeft = Math.max(0, g.s.steps - r.step); gr.earlyStep = r.step; } });
   if (liveGroups(r).every((gr) => gr.final !== null)) return startReveal(room);
   setPhase(room, "verdict", VERDICT_MS);
   scheduleBot(room, false, true);
@@ -251,18 +294,20 @@ function startReveal(room) {
   const g = room.g, r = g.r, s = g.s;
   const mult = g.round === g.rounds - 1 ? s.finalMult : 1;
   const gains = {}; room.players.forEach((p) => { gains[p.id] = 0; });
-  const gs = r.groups.map((gr) => { const ok = gr.ok === true; return { id: gr.id, members: gr.members.slice(), ok, busted: gr.busted, final: gr.final, timedOut: gr.timedOut, auto: !!gr.auto }; });
+  const bonusOn = s.bonusEarly !== false;
+  const gs = r.groups.map((gr) => { const ok = gr.ok === true; return { id: gr.id, members: gr.members.slice(), ok, busted: gr.busted, final: gr.final, timedOut: gr.timedOut, auto: !!gr.auto, left: ok && bonusOn ? Math.min(3, gr.earlyLeft || 0) : 0, early: gr.earlyStep >= 0 && !gr.auto }; });
   const succ = gs.filter((x) => x.ok);
   if (r.play === "coop") {
-    if (succ.length) { gs[0].members.forEach((id) => { gains[id] += 3; g.stats[id].correct++; }); gains[r.extraId] += 3; g.stats[r.extraId].extraOk++; }
+    if (succ.length) { gs[0].members.forEach((id) => { gains[id] += 3 + gs[0].left; g.stats[id].correct++; }); gains[r.extraId] += 3; g.stats[r.extraId].extraOk++; }
   } else if (r.play === "solo") {
-    succ.forEach((x) => { x.members.forEach((id) => { gains[id] += 3; g.stats[id].correct++; }); });
+    succ.forEach((x) => { x.members.forEach((id) => { gains[id] += 3 + x.left; g.stats[id].correct++; }); });
     gains[r.extraId] += succ.length; if (succ.length) g.stats[r.extraId].extraOk++;
     if (succ.length >= 1 && succ.length < gs.length) gains[r.extraId] += 2;
   } else {
-    succ.forEach((x) => { x.members.forEach((id) => { gains[id] += 3 + (succ.length === 1 ? 1 : 0); g.stats[id].correct++; }); });
+    succ.forEach((x) => { x.members.forEach((id) => { gains[id] += 3 + x.left + (succ.length === 1 ? 1 : 0); g.stats[id].correct++; }); });
     gains[r.extraId] += succ.length + (succ.length === 1 ? 1 : 0); if (succ.length) g.stats[r.extraId].extraOk++;
   }
+  gs.forEach((x) => { if (x.ok && x.left) x.members.forEach((id) => { g.stats[id].fast = (g.stats[id].fast || 0) + 1; }); });
   Object.keys(gains).forEach((id) => { gains[id] *= mult; g.scores[id] = (g.scores[id] || 0) + gains[id]; });
   const ex = defOf(room, r.extraId);
   r.reveal = { secret: { id: r.secret.id, name: r.secret.name }, groups: gs, gains, mult, steps: r.steps, extra: r.extraId, extraName: ex ? ex.name : "?", elimBy: r.groups.map((gr) => Array.from(gr.elim)) };
@@ -272,7 +317,7 @@ function startReveal(room) {
   g.api.sysChat(room, "Le mot était « " + r.secret.name + " ». " + (succ.length ? "Trouvé par " + names.join(", ") + "." : "Personne ne l'a trouvé."));
 }
 function standings(room) {
-  const g = room.g; const rows = room.players.map((p) => ({ id: p.id, name: p.name, color: p.color, left: !!p.left, pts: g.scores[p.id] || 0, correct: g.stats[p.id].correct, busts: g.stats[p.id].busts, extraOk: g.stats[p.id].extraOk, extraRounds: g.stats[p.id].extraRounds }));
+  const g = room.g; const rows = room.players.map((p) => ({ id: p.id, name: p.name, color: p.color, left: !!p.left, pts: g.scores[p.id] || 0, correct: g.stats[p.id].correct, busts: g.stats[p.id].busts, extraOk: g.stats[p.id].extraOk, extraRounds: g.stats[p.id].extraRounds, fast: g.stats[p.id].fast || 0 }));
   rows.sort((a, b) => b.pts - a.pts || b.correct - a.correct || a.busts - b.busts);
   let rank = 0, prev = null; rows.forEach((r, i) => { if (!prev || r.pts !== prev.pts) rank = i + 1; r.rank = rank; prev = r; });
   return rows;
@@ -284,6 +329,7 @@ function awards(rows) {
   const a2 = best((r) => r.busts, 1); if (a2) out.push({ id: a2.r.id, icon: "💥", title: "Le kamikaze", detail: a2.v + " fois le mot secret éliminé" });
   const a3 = best((r) => (r.extraRounds ? r.extraOk / r.extraRounds : 0) * 100 + r.extraOk, 100); if (a3) out.push({ id: a3.r.id, icon: "🔮", title: "La vraie Extralucide", detail: "Toujours bien compris" });
   const a4 = best((r) => (r.extraRounds && !r.extraOk ? 1 : 0), 1); if (a4) out.push({ id: a4.r.id, icon: "🌫️", title: "La boule de cristal fêlée", detail: "Jamais compris en tant qu'Extralucide" });
+  const a5 = best((r) => r.fast, 1); if (a5) out.push({ id: a5.r.id, icon: "⚡", title: "L'éclair", detail: a5.v + " mot" + (a5.v > 1 ? "s" : "") + " trouvé" + (a5.v > 1 ? "s" : "") + " avant la fin des dilemmes" });
   return out;
 }
 function finish(room, aborted) {
@@ -309,9 +355,11 @@ function botAct(room) {
     const ex = defOf(room, r.extraId); if (ex && ex.isBot && r.botAt[ex.id] && now >= r.botAt[ex.id]) { delete r.botAt[ex.id]; autoPick(room); }
   } else if (g.phase === "elim") {
     r.groups.forEach((gr) => gr.members.forEach((id) => {
-      const p = defOf(room, id); if (!p || !p.isBot || p.left || !r.botAt[id] || now < r.botAt[id] || gr.busted || gr.validated.has(id)) return;
+      const p = defOf(room, id); if (!p || !p.isBot || p.left || !r.botAt[id] || now < r.botAt[id] || gr.busted || gr.final !== null || gr.validated.has(id)) return;
       delete r.botAt[id]; const mem = g.mem[id] || (g.mem[id] = Bot.newMemory(p.level));
-      const alive = aliveFor(r, gr); const picks = Bot.chooseMarks(mem, alive, r.quota, g.s.elim, r.play === "solo");
+      const alive = aliveFor(r, gr);
+      if (gr.final === null && g.s.steps - r.step - 1 > 0) { const e = Bot.earlyGuess(mem, alive, g.s.steps - r.step - 1); if (e !== null) { earlyVote(room, gr, id, e); emitAll(room); return; } }
+      const picks = Bot.chooseMarks(mem, alive, r.quota, g.s.elim, r.play === "solo");
       picks.forEach((w) => mark(room, gr, id, w)); gr.validated.add(id); emitAll(room);
     }));
     maybeEndElim(room);
@@ -326,7 +374,8 @@ function botAct(room) {
 }
 function maybeEndElim(room) {
   const g = room.g, r = g.r; if (g.phase !== "elim") return;
-  const done = liveGroups(r).every((gr) => { const act = activeMembers(room, gr); return !act.length || act.every((p) => gr.validated.has(p.id)); });
+  if (!openGroups(r).length) return startReveal(room);
+  const done = openGroups(r).every((gr) => { const act = activeMembers(room, gr); return !act.length || act.every((p) => gr.validated.has(p.id)); });
   if (done) endElim(room);
 }
 
@@ -338,7 +387,7 @@ function tick(room) {
   // l'Extralucide est parti, la manche est annulée
   if (r && g.phase !== "reveal" && g.phase !== "over") { const ex = defOf(room, r.extraId); if (!ex || ex.left) { g.api.sysChat(room, "L'Extralucide a quitté la partie, on passe à la manche suivante."); return nextRound(room); } }
   if (g.phase === "pick" || g.phase === "elim" || g.phase === "verdict") botAct(room);
-  if (g.phase === "pick" && now >= g.phaseUntil) autoPick(room);
+  if (g.phase === "pick" && now >= g.phaseUntil) autoPick(room, true);
   else if (g.phase === "elim" && now >= g.phaseUntil) endElim(room);
   else if (g.phase === "result" && now >= g.phaseUntil) afterResult(room);
   else if (g.phase === "verdict" && now >= g.phaseUntil) { liveGroups(r).forEach((gr) => resolveVerdict(room, gr)); startReveal(room); }
@@ -355,17 +404,18 @@ function publicState(room, pid) {
     extraId: r.extraId, step: r.step, steps: g.s.steps, quota: r.quota, play: r.play, rule: g.s.elim, jokerOk: g.s.joker && !r.jokerUsed, joker: g.s.joker,
     words: r.grid.map((w) => ({ id: w.id, name: w.name })), event: r.event, needPicks: r.needPicks, pickNo: r.picks.length,
     picks: r.picks.map((p) => ({ a: p.a, b: p.b, side: p.side, meaning: p.meaning, inv: p.inv, auto: p.auto })),
-    mode: g.s.mode, tension: Math.min(1, (r.step + 1) / g.s.steps),
+    mode: g.s.mode, tension: Math.min(1, (r.step + 1) / g.s.steps), rerollOk: !!(g.s.reroll && !r.rerolled), hist: r.steps.map((x) => ({ step: x.step, picks: x.picks, event: x.event })), bonusEarly: g.s.bonusEarly !== false,
   });
   if (isEx) { st.secretId = r.secret.id; if (g.phase === "pick") st.hand = r.hand.map((d) => ({ id: d.id, a: d.a, b: d.b })); }
   st.groups = r.groups.map((gr) => {
     const mine = my && my.id === gr.id; const open = mine || isEx || g.phase === "reveal";
-    return { id: gr.id, members: gr.members, busted: gr.busted && (open || g.phase === "result"), nElim: gr.elim.size, validated: mine ? Array.from(gr.validated) : gr.validated.size, elim: open ? Array.from(gr.elim) : [], aliveN: r.grid.length - gr.elim.size };
+    return { id: gr.id, members: gr.members, busted: gr.busted && (open || g.phase === "result"), nElim: gr.elim.size, validated: mine ? Array.from(gr.validated) : gr.validated.size, elim: open ? Array.from(gr.elim) : [], aliveN: r.grid.length - gr.elim.size, locked: gr.final !== null && (open || g.phase === "result") };
   });
   if (my) {
     st.my = my.id; st.myMarks = {}; Object.keys(my.marks).forEach((k) => { st.myMarks[k] = Array.from(my.marks[k]); });
-    st.myFinals = my.finals; st.myFinal = my.final;
+    st.myFinals = my.finals; st.myFinal = my.final; st.myEarly = my.early; st.pins = Array.from(my.pins); st.notes = my.notes; st.myLocked = my.final !== null;
   } else if (isEx) {
+    const g0 = r.groups[0]; st.notes = g0 ? g0.notes : []; st.pins = g0 ? Array.from(g0.pins) : [];
     st.exMarks = {}; r.groups.forEach((gr) => { Object.keys(gr.marks).forEach((k) => { st.exMarks[k] = (st.exMarks[k] || 0) + gr.marks[k].size; }); });
   }
   if (g.phase === "result") st.result = r.resultInfo;
@@ -397,6 +447,19 @@ function bind(socket, helpers, api) {
   socket.on("sos:unvalid", safe(() => {
     const c = cur(); if (!c || c.g.phase !== "elim") return; const gr = groupOf(c.r, c.p.id); if (!gr || gr.busted) return;
     gr.validated.delete(c.p.id); emitAll(c.room);
+  }));
+  socket.on("sos:early", safe((d) => {
+    const c = cur(); if (!c || c.g.phase !== "elim") return; const gr = groupOf(c.r, c.p.id); if (!gr) return;
+    if (!earlyVote(c.room, gr, c.p.id, d && d.word === -1 ? -1 : +(d && d.word))) return; emitAll(c.room);
+  }));
+  socket.on("sos:pin", safe((d) => {
+    const c = cur(); if (!c || (c.g.phase !== "elim" && c.g.phase !== "pick" && c.g.phase !== "result" && c.g.phase !== "verdict")) return; const gr = groupOf(c.r, c.p.id); if (!gr || gr.final !== null && c.g.phase !== "verdict") return;
+    const w = +(d && d.word); if (!c.r.grid.some((x) => x.id === w) || gr.elim.has(w)) return;
+    if (gr.pins.has(w)) gr.pins.delete(w); else if (gr.pins.size < 8) gr.pins.add(w); else return; emitAll(c.room);
+  }));
+  socket.on("sos:reroll", safe(() => {
+    const c = cur(); if (!c || c.g.phase !== "pick" || c.p.id !== c.r.extraId) return;
+    if (!reroll(c.room)) { toast("Main déjà relancée."); return; } emitAll(c.room);
   }));
   socket.on("sos:final", safe((d) => {
     const c = cur(); if (!c || c.g.phase !== "verdict") return; const gr = groupOf(c.r, c.p.id); if (!gr) return;

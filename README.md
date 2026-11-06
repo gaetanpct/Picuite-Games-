@@ -722,3 +722,51 @@ Quatre jeux complets arrivent d'un coup, avec leurs salons privés à code de qu
 - Sucré ou Salé compte 175 dilemmes et pas des centaines. Orapa Mine joue en 2D, sa vue 3D ne sert pas à interagir.
 - Les images 3D n'ont pas été vérifiées sur Safari ni sur de vieux téléphones. Le mode compatibilité existant s'applique.
 
+
+## Trente-deuxième mise à jour, la grosse mise à jour finale des quatre derniers jeux
+
+Les quatre derniers jeux changent de nom, d'allure et de règles. Seuls les noms visibles changent. Les identifiants techniques, les adresses, les dossiers, les salons privés et les codes restent les mêmes, donc rien ne casse pour les joueurs qui ont déjà des liens.
+
+| Ancien nom | Nouveau nom |
+| --- | --- |
+| Sucré ou Salé | Cristal Tordu |
+| Orapa Mine | Mine de Rien |
+| Fart Together | Pétard Mouillé |
+| Hands Over | Main Morte |
+
+### Cristal Tordu
+- Un décor de boule de cristal et de post-it, avec les noms des joueurs affichés dans la grille.
+- 268 dilemmes au lieu de 175, tirés vraiment au hasard d'une partie à l'autre, dont des dilemmes très personnels quand un prénom est caché dans la grille.
+- Victoire anticipée quand il ne reste qu'un mot possible.
+
+### Mine de Rien
+- Règles fidèles au jeu de société, interface entièrement 2D, carnet de tirs et journal lisibles sur téléphone comme sur ordinateur.
+- La grotte 3D a disparu, le fichier cave.js est à supprimer.
+- Modes classique, course, mines croisées, coopération, équipes, énigmes et campagne.
+
+### Pétard Mouillé
+- Chaque joueur a sa zone sur la bouée. La zone est dessinée sur l'eau, rappelée par un petit radar dans l'écran et la visée est limitée à cette zone, côté joueur comme côté serveur et pour les robots.
+- Quatre rôles selon la place, moteur à l'arrière, rame gauche, rame droite et gouvernail à l'avant. Un joueur seul garde une visée libre à 360 degrés.
+- La physique est cohérente, un siège qui pousse vers l'avant fait tourner la bouée de l'autre côté. Il faut se coordonner pour avancer droit.
+- Nouveaux obstacles, chicanes, épingles et goulots, avec des parcours retravaillés. Les goulots sont assez larges pour une bouée de huit joueurs.
+- Refonte graphique en 3D avec secteurs colorés par joueur, bannières, arches de passage, ligne d'arrivée à damier, écume sur les rives et nuages.
+- Les robots choisissent leur direction dans leur zone et se dégagent seuls quand la bouée est coincée.
+
+### Main Morte
+- Une phase de lecture avant chaque épreuve, avec le but, les commandes et la règle de perte. Chacun valide quand il a lu et la durée minimale dépend de la longueur du texte.
+- Des parties plus longues, avec un format court, normal ou long pour la plupart des modes.
+- Neuf cartes d'influence, qui se choisissent dans une phase de préparation, avec l'effet et le risque affichés.
+- Des pactes fidèles ou traîtres, des rancunes qui se retiennent d'un tour à l'autre, des fantômes qui peuvent revenir.
+- Deux nouvelles épreuves, le duel des mains et la main chaude.
+
+### Fichiers à déposer sur GitHub
+- Les dossiers sucre-ou-sale, orapa-mine, fart-together et hands-over en entier.
+- Dans public/logos, les quatre logos sucre-ou-sale.svg, orapa-mine.svg, fart-together.svg et hands-over.svg.
+- Le fichier README.md.
+- À supprimer dans le dépôt, orapa-mine/public/js/cave.js.
+
+### Limites connues
+- Tout a été testé en simulation avec des robots et dans un navigateur de test, pas avec de vrais joueurs sur plusieurs appareils.
+- Dans Pétard Mouillé, les déblocages et records restent gardés sur l'appareil et le ressenti de la visée en vrai jeu reste à ajuster.
+- Dans Main Morte, les épreuves de réflexe comptent le temps de réception sur le serveur.
+- Les images 3D n'ont pas été vérifiées sur Safari ni sur de vieux téléphones.

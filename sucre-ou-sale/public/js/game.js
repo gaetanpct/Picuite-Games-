@@ -9,7 +9,7 @@
     { name: "Rose", hex: "#ff5fa8" }, { name: "Jaune", hex: "#ffd23f" }, { name: "Turquoise", hex: "#27d3c3" }, { name: "Violet", hex: "#a56bff" },
     { name: "Orange", hex: "#ff8a1f" }, { name: "Vert", hex: "#4cd964" }, { name: "Bleu", hex: "#3d8bff" }, { name: "Rouge", hex: "#ff4b3e" },
   ];
-  const G = { st: null, over: null, sig: "", offset: 0, samples: [], seen: {}, lastTick: 0, prevElim: null, attached: false, topSig: "" };
+  const G = { st: null, over: null, sig: "", offset: 0, samples: [], seen: {}, lastTick: 0, prevElim: null, attached: false, topSig: "", early: false };
   const myId = () => { const p = Kit.me(); return p ? p.id : null; };
   const pl = (id) => (Kit.room ? Kit.room.players.find((p) => p.id === id) : null);
   const nameOf = (id) => { const p = pl(id); return p ? p.name : "?"; };
@@ -45,7 +45,7 @@
     sample(s.now);
     const prev = G.st; G.st = s;
     const key = s.phase + "|" + s.round + "|" + s.step + "|" + s.pickNo;
-    if (!prev || key !== G.phaseKey) { G.phaseKey = key; phaseSound(s, prev); }
+    if (!prev || key !== G.phaseKey) { G.phaseKey = key; G.early = false; phaseSound(s, prev); }
     render();
   }
   function phaseSound(s, prev) {
@@ -90,6 +90,7 @@
   function buildStage(st, s) {
     const iAmEx = s.extraId === myId(); const mine = s.my !== undefined && s.my !== null;
     st.appendChild(extraBanner(s, iAmEx));
+    const pn = postits(s); if (pn) st.appendChild(pn);
     if (s.phase === "pick") return buildPick(st, s, iAmEx);
     if (s.phase === "reveal") return buildReveal(st, s);
     st.appendChild(dilemmaView(s));
@@ -118,7 +119,7 @@
     if (iAmEx) {
       st.appendChild(el("div", { class: "sos-card" }, [
         el("h2", { text: s.needPicks > 1 ? "Dilemme bonus, carte " + (s.pickNo + 1) + " sur 2" : "Choisis un dilemme" }),
-        el("p", { class: "sos-hint", text: s.event && s.event.id === "inverse" ? "Dilemme inversé. Désigne le côté qui ressemble le MOINS à ton mot." : "Choisis la carte et le côté qui décrit le mieux ton mot. Les autres vont éliminer les mots qui collent à l'autre côté." }),
+        el("p", { class: "sos-hint", text: s.event && s.event.id === "inverse" ? "Dilemme inversé. Désigne le côté qui ressemble le MOINS à ton mot." : "Ces dilemmes sont tirés au hasard, certains collent à ton mot, d'autres pas du tout. Choisis celui que tu peux relier au mot, même de loin, et le côté qui lui ressemble." }),
         el("div", { class: "sos-secret" }, [el("span", { text: "Ton mot" }), el("b", { text: wordName(s, s.secretId) })]),
       ]));
       (s.hand || []).forEach((c) => {
@@ -130,6 +131,7 @@
         st.appendChild(el("div", { class: "sos-card sos-jokers" }, [el("b", { text: "Jokers, un seul par manche" }), el("p", { class: "small muted", text: "Si ton mot colle aux deux côtés ou à aucun, dis-le." }),
           el("div", { class: "sos-jrow" }, hand.map((c) => el("div", { class: "sos-jcard" }, [el("span", { class: "small", text: c.a + " ou " + c.b }), el("button", { class: "btn btn--small btn--ghost", text: "Les deux", onclick: () => Kit.socket.emit("sos:pick", { card: c.id, side: "both" }) }), el("button", { class: "btn btn--small btn--ghost", text: "Aucun", onclick: () => Kit.socket.emit("sos:pick", { card: c.id, side: "none" }) })])))]));
       }
+      if (s.rerollOk && !(s.picks && s.picks.length)) st.appendChild(el("div", { class: "sos-ctrl" }, [el("button", { class: "btn btn--ghost", text: "🔄 Rien ne colle, relancer mes dilemmes (une fois)", onclick: () => { Kit.socket.emit("sos:reroll"); sfx(() => sound.click()); } })]));
       if (s.picks && s.picks.length) st.appendChild(dilemmaView(s));
     } else {
       st.appendChild(el("div", { class: "sos-card sos-wait" }, [el("div", { class: "sos-ball" }, [el("span", { text: "🔮" })]), el("h2", { text: nameOf(s.extraId) + " réfléchit" }), el("p", { class: "sos-hint", text: "Il lit ses cartes et choisit le dilemme qui décrit le mieux son mot." }), s.event ? el("div", { class: "sos-event" }, [el("b", { text: s.event.label }), el("span", { text: s.event.text })]) : null]));
@@ -163,6 +165,31 @@
     return el("div", { class: "sos-card sos-result" }, out);
   }
 
+  // ----- les post-it -----
+  const NOTE_COLORS = ["#fff27a", "#ffb3d9", "#9ff1e6", "#ffd0a1"];
+  const ansTxt = (p) => (p.meaning === "A" ? p.a : p.meaning === "B" ? p.b : p.meaning === "both" ? "les deux" : "aucun");
+  function postits(s) {
+    if (!s.hist || !s.hist.length || s.phase === "reveal" || s.phase === "over") return null;
+    const list = s.hist.filter((h) => h.step < s.step || (s.phase === "result" && h.step === s.step));
+    if (!list.length) return null;
+    const names = (ids) => ids.map((id) => wordName(s, id));
+    const row = el("div", { class: "sos-notes", "aria-label": "Post-it des dilemmes déjà joués" }, list.map((h, i) => {
+      const n = (s.notes || []).find((x) => x.step === h.step) || { elim: [], contested: [], pins: [] };
+      const lines = h.picks.map((p) => el("div", { class: "sos-note__l" }, [el("span", { text: p.a + " ou " + p.b }), el("b", { text: "→ " + ansTxt(p) })]));
+      const chips = el("div", { class: "sos-note__c" }, [el("span", { title: "Mots éliminés", text: "✕ " + n.elim.length }), el("span", { title: "Mots qui ont hésité", text: "? " + n.contested.length }), n.pins.length ? el("span", { title: "Mots épinglés", text: "📌 " + n.pins.length }) : null]);
+      return el("button", { class: "sos-note", style: { background: NOTE_COLORS[i % NOTE_COLORS.length], transform: "rotate(" + ((i % 3) - 1) * 1.6 + "deg)" }, onclick: () => {
+        sfx(() => sound.tone(700, 0.05, "triangle", 0.06));
+        Kit.showModal("Dilemme " + (h.step + 1), [
+          ...h.picks.map((p) => el("p", {}, [el("b", { text: p.a + " ou " + p.b }), el("br"), el("span", { text: "Le mot colle à " + ansTxt(p) + (p.inv ? " (dilemme inversé)" : "") + "." })])),
+          el("p", { class: "small" }, [el("b", { text: "Éliminés. " }), document.createTextNode(n.elim.length ? names(n.elim).join(", ") : "Aucun")]),
+          el("p", { class: "small" }, [el("b", { text: "Ont hésité, marqués mais gardés. " }), document.createTextNode(n.contested.length ? names(n.contested).join(", ") : "Aucun")]),
+          el("p", { class: "small" }, [el("b", { text: "Épinglés à ce moment. " }), document.createTextNode(n.pins.length ? names(n.pins).join(", ") : "Aucun")]),
+        ]);
+      } }, [el("small", { text: "Dilemme " + (h.step + 1) }), ...lines, chips]);
+    }));
+    return row;
+  }
+
   // ----- grille -----
   function elimFor(s, iAmEx) {
     const set = new Set(); const part = {};
@@ -174,28 +201,36 @@
   }
   function gridView(s, iAmEx, mine) {
     const { set, part } = elimFor(s, iAmEx);
-    const marks = s.myMarks || {}; const n = s.words.length;
+    const marks = s.myMarks || {}; const n = s.words.length; const pins = new Set(s.pins || []);
     const cols = n <= 9 ? 3 : n <= 12 ? 4 : n <= 16 ? 4 : n <= 20 ? 5 : 5;
     const prev = G.prevElim; const cur = new Set(set);
     const grid = el("div", { class: "sos-grid sos-grid--" + cols });
+    const locked = !!s.myLocked;
     s.words.forEach((w) => {
       const gone = set.has(w.id); const who = marks[w.id] || []; const myMark = who.includes(myId());
       const classes = ["sos-word"]; if (gone) classes.push("sos-word--gone"); if (!gone && part[w.id]) classes.push("sos-word--part");
       if (iAmEx && w.id === s.secretId) classes.push("sos-word--secret"); if (myMark) classes.push("sos-word--mine"); if (who.length && !myMark) classes.push("sos-word--mark");
+      if (pins.has(w.id) && !gone) classes.push("sos-word--pin");
       if (gone && prev && prev.round === s.round && !prev.set.has(w.id)) classes.push("sos-word--just");
-      const interactive = mine && ((s.phase === "elim" && !gone) || (s.phase === "verdict" && !gone));
+      const interactive = mine && !locked && ((s.phase === "elim" && !gone) || (s.phase === "verdict" && !gone));
       const myFinal = s.myFinals && s.myFinals[myId()] === w.id;
       if (s.phase === "verdict" && myFinal) classes.push("sos-word--final");
+      const ev = s.myEarly ? Object.keys(s.myEarly).filter((pid) => s.myEarly[pid] === w.id) : [];
+      if (ev.length && s.phase === "elim") classes.push("sos-word--early");
       const children = [el("span", { class: "sos-word__t", text: w.name })];
       if (s.phase === "elim" && who.length) children.push(el("span", { class: "sos-word__m" }, who.map((id) => dot(id))));
+      if (s.phase === "elim" && ev.length) children.push(el("span", { class: "sos-word__m sos-word__m--top" }, [el("b", { text: "⚡" }), ...ev.map((id) => dot(id))]));
       if (s.phase === "elim" && iAmEx && s.exMarks && s.exMarks[w.id]) children.push(el("span", { class: "sos-word__m" }, [el("b", { text: "✕" + s.exMarks[w.id] })]));
       if (s.phase === "verdict" && mine && s.myFinals) { const v = Object.keys(s.myFinals).filter((pid) => s.myFinals[pid] === w.id); if (v.length) children.push(el("span", { class: "sos-word__m" }, v.map((id) => dot(id)))); }
       if (gone) children.push(el("span", { class: "sos-word__x", text: "✕" }));
       const b = el("button", { class: classes.join(" "), disabled: !interactive, onclick: () => {
-        if (s.phase === "elim") { Kit.socket.emit("sos:mark", { word: w.id }); sfx(() => sound.tone(myMark ? 330 : 520, 0.06, "triangle", 0.08)); }
+        if (s.phase === "elim" && G.early) { const mineV = s.myEarly && s.myEarly[myId()] === w.id; Kit.socket.emit("sos:early", { word: mineV ? -1 : w.id }); sfx(() => sound.tone(mineV ? 330 : 740, 0.08, "triangle", 0.1)); }
+        else if (s.phase === "elim") { Kit.socket.emit("sos:mark", { word: w.id }); sfx(() => sound.tone(myMark ? 330 : 520, 0.06, "triangle", 0.08)); }
         else if (s.phase === "verdict") { Kit.socket.emit("sos:final", { word: w.id }); sfx(() => sound.tone(660, 0.1, "triangle", 0.1)); }
       } }, children);
-      grid.appendChild(b);
+      const cell = el("div", { class: "sos-cell" }, [b]);
+      if (mine && !gone && !(locked && s.phase !== "verdict")) cell.appendChild(el("button", { class: "sos-pinbtn" + (pins.has(w.id) ? " sos-pinbtn--on" : ""), title: "Garder un œil sur ce mot", "aria-label": "Épingler " + w.name, text: "📌", onclick: (ev) => { ev.stopPropagation(); Kit.socket.emit("sos:pin", { word: w.id }); sfx(() => sound.tone(880, 0.05, "triangle", 0.07)); } }));
+      grid.appendChild(cell);
     });
     G.prevElim = { round: s.round, set: cur };
     return el("div", { class: "sos-gridwrap" }, [grid]);
@@ -203,12 +238,20 @@
   function elimControls(s, iAmEx, mine) {
     if (!mine) return el("div", { class: "sos-card sos-hint-card" }, [el("p", { class: "sos-hint", text: iAmEx ? "Tu observes les enquêteurs. Les croix sont leurs marques, ton mot secret brille en or." : "Tu regardes la partie." })]);
     const g = (s.groups || []).find((x) => x.id === s.my);
+    if (s.myLocked) return el("div", { class: "sos-card sos-hint-card" }, [el("p", { class: "sos-hint", text: "Ton groupe a annoncé son mot. Réponse à la fin de la manche, on attend les autres." })]);
     const used = Object.keys(s.myMarks || {}).filter((k) => s.myMarks[k].includes(myId())).length;
     const valid = g && Array.isArray(g.validated) && g.validated.includes(myId());
     const total = g ? g.members.length : 0, nv = g && Array.isArray(g.validated) ? g.validated.length : 0;
+    const left = Math.max(0, (s.steps || 0) - (s.step || 0) - 1);
+    const rule = s.play === "solo" ? "Seul à bord, ton annonce compte tout de suite." : s.rule === "un" ? "Un seul joueur suffit à annoncer." : s.rule === "unanimite" ? "Tout le groupe doit annoncer le même mot." : "La majorité du groupe doit annoncer le même mot.";
+    if (G.early) return el("div", { class: "sos-ctrl" }, [
+      el("p", { class: "sos-hint sos-hint--hot", text: "Touche le mot que tu annonces. " + rule + " Se tromper fait perdre la manche." }),
+      el("button", { class: "btn btn--ghost", text: "Finalement non", onclick: () => { G.early = false; Kit.socket.emit("sos:early", { word: -1 }); render(); } }),
+    ]);
     return el("div", { class: "sos-ctrl" }, [
-      el("p", { class: "sos-hint", text: "Marque les mots à éliminer, " + used + " sur " + s.quota + ". " + (s.play === "solo" ? "" : "Les couleurs montrent qui a marqué quoi.") }),
+      el("p", { class: "sos-hint", text: "Marque les mots à éliminer, " + used + " sur " + s.quota + ". " + (s.play === "solo" ? "" : "Les couleurs montrent qui a marqué quoi. ") + "Le 📌 sert à garder un œil sur un mot qui hésite." }),
       el("button", { class: "btn btn--accent btn--big", text: valid ? "Marques validées, annuler" : "Je valide mes marques (" + nv + " sur " + total + " prêts)", onclick: () => { Kit.socket.emit(valid ? "sos:unvalid" : "sos:valid"); sfx(() => sound.click()); } }),
+      left > 0 ? el("button", { class: "btn btn--ghost sos-early", text: "⚡ Je tiens mon mot" + (s.bonusEarly ? ", bonus jusqu'à +" + Math.min(3, left) : ""), onclick: () => { G.early = true; sfx(() => sound.click()); render(); } }) : null,
     ]);
   }
   function verdictControls(s, iAmEx, mine) {
@@ -224,7 +267,7 @@
     rv.groups.forEach((gr) => {
       const names = gr.members.map(nameOf).join(", ");
       const head = gr.ok ? "✅ " + (s.play === "coop" ? "Mot trouvé" : "Trouvé") : gr.busted ? "💥 Mot éliminé" : gr.timedOut ? "⌛ Pas de réponse" : "❌ Raté";
-      st.appendChild(el("div", { class: "sos-card sos-grp " + (gr.ok ? "sos-grp--ok" : "sos-grp--ko") }, [el("h3", { text: head }), el("div", { class: "small", text: (s.play === "coop" ? "Groupe" : s.play === "equipes" ? "Équipe " + (gr.id + 1) : "Enquêteur") + " " + names + (gr.final >= 0 && !gr.busted && gr.final !== rv.secret.id ? "  ·  a désigné " + wordName(s, gr.final) : "") })]));
+      st.appendChild(el("div", { class: "sos-card sos-grp " + (gr.ok ? "sos-grp--ok" : "sos-grp--ko") }, [el("h3", { text: head }), el("div", { class: "small", text: (s.play === "coop" ? "Groupe" : s.play === "equipes" ? "Équipe " + (gr.id + 1) : "Enquêteur") + " " + names + (gr.final >= 0 && !gr.busted && gr.final !== rv.secret.id ? "  ·  a désigné " + wordName(s, gr.final) : "") + (gr.ok && gr.left ? "  ·  bonus rapidité +" + gr.left : "") })]));
     });
     const rows = Object.keys(rv.gains).filter((id) => rv.gains[id] > 0);
     if (rows.length) st.appendChild(el("div", { class: "sos-card" }, [el("h3", { text: rv.mult > 1 ? "Points de la manche, multipliés par " + rv.mult : "Points de la manche" }), el("div", { class: "sos-gains" }, rows.map((id) => el("span", { class: "sos-gain" }, [dot(id), nameOf(id) + " +" + rv.gains[id]])))]));
@@ -266,14 +309,17 @@
   function attach() { const so = Kit.socket; if (!so || G.attached) return; G.attached = true; so.on("sos:state", onState); so.on("sos:over", onOver); }
 
   Kit.init({
-    id: "sucre-ou-sale", title: "Sucré ou Salé", emoji: "🔮", ribbon: "Le jeu télé des mots cachés", tagline: "Un mot secret, des dilemmes absurdes, une grille qui se vide.",
+    id: "sucre-ou-sale", title: "Cristal Tordu", emoji: "🔮", ribbon: "Le jeu télé des mots cachés", tagline: "Un mot secret, des dilemmes absurdes, une grille qui se vide.",
     createLabel: "Créer un plateau", soloLabel: "Jouer contre un robot", startLabel: "Lancer l'émission", helpTitle: "Comment jouer",
     floaters: [{ e: "🔮", x: 6 }, { e: "🍬", x: 20 }, { e: "🧂", x: 34 }, { e: "🦷", x: 50 }, { e: "🎩", x: 64 }, { e: "🍕", x: 78 }, { e: "🪥", x: 92 }],
     colors: COLORS, botLevels: [{ id: "naif", label: "Naïf" }, { id: "fute", label: "Futé" }, { id: "genie", label: "Génie" }], maxPlayers: 8, minPlayers: 2, schema: R.SCHEMA,
     help: [
       { title: "Le principe", text: "À chaque manche, un joueur devient l'Extralucide. Il connaît un mot secret caché dans une grille. Les autres sont des enquêteurs, ils doivent trouver ce mot sans jamais l'éliminer." },
-      { title: "Les dilemmes", text: "L'Extralucide reçoit plusieurs cartes, chacune oppose deux idées comme brosse à dents ou brosse WC. Il choisit une carte puis le côté qui ressemble le plus à son mot. Il n'a pas le droit de s'expliquer, tout passe par ce choix." },
-      { title: "Éliminer", text: "Après chaque dilemme, les enquêteurs discutent et marquent les mots qui collent à l'autre côté. Un mot marqué par assez de monde disparaît, selon la règle choisie par l'hôte. Si le mot secret disparaît, c'est perdu." },
+      { title: "Les dilemmes", text: "L'Extralucide reçoit plusieurs dilemmes tirés au hasard, sans rapport avec son mot. Certains collent bien, d'autres pas du tout. Il choisit celui qu'il peut relier à son mot, même de loin, puis le côté qui lui ressemble. Si rien ne va, il relance sa main une fois." },
+      { title: "Éliminer", text: "Après chaque dilemme, les enquêteurs discutent et marquent les mots qui collent à l'autre côté. Un mot marqué par assez de monde disparaît, selon la règle choisie par l'hôte. Si le mot secret disparaît, c'est perdu. Le 📌 permet de garder un œil sur un mot qui hésite." },
+      { title: "Les post-it", text: "Chaque dilemme joué laisse un post-it avec la réponse de l'Extralucide, les mots éliminés et ceux qui ont hésité. Touche un post-it pour relire les détails." },
+      { title: "Gagner vite", text: "Les cinq dilemmes sont un maximum. Quand le groupe est sûr, il peut annoncer son mot en avance avec le bouton éclair et gagner un bonus de rapidité. Mais s'il se trompe, la manche est perdue." },
+      { title: "Les prénoms", text: "Des prénoms de joueurs se cachent parmi les mots. Si l'Extralucide doit faire deviner un prénom, servez-vous de ce que vous savez de la personne." },
       { title: "Les jokers", text: "Une fois par manche, l'Extralucide peut répondre « les deux » ou « aucun » quand son mot ne rentre dans aucun côté, selon les réglages." },
       { title: "Les événements", text: "Selon les réglages, un dilemme peut être inversé, doublé, chronométré par un sablier, ou ramener un mot éliminé. L'événement est annoncé en plein écran." },
       { title: "Les modes", text: "Classique et Express se jouent tous ensemble. Expert agrandit la grille et durcit les dilemmes. Chaos mise sur l'absurde. Équipes oppose deux groupes. Tournoi se joue chacun pour soi avec une dernière manche double." },

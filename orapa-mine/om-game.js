@@ -33,7 +33,7 @@ function onDestroy(room) { if (room.g && room.g.timer) { clearInterval(room.g.ti
 // ---------- manche ----------
 function roundCfg(g) {
   const s = Object.assign({}, g.s);
-  if (s.key === "campagne") { const c = Rules.CAMPAIGN[Math.min(g.round, Rules.CAMPAIGN.length - 1)]; s.board = c.board; s.gems = c.gems; s.kinds = c.kinds; s.shapes = c.shapes; s.W = Rules.BOARDS[c.board][0]; s.H = Rules.BOARDS[c.board][1]; }
+  if (s.key === "campagne") { const c = Rules.CAMPAIGN[Math.min(g.round, Rules.CAMPAIGN.length - 1)]; s.board = c.board; s.gems = c.gems; s.kinds = c.kinds; s.shapes = c.shapes; s.W = Rules.BOARDS[c.board][0]; s.H = Rules.BOARDS[c.board][1]; s.laserMasks = c.kinds === "orapa" ? [0] : [1, 2, 4, 7]; }
   return s;
 }
 function nextRound(room) {
@@ -64,7 +64,7 @@ function nextRound(room) {
     // les robots posent tout de suite au hasard
     r.mines.forEach((mi) => { const p = defOf(room, mi.owner); if (p && p.isBot) { mi.gems = Gen.placeRandom(rng, r.W, r.H, r.inv, s.adjacent) || Gen.makeMine(rng() * 1e9, cfgGen).gems; mi.ready = true; } });
   }
-  r.units.forEach((u) => { u.brain = Bot.newBrain("fute"); u.shotsUsed = 0; members(room, u).forEach((p) => { if (p.isBot) u.brain = Bot.newBrain(p.level); }); });
+  r.units.forEach((u) => { u.brain = Bot.newBrain("fute"); u.shotsUsed = 0; u.asks = []; members(room, u).forEach((p) => { if (p.isBot) u.brain = Bot.newBrain(p.level); }); });
   if (r.setup && !r.mines.every((m) => m.ready)) { g.phase = "setup"; g.phaseUntil = r.setup.until; g.seq++; emitAll(room); }
   else startPlay(room);
 }
@@ -96,7 +96,7 @@ function canAct(r, u, pid) {
 function shotResult(r, mine, slot, mask) {
   const grid = E.buildGrid(r.W, r.H, mine.gems); const full = E.trace(r.W, r.H, grid, mine.gems, slot, mask, true);
   const out = { exits: full.exits, absorbed: full.absorbed };
-  if (r.s.trace === "complet") out.rays = full.rays.map((x) => ({ pts: x.pts, m: x.m }));
+  if (r.s.trace === "complet") out.rays = full.rays.map((x) => ({ pts: x.pts, m: x.m, end: x.end }));
   else if (r.s.trace === "partiel") {
     // un seul trait, jusqu'à la première pierre touchée
     let x, y, dx, dy; const W = r.W, H = r.H;
@@ -125,6 +125,20 @@ function shoot(room, u, pid, slot, mask) {
   if (budgetLeft(r, u) === 0) u.stallAt = Date.now() + STALL_MS;
   emitAll(room); return null;
 }
+// question sur une case, comme dans l'original. On apprend la couleur de la pierre, pas sa forme ni son sens, et ça coûte un tir.
+function askCell(room, u, pid, x, y) {
+  const g = room.g, r = g.r; if (g.phase !== "play") return "Pas maintenant.";
+  if (!canAct(r, u, pid)) return r.s.share === "turn" ? "Ce n'est pas ton tour." : "Tu ne peux plus agir.";
+  if (!(x >= 0 && y >= 0 && x < r.W && y < r.H) || x !== Math.floor(x) || y !== Math.floor(y)) return "Cette case n'existe pas.";
+  const bl = budgetLeft(r, u); if (bl !== null && bl <= 0) return "Plus aucun tir, il ne reste qu'à accuser.";
+  if (u.asks.some((a) => a.x === x && a.y === y)) return "Tu as déjà posé cette question.";
+  const mine = r.mines[u.mine]; const grid = E.buildGrid(r.W, r.H, mine.gems); const gi = grid[y * r.W + x];
+  const a = { x, y, k: gi < 0 ? "vide" : mine.gems[gi].k, m: gi < 0 ? 0 : mine.gems[gi].m || 0, by: pid, n: u.asks.length + 1 };
+  u.asks.push(a); u.shotsUsed++; g.stats[pid].shots++;
+  if (r.s.share === "turn") { u.turn++; u.turnUntil = Date.now() + r.s.turnTime * 1000 * TS; }
+  if (budgetLeft(r, u) === 0) u.stallAt = Date.now() + STALL_MS;
+  emitAll(room); return null;
+}
 function accuse(room, u, pid, placement) {
   const g = room.g, r = g.r; if (g.phase !== "play") return { err: "Pas maintenant." };
   if (!canAct(r, u, pid)) return { err: r.s.share === "turn" ? "Ce n'est pas ton tour." : "Tu ne peux plus accuser." };
@@ -136,7 +150,7 @@ function accuse(room, u, pid, placement) {
   if (u.perMember) { u.strikes[pid] = (u.strikes[pid] || 0) + 1; if (u.strikes[pid] >= lives) { (u.mout = u.mout || {})[pid] = true; outNow = true; } if (u.members.every((id) => u.mout && u.mout[id])) u.out = true; }
   else { u.strikes.u = (u.strikes.u || 0) + 1; if (u.strikes.u >= lives) { u.out = true; outNow = true; } }
   let hint = null;
-  if (r.s.accHint) { let c = 0; gems.forEach((gm, i) => { const t = mine.gems[i]; if (t && t.x === gm.x && t.y === gm.y && t.rot === gm.rot && (t.k === "mirror" || t.k === "splitter" ? t.d === gm.d : true)) c++; else if (t && E.effectString(r.W, r.H, [gm]) === E.effectString(r.W, r.H, [t])) c++; }); hint = c; }
+  if (r.s.accHint) { let c = 0; gems.forEach((gm, i) => { const t = mine.gems[i]; if (t && t.x === gm.x && t.y === gm.y && t.rot === gm.rot && (t.k === "mirror" || t.k === "splitter" || t.k === "gem" ? t.d === gm.d : true)) c++; else if (t && E.effectString(r.W, r.H, [gm]) === E.effectString(r.W, r.H, [t])) c++; }); hint = c; }
   if (r.s.share === "turn") { u.turn++; u.turnUntil = Date.now() + r.s.turnTime * 1000 * TS; }
   return { ok: false, hint, out: outNow };
 }
@@ -166,7 +180,7 @@ function endRound(room, win) {
   if (!coopLike && s.key !== "classique") r.units.forEach((u) => { if (u !== win && u.solved === false && !u.out && win) { /* a continué à chercher, rien */ } });
   Object.keys(gains).forEach((id) => { g.scores[id] = (g.scores[id] || 0) + gains[id]; });
   r.result = { win: win ? win.id : null };
-  r.reveal = { gains, win: win ? win.id : null, mines: r.mines.map((m) => ({ owner: m.owner, gems: m.gems.map(pubGem) })), units: r.units.map((u) => ({ id: u.id, members: u.members, mine: u.mine, shots: u.shots.length, solved: u.solved, out: u.out, shotsList: u.shots.map(pubShotFull) })) };
+  r.reveal = { gains, win: win ? win.id : null, mines: r.mines.map((m) => ({ owner: m.owner, gems: m.gems.map(pubGem) })), units: r.units.map((u) => ({ id: u.id, members: u.members, mine: u.mine, shots: u.shots.length, solved: u.solved, out: u.out, shotsList: u.shots.map(pubShotFull), asks: (u.asks || []).map((a) => ({ x: a.x, y: a.y, k: a.k, m: a.m })) })) };
   g.history.push({ round: g.round, ok: !!win, winners: win ? win.members : [], shots: win ? used(win) : null, director: r.directorId });
   g.phase = "reveal"; g.phaseUntil = Date.now() + REVEAL_MS; g.seq++; emitAll(room);
   const names = win ? win.members.map((id) => (defOf(room, id) || {}).name).join(" et ") : null;
@@ -248,7 +262,7 @@ function publicState(room, pid) {
   if (g.phase === "over" || g.phase === "wait" || !g.r) return base;
   const r = g.r, s = r.s; const my = unitOf(r, pid); const isDir = pid === r.directorId;
   const st = Object.assign(base, {
-    key: s.key, W: r.W, H: r.H, trace: s.trace, lasers: s.laserMasks, budget: s.shots || null, lives: s.accLives, accHint: s.accHint, share: s.share, directorId: r.directorId, roundTime: s.roundTime,
+    key: s.key, faithful: s.kinds === "orapa", W: r.W, H: r.H, trace: s.trace, lasers: s.laserMasks, budget: s.shots || null, lives: s.accLives, accHint: s.accHint, share: s.share, directorId: r.directorId, roundTime: s.roundTime,
     inv: r.inv.map((g2, i) => ({ idx: i, k: g2.k, m: g2.m, shape: g2.shape, cells: E.SHAPES[g2.shape] })),
     campaign: s.key === "campagne" ? { level: g.round + 1, levels: g.rounds } : null, puzzle: s.key === "enigme" ? s.puzzle : null,
     units: r.units.map((u) => ({ id: u.id, members: u.members, shots: u.shots.length, used: u.shotsUsed, solved: u.solved, out: u.out, turn: s.share === "turn" ? u.members.filter((id) => !u.mout || !u.mout[id])[u.turn % Math.max(1, u.members.filter((id) => !u.mout || !u.mout[id]).length)] : null, turnUntil: u.turnUntil || 0, mout: u.mout || {}, strikes: u.perMember ? u.strikes : { u: u.strikes.u || 0 }, perMember: !!u.perMember, stallAt: u.stallAt || 0 })),
@@ -261,9 +275,9 @@ function publicState(room, pid) {
   }
   if (g.phase === "play") {
     const full = s.trace !== "mystere";
-    if (my) st.shots = my.shots.map((x) => pubShot(x, full));
+    if (my) { st.shots = my.shots.map((x) => pubShot(x, full)); st.asks = my.asks; }
     else if (isDir || true) { // Directeur et spectateurs voient les tirs du groupe observé
-      const u = r.units[0]; if (isDir && u) st.shots = u.shots.map((x) => pubShot(x, full));
+      const u = r.units[0]; if (isDir && u) { st.shots = u.shots.map((x) => pubShot(x, full)); st.asks = u.asks; }
     }
     if (isDir) { const m = r.mines[0]; if (m && m.gems) st.dirMine = m.gems.map(pubGem); }
     // en mines croisées on voit sa propre mine, pour ne pas l'oublier
@@ -296,6 +310,10 @@ function bind(socket, helpers, api) {
   socket.on("om:shoot", safe((d) => {
     const c = cur(); if (!c || c.g.phase !== "play") return; const u = unitOf(c.r, c.p.id); if (!u) return;
     const err = shoot(c.room, u, c.p.id, { s: String(d && d.s), i: +(d && d.i) }, +(d && d.mask)); if (err) toast(err);
+  }));
+  socket.on("om:ask", safe((d) => {
+    const c = cur(); if (!c || c.g.phase !== "play") return; const u = unitOf(c.r, c.p.id); if (!u) return;
+    const err = askCell(c.room, u, c.p.id, +(d && d.x), +(d && d.y)); if (err) toast(err);
   }));
   socket.on("om:accuse", safe((d) => {
     const c = cur(); if (!c || c.g.phase !== "play") return; const u = unitOf(c.r, c.p.id); if (!u) return;

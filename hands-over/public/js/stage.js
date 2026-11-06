@@ -24,7 +24,7 @@
     // rideaux
     [-1, 1].forEach((sd) => { for (let k = 0; k < 7; k++) { const c = new T.Mesh(new T.CylinderGeometry(0.55, 0.55, 14, 10, 1, true), lam(k % 2 ? "#7a0f1c" : "#a3162a", { side: T.DoubleSide })); c.position.set(sd * (9 + k * 0.9), 6.5, -6 - Math.abs(k - 3) * 0.3); scene.add(c); } });
     // écran du fond
-    const cv = document.createElement("canvas"); cv.width = 512; cv.height = 192; const x = cv.getContext("2d"); x.fillStyle = "#14060a"; x.fillRect(0, 0, 512, 192); x.strokeStyle = "#ff3b4e"; x.lineWidth = 8; x.strokeRect(10, 10, 492, 172); x.fillStyle = "#ff3b4e"; x.shadowColor = "#ff3b4e"; x.shadowBlur = 24; x.font = "bold 84px Impact, sans-serif"; x.textAlign = "center"; x.fillText("HANDS OVER", 256, 118);
+    const cv = document.createElement("canvas"); cv.width = 512; cv.height = 192; const x = cv.getContext("2d"); x.fillStyle = "#14060a"; x.fillRect(0, 0, 512, 192); x.strokeStyle = "#ff3b4e"; x.lineWidth = 8; x.strokeRect(10, 10, 492, 172); x.fillStyle = "#ff3b4e"; x.shadowColor = "#ff3b4e"; x.shadowBlur = 24; x.font = "bold 84px Impact, sans-serif"; x.textAlign = "center"; x.fillText("MAIN MORTE", 256, 118);
     const screen = new T.Mesh(new T.PlaneGeometry(12, 4.5), new T.MeshBasicMaterial({ map: new T.CanvasTexture(cv) })); screen.position.set(0, 7, -8); scene.add(screen);
     // présentateur
     hostG = new T.Group(); hostG.position.set(0, 0, -3.6); scene.add(hostG);

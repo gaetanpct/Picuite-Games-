@@ -183,11 +183,15 @@ Q3|Un pique-nique|Un banquet|exterieur,nature,famille,leger,ete|luxe,fete,grand,
 Q3|Un feu d'artifice|Un feu de cheminée|bruyant,fete,colore,nuit,ciel|calme,chaud,hiver,maison,romantique
 `;
 const DILEMMAS = [];
-const CATS = { L: "Logique", A: "Absurde", C: "Culture", Q: "Quotidien", D: "Drôle", H: "Difficile à cerner", I: "Imagination" };
-RAW.split("\n").map((l) => l.trim()).filter(Boolean).forEach((l) => {
+const CATS = { P: "Personnalité", L: "Logique", A: "Absurde", C: "Culture", Q: "Quotidien", D: "Drôle", H: "Difficile à cerner", I: "Imagination" };
+(RAW + require("./dilemmas-plus.js")).split("\n").map((l) => l.trim()).filter(Boolean).forEach((l) => {
   const p = l.split("|"); if (p.length < 5) return;
   const cat = p[0][0], lvl = +p[0][1];
   const ta = new Set(p[3].split(",").map((x) => x.trim())), tb = new Set(p[4].split(",").map((x) => x.trim()));
   DILEMMAS.push({ id: DILEMMAS.length, cat, lvl, a: p[1].trim(), b: p[2].trim(), ta, tb });
 });
+// on retire les oppositions trop scolaires, elles rendent la partie trop facile
+const BORING = new Set(["Chaud|Froid", "Jour|Nuit", "Petit|Grand", "Silence|Bruit", "Matin|Soir", "Doux|Dur", "Mou|Pointu"]);
+for (let i = DILEMMAS.length - 1; i >= 0; i--) if (BORING.has(DILEMMAS[i].a + "|" + DILEMMAS[i].b)) DILEMMAS.splice(i, 1);
+DILEMMAS.forEach((d, i) => { d.id = i; });
 module.exports = { DILEMMAS, DCATS: CATS };

@@ -7,16 +7,16 @@ const mulberry32 = (a) => () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math
 const STEP = 3;
 // tronçons, [genre, longueur, paramètre]
 const COURSES = [
-  { id: "riviere", name: "La Rivière Tranquille", biome: "prairie", blurb: "Pour apprendre à pousser ensemble. Un courant doux, quelques rochers.", par: 75, recipe: [["calm", 60], ["bend", 70, 0.9], ["rocks", 60], ["bend", 80, -1.1], ["calm", 40], ["rocks", 70], ["bend", 60, 0.8], ["calm", 50]] },
-  { id: "canal", name: "Le Canal Étroit", biome: "ville", blurb: "Peu de place, des piliers, des virages serrés. La précision avant la puissance.", par: 70, recipe: [["calm", 40], ["narrow", 70], ["bend", 50, 1.3], ["narrow", 60], ["pillars", 70], ["bend", 50, -1.4], ["narrow", 80], ["calm", 30]] },
+  { id: "riviere", name: "La Rivière Tranquille", biome: "prairie", blurb: "Pour apprendre à pousser ensemble. Un courant doux, quelques rochers et une première chicane.", par: 85, recipe: [["calm", 60], ["bend", 70, 0.9], ["rocks", 60], ["chicane", 90, 1], ["bend", 80, -1.1], ["calm", 40], ["rocks", 70], ["bend", 60, 0.8], ["calm", 50]] },
+  { id: "canal", name: "Le Canal Étroit", biome: "ville", blurb: "Goulots entre deux rochers, piliers et une épingle à cheveux. La précision avant la puissance.", par: 92, recipe: [["calm", 40], ["narrow", 70], ["bend", 50, 1.3], ["goulot", 72], ["pillars", 70], ["epingle", 66, -2.7], ["narrow", 80], ["goulot", 60], ["calm", 30]] },
   { id: "rapides", name: "Les Rapides Rageurs", biome: "canyon", blurb: "L'eau file, des vagues secouent la bouée et ça penche tout le temps.", par: 70, recipe: [["calm", 30], ["rapids", 90], ["bend", 60, -1], ["rapids", 100], ["rocks", 50], ["rapids", 90], ["calm", 30]] },
   { id: "cascade", name: "La Cascade Folle", biome: "jungle", blurb: "Des chutes, des rampes et des atterrissages qui retournent l'équipage.", par: 50, recipe: [["calm", 40], ["drop", 45], ["rocks", 50], ["ramp", 50], ["bend", 50, 0.8], ["drop", 50], ["calm", 30], ["ramp", 50], ["pool", 40]] },
   { id: "contre", name: "Le Contre-Courant", biome: "glacier", blurb: "Le courant remonte et le sol est glissant. Il faut ramer très fort et très ensemble.", par: 85, recipe: [["calm", 30], ["counter", 80], ["ice", 70], ["bend", 60, 1.1], ["counter", 90], ["ice", 60], ["calm", 30]] },
   { id: "marais", name: "Le Marais Fromagé", biome: "marais", blurb: "Du fromage fondu qui colle, des canards géants qui traversent. Absurde et poisseux.", par: 85, recipe: [["calm", 30], ["cheese", 80], ["ducks", 80], ["bend", 60, -1], ["cheese", 70], ["ducks", 90], ["calm", 30]] },
   { id: "parc", name: "Le Parc Aquatique", biome: "parc", blurb: "Slalom de portes, trampolines et rampes. Tout est fait pour s'éclater.", par: 62, recipe: [["calm", 30], ["slalom", 90], ["pad", 50], ["slalom", 80], ["ramp", 50], ["bend", 60, 1], ["pad", 50], ["pool", 40]] },
   { id: "canyon", name: "Le Canyon Sauteur", biome: "desert", blurb: "Des rampes pour franchir des trous. L'atterrissage décide de tout.", par: 55, recipe: [["calm", 30], ["ramp", 50], ["rapids", 60], ["ramp", 50], ["bend", 60, -1.2], ["ramp", 50], ["drop", 40], ["pool", 40]] },
-  { id: "tuyaux", name: "Les Tuyaux Géants", biome: "egout", blurb: "Des tuyaux étroits, du vent qui pousse de côté et de l'écho partout.", par: 65, recipe: [["calm", 30], ["pipe", 80], ["wind", 70, 1], ["bend", 60, 1.2], ["pipe", 70], ["wind", 70, -1], ["pipe", 60], ["calm", 30]] },
-  { id: "huit", name: "Le Grand Huit", biome: "fete", blurb: "Le parcours final avec absolument tout. Bonne chance et bon courage.", par: 110, recipe: [["calm", 25], ["rapids", 70], ["ramp", 50], ["narrow", 60], ["cheese", 50], ["counter", 60], ["bend", 60, 1], ["drop", 50], ["slalom", 70], ["ice", 50], ["wind", 50, -1], ["ramp", 50], ["pool", 40]] },
+  { id: "tuyaux", name: "Les Tuyaux Géants", biome: "egout", blurb: "Des tuyaux étroits, du vent qui pousse de côté et de l'écho partout, avec une épingle et une chicane à négocier.", par: 78, recipe: [["calm", 30], ["pipe", 80], ["wind", 70, 1], ["epingle", 66, 2.6], ["pipe", 70], ["wind", 70, -1], ["chicane", 90, -1], ["pipe", 60], ["calm", 30]] },
+  { id: "huit", name: "Le Grand Huit", biome: "fete", blurb: "Le parcours final avec absolument tout. Bonne chance et bon courage.", par: 125, recipe: [["calm", 25], ["rapids", 70], ["ramp", 50], ["narrow", 60], ["cheese", 50], ["counter", 60], ["epingle", 66, 2.7], ["drop", 50], ["slalom", 70], ["ice", 50], ["goulot", 60], ["wind", 50, -1], ["chicane", 90, 1], ["ramp", 50], ["pool", 40]] },
 ];
 const BIOMES = require("./public/game/biomes.js");
 // paramètres des tronçons
@@ -24,6 +24,7 @@ const KIND = {
   calm: { hw: 9, flow: 3.4 }, bend: { hw: 9, flow: 3.6 }, rocks: { hw: 10, flow: 3.6, rocks: 0.1 }, narrow: { hw: 5.4, flow: 3.8 }, pillars: { hw: 7.5, flow: 3.8, rocks: 0.11, pillar: true },
   rapids: { hw: 8.5, flow: 7.2, turb: true, rocks: 0.07 }, drop: { hw: 7.5, flow: 11, slope: 7.5 }, ramp: { hw: 8.5, flow: 5.6, ramp: true }, counter: { hw: 8.5, flow: -1.8 },
   ice: { hw: 9, flow: 1.4, zone: 2 }, cheese: { hw: 9.5, flow: 3, zone: 1, rocks: 0.05 }, ducks: { hw: 11, flow: 3, ducks: true }, slalom: { hw: 9, flow: 4, gates: true },
+  chicane: { hw: 7.6, flow: 3.8 }, epingle: { hw: 7.4, flow: 3.8 }, goulot: { hw: 5.4, flow: 3.8 },
   pad: { hw: 9, flow: 4.4, zone: 4 }, pipe: { hw: 4.6, flow: 5.2 }, wind: { hw: 7, flow: 4.4, zone: 3 }, pool: { hw: 16, flow: 1.3 },
 };
 function makeLevel(course, seed, opts) {
@@ -35,9 +36,11 @@ function makeLevel(course, seed, opts) {
   const rockMul = diff === 0 ? 0.7 : diff === 2 ? 1.4 : 1;
   const addObs = (px, pz, r, kind, mv) => obstacles.push({ id: obstacles.length, x: px, z: pz, r, kind, mv: mv || null });
   recipe.forEach(([kind, len, par]) => {
-    const K = KIND[kind] || KIND.calm; const steps = Math.max(2, Math.round(len / STEP)); const turn = (kind === "bend" ? par : kind === "slalom" ? 0 : (rnd() - 0.5) * 0.35) / steps;
+    const K = KIND[kind] || KIND.calm; const steps = Math.max(2, Math.round(len / STEP)); const turn = (kind === "bend" || kind === "epingle" ? par : kind === "slalom" ? 0 : (rnd() - 0.5) * 0.35) / steps;
     const startIdx = x.length; let sinceRock = 4;
+    const base0 = heading;
     for (let k = 0; k < steps; k++) {
+      if (kind === "chicane") heading = base0 + (par || 1) * 0.62 * Math.sin((k + 1) / steps * Math.PI * 4); else
       heading += turn + (kind === "rapids" || kind === "drop" ? (rnd() - 0.5) * 0.05 : 0);
       const px = x[x.length - 1] + Math.sin(heading) * STEP, pz = z[z.length - 1] + Math.cos(heading) * STEP;
       curHw += (K.hw - curHw) * 0.35; curFlow += (K.flow - curFlow) * 0.3;
@@ -52,6 +55,7 @@ function makeLevel(course, seed, opts) {
       }
       if (K.ducks && k % 11 === 5) { const lat = (rnd() * 2 - 1) * 2; addObs(px + nx * lat, pz + nz * lat, 2.1, "canard", { ax: nx, az: nz, amp: curHw - 4.2, f: 0.55 + rnd() * 0.4, ph: rnd() * 6.28 }); }
       if (kind === "rapids" && k % 9 === 4 && rnd() < 0.7) { const lat = (rnd() * 2 - 1) * (curHw - 4); addObs(px + nx * lat, pz + nz * lat, 1.2 + rnd() * 0.6, "rocher"); }
+      if (kind === "goulot" && k % 8 === 3) { const sd = (Math.floor(k / 8) % 2 ? 1 : -1); addObs(px + nx * sd * 1.5, pz + nz * sd * 1.5, 1.0, "rocher"); }
       if (kind === "slalom" && k % 7 === 3) { const sd = (Math.floor(k / 7) % 2 ? 1 : -1); addObs(px + nx * sd * (curHw - 3.2), pz + nz * sd * (curHw - 3.2), 1.6, "bouee"); gates.push({ i: x.length - 1, x: px, z: pz, hw: Math.min(6.4, curHw - 2.5), s: s[s.length - 1] }); }
       if (kind === "rocks" && k % 9 === 2) { const lat = (rnd() * 2 - 1) * (curHw - 4); coins.push({ x: px + nx * lat, z: pz + nz * lat }); }
       else if ((kind === "calm" || kind === "pool" || kind === "bend" || kind === "pad" || kind === "narrow") && k % 6 === 3) { const lat = (rnd() * 2 - 1) * (curHw - 3.5); coins.push({ x: px + nx * lat, z: pz + nz * lat }); }
@@ -69,12 +73,12 @@ function makeLevel(course, seed, opts) {
 }
 // parcours sans fin, longs, tirés au sort avec une difficulté croissante
 function endlessRecipe(seed, length) {
-  const rnd = mulberry32((seed + 99) >>> 0); const kinds = ["calm", "bend", "rocks", "narrow", "rapids", "ramp", "drop", "counter", "ice", "cheese", "ducks", "slalom", "pad", "pipe", "wind", "pillars"];
+  const rnd = mulberry32((seed + 99) >>> 0); const kinds = ["calm", "bend", "rocks", "narrow", "chicane", "goulot", "rapids", "ramp", "drop", "counter", "ice", "cheese", "ducks", "slalom", "pad", "pipe", "wind", "pillars", "epingle"];
   const rec = [["calm", 40]]; let total = 40;
   while (total < length) {
     const prog = total / length; const pool = prog < 0.25 ? kinds.slice(0, 6) : prog < 0.6 ? kinds.slice(0, 12) : kinds;
     const k = pool[Math.floor(rnd() * pool.length)]; const len = 50 + Math.floor(rnd() * 5) * 10;
-    rec.push([k, len, k === "bend" ? (rnd() < 0.5 ? -1 : 1) * (0.7 + rnd() * 0.8) : k === "wind" ? (rnd() < 0.5 ? 1 : -1) : undefined]); total += len;
+    rec.push([k, len, k === "bend" ? (rnd() < 0.5 ? -1 : 1) * (0.7 + rnd() * 0.8) : k === "epingle" ? (rnd() < 0.5 ? -1 : 1) * 2.6 : k === "chicane" ? (rnd() < 0.5 ? -1 : 1) : k === "wind" ? (rnd() < 0.5 ? 1 : -1) : undefined]); total += len;
     if (rnd() < 0.3) { rec.push(["calm", 30]); total += 30; }
   }
   rec.push(["pool", 40]); return rec;

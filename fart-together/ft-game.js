@@ -135,7 +135,7 @@ function simulate(room) {
   room.players.forEach((p) => {
     if (p.left) return; const pl = R.pl[p.id]; if (!pl) return;
     const boat = R.boats.find((b) => b.seats.includes(p.id)); if (!boat) return;
-    if (!active(p) || p.isBot) { const k = boat.seats.indexOf(p.id); const bt = R.bots[p.id] || (R.bots[p.id] = {}); const c = Bot.control(bt, boat, k, lv, R.t, R.pl, botFor(room, p), DT); pl.a = c.a; pl.p = c.p; }
+    if (!active(p) || p.isBot) { const k = boat.seats.indexOf(p.id); const bt = R.bots[p.id] || (R.bots[p.id] = {}); const c = Bot.control(bt, boat, k, lv, R.t, R.pl, botFor(room, p), DT); pl.a = W.clampAim(boat.seats.length, k, c.a); pl.p = c.p; }
     pl.jitter = R.chaos && R.chaos.id === "hiccup" && R.chaos.who === p.id ? Math.sin(R.t * 7.3) * 0.9 : 0;
   });
   // physique
@@ -149,6 +149,8 @@ function simulate(room) {
     if (lv.arena && b.s > lv.L - 10) { const p = W.pointAt(lv, 8); const lat = near.lat; b.x = p.x - p.tz * lat * 0.6; b.z = p.z + p.tx * lat * 0.6; b.s = 8; b.idx = 0; b.fin = false; }
     // pièces
     if (!b.dead) lv.coins.forEach((c, i) => { if (R.cg.has(i)) return; const dx = c.x - b.x, dz = c.z - b.z; if (dx * dx + dz * dz < 3.1 * 3.1) { R.cg.add(i); b.coins++; R.ev.push({ k: "coin", i, b: b.id }); } });
+    // points de passage, au quart, à la moitié et aux trois quarts du parcours
+    if (!lv.arena) { b.cp = b.cp || 0; while (b.cp < 3 && b.s >= lv.L * (0.25 * (b.cp + 1))) { R.ev.push({ k: "cp", b: b.id, i: b.cp + 1, t: r2(R.t) }); b.cp++; } }
     // portes
     while (b.gateIdx < lv.gates.length && b.s >= lv.gates[b.gateIdx].s) { const gt = lv.gates[b.gateIdx]; const ok = Math.abs(near.lat) <= gt.hw + 0.5 && !b.air; if (ok) b.gatesOk++; else b.gatesMiss++; R.ev.push({ k: "gate", b: b.id, ok, i: b.gateIdx }); b.gateIdx++; }
     if (b.fin && b.time === null) { b.time = r2(b.finT); R.ev.push({ k: "finish", b: b.id, t: b.time }); if (R.firstFin === null) R.firstFin = R.t; }
@@ -260,6 +262,7 @@ function bind(socket, helpers, api) {
     const c = cur(); if (!c || c.g.phase !== "run" || !c.g.run) return; const pl = c.g.run.pl[c.p.id]; if (!pl) return;
     const now = Date.now(); if (now - lastIn < 25) return; lastIn = now;
     let a = Number(d && d.a); if (!isFinite(a)) a = 0; while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI;
+    const bt = c.g.run.boats.find((b) => b.seats.includes(c.p.id)); if (bt) a = W.clampAim(bt.seats.length, bt.seats.indexOf(c.p.id), a); // chacun reste dans sa zone
     pl.a = a; pl.p = !!(d && d.p);
   }));
   socket.on("ft:garage", safe((d) => {

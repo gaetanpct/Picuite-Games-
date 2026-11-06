@@ -24,7 +24,7 @@ function anneal(W, H, inv, obs, start, iters, adjacent) {
     let ng = Gen.withRot(g, g.rot); ng.d = g.d; ng.x = g.x; ng.y = g.y;
     if (q < 0.55) { ng.x = Math.max(0, Math.min(W - 1, g.x + Math.floor(rng() * 5) - 2)); ng.y = Math.max(0, Math.min(H - 1, g.y + Math.floor(rng() * 5) - 2)); if (rng() < 0.25) { ng.x = Math.floor(rng() * W); ng.y = Math.floor(rng() * H); } }
     else if (q < 0.8) { ng = Gen.withRot(g, Math.floor(rng() * 4)); ng.d = g.d; ng.x = g.x; ng.y = g.y; }
-    else if (g.k === "mirror" || g.k === "splitter") ng.d = 1 - g.d;
+    else if (g.k === "mirror" || g.k === "splitter" || g.k === "gem") ng.d = 1 - g.d;
     else { ng.x = Math.floor(rng() * W); ng.y = Math.floor(rng() * H); }
     const trial = cur.slice(); trial[i] = ng; if (!E.valid(W, H, trial, !adjacent)) continue;
     const ne = energy(W, H, trial, obs); const d = ne - e;

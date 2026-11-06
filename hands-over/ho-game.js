@@ -6,6 +6,7 @@
 const Rules = require("./public/game/rules.js");
 const { D, IDS } = require("./ho-chal.js");
 const { HOST, pick } = require("./data/ho-data.js");
+const { BRIEF, extra: briefExtra } = require("./data/ho-brief.js");
 
 const TS = Math.max(0.001, Number(process.env.HO_TIME_SCALE) || 1);
 const rng = Math.random;
@@ -21,7 +22,7 @@ function start(room, api) {
   const s = Rules.effective(room.settings); const ids = present(room).map((p) => p.id);
   const g = room.g = { api, s, phase: "intro", until: 0, round: 0, rounds: s.rounds, P: {}, ch: null, c: null, mem: {}, history: [], timer: null, over: false, final: null, quip: pick(HOST.intro), seq: 0, pacts: [], props: [], plays: [], used: [], res: null, mod: null, notes: [], lastChange: 0, botT: 0 };
   const teamOf = {}; if (s.teams && ids.length >= 2) shuffle(ids).forEach((id, i) => { teamOf[id] = i % 2; });
-  room.players.forEach((p) => { g.P[p.id] = { hands: s.hands, max: s.hands, alive: !p.left, ghost: false, cards: [], points: 0, team: teamOf[p.id] !== undefined ? teamOf[p.id] : null, shield: 0, mark: 0, st: { wins: 0, loses: 0, played: 0, betrayals: 0, ghostWins: 0, helped: 0 } }; if (s.cards) g.P[p.id].cards.push(pickOne(CARD_IDS)); });
+  room.players.forEach((p) => { g.P[p.id] = { hands: s.hands, max: s.hands, alive: !p.left, ghost: false, cards: [], points: 0, team: teamOf[p.id] !== undefined ? teamOf[p.id] : null, shield: 0, mark: 0, st: { wins: 0, loses: 0, played: 0, betrayals: 0, ghostWins: 0, helped: 0, betrayed: 0, revived: 0 }, rancune: 0, intel: null, revived: false, briefOk: false }; if (s.cards) { g.P[p.id].cards.push(pickOne(CARD_IDS)); g.P[p.id].cards.push(pickOne(CARD_IDS)); } });
   g.until = Date.now() + 5500 * TS;
   api.sysChat(room, "Le plateau est prêt. Mode " + s.mode + ", " + s.hands + " main" + (s.hands > 1 ? "s" : "") + " chacun.");
   g.timer = setInterval(() => { try { tick(room); } catch (e) { console.error("tick ho", e); } }, 200);
@@ -36,11 +37,18 @@ const draw = (g, id, n) => { const P = g.P[id]; for (let i = 0; i < (n || 1); i+
 function tick(room) {
   const g = room.g; if (!g || g.over) return; const now = Date.now();
   if (g.phase === "intro") { if (now >= g.until) nextRound(room); return; }
+  if (g.phase === "brief") {
+    botBrief(room, now);
+    const humans = present(room).filter((p) => !autoCtl(p));
+    const allReady = humans.length === 0 || humans.every((p) => g.P[p.id].briefOk);
+    if (now >= g.briefMin && (allReady || now >= g.until)) leaveBrief(room); return;
+  }
   if (g.phase === "prep") {
     botPrep(room, now);
     const humans = present(room).filter((p) => !autoCtl(p) && g.P[p.id].alive);
-    if (now >= g.until || (humans.length && humans.every((p) => g.P[p.id].ready))) startPlay(room); return;
+    if (now >= g.until || (humans.length && humans.every((p) => g.P[p.id].ready))) startCount(room); return;
   }
+  if (g.phase === "count") { if (now >= g.until) startPlay(room); return; }
   if (g.phase === "play") {
     const mod = D[g.ch.id]; const c = g.c; let ch = false;
     room.players.forEach((p) => { if (!autoCtl(p) || !c.part.includes(p.id)) return; const m = g.mem[p.id] || (g.mem[p.id] = {}); const a = mod.bot(c, p.id, p.isBot ? p.level : "candidat", m, now); if (a && mod.act(c, p.id, a, now)) ch = true; });
@@ -61,19 +69,34 @@ function pickChallenge(room) {
 function nextRound(room) {
   const g = room.g, s = g.s;
   if (g.round >= g.rounds || over(room)) return finish(room, false);
-  g.round++; g.pacts = []; g.props = []; g.plays = []; g.res = null; g.notes = [];
-  Object.values(g.P).forEach((P) => { P.ready = false; P.shield = 0; P.cibled = 0; P.mirror = null; P.dbl = false; });
+  g.round++; g.pacts = []; g.props = []; g.plays = []; g.res = null; g.notes = []; g.mem = {}; g.alarm = false; g.fakes = [];
+  Object.values(g.P).forEach((P) => { P.ready = false; P.shield = 0; P.cibled = 0; P.mirror = null; P.dbl = false; P.intel = null; });
   const id = pickChallenge(room); g.used.push(id); const def = D[id];
   g.mod = null; if (s.chaos) { const m = pickOne(Object.keys(MODS)); g.mod = m; if (m === "cadeau") aliveIds(room).forEach((x) => draw(g, x, 1)); }
   g.ch = { id, name: def.name, family: def.family, rules: def.rules };
+  // les variantes sont tirées maintenant pour que tout le monde les lise avant de jouer
+  g.pre = {}; if (id === "croco") g.pre.variant = s.croco && s.croco !== "mixte" ? s.croco : pickOne(["classique", "deux", "chaud", "mobile", "chrono"]);
+  if (id === "reflex") g.pre.chair = rng() < 0.4 && aliveIds(room).length + (s.ghosts ? ghostIds(room).length : 0) >= 3;
   const speed = s.speed * (g.mod === "vitesse" ? 0.7 : 1);
-  g.speed = speed; g.phase = "prep"; const useful = s.cards || s.pacts;
-  g.until = Date.now() + (useful ? 11000 : 4500) * TS; g.quip = pick(HOST.next); g.c = null;
+  g.speed = speed; g.phase = "brief"; g.quip = pick(HOST.next); g.c = null; g.alarm = false;
+  const B = BRIEF[id] || { goal: "", cmds: [], lose: "", tip: "" }; const text = [def.rules, B.goal, B.lose, B.tip, briefExtra(id, g.pre)].concat((B.cmds || []).map((x) => x[1])).join(" ");
+  const words = text.split(/\s+/).length; const minMs = Math.min(26000, Math.max(10000, 4500 + words * 300));
+  g.briefMin = Date.now() + minMs * TS; g.until = Date.now() + 70000 * TS; g.briefMinMs = minMs * TS;
+  Object.values(g.P).forEach((P) => { P.briefOk = false; });
   emitAll(room);
+}
+function leaveBrief(room) {
+  const g = room.g, s = g.s; const useful = s.cards || s.pacts;
+  if (useful && aliveIds(room).length >= 1) { g.phase = "prep"; g.until = Date.now() + 30000 * TS; emitAll(room); }
+  else startCount(room);
+}
+function startCount(room) { const g = room.g; g.phase = "count"; g.until = Date.now() + 3300 * TS; emitAll(room); }
+function botBrief(room, now) {
+  const g = room.g; present(room).forEach((p) => { if (!autoCtl(p)) return; const P = g.P[p.id]; if (!P || P.briefOk) return; const m = g.mem[p.id] || (g.mem[p.id] = {}); if (!m.briefAt) m.briefAt = now + (3000 + rng() * 9000) * TS; if (now >= m.briefAt) { P.briefOk = true; emitAll(room); } });
 }
 function startPlay(room) {
   const g = room.g, s = g.s; const def = D[g.ch.id]; const al = aliveIds(room); const gh = def.ghostOk && s.ghosts ? ghostIds(room) : [];
-  g.c = def.init(al.concat(gh), { speed: (g.speed || 1) * TS, variant: s.croco, short: s.mode === "express" || s.mode === "survie" });
+  g.c = def.init(al.concat(gh), { speed: (g.speed || 1) * TS, variant: (g.pre && g.pre.variant) || s.croco, chair: g.pre ? g.pre.chair : undefined, short: s.mode === "express" || s.mode === "survie" });
   g.c.alive = al; g.mem = {}; g.phase = "play"; g.until = 0; g.lastChange = 0; emitAll(room);
   g.api.emitAll(room, "ho:go", { id: g.ch.id });
 }
@@ -82,37 +105,57 @@ function judge(room) {
   // les fantômes qui ont gagné frappent le joueur le plus riche
   const ghosts = c.part.filter((id) => !al.includes(id)); let ghostWin = null;
   if (ghosts.length) { const best = ghosts.slice().sort((a, b) => res.scores[b] - res.scores[a])[0]; if (best && !res.losers.includes(best)) { ghostWin = best; g.P[best].st.ghostWins++; const rich = al.slice().sort((a, b) => g.P[b].hands - g.P[a].hands || rng() - 0.5)[0]; if (rich) { g.P[rich].mark++; g.notes.push("Le fantôme " + nm(room, best) + " a gagné et marque " + nm(room, rich) + " pour la prochaine sanction."); } } }
-  const losers = res.losers.filter((id) => al.includes(id)); const loss = {}; const base = g.mod === "double" ? 2 : 1;
+  const losers = res.losers.filter((id) => al.includes(id)); const loss = {}; const base = g.mod === "double" ? 2 : 1; const pev = [];
   losers.forEach((id) => { loss[id] = base; });
-  losers.forEach((id) => { const P = g.P[id]; if (P.dbl) loss[id] += 2; if (P.cibled) loss[id] += P.cibled; });
+  losers.forEach((id) => { const P = g.P[id]; if (P.dbl) loss[id] += 1; if (P.cibled) { loss[id] += P.cibled; g.notes.push(nm(room, id) + " était pris pour cible et perd une main de plus."); } });
   // les marques de fantômes ne comptent que pour ceux qui perdent, et se consomment à chaque sanction
   al.forEach((id) => { const P = g.P[id]; if (P.mark && loss[id]) { loss[id] += 1; g.notes.push(nm(room, id) + " perd une main de plus à cause d'un fantôme."); } if (loss[id]) P.mark = 0; });
   // miroirs
   al.forEach((id) => { const P = g.P[id]; if (P.mirror && loss[id]) { const t = P.mirror; if (al.includes(t) && t !== id) { loss[t] = (loss[t] || 0) + loss[id]; g.notes.push(nm(room, id) + " renvoie sa sanction à " + nm(room, t) + " avec le miroir."); loss[id] = 0; } } });
-  // pactes
+  // pactes, ce qui se passe quand l'un perd et que l'autre s'en sort
   g.pacts.forEach((pc) => {
-    [[pc.a, pc.b, pc.la, pc.lb], [pc.b, pc.a, pc.lb, pc.la]].forEach(([vic, help, lv1, lh]) => {
-      if (!(loss[vic] > 0) || (loss[help] || 0) > 0) return;
-      if (lh) { loss[vic] -= 1; loss[help] = (loss[help] || 0) + 1; g.P[help].st.helped++; draw(g, help, 1); g.notes.push(nm(room, help) + " honore le pacte et prend une main à la place de " + nm(room, vic) + "."); }
-      else { g.P[help].st.betrayals++; const vc = g.P[vic].cards; if (vc.length) { const k = Math.floor(rng() * vc.length); g.P[help].cards.push(vc.splice(k, 1)[0]); g.P[help].cards = g.P[help].cards.slice(0, 3); } g.notes.push(nm(room, help) + " trahit " + nm(room, vic) + " et lui vole une carte."); }
-    });
+    const A = pc.a, B = pc.b; const la = pc.la, lb = pc.lb; const lA = loss[A] || 0, lB = loss[B] || 0;
+    if (lA > 0 && lB > 0) { pev.push({ k: "none", a: A, b: B }); g.notes.push("Pacte entre " + nm(room, A) + " et " + nm(room, B) + ". Ils perdent tous les deux, le pacte ne sert à rien."); return; }
+    if (lA === 0 && lB === 0) {
+      if (la && lb) { draw(g, A, 1); draw(g, B, 1); g.P[A].points += 1; g.P[B].points += 1; pev.push({ k: "fruit", a: A, b: B }); g.notes.push("Le pacte entre " + nm(room, A) + " et " + nm(room, B) + " porte ses fruits. Deux fidèles piochent chacun une carte."); }
+      else pev.push({ k: "silent", a: A, b: B });
+      return;
+    }
+    const vic = lA > 0 ? A : B, help = lA > 0 ? B : A, loyal = lA > 0 ? lb : la;
+    if (loyal) { loss[vic] -= 1; loss[help] = (loss[help] || 0) + 1; g.P[help].st.helped++; g.P[help].points += 1; draw(g, help, 1); pev.push({ k: "loyal", vic, help }); g.notes.push(nm(room, help) + " honore le pacte et prend une main à la place de " + nm(room, vic) + ". Il pioche une carte en remerciement."); }
+    else {
+      g.P[help].st.betrayals++; g.P[vic].st.betrayed++; loss[vic] += 1; g.P[help].rancune = Math.max(1, g.P[help].rancune); const vc = g.P[vic].cards; let stolen = null;
+      if (vc.length) { const k = Math.floor(rng() * vc.length); stolen = vc.splice(k, 1)[0]; g.P[help].cards.push(stolen); g.P[help].cards = g.P[help].cards.slice(0, 3); }
+      draw(g, vic, 1); pev.push({ k: "betray", vic, help, stolen });
+      g.notes.push(nm(room, help) + " a trahi " + nm(room, vic) + ". " + nm(room, vic) + " perd une main de plus" + (stolen ? " et se fait voler " + Rules.CARDS[stolen].name : "") + ", mais il pioche une carte de consolation. " + nm(room, help) + " porte maintenant une rancune, sa prochaine sanction coûtera une main de plus.");
+    }
   });
+  // la rancune d'un traître se paie à sa prochaine sanction
+  al.forEach((id) => { const P = g.P[id]; if (P.rancune && loss[id] > 0 && !pev.some((e) => e.k === "betray" && e.help === id)) { loss[id] += 1; P.rancune = 0; g.notes.push(nm(room, id) + " paie sa rancune de traître et perd une main de plus."); } });
   // boucliers
   al.forEach((id) => { const P = g.P[id]; if (P.shield && loss[id] > 0) { loss[id] -= 1; P.shield = 0; g.notes.push(nm(room, id) + " est sauvé par son bouclier."); } });
+  // personne ne perd plus de trois mains d'un coup
+  al.forEach((id) => { if (loss[id] > 3) loss[id] = 3; });
+  // les leurres sont révélés
+  (g.fakes || []).forEach((f) => g.notes.push("La carte " + Rules.CARDS[f.card].name + " de " + nm(room, f.by) + " était un leurre."));
   // points et cartes
   const safe = al.filter((id) => !(loss[id] > 0)); const bestId = safe.slice().sort((a, b) => res.scores[b] - res.scores[a])[0];
   al.forEach((id) => { const P = g.P[id]; if (loss[id] > 0) { P.st.loses++; P.points += 0; } else { P.points += id === bestId ? 3 : 1; if (id === bestId) { P.st.wins++; if (s.cards) draw(g, id, P.dbl ? 2 : 1); } } });
   // application
   const before = {}; al.forEach((id) => { before[id] = g.P[id].hands; });
   al.forEach((id) => { const P = g.P[id]; const l = loss[id] || 0; if (l) { P.hands = Math.max(0, P.hands - l); if (s.points) P.points -= l; } });
+  // sursis des deux premières épreuves, personne ne tombe trop vite quand on joue à trois mains ou plus
+  if (!s.points && s.hands >= 3 && g.round <= 2) al.forEach((id) => { if (g.P[id].hands <= 0) { g.P[id].hands = 1; g.notes.push(nm(room, id) + " obtient un sursis, le producteur est bon public."); } });
   const dead = al.filter((id) => g.P[id].hands <= 0);
   if (!s.points) {
     const left = al.filter((id) => g.P[id].hands > 0);
     if (!left.length && dead.length) { const keep = dead.slice().sort((a, b) => before[b] - before[a] || g.P[b].points - g.P[a].points || rng() - 0.5)[0]; g.P[keep].hands = 1; g.notes.push("Le producteur gracie " + nm(room, keep) + " pour que l'émission continue."); }
     al.forEach((id) => { const P = g.P[id]; if (P.hands <= 0) { P.alive = false; P.ghost = true; P.cards = []; g.notes.push(nm(room, id) + " perd sa dernière main et devient fantôme."); } });
   }
+  // retour d'entre les morts, un fantôme qui gagne deux épreuves revient avec une main
+  if (ghostWin && !s.points && g.P[ghostWin].st.ghostWins >= 2 && !g.P[ghostWin].revived) { const R = g.P[ghostWin]; R.revived = true; R.alive = true; R.ghost = false; R.hands = 1; R.cards = [pickOne(CARD_IDS)]; R.st.revived++; g.notes.push(nm(room, ghostWin) + " a gagné deux épreuves d'outre-tombe et revient parmi les vivants avec une main et une carte."); }
   const outs = {}; al.forEach((id) => { outs[id] = { before: before[id], after: g.P[id].hands, loss: loss[id] || 0, safe: !(loss[id] > 0) }; });
-  g.judged = { id: g.ch.id, losers, loss: outs, scores: res.scores, reveal: res.reveal, notes: g.notes.slice(), best: bestId || null, ghostWin };
+  g.judged = { id: g.ch.id, losers, pev, revived: ghostWin && g.P[ghostWin].alive ? ghostWin : null, loss: outs, scores: res.scores, reveal: res.reveal, notes: g.notes.slice(), best: bestId || null, ghostWin };
   g.history.push({ round: g.round, id: g.ch.id, name: g.ch.name, losers: losers.map((x) => nm(room, x)), best: bestId ? nm(room, bestId) : null });
   const anyDown = dead.length && !s.points; g.quip = anyDown ? pick(HOST.ghost) : losers.length ? pick(HOST.lose) : pick(HOST.none);
   g.phase = "judge"; g.until = Date.now() + 9500 * TS; emitAll(room);
@@ -155,27 +198,55 @@ function finish(room, aborted) {
 }
 
 // ---------- cartes et pactes ----------
+const FAKE_POOL = ["bouclier", "miroir", "cible", "double"];
 function playCard(room, pid, idx, target) {
   const g = room.g; const P = g.P[pid]; if (g.phase !== "prep" || !P || !P.alive || !g.s.cards) return "Pas maintenant.";
-  const card = P.cards[idx]; if (!card) return "Cette carte n'existe plus."; const al = aliveIds(room);
-  const needT = ["miroir", "cible", "vol"].includes(card); if (needT && (!target || target === pid || !al.includes(target))) return "Choisis un autre joueur encore en jeu.";
+  const card = P.cards[idx]; if (!card) return "Cette carte n'existe plus."; const al = aliveIds(room); const def = Rules.CARDS[card];
+  if (def.target && (!target || target === pid || !al.includes(target))) return "Choisis un autre joueur encore en jeu.";
+  let shown = card, shownTarget = def.target ? target : null;
   if (card === "bouclier") { if (P.shield) return "Tu as déjà un bouclier."; P.shield = 1; }
   else if (card === "miroir") { if (P.mirror) return "Un miroir est déjà posé."; P.mirror = target; }
   else if (card === "cible") g.P[target].cibled = (g.P[target].cibled || 0) + 1;
   else if (card === "double") { if (P.dbl) return "Déjà joué."; P.dbl = true; }
   else if (card === "vol") { const tc = g.P[target].cards; if (!tc.length) return "Ce joueur n'a aucune carte."; const k = Math.floor(rng() * tc.length); P.cards.push(tc.splice(k, 1)[0]); }
-  P.cards.splice(idx, 1); if (card === "vol" && P.cards.length > 3) P.cards.length = 3; P.st.played++; g.plays.push({ by: pid, card, target: card === "bouclier" || card === "double" ? null : target });
-  g.api.sysChat(room, nm(room, pid) + " joue " + Rules.CARDS[card].name + (needT ? " sur " + nm(room, target) : "") + ".");
+  else if (card === "alarme") { if (g.alarm) return "L'alarme a déjà retenti."; g.alarm = true; g.pacts = []; g.props = []; }
+  else if (card === "leurre") { const fk = pickOne(FAKE_POOL); shown = fk; if (Rules.CARDS[fk].target) { const others = al.filter((x) => x !== pid); shownTarget = others.length ? pickOne(others) : null; } else shownTarget = null; g.fakes.push({ by: pid, card: fk }); }
+  else if (card === "espion") { const T = g.P[target]; const pc = g.pacts.find((x) => x.a === target || x.b === target); P.intel = { target, cards: T.cards.slice(), rancune: T.rancune > 0, pact: pc ? { with: pc.a === target ? pc.b : pc.a, loyal: pc.a === target ? !!pc.la : !!pc.lb } : null }; }
+  else if (card === "absolution") { if (!P.rancune && !P.mark) return "Tu ne portes aucune marque à effacer."; P.rancune = 0; P.mark = 0; }
+  P.cards.splice(idx, 1); if (P.cards.length > 3) P.cards.length = 3; P.st.played++; g.plays.push({ by: pid, card: shown, target: shownTarget });
+  const sd = Rules.CARDS[shown];
+  g.api.sysChat(room, nm(room, pid) + " joue " + sd.name + (shownTarget ? " sur " + nm(room, shownTarget) : "") + ".");
   return null;
 }
 function inPact(g, id) { return g.pacts.some((p) => p.a === id || p.b === id); }
 function botPrep(room, now) {
   const g = room.g; present(room).forEach((p) => {
-    if (!autoCtl(p)) return; const P = g.P[p.id]; if (!P.alive || P.ready) return; const m = g.mem[p.id] || (g.mem[p.id] = {}); if (!m.prepAt) m.prepAt = now + 1200 + rng() * 5000; if (now < m.prepAt) return;
+    if (!autoCtl(p)) return; const P = g.P[p.id]; if (!P.alive || P.ready) return; const m = g.mem[p.id] || (g.mem[p.id] = {}); if (!m.prepAt) m.prepAt = now + (1500 + rng() * 6000) * TS; if (now < m.prepAt) return;
     const L = p.isBot ? ({ figurant: 0, candidat: 1, veteran: 2 })[p.level] || 1 : 1; const al = aliveIds(room).filter((x) => x !== p.id);
-    P.cards.slice().forEach((c) => { const i = P.cards.indexOf(c); if (i < 0) return; if (c === "bouclier" && (P.hands <= 1 || L === 2 || rng() < 0.4)) playCard(room, p.id, i); else if (c === "double" && L === 2 && rng() < 0.3) playCard(room, p.id, i); else if (c === "cible" && al.length && rng() < 0.7) playCard(room, p.id, i, al.slice().sort((a, b) => g.P[b].hands - g.P[a].hands)[0]); else if (c === "miroir" && al.length && rng() < 0.6) playCard(room, p.id, i, pickOne(al)); else if (c === "vol" && al.length && L >= 1 && rng() < 0.6) { const t = al.filter((x) => g.P[x].cards.length); if (t.length) playCard(room, p.id, i, pickOne(t)); } });
-    if (g.s.pacts && !inPact(g, p.id) && al.length && rng() < [0.15, 0.3, 0.45][L]) { const t = pickOne(al.filter((x) => !inPact(g, x))); if (t && !g.props.some((q) => q.from === p.id)) g.props.push({ from: p.id, to: t, loyal: rng() < [0.5, 0.65, 0.4][L] }); }
-    g.props.slice().forEach((q) => { if (q.to === p.id && !inPact(g, p.id) && !inPact(g, q.from)) { if (rng() < 0.55) { g.pacts.push({ a: q.from, b: p.id, la: q.loyal, lb: rng() < [0.5, 0.65, 0.4][L] }); } g.props = g.props.filter((x) => x !== q); } });
+    const weakest = () => al.slice().sort((a, b) => g.P[a].hands - g.P[b].hands || rng() - 0.5)[0];
+    P.cards.slice().forEach((c) => {
+      const i = P.cards.indexOf(c); if (i < 0) return;
+      if (c === "bouclier" && (P.hands <= 1 || L === 2 || rng() < 0.4)) playCard(room, p.id, i);
+      else if (c === "double" && L === 2 && rng() < 0.3) playCard(room, p.id, i);
+      else if (c === "cible" && al.length && rng() < 0.7) playCard(room, p.id, i, L ? weakest() : pickOne(al));
+      else if (c === "miroir" && al.length && rng() < 0.5) playCard(room, p.id, i, pickOne(al));
+      else if (c === "vol" && al.length && P.cards.length < 3 && rng() < 0.6) { const rich = al.filter((x) => g.P[x].cards.length); if (rich.length) playCard(room, p.id, i, pickOne(rich)); }
+      else if (c === "alarme" && !g.alarm && (g.pacts.length || g.props.length) && !inPact(g, p.id) && rng() < 0.5) playCard(room, p.id, i);
+      else if (c === "leurre" && rng() < 0.4) playCard(room, p.id, i);
+      else if (c === "espion" && al.length && rng() < 0.3) playCard(room, p.id, i, pickOne(al));
+      else if (c === "absolution" && (P.rancune || P.mark)) playCard(room, p.id, i);
+    });
+    if (g.s.pacts && !g.alarm && !inPact(g, p.id) && al.length && rng() < [0.15, 0.3, 0.45][L]) {
+      const cand = al.filter((x) => !inPact(g, x) && !(g.P[x].rancune && rng() < 0.7)); const t = cand.length ? pickOne(cand) : null;
+      if (t && !g.props.some((q) => q.from === p.id)) g.props.push({ from: p.id, to: t, loyal: P.rancune ? true : rng() < [0.5, 0.65, 0.4][L] });
+    }
+    g.props.slice().forEach((q) => {
+      if (q.to === p.id && !inPact(g, p.id) && !inPact(g, q.from)) {
+        const trust = g.P[q.from].rancune ? 0.25 : 0.55;
+        if (!g.alarm && rng() < trust) { g.pacts.push({ a: q.from, b: p.id, la: q.loyal, lb: P.rancune ? true : rng() < [0.5, 0.65, 0.4][L] }); g.api.sysChat(room, "Un pacte secret vient d'être scellé."); }
+        g.props = g.props.filter((x) => x !== q);
+      }
+    });
     P.ready = true; emitAll(room);
   });
 }
@@ -183,10 +254,11 @@ function botPrep(room, now) {
 // ---------- état envoyé ----------
 function publicState(room, forId) {
   const g = room.g, s = g.s; const now = Date.now(); const P = g.P[forId] || {};
-  const st = { phase: g.phase, left: g.until ? Math.max(0, g.until - now) : 0, mode: s.mode, sfx: s.sfx, round: g.round, rounds: g.rounds, quip: g.quip, you: forId, seq: ++g.seq, teams: s.teams, points: s.points, cardsOn: s.cards, pactsOn: s.pacts, modifier: g.mod ? Object.assign({ id: g.mod }, MODS[g.mod]) : null, now,
-    players: room.players.map((p) => { const Q = g.P[p.id]; return { id: p.id, hands: Q.hands, max: Q.max, alive: Q.alive, points: Q.points, team: Q.team, cardsN: Q.cards.length, ready: !!Q.ready, ghost: !Q.alive, auto: autoCtl(p) && !p.isBot, pact: g.pacts.some((x) => x.a === p.id || x.b === p.id) }; }),
-    me: { cards: (P.cards || []).slice(), alive: !!P.alive, shield: !!P.shield, mirror: P.mirror || null, dbl: !!P.dbl, ready: !!P.ready, props: g.props.filter((x) => x.to === forId || x.from === forId), pact: (g.pacts.find((x) => x.a === forId || x.b === forId) || null) && (() => { const x = g.pacts.find((y) => y.a === forId || y.b === forId); return { with: x.a === forId ? x.b : x.a, loyal: x.a === forId ? x.la : x.lb }; })() },
-    plays: g.plays.map((x) => ({ by: x.by, card: x.card, target: x.target })), ch: g.ch };
+  const st = { phase: g.phase, left: g.until ? Math.max(0, g.until - now) : 0, mode: s.mode, sfx: s.sfx, countTotal: 3300 * TS, round: g.round, rounds: g.rounds, quip: g.quip, you: forId, seq: ++g.seq, teams: s.teams, points: s.points, cardsOn: s.cards, pactsOn: s.pacts, modifier: g.mod ? Object.assign({ id: g.mod }, MODS[g.mod]) : null, now,
+    players: room.players.map((p) => { const Q = g.P[p.id]; return { id: p.id, hands: Q.hands, max: Q.max, alive: Q.alive, points: Q.points, team: Q.team, cardsN: Q.cards.length, ready: !!Q.ready, read: !!Q.briefOk, ghost: !Q.alive, rancune: Q.rancune > 0, mark: Q.mark > 0, revived: !!Q.revived, auto: autoCtl(p) && !p.isBot, pact: g.pacts.some((x) => x.a === p.id || x.b === p.id) }; }),
+    me: { cards: (P.cards || []).slice(), alive: !!P.alive, shield: !!P.shield, mirror: P.mirror || null, dbl: !!P.dbl, intel: P.intel || null, rancune: P.rancune | 0, ready: !!P.ready, read: !!P.briefOk, props: g.props.filter((x) => x.to === forId || x.from === forId), pact: (g.pacts.find((x) => x.a === forId || x.b === forId) || null) && (() => { const x = g.pacts.find((y) => y.a === forId || y.b === forId); return { with: x.a === forId ? x.b : x.a, loyal: x.a === forId ? x.la : x.lb }; })() },
+    plays: g.plays.map((x) => ({ by: x.by, card: x.card, target: x.target })), ch: g.ch, alarm: !!g.alarm };
+  if (g.ch && (g.phase === "brief" || g.phase === "prep" || g.phase === "count" || g.phase === "play")) { const B = BRIEF[g.ch.id] || {}; st.brief = { icon: B.icon || "🖐️", goal: B.goal || "", cmds: B.cmds || [], lose: B.lose || "", tip: B.tip || "", extra: briefExtra(g.ch.id, g.pre), minLeft: g.phase === "brief" ? Math.max(0, g.briefMin - now) : 0, minTotal: g.briefMinMs || 0 }; }
   if (g.c && (g.phase === "play" || g.phase === "judge")) { const def = D[g.ch.id]; st.view = def.view(g.c, forId, now); st.part = g.c.part; st.amIn = g.c.part.includes(forId); }
   if (g.phase === "judge" && g.judged) st.judged = g.judged;
   return st;
@@ -204,16 +276,26 @@ function bind(socket, helpers, api) {
   }));
   socket.on("ho:card", safe((d) => { const c = cur(); if (!c) return; const err = playCard(c.room, c.p.id, +(d && d.i), d && d.target); if (err) toast(err); emitAll(c.room); }));
   socket.on("ho:pact", safe((d) => {
-    const c = cur(); if (!c || c.g.phase !== "prep" || !c.g.s.pacts) return; const id = c.p.id, to = d && d.to; const al = aliveIds(c.room);
+    const c = cur(); if (!c || c.g.phase !== "prep" || !c.g.s.pacts) return; if (c.g.alarm) return toast("L'alarme a retenti, plus aucun pacte ce tour."); const id = c.p.id, to = d && d.to; const al = aliveIds(c.room);
     if (!al.includes(id) || !al.includes(to) || to === id) return toast("Choisis un autre joueur encore en jeu."); if (inPact(c.g, id) || inPact(c.g, to)) return toast("L'un de vous a déjà un pacte.");
     c.g.props = c.g.props.filter((x) => x.from !== id); c.g.props.push({ from: id, to, loyal: !!(d && d.loyal) }); emitAll(c.room);
   }));
   socket.on("ho:pactans", safe((d) => {
-    const c = cur(); if (!c || c.g.phase !== "prep") return; const id = c.p.id; const pr = c.g.props.find((x) => x.from === (d && d.from) && x.to === id); if (!pr) return;
-    c.g.props = c.g.props.filter((x) => x !== pr); if (d.ok && !inPact(c.g, id) && !inPact(c.g, pr.from)) { c.g.pacts.push({ a: pr.from, b: id, la: pr.loyal, lb: !!d.loyal }); c.g.api.sysChat(c.room, nm(c.room, pr.from) + " et " + nm(c.room, id) + " scellent un pacte."); } emitAll(c.room);
+    const c = cur(); if (!c || c.g.phase !== "prep" || c.g.alarm) return; const id = c.p.id; const pr = c.g.props.find((x) => x.from === (d && d.from) && x.to === id); if (!pr) return;
+    c.g.props = c.g.props.filter((x) => x !== pr); if (d.ok && !inPact(c.g, id) && !inPact(c.g, pr.from)) { c.g.pacts.push({ a: pr.from, b: id, la: pr.loyal, lb: !!d.loyal }); c.g.api.sysChat(c.room, "Un pacte secret vient d'être scellé."); } emitAll(c.room);
   }));
-  socket.on("ho:ready", safe(() => { const c = cur(); if (!c || c.g.phase !== "prep") return; const P = c.g.P[c.p.id]; if (!P || !P.alive) return; P.ready = true; emitAll(c.room); }));
-  socket.on("ho:skip", safe(() => { const c = cur(); if (!c || !helpers.isHost()) return; if (c.g.phase === "intro") nextRound(c.room); else if (c.g.phase === "prep") startPlay(c.room); else if (c.g.phase === "judge") afterJudge(c.room); }));
+  socket.on("ho:ready", safe(() => {
+    const c = cur(); if (!c) return; const P = c.g.P[c.p.id]; if (!P) return;
+    if (c.g.phase === "brief") { P.briefOk = true; emitAll(c.room); }
+    else if (c.g.phase === "prep" && P.alive) { P.ready = true; emitAll(c.room); }
+  }));
+  socket.on("ho:skip", safe(() => {
+    const c = cur(); if (!c || !helpers.isHost()) return; const now = Date.now();
+    if (c.g.phase === "intro") nextRound(c.room);
+    else if (c.g.phase === "brief") { if (now < c.g.briefMin) return toast("Laisse à tout le monde le temps de lire les règles."); leaveBrief(c.room); }
+    else if (c.g.phase === "prep") startCount(c.room);
+    else if (c.g.phase === "judge") afterJudge(c.room);
+  }));
 }
 function onReconnect(room, p) { const g = room.g; if (!g) return; const s = g.api.io.sockets.sockets.get(p.socketId); if (s) { sendTo(room, s, p); if (g.over && g.final) s.emit("ho:over", g.final); } }
 function onLeave(room, p) {

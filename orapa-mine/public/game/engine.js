@@ -9,7 +9,14 @@
 })(typeof window !== "undefined" ? window : globalThis, function () {
   const COLOR_NAMES = { 1: "rouge", 2: "bleu", 4: "jaune", 3: "violet", 5: "orange", 6: "vert", 7: "blanc" };
   const COLOR_HEX = { 1: "#ff3b4e", 2: "#3b7bff", 4: "#ffd23f", 3: "#b04dff", 5: "#ff8a1f", 6: "#2fd66b", 7: "#ffffff" };
+  // mode fidèle à l'original, la sonde est transparente et prend les couleurs des pierres touchées
+  // rouge 1, bleu 2, jaune 4, blanc 8. Chaque couleur ne compte qu'une fois.
+  const FAITHFUL_HEX = { 0: "#d6ecff", 1: "#ff3b4e", 2: "#3b7bff", 4: "#ffd23f", 3: "#b04dff", 5: "#ff8a1f", 6: "#2fd66b", 7: "#8d5a3b", 8: "#ffffff", 9: "#ff9db0", 10: "#9cc3ff", 12: "#fff0a0", 11: "#d9b6ff", 13: "#ffc58a", 14: "#a6f0c0", 15: "#9aa3b5" };
+  const FAITHFUL_NAMES = { 0: "transparent", 1: "rouge", 2: "bleu", 4: "jaune", 3: "violet", 5: "orange", 6: "vert", 7: "brun", 8: "blanc", 9: "rose", 10: "bleu clair", 12: "jaune clair", 11: "violet clair", 13: "orange clair", 14: "vert clair", 15: "gris" };
+  const hexOf = (m, f) => (f ? FAITHFUL_HEX[m] : COLOR_HEX[m]) || "#ffffff";
+  const nameOf = (m, f) => (f ? FAITHFUL_NAMES[m] : COLOR_NAMES[m]) || "inconnu";
   const KINDS = {
+    gem: { label: "Pierre", desc: "Renvoie le rayon en diagonale et lui donne sa couleur. Une couleur n'est comptée qu'une fois, même touchée deux fois." },
     filter: { label: "Filtre", desc: "Laisse passer sa couleur et arrête le reste." },
     mirror: { label: "Miroir", desc: "Renvoie le rayon en diagonale." },
     obsidian: { label: "Obsidienne", desc: "Avale tous les rayons." },
@@ -67,6 +74,7 @@
         const gm = gems[gi]; r.hit = true;
         if (gm.k === "obsidian") { absorbed = true; if (wantPath) rays.push({ pts: r.pts, m: r.m, end: "absorb" }); break; }
         if (gm.k === "filter") { r.m &= gm.m; if (!r.m) { absorbed = true; if (wantPath) rays.push({ pts: r.pts, m: 0, end: "absorb" }); break; } continue; }
+        if (gm.k === "gem") { const ndx = gm.d ? r.dy : -r.dy, ndy = gm.d ? r.dx : -r.dx; r.dx = ndx; r.dy = ndy; r.m |= gm.m; continue; }
         if (gm.k === "tint") { if (r.m) r.m |= gm.m; continue; }
         if (gm.k === "mirror") { const ndx = gm.d ? r.dy : -r.dy, ndy = gm.d ? r.dx : -r.dx; r.dx = ndx; r.dy = ndy; if (wantPath) { /* le coude est déjà le point courant */ } continue; }
         if (gm.k === "splitter") {
@@ -89,9 +97,9 @@
   // chaîne décrivant l'effet de chaque case, deux mines identiques ont la même
   function effectString(W, H, gems) {
     const g = buildGrid(W, H, gems); const out = [];
-    for (let i = 0; i < W * H; i++) { const gi = g[i]; if (gi < 0) { out.push("."); continue; } const gm = gems[gi]; out.push(gm.k[0] + (gm.k === "filter" || gm.k === "tint" ? gm.m : gm.k === "mirror" || gm.k === "splitter" ? gm.d : "")); }
+    for (let i = 0; i < W * H; i++) { const gi = g[i]; if (gi < 0) { out.push("."); continue; } const gm = gems[gi]; out.push(gm.k[0] + (gm.k === "filter" || gm.k === "tint" ? gm.m : gm.k === "mirror" || gm.k === "splitter" ? gm.d : gm.k === "gem" ? gm.m + "/" + gm.d : "")); }
     return out.join("");
   }
   function cloneGem(g) { return { k: g.k, m: g.m, d: g.d, shape: g.shape, rot: g.rot || 0, cells: g.cells.map((c) => c.slice()), x: g.x, y: g.y }; }
-  return { COLOR_NAMES, COLOR_HEX, KINDS, SHAPES, SIDES, norm, rot, slotsOf, slotKey, parseSlot, buildGrid, valid, trace, shotSig, traceSig, effectString, cloneGem };
+  return { COLOR_NAMES, COLOR_HEX, hexOf, nameOf, FAITHFUL_HEX, KINDS, SHAPES, SIDES, norm, rot, slotsOf, slotKey, parseSlot, buildGrid, valid, trace, shotSig, traceSig, effectString, cloneGem };
 });

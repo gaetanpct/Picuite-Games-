@@ -1,17 +1,24 @@
 {
- "name": "Orapa Mine",
+ "name": "Mine de Rien",
  "order": 9,
- "tagline": "Tire des lasers dans la mine et devine où se cachent les pierres.",
- "pitch": "Un jeu de déduction avec de la lumière. Un Directeur cache des pierres précieuses dans une mine, les explorateurs tirent des rayons colorés par les bords et observent par où ils ressortent. Filtres, miroirs, prismes, séparateurs et opales dévient, colorent ou arrêtent la lumière. Mode classique, course, mines croisées, coopération, équipes, énigmes et campagne de douze mines, avec un robot qui raisonne vraiment.",
- "tags": ["2 à 6 joueurs", "15 à 40 minutes", "Avec robots"],
+ "tagline": "Envoie des rayons dans la mine et devine où se cachent les pierres.",
+ "pitch": "Un jeu de déduction avec de la lumière. Un Directeur cache des pierres précieuses dans une mine, les explorateurs envoient une sonde par les bords et regardent par où elle ressort et de quelle couleur. Chaque pierre renvoie la sonde et lui donne sa couleur, un diamant la laisse transparente, le corps noir l'avale. On peut aussi demander ce que cache une case. Mode classique, course, mines croisées, coopération, équipes, énigmes et campagne de douze mines, avec un plateau 2D lisible et un robot qui raisonne vraiment.",
+ "tags": [
+  "2 à 6 joueurs",
+  "15 à 40 minutes",
+  "Avec robots"
+ ],
  "steps": [
   "Les pierres sont cachées dans la mine.",
-  "Les explorateurs tirent des lasers et lisent les entrées et les sorties.",
+  "Les explorateurs envoient la sonde et lisent l'entrée, la sortie et la couleur.",
   "Le premier qui replace toutes les pierres au bon endroit gagne."
  ],
  "note": "Se joue ensemble, en duel, en équipes ou contre des robots.",
  "for": "Pour les esprits logiques qui aiment les énigmes et les puzzles.",
- "colors": ["#4a86ff", "#0c1633"],
- "cta": "Jouer à Orapa Mine",
+ "colors": [
+  "#4a86ff",
+  "#0c1633"
+ ],
+ "cta": "Jouer à Mine de Rien",
  "logo": "logos/orapa-mine.svg"
 }

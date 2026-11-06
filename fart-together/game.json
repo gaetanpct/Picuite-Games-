@@ -1,17 +1,17 @@
 {
- "name": "Fart Together",
+ "name": "Pétard Mouillé",
  "order": 10,
- "tagline": "Une bouée, des pets, une rivière et zéro talent pour s'entendre.",
- "pitch": "Tout l'équipage est assis autour d'une grosse bouée gonflable et la seule façon d'avancer est de péter dans la bonne direction, au bon moment, tous ensemble. Dix rivières avec courants, rapides, cascades, rampes, fromage fondu et glace, huit modes de jeu, un défi du jour, des robots qui ramment pour de vrai et une bouée qui chavire si l'équipage se rate.",
+ "tagline": "Une bouée, chacun sa zone, une rivière et zéro talent pour s'entendre.",
+ "pitch": "Une seule bouée, plusieurs joueurs, et chacun ne contrôle que sa propre zone. Le moteur pousse à l'arrière, les rames sur les côtés, le gouvernail à l'avant, et une poussée d'un côté fait tourner la bouée de l'autre. Dix rivières avec goulots, chicanes, épingles, rapides, rampes et fromage fondu, huit modes de jeu, un défi du jour et des robots qui ramment pour de vrai.",
  "tags": ["1 à 8 joueurs", "10 à 25 minutes", "Avec robots"],
  "steps": [
-  "Chacun vise une direction et pousse en appuyant.",
-  "La bouée avance, tourne ou penche selon les forces de tout le monde.",
-  "Il faut s'accorder pour passer les rochers, les chutes et l'arrivée."
+  "Chacun a sa zone sur la bouée et pousse vers l'intérieur en appuyant.",
+  "Une poussée d'un côté fait tourner la bouée de l'autre, il faut compenser.",
+  "Accélérez, freinez et tournez ensemble pour passer goulots, épingles et arrivée."
  ],
  "note": "Se joue ensemble, en course ou en arène.",
  "for": "Pour les équipages qui aiment rire plus fort que la bouée ne tangue.",
  "colors": ["#2fe0a8", "#0b2a3a"],
- "cta": "Jouer à Fart Together",
+ "cta": "Jouer à Pétard Mouillé",
  "logo": "logos/fart-together.svg"
 }

@@ -54,8 +54,8 @@
     const sbtn = E("button", { class: "btn btn--small btn--ghost", text: sound.enabled ? "Son activé" : "Son coupé", onclick: (ev) => { ev.target.textContent = sound.toggle() ? "Son activé" : "Son coupé"; } });
     const rows = [E("div", { class: "menu-row" }, [E("div", {}, [E("b", { text: "Sons" }), E("p", { class: "small muted", text: "Rires, grincements et mâchoires." })]), sbtn]),
       E("h3", { text: "Les cartes d'influence", style: { marginTop: "0.8rem" } })];
-    Object.keys(R.CARDS).forEach((k) => rows.push(E("p", { class: "small" }, [E("b", { text: R.CARDS[k].icon + " " + R.CARDS[k].name + "  " }), R.CARDS[k].text])));
-    rows.push(E("p", { class: "small", text: "Un pacte lie deux joueurs pour une épreuve. S'ils sont fidèles, celui qui est sain prend la main de l'autre. S'il trahit, il vole une carte à sa victime." }));
+    Object.keys(R.CARDS).forEach((k) => rows.push(E("p", { class: "small" }, [E("b", { text: R.CARDS[k].icon + " " + R.CARDS[k].name + ". " }), R.CARDS[k].when + " " + R.CARDS[k].text + " Risque. " + R.CARDS[k].risk])));
+    R.PACT_RULES.forEach((r) => rows.push(E("p", { class: "small" }, [E("b", { text: r[0] + " " + r[1] + ". " }), r[2]])));
     rows.push(E("button", { class: "btn btn--danger btn--small", style: { marginTop: "0.8rem" }, text: "Quitter la partie", onclick: () => Kit.confirm("Quitter la partie et revenir à l'accueil ?", () => { $("#modal").classList.add("hidden"); Kit.leave(); }) }));
     Kit.showModal("Menu", rows);
   }
@@ -72,7 +72,9 @@
   function phaseEnter(s, prev) {
     G.ui = {}; G.simonIdx = -1;
     if (s.phase === "intro") sIntro();
-    if (s.phase === "prep") { sGo(); if (S.ready) S.mood(s.modifier ? "#ffd23f" : "#e63946"); }
+    if (s.phase === "brief") { sIntro(); if (S.ready) S.mood(s.modifier ? "#ffd23f" : "#e63946"); }
+    if (s.phase === "prep") { sGo(); if (S.ready) S.mood("#a56bff"); }
+    if (s.phase === "count") { G.countN = -1; }
     if (s.phase === "play") { sGo(); }
     if (s.phase === "judge" && s.judged && G.judgeFor !== s.round) {
       G.judgeFor = s.round; const J = s.judged; const lost = Object.keys(J.loss).filter((id) => J.loss[id].loss > 0);
@@ -91,10 +93,15 @@
       let left = 0, total = 1;
       if (st.phase === "play" && st.view && st.view.ends) { left = st.view.ends - t; total = Math.max(1, st.view.ends - (st.view.t0 || st.view.showStart || st.view.qStart || st.view.clueStart || (st.view.ends - 14000))); if (st.view.turnEnds) { left = st.view.turnEnds - t; total = 10000; } }
       else if (st.phase === "play" && st.view && st.view.turnEnds) { left = st.view.turnEnds - t; total = 10000; }
-      else if (st.phase !== "play" && st.phase !== "over") { left = st.left - (performance.now() - G.recv); total = st.phase === "judge" ? 9500 : st.phase === "prep" ? 11000 : 5500; }
+      else if (st.phase === "brief") { const b = st.brief || {}; left = (b.minLeft || 0) - (performance.now() - G.recv); total = Math.max(1, b.minTotal || 1); }
+      else if (st.phase === "count") { left = st.left - (performance.now() - G.recv); total = st.countTotal || 3300; }
+      else if (st.phase !== "play" && st.phase !== "over") { left = st.left - (performance.now() - G.recv); total = st.phase === "judge" ? 9500 : st.phase === "prep" ? 30000 : 5500; }
       if (st.phase === "play" && !(st.view && (st.view.ends || st.view.turnEnds))) tm.classList.add("hidden"); else { tm.classList.remove("hidden"); fill.style.width = Math.max(0, Math.min(100, (left / total) * 100)) + "%"; }
     }
+    if (st.phase === "brief") { const w = $("#ho-brief-wait"); if (w) { const left = (st.brief ? st.brief.minLeft : 0) - (performance.now() - G.recv); w.textContent = left > 0 ? "Lecture obligatoire encore " + secs(left) + " s, personne ne peut lancer avant." : "Le départ se fait quand tout le monde est prêt."; } }
+    if (st.phase === "count") { const e = $("#ho-count"); if (e) { const left = st.left - (performance.now() - G.recv); const n = Math.max(1, Math.min(3, Math.ceil(left / ((st.countTotal || 3300) / 3)))); e.textContent = String(n); if (n !== G.countN) { G.countN = n; sTick(); e.classList.remove("ho-count--pop"); void e.offsetWidth; e.classList.add("ho-count--pop"); } } }
     if (st.phase !== "play" || !st.view) return; const v = st.view; const id = st.ch.id;
+    if (id === "hot") { const cells = document.querySelectorAll(".ho-hotcell"); const t2 = snow(); let lit = -1; v.seq.forEach((w) => { if (t2 >= v.start + w.at && t2 < v.start + w.at + w.dur) lit = w.cell; }); cells.forEach((c, k) => c.classList.toggle("ho-hotcell--lit", k === lit)); const msg = $("#ho-hot-msg"); if (msg) msg.textContent = t2 < v.start ? "Prépare-toi" : t2 > v.end ? "Terminé" : "Touche les mains allumées"; }
     if (id === "stoppile") { const cur = $("#ho-cur"); if (cur) { const pos = v.mine !== null && v.mine !== undefined ? v.mine : (t < v.t0 ? 0 : 1 - Math.abs(2 * (((t - v.t0) / v.P) % 1) - 1)); cur.style.left = pos * 100 + "%"; } }
     if (id === "simon") {
       const L = v.seq.length; const idx = t >= v.showStart && t < v.showStart + L * v.pace ? Math.floor((t - v.showStart) / v.pace) : -1; const within = idx >= 0 && ((t - v.showStart) % v.pace) < v.pace * 0.72;
@@ -114,7 +121,9 @@
     if (sig === G.sig) return; G.sig = sig; main.innerHTML = "";
     if (G.over && st.phase === "over") return main.appendChild(buildOver());
     if (st.phase === "intro") main.appendChild(buildIntro(st));
+    else if (st.phase === "brief") main.appendChild(buildBrief(st));
     else if (st.phase === "prep") main.appendChild(buildPrep(st));
+    else if (st.phase === "count") main.appendChild(buildCount(st));
     else if (st.phase === "play") main.appendChild(buildPlay(st));
     else if (st.phase === "judge") main.appendChild(buildJudge(st));
     else if (st.phase === "over") main.appendChild(E("div", { class: "ho-card" }, [E("h2", { text: "Générique de fin" })]));
@@ -123,43 +132,92 @@
     top.innerHTML = "";
     top.appendChild(E("div", { class: "ho-round", text: MODE_NAMES[st.mode] + (st.phase === "over" ? "  ·  fin de l'émission" : st.round ? "  ·  épreuve " + st.round + " sur " + st.rounds : "") }));
     top.appendChild(E("div", { class: "ho-quip", text: st.quip || "" }));
-    top.appendChild(E("div", { class: "ho-players" }, st.players.map((p) => E("div", { class: "ho-chip" + (p.id === st.you ? " ho-chip--you" : "") + (p.ghost ? " ho-chip--ghost" : "") + (st.phase === "play" && st.part && st.part.includes(p.id) ? " ho-chip--in" : "") }, [dot(p.id), E("span", { class: "nm", text: nameOf(p.id) }), E("span", { class: "ho-hands", text: st.points ? p.points + " pt" : handsStr(p) }), st.teams && p.team !== null ? E("small", { text: p.team === 0 ? "⚫" : "🔴" }) : null, p.pact ? E("small", { text: "🤝" }) : null, p.cardsN && st.phase !== "over" ? E("small", { text: "🃏" + p.cardsN }) : null]))));
+    top.appendChild(E("div", { class: "ho-players" }, st.players.map((p) => E("div", { class: "ho-chip" + (p.id === st.you ? " ho-chip--you" : "") + (p.ghost ? " ho-chip--ghost" : "") + (st.phase === "play" && st.part && st.part.includes(p.id) ? " ho-chip--in" : "") }, [dot(p.id), E("span", { class: "nm", text: nameOf(p.id) }), E("span", { class: "ho-hands", text: st.points ? p.points + " pt" : handsStr(p) }), st.teams && p.team !== null ? E("small", { text: p.team === 0 ? "⚫" : "🔴" }) : null, p.pact ? E("small", { text: "🤝", title: "Un pacte secret est scellé" }) : null, p.rancune ? E("small", { text: "🗡️", title: "Rancune de traître" }) : null, p.mark ? E("small", { text: "👻", title: "Marqué par un fantôme" }) : null, p.cardsN && st.phase !== "over" ? E("small", { text: "🃏" + p.cardsN }) : null]))));
   }
   function buildIntro(st) {
     const m = R.MODES.find((x) => x.value === st.mode);
-    return E("div", { class: "ho-card" }, [E("h2", { text: "Bienvenue dans Hands Over" }), E("p", { class: "ho-sub", text: m ? m.desc : "" }), E("p", { class: "ho-sub", text: "Chaque épreuve perdue coûte une main. Sans main, tu deviens fantôme et tu continues à jouer, tu peux même te venger." }), st.teams ? E("p", { class: "ho-sub", text: "Tu es dans l'équipe " + TEAMS[(st.players.find((p) => p.id === st.you) || {}).team || 0] + "." }) : null, Kit.isHost() ? E("div", { class: "ho-ctrl" }, [E("button", { class: "btn btn--accent", text: "Passer", onclick: () => Kit.socket.emit("ho:skip") })]) : null]);
+    return E("div", { class: "ho-card" }, [E("h2", { text: "Bienvenue dans Main Morte" }), E("p", { class: "ho-sub", text: m ? m.desc : "" }), E("p", { class: "ho-sub", text: "Chaque épreuve perdue coûte une main. Sans main, tu deviens fantôme et tu continues à jouer, tu peux même te venger." }), st.teams ? E("p", { class: "ho-sub", text: "Tu es dans l'équipe " + TEAMS[(st.players.find((p) => p.id === st.you) || {}).team || 0] + "." }) : null, Kit.isHost() ? E("div", { class: "ho-ctrl" }, [E("button", { class: "btn btn--accent", text: "Passer", onclick: () => Kit.socket.emit("ho:skip") })]) : null]);
+  }
+
+  // ----- lecture des règles -----
+  function buildBrief(st) {
+    const ch = st.ch, b = st.brief || { icon: "🖐️", goal: "", cmds: [], lose: "", tip: "", extra: "", minLeft: 0, minTotal: 0 }; const me = st.me; const mustRead = true;
+    const kids = [];
+    kids.push(E("div", { class: "ho-brief ho-card" }, [
+      E("div", { class: "ho-brief__icon", text: b.icon }),
+      E("div", { class: "ho-fam", text: "Épreuve " + st.round + " sur " + st.rounds + "  ·  " + FAM[ch.family] }),
+      E("h2", { class: "ho-brief__name", text: ch.name }),
+      E("div", { class: "ho-goal" }, [E("small", { text: "Ton objectif" }), E("b", { text: b.goal || ch.rules })]),
+      b.extra ? E("p", { class: "ho-variant", text: b.extra }) : null,
+      st.modifier ? E("p", { class: "ho-variant", text: "Règle chaos. " + st.modifier.label + ", " + st.modifier.text }) : null,
+    ]));
+    if (b.cmds && b.cmds.length) kids.push(E("div", { class: "ho-card" }, [E("h3", { text: "Les commandes" })].concat(b.cmds.map((c) => E("div", { class: "ho-cmd" }, [E("span", { class: "ho-cmd__ic", text: c[0] }), E("span", { text: c[1] })])))));
+    kids.push(E("div", { class: "ho-card ho-card--lose" }, [E("h3", { text: "Ce qui te fait perdre" }), E("p", { class: "ho-bigp", text: b.lose || "" }), b.tip ? E("p", { class: "ho-tip", text: "Astuce. " + b.tip }) : null]));
+    if (!me.alive && st.amInPlay !== false) kids.push(E("p", { class: "ho-ghostbar", text: "👻 Tu es fantôme. Tu peux quand même jouer cette épreuve si elle l'autorise, sinon tu regardes." }));
+    const total = st.players.filter((p) => !p.auto);
+    kids.push(E("div", { class: "ho-card" }, [E("h3", { text: "Qui a fini de lire" }), E("div", { class: "ho-readers" }, st.players.map((p) => E("span", { class: "ho-reader" + (p.read || p.auto ? " ho-reader--ok" : "") }, [dot(p.id), " " + nameOf(p.id) + (p.read || p.auto ? "  ✔" : "  …")])))]));
+    kids.push(E("div", { class: "ho-ctrl ho-ctrl--sticky" }, [
+      E("button", { class: "btn btn--accent btn--big", id: "ho-readybtn", text: me.read ? "J'ai fini de lire, j'attends les autres" : "J'ai compris, je suis prêt", disabled: !!me.read, onclick: () => Kit.socket.emit("ho:ready") }),
+      E("div", { class: "ho-wait", id: "ho-brief-wait", text: "" }),
+      Kit.isHost() ? E("button", { class: "btn btn--ghost btn--small", text: "Passer", onclick: () => Kit.socket.emit("ho:skip") }) : null,
+    ]));
+    return E("div", { class: "ho-col" }, kids);
+  }
+  function buildCount(st) {
+    return E("div", { class: "ho-col" }, [E("div", { class: "ho-card ho-countcard" }, [E("div", { class: "ho-fam", text: st.ch.name }), E("div", { class: "ho-count", id: "ho-count", text: "3" }), E("p", { class: "ho-hint", text: st.brief && st.brief.goal ? st.brief.goal : "" })])]);
   }
 
   // ----- préparation : cartes et pactes -----
+  function cardTile(cd, i, sel, onpick) {
+    const d = R.CARDS[cd]; return E("button", { class: "ho-cardbtn" + (i === sel ? " ho-cardbtn--on" : ""), onclick: onpick }, [
+      E("div", { class: "ho-cardbtn__top" }, [E("span", { class: "ho-cardbtn__ic", text: d.icon }), E("b", { text: d.name })]),
+      E("small", { class: "ho-cardbtn__when", text: d.when }), E("small", { text: d.text }), E("small", { class: "ho-cardbtn__risk", text: "Risque. " + d.risk })]);
+  }
   function buildPrep(st) {
-    const ch = st.ch; const me = st.me; const alive = st.players.filter((p) => p.alive && p.id !== st.you); const kids = [];
-    kids.push(E("div", { class: "ho-card" }, [E("div", { class: "ho-fam", text: FAM[ch.family] }), E("h2", { text: ch.name }), E("p", { class: "ho-sub", text: ch.rules }), st.modifier ? E("p", { class: "ho-sub", style: { color: "#ffd23f" }, text: "Règle chaos. " + st.modifier.label + ", " + st.modifier.text }) : null, !me.alive ? E("p", { class: "ho-ghostbar", text: "👻 Tu es fantôme. Tu joueras quand l'épreuve le permet, sinon tu regardes." }) : null]));
-    if (st.plays.length) kids.push(E("div", { class: "ho-card" }, [E("h3", { text: "Cartes jouées" })].concat(st.plays.map((x) => E("p", { class: "ho-note" }, [dot(x.by), " " + nameOf(x.by) + " joue " + R.CARDS[x.card].icon + " " + R.CARDS[x.card].name + (x.target ? " sur " + nameOf(x.target) : "")])))));
+    const ch = st.ch; const me = st.me; const alive = st.players.filter((p) => p.alive && p.id !== st.you); const kids = []; const b = st.brief || {};
+    kids.push(E("div", { class: "ho-card ho-card--slim" }, [E("div", { class: "ho-fam", text: "Avant l'épreuve  ·  " + FAM[ch.family] }), E("h2", { text: (b.icon || "") + " " + ch.name }), E("p", { class: "ho-sub", text: "Objectif. " + (b.goal || ch.rules) }), st.modifier ? E("p", { class: "ho-sub", style: { color: "#ffd23f" }, text: "Règle chaos. " + st.modifier.label + ", " + st.modifier.text }) : null, st.alarm ? E("p", { class: "ho-alarm", text: "🚨 L'alarme a retenti, tous les pactes de cette épreuve sont annulés." }) : null, !me.alive ? E("p", { class: "ho-ghostbar", text: "👻 Tu es fantôme, tu n'as ni carte ni pacte." }) : null]));
+    if (st.plays.length) kids.push(E("div", { class: "ho-card" }, [E("h3", { text: "Cartes jouées par la table" })].concat(st.plays.map((x) => E("p", { class: "ho-note" }, [dot(x.by), " " + nameOf(x.by) + " joue " + R.CARDS[x.card].icon + " " + R.CARDS[x.card].name + (x.target ? " sur " + nameOf(x.target) : "")])))));
+    if (me.alive && me.intel) { const I = me.intel; kids.push(E("div", { class: "ho-card ho-card--intel" }, [E("h3", { text: "🕵️ Ce que tu sais sur " + nameOf(I.target) }), E("p", { class: "ho-note", text: I.cards.length ? "Ses cartes sont " + I.cards.map((c) => R.CARDS[c].icon + " " + R.CARDS[c].name).join(", ") + "." : "Il n'a aucune carte." }), E("p", { class: "ho-note", text: I.pact ? "Il a un pacte avec " + nameOf(I.pact.with) + " et compte être " + (I.pact.loyal ? "fidèle" : "traître") + "." : "Il n'a aucun pacte pour l'instant." }), I.rancune ? E("p", { class: "ho-note", text: "Il porte une rancune de traître." }) : null])); }
     if (me.alive && st.cardsOn) {
       const sel = G.ui.card; const c = me.cards[sel];
-      kids.push(E("div", { class: "ho-card" }, [E("h3", { text: "Tes cartes d'influence" }), me.cards.length ? E("div", { class: "ho-cards" }, me.cards.map((cd, i) => E("button", { class: "ho-cardbtn", style: i === sel ? { background: "rgba(255,210,63,0.3)" } : {}, onclick: () => { const needT = ["miroir", "cible", "vol"].includes(cd); if (!needT) { Kit.socket.emit("ho:card", { i }); G.ui.card = undefined; } else { G.ui.card = i; G.ui.tick = Math.random(); renderAll(); } } }, [E("b", { text: R.CARDS[cd].icon + " " + R.CARDS[cd].name }), E("small", { text: R.CARDS[cd].text })]))) : E("p", { class: "ho-hint", text: "Tu n'as aucune carte. On en gagne en remportant une épreuve." }),
-        c ? E("div", {}, [E("p", { class: "ho-hint", text: "Choisis la cible." }), E("div", { class: "ho-targets" }, alive.map((p) => E("button", { class: "ho-pill", onclick: () => { Kit.socket.emit("ho:card", { i: sel, target: p.id }); G.ui.card = undefined; } }, [dot(p.id), nameOf(p.id)])))]) : null,
-        me.shield ? E("p", { class: "ho-note", text: "🛡️ Ton bouclier est posé." }) : null, me.mirror ? E("p", { class: "ho-note", text: "🪞 Ton miroir vise " + nameOf(me.mirror) + "." }) : null, me.dbl ? E("p", { class: "ho-note", text: "✌️ Double ou rien est engagé." }) : null]));
+      kids.push(E("div", { class: "ho-card" }, [E("h3", { text: "Tes cartes d'influence" }), E("p", { class: "ho-hint ho-hint--left", text: "Touche une carte pour la jouer. Tout le monde voit quelle carte tu joues, mais pas forcément si elle dit vrai." }),
+        me.cards.length ? E("div", { class: "ho-cards" }, me.cards.map((cd, i) => cardTile(cd, i, sel, () => { const needT = R.CARDS[cd].target; if (!needT) { Kit.socket.emit("ho:card", { i }); G.ui.card = undefined; } else { G.ui.card = i; G.ui.tick = Math.random(); renderAll(); } }))) : E("p", { class: "ho-hint", text: "Tu n'as aucune carte. On en gagne en remportant une épreuve ou grâce à un pacte." }),
+        c ? E("div", {}, [E("p", { class: "ho-hint", text: R.CARDS[c].icon + " " + R.CARDS[c].name + ". Choisis la cible." }), E("div", { class: "ho-targets" }, alive.map((p) => E("button", { class: "ho-pill", onclick: () => { Kit.socket.emit("ho:card", { i: sel, target: p.id }); G.ui.card = undefined; } }, [dot(p.id), nameOf(p.id) + (p.rancune ? " 🗡️" : "")])))]) : null,
+        me.shield ? E("p", { class: "ho-note", text: "🛡️ Ton bouclier est posé." }) : null, me.mirror ? E("p", { class: "ho-note", text: "🪞 Ton miroir vise " + nameOf(me.mirror) + "." }) : null, me.dbl ? E("p", { class: "ho-note", text: "✌️ Double ou rien est engagé." }) : null,
+        me.rancune ? E("p", { class: "ho-note", text: "🗡️ Tu portes une rancune de traître. Ta prochaine sanction coûtera une main de plus." }) : null]));
     }
     if (me.alive && st.pactsOn) {
       const incoming = me.props.filter((x) => x.to === st.you); const mine = me.props.find((x) => x.from === st.you);
       const pk = [E("h3", { text: "Pacte secret" })];
-      if (me.pact) pk.push(E("p", { class: "ho-note", text: "🤝 Pacte avec " + nameOf(me.pact.with) + ". Tu es " + (me.pact.loyal ? "fidèle" : "traître") + ", seul toi le sais." }));
+      pk.push(E("details", { class: "ho-details" }, [E("summary", { text: "Comment fonctionne un pacte et une trahison" })].concat(R.PACT_RULES.map((r) => E("p", { class: "ho-rule" }, [E("b", { text: r[0] + " " + r[1] + ". " }), r[2]])))));
+      if (st.alarm) pk.push(E("p", { class: "ho-note", text: "Plus aucun pacte n'est possible ce tour." }));
+      else if (me.pact) pk.push(E("p", { class: "ho-note ho-note--big", text: "🤝 Pacte avec " + nameOf(me.pact.with) + ". Tu as choisi d'être " + (me.pact.loyal ? "fidèle" : "traître") + ", seul toi le sais. Cela se joue à la fin de l'épreuve." }));
       else {
-        incoming.forEach((x) => pk.push(E("div", { class: "ho-note" }, [dot(x.from), " " + nameOf(x.from) + " te propose un pacte.  ", E("button", { class: "ho-pill", text: "Accepter, fidèle", onclick: () => Kit.socket.emit("ho:pactans", { from: x.from, ok: true, loyal: true }) }), " ", E("button", { class: "ho-pill", text: "Accepter, traître", onclick: () => Kit.socket.emit("ho:pactans", { from: x.from, ok: true, loyal: false }) }), " ", E("button", { class: "ho-pill", text: "Refuser", onclick: () => Kit.socket.emit("ho:pactans", { from: x.from, ok: false }) })])));
-        if (mine) pk.push(E("p", { class: "ho-note", text: "Proposition envoyée à " + nameOf(mine.to) + "." }));
-        else { G.ui.loyal = G.ui.loyal === undefined ? true : G.ui.loyal; pk.push(E("p", { class: "ho-hint", text: "Allie-toi à un joueur. Fidèle, tu prends sa main s'il perd. Traître, tu le laisses tomber et tu lui voles une carte." })); pk.push(E("div", { class: "ho-targets" }, [E("button", { class: "ho-pill" + (G.ui.loyal ? " ho-pill--on" : ""), text: "Fidèle", onclick: () => { G.ui.loyal = true; G.ui.tick = Math.random(); renderAll(); } }), E("button", { class: "ho-pill" + (!G.ui.loyal ? " ho-pill--on" : ""), text: "Traître", onclick: () => { G.ui.loyal = false; G.ui.tick = Math.random(); renderAll(); } })])); pk.push(E("div", { class: "ho-targets" }, alive.filter((p) => !p.pact).map((p) => E("button", { class: "ho-pill", onclick: () => Kit.socket.emit("ho:pact", { to: p.id, loyal: G.ui.loyal }) }, [dot(p.id), nameOf(p.id)])))); }
+        const choice = (ok, id) => E("div", { class: "ho-choicebox" }, [
+          E("button", { class: "ho-pill ho-pill--big", text: "Accepter et rester fidèle", onclick: () => Kit.socket.emit("ho:pactans", { from: id, ok: true, loyal: true }) }),
+          E("button", { class: "ho-pill ho-pill--big ho-pill--bad", text: "Accepter et trahir", onclick: () => Kit.socket.emit("ho:pactans", { from: id, ok: true, loyal: false }) }),
+          E("button", { class: "ho-pill", text: "Refuser", onclick: () => Kit.socket.emit("ho:pactans", { from: id, ok: false }) })]);
+        incoming.forEach((x) => pk.push(E("div", { class: "ho-note ho-note--big" }, [dot(x.from), " " + nameOf(x.from) + " te propose un pacte. Il a déjà fait son choix en secret.", choice(true, x.from)])));
+        if (mine) pk.push(E("p", { class: "ho-note", text: "Proposition envoyée à " + nameOf(mine.to) + ". Elle se joue à la fin de l'épreuve si elle est acceptée." }));
+        else {
+          G.ui.loyal = G.ui.loyal === undefined ? true : G.ui.loyal;
+          pk.push(E("div", { class: "ho-two" }, [
+            E("button", { class: "ho-opt" + (G.ui.loyal ? " ho-opt--on" : ""), onclick: () => { G.ui.loyal = true; G.ui.tick = Math.random(); renderAll(); } }, [E("b", { text: "💚 Fidèle" }), E("small", { text: "Si l'autre perd et que tu t'en sors, tu prends une main à sa place. Tu gagnes une carte et un point." })]),
+            E("button", { class: "ho-opt ho-opt--bad" + (!G.ui.loyal ? " ho-opt--on" : ""), onclick: () => { G.ui.loyal = false; G.ui.tick = Math.random(); renderAll(); } }, [E("b", { text: "🗡️ Traître" }), E("small", { text: "Si l'autre perd et que tu t'en sors, il perd une main de plus et tu lui voles une carte. Tu portes ensuite une rancune, ta prochaine sanction coûte une main de plus." })])]));
+          pk.push(E("p", { class: "ho-hint ho-hint--left", text: "Choisis ton allié. Ton choix reste secret, il ne verra que ta proposition." }));
+          pk.push(E("div", { class: "ho-targets" }, alive.filter((p) => !p.pact).map((p) => E("button", { class: "ho-pill", onclick: () => Kit.socket.emit("ho:pact", { to: p.id, loyal: !!G.ui.loyal }) }, [dot(p.id), nameOf(p.id) + (p.rancune ? " 🗡️" : "")]))));
+        }
       }
       kids.push(E("div", { class: "ho-card" }, pk));
     }
-    if (me.alive) kids.push(E("div", { class: "ho-ctrl" }, [E("button", { class: "btn btn--accent btn--big", text: me.ready ? "En attente des autres" : "Prêt", disabled: me.ready, onclick: () => Kit.socket.emit("ho:ready") }), Kit.isHost() ? E("button", { class: "btn btn--ghost", text: "Lancer", onclick: () => Kit.socket.emit("ho:skip") }) : null]));
+    if (me.alive) kids.push(E("div", { class: "ho-ctrl ho-ctrl--sticky" }, [E("button", { class: "btn btn--accent btn--big", text: me.ready ? "En attente des autres" : "J'ai fini, on lance", disabled: me.ready, onclick: () => Kit.socket.emit("ho:ready") }), Kit.isHost() ? E("button", { class: "btn btn--ghost btn--small", text: "Lancer", onclick: () => Kit.socket.emit("ho:skip") }) : null]));
     return E("div", { class: "ho-col" }, kids);
   }
 
   // ----- épreuves -----
   function buildPlay(st) {
-    const v = st.view; const ch = st.ch; const can = st.amIn; const head = E("div", { class: "ho-card" }, [E("div", { class: "ho-fam", text: FAM[ch.family] }), E("h2", { text: ch.name }), E("p", { class: "ho-sub", text: (v && v.extra) ? v.extra : ch.rules }), !can ? E("p", { class: "ho-ghostbar", text: "👀 Tu regardes cette épreuve." }) : null]);
-    const B = { croco, collision, simon, reflex, stoppile, coffre, bombe, calcul, imposteur, doigts }[ch.id];
+    const v = st.view; const ch = st.ch; const can = st.amIn; const head = E("div", { class: "ho-card" }, [E("div", { class: "ho-fam", text: FAM[ch.family] }), E("h2", { text: ch.name }), st.brief && st.brief.goal ? E("p", { class: "ho-goalline", text: "Objectif. " + st.brief.goal }) : null, E("p", { class: "ho-sub", text: (v && v.extra) ? v.extra : "" }), !can ? E("p", { class: "ho-ghostbar", text: "👀 Tu regardes cette épreuve." }) : null]);
+    const B = { croco, collision, simon, reflex, stoppile, coffre, bombe, calcul, imposteur, doigts, ppc, hot }[ch.id];
     return E("div", { class: "ho-col" }, [head, B && v ? B(v, st, can) : null]);
   }
   function croco(v, st, can) {
@@ -232,6 +290,19 @@
       E("div", { class: "ho-prog" }, ["Ont verrouillé  "].concat(Object.keys(v.locked).map((id) => dot(id)))), v.reveal ? E("div", {}, [E("p", { class: "ho-hint", text: "Total réel " + v.reveal.sum }), E("div", {}, Object.keys(v.reveal.f).map((id) => E("p", { class: "ho-note" }, [dot(id), " " + nameOf(id) + " levait " + v.reveal.f[id] + " et pariait " + v.reveal.g[id]])))]) : null]);
   }
 
+  function ppc(v, st, can) {
+    const ICON = ["✊", "✋", "✌️"]; const locked = v.mine !== null && v.mine !== undefined;
+    return E("div", { class: "ho-card" }, [E("p", { class: "ho-hint", text: locked ? "Tu as choisi " + v.names[v.mine] + ". Les autres décident encore." : "Choisis en secret." }),
+      E("div", { class: "ho-ppc" }, [0, 1, 2].map((k) => E("button", { class: "ho-ppcbtn" + (v.mine === k ? " ho-ppcbtn--on" : ""), disabled: !can || locked, onpointerdown: () => act({ pick: k }) }, [E("span", { class: "ho-ppcbtn__ic", text: ICON[k] }), E("b", { text: v.names[k] })]))),
+      E("div", { class: "ho-prog" }, ["Ont choisi  "].concat(Object.keys(v.chosen).map((id) => dot(id)))),
+      v.all ? E("div", {}, st.part.map((id) => E("p", { class: "ho-note" }, [dot(id), " " + nameOf(id) + "  " + ICON[v.all[id]] + " " + v.names[v.all[id]] + ", bilan " + (v.bil[id] > 0 ? "+" : "") + v.bil[id]]))) : null]);
+  }
+  function hot(v, st, can) {
+    const cells = [...Array(9).keys()].map((k) => E("button", { class: "ho-hotcell", disabled: !can, onpointerdown: () => act({ cell: k }) }, [E("span", { text: "🖐️" })]));
+    return E("div", { class: "ho-card" }, [E("p", { class: "ho-turn", id: "ho-hot-msg", text: "Prépare-toi" }), E("div", { class: "ho-hotgrid" }, cells),
+      E("div", { class: "ho-prog" }, st.part.map((id) => E("span", { class: "ho-seat" }, [dot(id), " " + (v.scores[id] === undefined ? 0 : v.scores[id]) + " pt   "])))]);
+  }
+
   // ----- jugement -----
   function revealText(st, J) {
     const r = J.reveal || {}; const id = J.id;
@@ -243,15 +314,29 @@
     if (id === "stoppile") return "Zone visée à " + Math.round(r.target * 100) + " sur 100.";
     if (id === "collision") return Object.keys(r.groups).filter((k) => r.groups[k].length > 1).map((k) => "Collision au " + k + " entre " + r.groups[k].map(nameOf).join(" et ")).join(". ") || "Aucune collision.";
     if (id === "doigts") return "Le total était " + r.sum + ".";
+    if (id === "ppc") return Object.keys(r.bil).map((k) => nameOf(k) + " " + r.names[r.pick[k]] + " (" + (r.bil[k] > 0 ? "+" : "") + r.bil[k] + ")").join(", ") + ".";
+    if (id === "hot") return Object.keys(r.score).map((k) => nameOf(k) + " " + r.score[k] + " pt").join(", ") + ".";
     return "";
+  }
+  function pactCards(st, J) {
+    const out = [];
+    (J.pev || []).forEach((e) => {
+      if (e.k === "betray") out.push(E("div", { class: "ho-pactfx ho-pactfx--betray" }, [E("div", { class: "ho-pactfx__ic", text: "🗡️" }), E("div", {}, [E("b", { text: "Trahison" }), E("p", { text: nameOf(e.help) + " a laissé tomber " + nameOf(e.vic) + ". " + nameOf(e.vic) + " perd une main de plus" + (e.stolen ? " et se fait voler " + R.CARDS[e.stolen].name : "") + "." }), E("p", { text: nameOf(e.help) + " porte maintenant une rancune, et " + nameOf(e.vic) + " pioche une carte de consolation." })])]));
+      else if (e.k === "loyal") out.push(E("div", { class: "ho-pactfx ho-pactfx--loyal" }, [E("div", { class: "ho-pactfx__ic", text: "💚" }), E("div", {}, [E("b", { text: "Le pacte tient" }), E("p", { text: nameOf(e.help) + " prend une main à la place de " + nameOf(e.vic) + " et pioche une carte en remerciement." })])]));
+      else if (e.k === "fruit") out.push(E("div", { class: "ho-pactfx ho-pactfx--loyal" }, [E("div", { class: "ho-pactfx__ic", text: "✨" }), E("div", {}, [E("b", { text: "Un pacte qui rapporte" }), E("p", { text: nameOf(e.a) + " et " + nameOf(e.b) + " étaient fidèles et sains tous les deux. Chacun pioche une carte." })])]));
+      else if (e.k === "none") out.push(E("div", { class: "ho-pactfx" }, [E("div", { class: "ho-pactfx__ic", text: "🤝" }), E("div", {}, [E("b", { text: "Pacte inutile" }), E("p", { text: nameOf(e.a) + " et " + nameOf(e.b) + " perdent tous les deux, personne ne peut aider personne." })])]));
+    });
+    if (J.revived) out.push(E("div", { class: "ho-pactfx ho-pactfx--ghost" }, [E("div", { class: "ho-pactfx__ic", text: "👻" }), E("div", {}, [E("b", { text: "Retour d'entre les morts" }), E("p", { text: nameOf(J.revived) + " revient parmi les vivants avec une main et une carte." })])]));
+    return out;
   }
   function buildJudge(st) {
     const J = st.judged; if (!J) return E("div", { class: "ho-card" }, [E("h2", { text: "Délibération" })]);
     const lost = Object.keys(J.loss).filter((id) => J.loss[id].loss > 0); const kids = [E("h2", { text: lost.length ? "Les mains tombent" : "Personne ne perd rien" }), E("p", { class: "ho-sub", text: revealText(st, J) })];
     lost.forEach((id) => kids.push(E("p", { class: "ho-judge__loss" }, [dot(id), " " + nameOf(id) + " perd " + J.loss[id].loss + " main" + (J.loss[id].loss > 1 ? "s" : "") + (st.points ? "" : J.loss[id].after <= 0 ? ", il devient fantôme" : ""), E("small", { text: "   " + "✋".repeat(Math.max(0, J.loss[id].after)) })])));
     if (J.best) kids.push(E("p", { class: "ho-note", text: "Meilleur de l'épreuve  " + nameOf(J.best) + (st.cardsOn ? ", il pioche une carte." : ".") }));
-    J.notes.forEach((n) => kids.push(E("p", { class: "ho-note", text: n })));
-    return E("div", { class: "ho-card" }, kids);
+    const fx = pactCards(st, J); const spoken = new Set();
+    J.notes.forEach((n) => { if (!spoken.has(n)) kids.push(E("p", { class: "ho-note", text: n })); });
+    return E("div", { class: "ho-col" }, [E("div", { class: "ho-card" }, kids)].concat(fx));
   }
   function buildOver() {
     const o = G.over; const kids = []; const top = o.rows.slice(0, 3); const order = top.length === 1 ? [top[0]] : top.length === 2 ? [top[1], top[0]] : [top[1], top[0], top[2]];
@@ -268,18 +353,18 @@
   function attach() { const so = Kit.socket; if (!so || G.attached) return; G.attached = true; so.on("ho:state", onState); so.on("ho:over", onOver); so.on("ho:go", () => { G.ui = {}; }); }
 
   Kit.init({
-    id: "hands-over", title: "Hands Over", emoji: "🖐️", ribbon: "Le jeu télé où l'on perd des mains", tagline: "Épreuves courtes, sanctions cruelles, présentateur ravi.",
+    id: "hands-over", title: "Main Morte", emoji: "🖐️", ribbon: "Le jeu télé où l'on perd des mains", tagline: "Lis les règles, scelle des pactes, trahis si tu l'oses.",
     createLabel: "Ouvrir le plateau", soloLabel: "Jouer contre des robots", startLabel: "Lancer l'émission", helpTitle: "Comment jouer",
     floaters: [{ e: "🖐️", x: 6 }, { e: "🐊", x: 20 }, { e: "🎬", x: 36 }, { e: "👻", x: 50 }, { e: "🃏", x: 64 }, { e: "🩸", x: 78 }, { e: "🎭", x: 92 }],
     colors: COLORS, botLevels: [{ id: "figurant", label: "Figurant" }, { id: "candidat", label: "Candidat" }, { id: "veteran", label: "Vétéran" }], maxPlayers: 8, minPlayers: 2, schema: R.SCHEMA,
     help: [
-      { title: "Le principe", text: "Tu participes à une émission de télévision cruelle. À chaque épreuve, un ou plusieurs joueurs perdent une main. Sans main, on devient fantôme. Le dernier joueur qui a encore ses mains gagne." },
-      { title: "Les épreuves", text: "Le crocodile dentiste, mémoire des couleurs, réflexes, arrêt de curseur, coffre à code, bombe, calcul éclair, collision de numéros, imposteur et jeu des doigts. Chaque épreuve explique ses règles juste avant de commencer." },
-      { title: "Le crocodile", text: "Chacun son tour, on appuie sur une dent. Une dent cache la mâchoire. Selon la variante, il y a deux pièges, un indice brûlant ou froid, un piège qui change de place ou un temps très court." },
-      { title: "Les cartes", text: "Avant chaque épreuve, tu peux jouer une carte d'influence. Bouclier, miroir, cible, double ou rien et vol. Tu gagnes une carte en remportant une épreuve." },
-      { title: "Les pactes", text: "Tu peux t'allier en secret avec un joueur pour une épreuve. Fidèle, tu prends sa main s'il perd alors que tu es sauf. Traître, tu le laisses tomber et tu lui voles une carte. L'autre ne sait pas ce que tu as choisi." },
-      { title: "Les fantômes", text: "Un fantôme continue de jouer aux épreuves de mémoire, de réflexes, de précision et de calcul. S'il gagne, il marque le joueur le plus riche en mains, qui perdra une main de plus à sa prochaine sanction." },
-      { title: "Les modes", text: "Classique, survie, équipes, tournoi sans élimination, express, chaos avec une règle folle à chaque tour et personnalisé pour tout régler soi-même." },
+      { title: "Le principe", text: "Tu participes à une émission de télévision cruelle. À chaque épreuve, un ou plusieurs joueurs perdent une main. Sans main, on devient fantôme, mais on peut revenir. Le dernier joueur qui a encore ses mains gagne." },
+      { title: "Le déroulement d'un tour", text: "Un tour a quatre temps. D'abord la lecture des règles, avec le temps qu'il faut et un bouton prêt pour chacun. Ensuite les cartes et les pactes. Puis un compte à rebours de trois secondes. Enfin l'épreuve et le jugement." },
+      { title: "Les épreuves", text: "Crocodile dentiste, mémoire des couleurs, réflexes, arrêt de curseur, coffre à code, bombe, calcul éclair, collision de numéros, imposteur, jeu des doigts, duel des mains et main chaude. Chaque épreuve affiche son objectif, ses commandes et ce qui fait perdre avant de commencer." },
+      { title: "Les cartes", text: "Neuf cartes, chacune indique quand la jouer, ce qu'elle fait et ce qu'elle risque. Bouclier, miroir, cible, double ou rien, vol, alarme, leurre, espion et absolution. Tout le monde voit la carte que tu joues, mais le leurre ment. On en gagne en remportant une épreuve." },
+      { title: "Les pactes et la trahison", text: "Un pacte lie deux joueurs pour une épreuve. Chacun choisit en secret d'être fidèle ou traître. Il ne se joue que si l'un perd et que l'autre s'en sort. Un fidèle prend une main à la place de son allié et pioche une carte. Un traître fait perdre une main de plus à son allié et lui vole une carte, mais il porte une rancune qui lui coûtera une main de plus." },
+      { title: "Les fantômes", text: "Un fantôme joue encore aux épreuves qui l'autorisent. S'il gagne, il marque le joueur le plus riche en mains. S'il gagne deux fois, il revient parmi les vivants avec une main et une carte." },
+      { title: "Les modes", text: "Classique, survie, équipes, tournoi sans élimination, express, chaos avec une règle folle à chaque tour et personnalisé pour tout régler soi-même. Chaque mode existe en version courte, normale ou longue." },
     ],
     theme: { a1: "#e63946", a2: "#ffd23f", bg1: "#4a0a14", bg2: "#12060a" },
     onInit() { build(); attach(); Kit.on("connect", attach); },

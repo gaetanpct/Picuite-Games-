@@ -117,7 +117,7 @@ D.reflex = {
   id: "reflex", family: "reflexe", name: "Réflexes", min: 2, ghostOk: true,
   rules: "Attends le signal sans bouger, puis appuie le plus vite possible. Appuyer trop tôt fait perdre une main, et sinon c'est le plus lent qui paie.",
   init(part, o) {
-    const chair = rng() < 0.4 && part.length >= 3; const now = Date.now(); const fireAt = now + between(2600, 6800) * o.speed;
+    const chair = (o.chair !== undefined ? !!o.chair : rng() < 0.4) && part.length >= 3; const now = Date.now(); const fireAt = now + between(2600, 6800) * o.speed;
     return { id: "reflex", part, chair, chairs: chair ? part.length - 1 : 0, fireAt, ends: fireAt + 3800 * o.speed, taps: {}, early: {}, fired: false, o };
   },
   view(c, pid, now) { const fired = now >= c.fireAt; return { chair: c.chair, chairs: c.chairs, fired, taps: Object.keys(c.taps).reduce((a, k) => { a[k] = Math.round(c.taps[k]); return a; }, {}), early: c.early, ends: c.ends, wait: !fired }; },
@@ -322,6 +322,57 @@ D.doigts = {
   bot(c, pid, level, mem, now) {
     if (c.f[pid] !== undefined) return null; if (!mem.at) mem.at = now + between(2000, 9000); if (now < mem.at) return null; const L = lv(level); const n = c.part.length;
     const f = Math.floor(rng() * 4); const exp = f + 1.5 * (n - 1); const g = L === 0 ? Math.floor(rng() * (n * 3 + 1)) : Math.max(0, Math.min(n * 3, Math.round(exp + (rng() - 0.5) * (L === 1 ? 3 : 1.5)))); return { f, g };
+  },
+};
+
+
+// ---------- Le duel des mains, pierre feuille ciseaux ----------
+const PPC = ["Pierre", "Feuille", "Ciseaux"];
+D.ppc = {
+  id: "ppc", family: "chance", name: "Le duel des mains", min: 2, ghostOk: false,
+  rules: "Choisis pierre, feuille ou ciseaux en secret. Chacun est comparé à tous les autres et celui qui a le pire bilan perd une main.",
+  init(part, o) { return { id: "ppc", part, ends: Date.now() + 15000 * o.speed, pick: {}, o }; },
+  bilan(c) { const b = {}; c.part.forEach((a) => { b[a] = 0; c.part.forEach((z) => { if (a === z || c.pick[a] === undefined || c.pick[z] === undefined) return; const d = (c.pick[a] - c.pick[z] + 3) % 3; if (d === 1) b[a]++; else if (d === 2) b[a]--; }); }); return b; },
+  view(c, pid, now) { const done = this.isDone(c, now); return { ends: c.ends, names: PPC, mine: c.pick[pid] !== undefined ? c.pick[pid] : null, chosen: Object.keys(c.pick).reduce((a, k) => { a[k] = true; return a; }, {}), all: done ? c.pick : null, bil: done ? this.bilan(c) : null }; },
+  act(c, pid, d) { if (!c.part.includes(pid) || c.pick[pid] !== undefined) return false; const k = Math.floor(+d.pick); if (!(k >= 0 && k <= 2)) return false; c.pick[pid] = k; return true; },
+  tick(c, now) { if (now < c.ends) return false; let ch = false; c.part.forEach((id) => { if (c.pick[id] === undefined) { c.pick[id] = Math.floor(rng() * 3); ch = true; } }); return ch; },
+  isDone(c, now) { return now >= c.ends || c.part.every((id) => c.pick[id] !== undefined); },
+  result(c) {
+    const b = this.bilan(c); const vals = c.part.map((id) => b[id]); const mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
+    const worst = c.part.filter((id) => b[id] === mn); const losers = mn < mx ? [pickOne(worst)] : [];
+    return { scores: b, losers, reveal: { pick: c.pick, bil: b, names: PPC } };
+  },
+  bot(c, pid, level, mem, now) { if (c.pick[pid] !== undefined) return null; if (!mem.at) mem.at = now + between(1500, 8000); if (now < mem.at) return null; return { pick: Math.floor(rng() * 3) }; },
+};
+
+// ---------- La main chaude, réflexes en grille ----------
+const HOT_TOK = Symbol("srv");
+D.hot = {
+  id: "hot", family: "reflexe", name: "La main chaude", min: 2, ghostOk: true,
+  rules: "Une main s'allume brièvement dans la grille. Touche-la avant qu'elle refroidisse, une erreur coûte un point. Le plus faible total perd une main.",
+  init(part, o) {
+    const start = Date.now() + 2500 * o.speed; const dur = Math.max(650, Math.min(1500, 1150 * o.speed)); const gap = 1650 * o.speed; const n = 12; const seq = []; let prev = -1;
+    for (let i = 0; i < n; i++) { let cell; do { cell = Math.floor(rng() * 9); } while (cell === prev); prev = cell; seq.push({ cell, at: Math.round(i * gap + rng() * 350 * o.speed), dur: Math.round(dur) }); }
+    const c = { id: "hot", part, start, seq, end: start + seq[n - 1].at + dur + 600, score: {}, got: {}, o }; part.forEach((id) => { c.score[id] = 0; }); return c;
+  },
+  litAt(c, t) { for (let i = 0; i < c.seq.length; i++) { const w = c.seq[i]; if (t >= c.start + w.at && t < c.start + w.at + w.dur) return i; } return -1; },
+  view(c, pid, now) { return { start: c.start, seq: c.seq, end: c.end, scores: Object.assign({}, c.score), mine: c.score[pid] || 0, done: now >= c.end }; },
+  act(c, pid, d, now) {
+    if (!c.part.includes(pid)) return false; const cell = Math.floor(+d.cell); if (!(cell >= 0 && cell < 9)) return false; const t = d.srvTok === HOT_TOK ? d.srvAt : now; if (t < c.start || t >= c.end) return false;
+    const i = this.litAt(c, t); const key = pid + "|" + i;
+    if (i >= 0 && c.seq[i].cell === cell && !c.got[key]) { c.got[key] = true; c.score[pid]++; return true; }
+    c.score[pid]--; return true;
+  },
+  tick() { return false; },
+  isDone(c, now) { return now >= c.end; },
+  result(c) {
+    const vals = c.part.map((id) => c.score[id]); const mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals); const worst = c.part.filter((id) => c.score[id] === mn);
+    return { scores: Object.assign({}, c.score), losers: mn < mx ? [pickOne(worst)] : [], reveal: { score: c.score, total: c.seq.length } };
+  },
+  bot(c, pid, level, mem, now) {
+    const L = lv(level); if (!mem.plan) { mem.plan = c.seq.map((w, i) => ({ i, hit: rng() < [0.5, 0.75, 0.92][L], at: c.start + w.at + between([420, 300, 200][L], [800, 560, 380][L]) * (c.o.speed < 0.5 ? 0.3 : 1), cell: w.cell })); const miss = [3, 2, 1][L]; for (let k = 0; k < miss; k++) mem.plan.push({ i: -1, hit: true, at: c.start + between(0, c.end - c.start), cell: Math.floor(rng() * 9), wrong: true }); mem.plan.sort((a, b) => a.at - b.at); mem.ix = 0; }
+    while (mem.ix < mem.plan.length && now >= mem.plan[mem.ix].at) { const q = mem.plan[mem.ix++]; if (!q.hit) continue; const w = q.i >= 0 ? c.seq[q.i] : null; const at = w ? Math.min(q.at, c.start + w.at + w.dur - 40) : q.at; return { cell: q.cell, srvAt: at, srvTok: HOT_TOK }; }
+    return null;
   },
 };
 

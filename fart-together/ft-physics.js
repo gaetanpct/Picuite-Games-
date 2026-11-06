@@ -10,7 +10,7 @@ const ABIL = {
   rafale: { force: 1, tank: 1, ramp: 0.28, label: "Rafale" }, stabilo: { force: 0.92, tank: 1, torque: 0.6, label: "Stabilisateur" },
 };
 const rot = (x, z, a) => [x * Math.cos(a) + z * Math.sin(a), -x * Math.sin(a) + z * Math.cos(a)];
-function seatPos(n, k) { const a = (k / n) * Math.PI * 2; return [Math.sin(a) * SEAT_R, Math.cos(a) * SEAT_R]; } // repère de la bouée, z vers l'avant
+const seatPos = W.seatPos; // repère de la bouée, z vers l'avant, voir world.js pour les zones
 function newBoat(id, seatIds, x, z, yaw) {
   return { id, seats: seatIds.slice(), x, z, yaw, vx: 0, vz: 0, w: 0, lean: 0, dlean: 0, leanT: 0, y: 0, vy: 0, air: false, cap: false, capT: 0, right: 0, hp: 5, s: 0, idx: 0, fin: false, finT: 0, coins: 0, egg: 100, gatesOk: 0, gatesMiss: 0, nextGate: 0, hits: 0, caps: 0, dist: 0, lastSafe: { x, z, yaw }, bumpT: 0, stun: 0, noRight: 0, dead: false };
 }
@@ -26,7 +26,7 @@ function step(boat, dt, t, lv, players, env) {
     pl.tankMax = tankMax; active++;
     if (!want) return;
     const power = (0.32 + 0.68 * pl.press) * FMAX * ab.force * (env.gasMul || 1) * (n > 4 ? Math.sqrt(4 / n) : 1);
-    let a = pl.a + (pl.jitter || 0) + (env.invert ? Math.PI : 0); if (pl.burst) a = pl.burstA;
+    let a = W.clampAim(n, k, pl.a) + (pl.jitter || 0) + (env.invert ? Math.PI : 0); if (pl.burst) a = pl.burstA;
     const bx = Math.sin(a), bz = Math.cos(a); // poussée dans le repère de la bouée
     const [wx, wz] = rot(bx, bz, boat.yaw); // vers le repère monde
     const f = power * (pl.burst ? 2 : 1); const Fx = wx * f, Fz = wz * f; fx += Fx; fz += Fz;
@@ -100,4 +100,4 @@ function boatVsBoat(a, b, env) {
   const nx = dx / d, nz = dz / d; const o = (min - d) / 2; a.x -= nx * o; a.z -= nz * o; b.x += nx * o; b.z += nz * o;
   const rv = (b.vx - a.vx) * nx + (b.vz - a.vz) * nz; if (rv < 0) { const j = -(1 + 0.6) * rv / 2; a.vx -= j * nx; a.vz -= j * nz; b.vx += j * nx; b.vz += j * nz; if (-rv > 2.5) { a.dlean += 1.1 * (Math.random() < 0.5 ? -1 : 1); b.dlean += 1.1 * (Math.random() < 0.5 ? -1 : 1); env.events.push({ k: "bump", b: a.id, v: -rv, kind: "bouée" }); } }
 }
-module.exports = { step, newBoat, boatVsBoat, seatPos, ABIL, R, rot, SEAT_R, FMAX };
+module.exports = { Z: W, step, newBoat, boatVsBoat, seatPos, ABIL, R, rot, SEAT_R, FMAX };

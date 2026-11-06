@@ -86,3 +86,68 @@
 .ho-note { font-size: 0.86rem; color: #ffd9d0; margin: 0.15rem 0; }
 .ho-ghostbar { text-align: center; font-size: 0.85rem; color: #cfe8ff; padding: 0.2rem; }
 @media (max-width: 520px) { .ho-stage-top { flex-basis: 20%; min-height: 90px; } }
+
+/* Lecture des règles, compte à rebours, cartes et pactes */
+.ho-col { display: flex; flex-direction: column; gap: 0.6rem; }
+.ho-brief { text-align: center; background: radial-gradient(circle at 50% 0%, rgba(230, 57, 70, 0.28), rgba(18, 6, 10, 0.92) 70%); border-color: #ff3b4e; }
+.ho-brief__icon { font-size: 5.2rem; line-height: 1; filter: drop-shadow(0 6px 14px rgba(255, 59, 78, 0.6)); animation: kbob 1.6s ease-in-out infinite; }
+.ho-brief__name { font-size: 2rem !important; margin: 0.15rem 0 0.4rem !important; }
+.ho-goal { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.6rem 0.8rem; border-radius: 16px; background: rgba(255, 210, 63, 0.16); border: 3px solid #ffd23f; box-shadow: 0 0 22px rgba(255, 210, 63, 0.35); }
+.ho-goal small { text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.7rem; color: #ffd23f; }
+.ho-goal b { font-family: var(--font-title); font-weight: 400; font-size: 1.35rem; color: #fff; line-height: 1.2; }
+.ho-variant { margin: 0.5rem 0 0; font-size: 0.95rem; color: #ffd9d0; font-style: italic; }
+.ho-cmd { display: flex; align-items: center; gap: 0.7rem; padding: 0.4rem 0.2rem; font-size: 1.02rem; border-top: 1px solid rgba(255, 255, 255, 0.1); }
+.ho-cmd:first-of-type { border-top: 0; }
+.ho-cmd__ic { font-size: 1.9rem; width: 2.4rem; text-align: center; flex: none; }
+.ho-card--lose { border-color: rgba(255, 59, 78, 0.8); }
+.ho-bigp { font-size: 1.08rem; margin: 0.2rem 0; }
+.ho-tip { font-size: 0.9rem; color: #cfe8ff; margin: 0.3rem 0 0; }
+.ho-readers { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.ho-reader { padding: 0.15rem 0.6rem; border-radius: 99px; background: rgba(255, 255, 255, 0.08); border: 2px solid rgba(255, 255, 255, 0.2); font-size: 0.85rem; }
+.ho-reader--ok { border-color: #2fe0a8; background: rgba(47, 224, 168, 0.18); }
+.ho-ctrl--sticky { position: sticky; bottom: 0; padding: 0.6rem 0.4rem; background: linear-gradient(180deg, rgba(10, 2, 6, 0), rgba(10, 2, 6, 0.92) 40%); flex-direction: column; }
+.ho-wait { font-size: 0.82rem; color: #ffd9d0; text-align: center; }
+.ho-countcard { text-align: center; padding: 1.4rem 1rem; }
+.ho-count { font-family: var(--font-title); font-size: 8rem; line-height: 1; color: #ffd23f; text-shadow: 0 6px 0 #7a0f1c, 0 0 40px rgba(255, 210, 63, 0.6); }
+.ho-count--pop { animation: hopop 0.45s ease-out; }
+@keyframes hopop { 0% { transform: scale(1.8); opacity: 0.2; } 100% { transform: scale(1); opacity: 1; } }
+.ho-card--slim h2 { font-size: 1.25rem; }
+.ho-alarm { background: rgba(255, 59, 78, 0.25); border: 2px solid #ff3b4e; border-radius: 12px; padding: 0.4rem 0.6rem; font-weight: 700; margin: 0.4rem 0 0; }
+.ho-hint--left { text-align: left; }
+.ho-cardbtn { display: flex; flex-direction: column; gap: 0.15rem; }
+.ho-cardbtn--on { background: rgba(255, 210, 63, 0.3); }
+.ho-cardbtn__top { display: flex; align-items: center; gap: 0.4rem; }
+.ho-cardbtn__ic { font-size: 1.6rem; }
+.ho-cardbtn__when { color: #ffd23f !important; }
+.ho-cardbtn__risk { color: #ffb0b0 !important; }
+.ho-card--intel { border-color: #a56bff; }
+.ho-details { margin: 0.3rem 0 0.5rem; background: rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 0.35rem 0.6rem; }
+.ho-details summary { cursor: pointer; font-weight: 700; color: #ffd23f; }
+.ho-rule { font-size: 0.86rem; margin: 0.4rem 0; line-height: 1.35; }
+.ho-two { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin: 0.4rem 0; }
+.ho-opt { text-align: left; padding: 0.55rem 0.65rem; border-radius: 14px; border: 3px solid rgba(47, 224, 168, 0.4); background: rgba(47, 224, 168, 0.07); color: #fff; font: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 0.25rem; }
+.ho-opt small { font-size: 0.78rem; line-height: 1.3; color: rgba(255, 255, 255, 0.82); }
+.ho-opt--bad { border-color: rgba(255, 59, 78, 0.45); background: rgba(255, 59, 78, 0.07); }
+.ho-opt--on { border-width: 4px; background: rgba(255, 210, 63, 0.2); box-shadow: 0 0 16px rgba(255, 210, 63, 0.4); }
+.ho-note--big { font-size: 0.95rem; }
+.ho-choicebox { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; }
+.ho-pill--big { padding: 0.5rem 0.9rem; font-weight: 700; }
+.ho-pill--bad { border-color: #ff3b4e; background: rgba(255, 59, 78, 0.2); }
+.ho-pactfx { display: flex; gap: 0.8rem; align-items: center; padding: 0.7rem 0.9rem; border-radius: 18px; background: rgba(18, 6, 10, 0.92); border: 3px solid rgba(255, 255, 255, 0.3); animation: hopop 0.5s ease-out; }
+.ho-pactfx p { margin: 0.15rem 0; font-size: 0.9rem; }
+.ho-pactfx b { font-family: var(--font-title); font-weight: 400; font-size: 1.2rem; }
+.ho-pactfx__ic { font-size: 3rem; flex: none; }
+.ho-pactfx--betray { border-color: #ff3b4e; box-shadow: 0 0 28px rgba(255, 59, 78, 0.55); }
+.ho-pactfx--betray b { color: #ff6b78; }
+.ho-pactfx--loyal { border-color: #2fe0a8; }
+.ho-pactfx--ghost { border-color: #a56bff; }
+.ho-ppc { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 0.4rem 0; }
+.ho-ppcbtn { padding: 0.9rem 0.2rem; border-radius: 18px; border: 3px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.08); color: #fff; font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
+.ho-ppcbtn__ic { font-size: 3rem; }
+.ho-ppcbtn--on { border-color: #ffd23f; background: rgba(255, 210, 63, 0.25); }
+.ho-hotgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; max-width: 340px; margin: 0.5rem auto; }
+.ho-hotcell { aspect-ratio: 1; border-radius: 22px; border: 4px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.06); font-size: 2.4rem; cursor: pointer; filter: grayscale(1) brightness(0.55); transition: filter 0.08s, transform 0.08s, background 0.08s; }
+.ho-hotcell--lit { filter: none; background: radial-gradient(circle, #ff8a1f, #e63946); border-color: #ffd23f; transform: scale(1.08); box-shadow: 0 0 30px #ff6b1f; }
+@media (max-width: 520px) { .ho-brief__icon { font-size: 4.2rem; } .ho-two { grid-template-columns: 1fr; } .ho-count { font-size: 6.5rem; } }
+.ho-ctrl--sticky { position: sticky; bottom: -5.2rem; z-index: 3; margin-bottom: -4.4rem; padding: 0.5rem 0.5rem 5.2rem; gap: 0.3rem; background: rgba(10, 2, 6, 0.97); border-top: 2px solid rgba(230, 57, 70, 0.5); border-radius: 18px 18px 0 0; }
+.ho-goalline { margin: 0.2rem 0; padding: 0.3rem 0.6rem; border-radius: 10px; background: rgba(255, 210, 63, 0.16); border: 2px solid #ffd23f; font-weight: 700; font-size: 0.95rem; }

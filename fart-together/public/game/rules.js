@@ -11,7 +11,7 @@
   ];
   const CHALLENGES = [
     { id: 1, name: "La grande récolte", course: "riviere", objective: "pieces", goal: "Ramasse au moins 22 bulles dorées et franchis l'arrivée.", test: (r) => r.fin && r.coins >= 22 },
-    { id: 2, name: "Sans toucher", course: "canal", objective: "finir", goal: "Franchis l'arrivée avec trois chocs au maximum.", test: (r) => r.fin && r.hits <= 3 },
+    { id: 2, name: "Sans toucher", course: "canal", objective: "finir", goal: "Franchis l'arrivée avec six chocs au maximum.", test: (r) => r.fin && r.hits <= 6 },
     { id: 3, name: "Contre la montre", course: "rapides", objective: "finir", goal: "Arrive en moins de 62 secondes.", test: (r) => r.fin && r.time <= 62 },
     { id: 4, name: "Bouée stable", course: "cascade", objective: "finir", goal: "Franchis l'arrivée sans jamais chavirer.", test: (r) => r.fin && r.caps === 0 },
     { id: 5, name: "L'œuf précieux", course: "parc", objective: "oeuf", goal: "Livre l'œuf avec au moins la moitié de sa coquille intacte.", test: (r) => r.fin && r.egg >= 50 },

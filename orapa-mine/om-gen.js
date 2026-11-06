@@ -13,7 +13,20 @@ const ADV = ["prism", "prism", "splitter", "splitter", "tint", "tint", "mirror",
 const MASKS = [1, 2, 4, 3, 5, 6];
 
 // choisit l'inventaire, c'est-à-dire la liste des pierres sans leur place
+// la suite de pierres de l'original, la partie de base en utilise cinq, une rouge, une bleue, une jaune et deux blanches
+const ORAPA_SEQ = [1, 2, 4, 8, 8, 0, "obs", 1, 2, 4];
+function makeInventoryOrapa(rnd, cfg) {
+  const shapes = cfg.shapes === "petits" ? ["mono", "mono", "domino"] : cfg.shapes === "gros" ? ["domino", "ligne3", "coude", "coude"] : ["mono", "mono", "domino", "domino", "coude"];
+  const inv = [];
+  for (let i = 0; i < cfg.gems; i++) {
+    const c = ORAPA_SEQ[i % ORAPA_SEQ.length]; const shape = shapes[Math.floor(rnd() * shapes.length)];
+    if (c === "obs") inv.push({ k: "obsidian", m: 0, d: 0, shape: "mono", rot: 0, cells: E.rot(E.SHAPES.mono, 0), x: null, y: null });
+    else inv.push({ k: "gem", m: c, d: Math.floor(rnd() * 2), shape, rot: Math.floor(rnd() * 4), cells: E.rot(E.SHAPES[shape], 0), x: null, y: null });
+  }
+  return inv;
+}
 function makeInventory(rnd, cfg) {
+  if (cfg.kinds === "orapa") return makeInventoryOrapa(rnd, cfg);
   const pool = cfg.kinds === "basique" ? BASIC : cfg.kinds === "avance" ? ADV : ALL; const shapes = SHAPE_SETS[cfg.shapes] || SHAPE_SETS.mixtes;
   const inv = [];
   const hasColor = cfg.laserMasks.some((m) => m !== 7) || true;

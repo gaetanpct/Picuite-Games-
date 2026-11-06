@@ -93,4 +93,19 @@ function chooseFinal(mem, alive) {
   if (L === 1 && rng() < 0.2 && r.length > 1) return r[1].id;
   return r[0].id;
 }
-module.exports = { chooseCard, newMemory, observe, chooseMarks, chooseFinal, margin, ov, PERSONAS };
+// qualité d'une main pour l'Extralucide robot, plus c'est haut plus un dilemme colle au mot
+function handQuality(level, hand, secret) {
+  if (lv(level) === 0) return 1;
+  let best = 0; hand.forEach((d) => { const diff = Math.abs(ov(secret.tagset, d.ta) - ov(secret.tagset, d.tb)); if (diff > best) best = diff; });
+  return best;
+}
+// un enquêteur robot annonce son mot en avance quand l'écart est net
+function earlyGuess(mem, alive, left) {
+  const L = lv(mem.level); if (L === 0 || alive.length < 1 || mem.steps < 2) return null;
+  const r = ranked(mem, alive); if (r.length < 2) return null;
+  const gap = (mem.score[r[0].id] || 0) - (mem.score[r[1].id] || 0);
+  const maxN = L === 2 ? 4 : 3, minGap = L === 2 ? 2.4 : 2.7;
+  if (alive.length <= maxN && gap >= minGap && (mem.persona !== "prudent" || gap >= minGap + 1)) return r[0].id;
+  return null;
+}
+module.exports = { handQuality, earlyGuess, chooseCard, newMemory, observe, chooseMarks, chooseFinal, margin, ov, PERSONAS };

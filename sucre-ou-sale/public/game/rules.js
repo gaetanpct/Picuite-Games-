@@ -12,25 +12,25 @@
     { id: "nature", label: "Nature et météo", icon: "🌋" }, { id: "culture", label: "Musique, sports et véhicules", icon: "🎸" },
   ];
   const DIL_CATS = [
-    { id: "L", label: "Logique", icon: "🧠" }, { id: "Q", label: "Quotidien", icon: "🪥" }, { id: "C", label: "Culture", icon: "🎭" }, { id: "D", label: "Drôle", icon: "🤡" },
+    { id: "P", label: "Personnalité", icon: "🪞" }, { id: "L", label: "Logique", icon: "🧠" }, { id: "Q", label: "Quotidien", icon: "🪥" }, { id: "C", label: "Culture", icon: "🎭" }, { id: "D", label: "Drôle", icon: "🤡" },
     { id: "A", label: "Absurde", icon: "🌀" }, { id: "H", label: "Difficile à cerner", icon: "🔮" }, { id: "I", label: "Imagination", icon: "🦄" },
   ];
   const WORD_IDS = WORD_CATS.map((c) => c.id), DIL_IDS = DIL_CATS.map((c) => c.id);
   // préréglages appliqués quand le mode n'est pas personnalisé
   const PRESETS = {
-    classique: { grid: 16, steps: 5, hand: 3, talk: 45, difficulty: 2, elim: "majorite", play: "coop", events: "none", joker: true, rounds: 0, finalMult: 1, chaosMix: false },
-    express: { grid: 12, steps: 3, hand: 2, talk: 25, difficulty: 1, elim: "majorite", play: "coop", events: "none", joker: false, rounds: 2, finalMult: 1, chaosMix: false },
-    expert: { grid: 25, steps: 7, hand: 3, talk: 40, difficulty: 3, elim: "majorite", play: "coop", events: "rare", joker: false, rounds: 0, finalMult: 1, chaosMix: false },
-    chaos: { grid: 16, steps: 5, hand: 3, talk: 30, difficulty: 2, elim: "majorite", play: "coop", events: "often", joker: true, rounds: 0, finalMult: 1, chaosMix: true },
-    equipes: { grid: 16, steps: 5, hand: 3, talk: 45, difficulty: 2, elim: "majorite", play: "equipes", events: "rare", joker: true, rounds: 0, finalMult: 1, chaosMix: false },
-    tournoi: { grid: 16, steps: 5, hand: 3, talk: 35, difficulty: 2, elim: "un", play: "solo", events: "rare", joker: true, rounds: 0, finalMult: 2, chaosMix: false },
+    classique: { grid: 16, steps: 5, hand: 4, names: true, reroll: true, bonusEarly: true, talk: 45, difficulty: 2, elim: "majorite", play: "coop", events: "none", joker: true, rounds: 0, finalMult: 1, chaosMix: false },
+    express: { grid: 12, steps: 3, hand: 3, names: true, reroll: true, bonusEarly: true, talk: 25, difficulty: 1, elim: "majorite", play: "coop", events: "none", joker: false, rounds: 2, finalMult: 1, chaosMix: false },
+    expert: { grid: 25, steps: 7, hand: 3, names: true, reroll: false, bonusEarly: true, talk: 40, difficulty: 3, elim: "majorite", play: "coop", events: "rare", joker: false, rounds: 0, finalMult: 1, chaosMix: false },
+    chaos: { grid: 16, steps: 5, hand: 4, names: true, reroll: true, bonusEarly: true, talk: 30, difficulty: 2, elim: "majorite", play: "coop", events: "often", joker: true, rounds: 0, finalMult: 1, chaosMix: true },
+    equipes: { grid: 16, steps: 5, hand: 4, names: true, reroll: true, bonusEarly: true, talk: 45, difficulty: 2, elim: "majorite", play: "equipes", events: "rare", joker: true, rounds: 0, finalMult: 1, chaosMix: false },
+    tournoi: { grid: 16, steps: 5, hand: 4, names: true, reroll: true, bonusEarly: true, talk: 35, difficulty: 2, elim: "un", play: "solo", events: "rare", joker: true, rounds: 0, finalMult: 2, chaosMix: false },
   };
   const SCHEMA = [
     { category: "📺 Le plateau", rules: [
       { id: "mode", label: "Mode de jeu", type: "cards", default: "classique", options: [
-        { value: "classique", label: "Classique", icon: "🎯", desc: "Tout le monde cherche ensemble le mot de l'Extralucide. 16 mots, 5 dilemmes, le bon équilibre." },
-        { value: "express", label: "Express", icon: "⚡", desc: "12 mots, 3 dilemmes, 25 secondes de discussion. Une partie en dix minutes." },
-        { value: "expert", label: "Expert", icon: "🧪", desc: "25 mots, 7 dilemmes, des dilemmes vicieux, aucun joker. Pour les esprits tordus." },
+        { value: "classique", label: "Classique", icon: "🎯", desc: "Tout le monde cherche ensemble le mot de l'Extralucide. 16 mots, jusqu'à 5 dilemmes, et on peut gagner avant la fin." },
+        { value: "express", label: "Express", icon: "⚡", desc: "12 mots, jusqu'à 3 dilemmes, 25 secondes de discussion. Une partie en dix minutes." },
+        { value: "expert", label: "Expert", icon: "🧪", desc: "25 mots, jusqu'à 7 dilemmes, des dilemmes vicieux, ni joker ni main relancée. Pour les esprits tordus." },
         { value: "chaos", label: "Chaos", icon: "🌀", desc: "Des dilemmes absurdes et drôles, des événements presque à chaque manche, 30 secondes pour décider." },
         { value: "equipes", label: "Équipes", icon: "🤝", desc: "Les enquêteurs forment deux équipes qui cherchent le même mot en secret. Les deux marquent si elles trouvent." },
         { value: "tournoi", label: "Tournoi", icon: "🏆", desc: "Chacun cherche seul, sans voir les erreurs des autres. La dernière manche vaut double." },
@@ -41,7 +41,9 @@
     { category: "🧩 La grille et les dilemmes", showIf: { mode: ["perso"] }, rules: [
       { id: "grid", label: "Mots sur la grille", type: "chips", default: 16, options: [{ value: 9, label: "9" }, { value: 12, label: "12" }, { value: 16, label: "16" }, { value: 20, label: "20" }, { value: 25, label: "25" }], showIf: { mode: ["perso"] }, info: "Plus il y a de mots, plus il faut de dilemmes pour s'en sortir." },
       { id: "steps", label: "Dilemmes à résoudre", type: "range", min: 2, max: 9, step: 1, default: 5, showIf: { mode: ["perso"] }, info: "Après chaque dilemme, le groupe élimine des mots. Quand ils sont tous passés, on choisit le mot final parmi ceux qui restent." },
-      { id: "hand", label: "Cartes dans la main de l'Extralucide", type: "chips", default: 3, options: [{ value: 2, label: "2" }, { value: 3, label: "3" }, { value: 4, label: "4" }], showIf: { mode: ["perso"] }, info: "L'Extralucide reçoit plusieurs dilemmes et choisit celui qui décrit le mieux son mot. Avec 2 cartes, il a moins de choix et la partie est plus risquée." },
+      { id: "hand", label: "Dilemmes proposés à l'Extralucide", type: "chips", default: 4, options: [{ value: 2, label: "2" }, { value: 3, label: "3" }, { value: 4, label: "4" }, { value: 5, label: "5" }], showIf: { mode: ["perso"] }, info: "Les dilemmes sont tirés au hasard, sans tenir compte du mot secret. Certains collent bien, d'autres pas du tout. Plus il y en a, plus l'Extralucide a de chances d'en trouver un utilisable." },
+      { id: "reroll", label: "Main relançable", type: "bool", default: true, showIf: { mode: ["perso"] }, info: "Une fois par manche, l'Extralucide peut jeter tous ses dilemmes et en piocher de nouveaux, quand rien ne colle à son mot." },
+      { id: "names", label: "Prénoms des joueurs dans la grille", type: "bool", default: true, showIf: { mode: ["perso"] }, info: "Au moins deux prénoms de joueurs se glissent parmi les mots. L'Extralucide peut avoir un prénom à faire deviner, il faut alors se servir de ce qu'on sait de chacun." },
       { id: "difficulty", label: "Difficulté des dilemmes", type: "cards", default: 2, options: [
         { value: 1, label: "Faciles", icon: "🍬", desc: "Des oppositions claires, chaud ou froid, petit ou grand." },
         { value: 2, label: "Équilibrés", icon: "🍰", desc: "Un mélange d'évidents et de subtils." },
@@ -57,6 +59,7 @@
         { value: "equipes", label: "Deux équipes", icon: "🤝", desc: "Deux groupes qui cherchent le même mot sans se voir." },
         { value: "solo", label: "Chacun pour soi", icon: "🕵️", desc: "Chaque enquêteur élimine seul et ne voit pas les marques des autres." },
       ], showIf: { mode: ["perso"] } },
+      { id: "bonusEarly", label: "Bonus de rapidité", type: "bool", default: true, showIf: { mode: ["perso"] }, info: "Un groupe qui trouve le mot avant la fin des dilemmes gagne un point par dilemme économisé, jusqu'à trois. Se tromper en avance fait perdre la manche." },
       { id: "elim", label: "Règle d'élimination", type: "cards", default: "majorite", options: [
         { value: "majorite", label: "Majorité", icon: "🗳️", desc: "Un mot disparaît quand plus de la moitié du groupe le marque." },
         { value: "un", label: "Un seul suffit", icon: "☝️", desc: "Un mot disparaît dès qu'un joueur le marque. Rapide et dangereux." },
@@ -90,6 +93,7 @@
       else { const ok = valuesOf(r); const want = typeof ok[0] === "number" ? Number(v) : v; if (ok.includes(want)) out[r.id] = want; }
     });
     if (!out.dcats.length) out.dcats = ["Q"];
+    if (out.reroll === undefined) out.reroll = true;
     if (out.wcats.length < 2) out.wcats = WORD_IDS.slice();
     return out;
   }
