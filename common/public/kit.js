@@ -28,7 +28,7 @@
     sdel(k) { try { sessionStorage.removeItem(k); } catch (e) { /* rien */ } },
   };
   function toast(text, type) {
-    let box = $("#toasts"); if (!box) { box = el("div", { id: "toasts" }); document.body.appendChild(box); }
+    let box = $("#toasts"); if (!box) { box = el("div", { id: "toasts", "aria-live": "polite" }); document.body.appendChild(box); }
     const t = el("div", { class: "toast toast--" + (type || "info"), text });
     box.appendChild(t);
     setTimeout(() => t.classList.add("toast--out"), 3200);
@@ -115,9 +115,13 @@
     const lobby = el("section", { id: "screen-lobby", class: "screen" }, [
       el("div", { class: "lobby-wrap" }, [
         el("header", { class: "lobby-top" }, [
-          el("button", { id: "btn-lobby-leave", class: "btn btn--ghost btn--small", text: "Quitter" }),
-          el("div", { class: "code-box" }, [el("span", { class: "code-box__label", text: "Code du salon" }), el("button", { id: "lobby-code", class: "code-box__code", title: "Copier le code", text: "----" })]),
-          el("button", { id: "btn-lobby-rules", class: "btn btn--ghost btn--small", text: "Règles" }),
+          el("button", { id: "btn-lobby-leave", class: "btn btn--quiet btn--small", text: "Quitter" }),
+          el("div", { class: "code-box" }, [
+            el("span", { class: "code-box__label", text: "Code du salon, à donner à tes amis" }),
+            el("button", { id: "lobby-code", class: "code-box__code", title: "Copier le code", "aria-label": "Copier le code du salon", text: "----" }),
+            el("div", { class: "code-box__row" }, [el("button", { id: "btn-copy-code", class: "btn btn--quiet btn--small", text: "Copier le code" }), el("button", { id: "btn-copy-link", class: "btn btn--quiet btn--small", text: "Copier le lien d'invitation" })]),
+          ]),
+          el("button", { id: "btn-lobby-rules", class: "btn btn--quiet btn--small", text: "Règles" }),
         ]),
         el("div", { class: "lobby-grid" }, [
           el("section", { class: "card" }, [el("h2", { text: "Les joueurs" }), el("div", { id: "player-list" }), el("div", { id: "add-bot-row", class: "add-bot-row" }), el("div", { id: "lobby-preview" })]),
@@ -135,7 +139,7 @@
       el("form", { id: "chat-form", class: "chat__form" }, [el("input", { id: "chat-input", maxlength: "200", placeholder: "Un petit mot", autocomplete: "off" }), el("button", { class: "btn btn--accent btn--small", text: "Envoyer" })]),
     ]);
     const fab = el("button", { id: "btn-chat-fab", class: "chat-fab hidden", title: "Tchat" }, [el("span", { text: "💬" }), el("i", { id: "chat-fab-badge", class: "badge hidden", text: "0" })]);
-    [home, lobby, game, modal, confirm, chat, fab, el("div", { id: "toasts" })].forEach((n) => root.appendChild(n));
+    [home, lobby, game, modal, confirm, chat, fab, el("div", { id: "toasts", "aria-live": "polite" })].forEach((n) => root.appendChild(n));
   }
 
   // ---------- session ----------
@@ -172,12 +176,12 @@
     // accueil
     $("#input-name").value = store.get(pre + ".name", "");
     const myName = () => { const v = ($("#input-name").value || "").trim(); if (v) store.set(pre + ".name", v); return v || "Joueur"; };
-    $("#btn-create").onclick = () => { sound.click(); socket.emit("room:create", { name: myName(), token: Kit.token }); };
-    if ($("#btn-solo")) $("#btn-solo").onclick = () => { sound.click(); pendingSolo = true; socket.emit("room:create", { name: myName(), token: Kit.token }); };
+    $("#btn-create").onclick = () => { sound.click(); busy($("#btn-create")); socket.emit("room:create", { name: myName(), token: Kit.token }); };
+    if ($("#btn-solo")) $("#btn-solo").onclick = () => { sound.click(); busy($("#btn-solo")); pendingSolo = true; socket.emit("room:create", { name: myName(), token: Kit.token }); };
     const join = () => {
       const code = ($("#input-code").value || "").trim().toUpperCase();
       if (code.length !== 4) return toast("Le code du salon fait 4 lettres.", "error");
-      socket.emit("room:join", { code, name: myName(), token: Kit.token });
+      busy($("#btn-join")); socket.emit("room:join", { code, name: myName(), token: Kit.token });
     };
     $("#btn-join").onclick = join;
     $("#input-code").addEventListener("keydown", (e) => { if (e.key === "Enter") join(); });
@@ -185,8 +189,21 @@
     $("#input-name").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btn-create").click(); });
     $("#btn-rules").onclick = () => showHelp(); $("#btn-lobby-rules").onclick = () => showHelp();
     $("#btn-lobby-leave").onclick = () => Kit.leave();
-    $("#lobby-code").onclick = () => { try { navigator.clipboard.writeText(Kit.roomCode || ""); toast("Code copié.", "info"); } catch (e) { /* rien */ } };
+    const copy = (text, ok) => {
+      const fallback = () => { try { const t = el("textarea", { style: { position: "fixed", opacity: "0" } }); t.value = text; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); toast(ok, "info"); } catch (e) { toast("Copie impossible, note le code à la main.", "error"); } };
+      try { navigator.clipboard.writeText(text).then(() => toast(ok, "info"), fallback); } catch (e) { fallback(); }
+    };
+    const copyCode = () => copy(Kit.roomCode || "", "Code copié.");
+    $("#lobby-code").onclick = copyCode; $("#btn-copy-code").onclick = copyCode;
+    $("#btn-copy-link").onclick = () => copy(location.origin + location.pathname + "?code=" + (Kit.roomCode || ""), "Lien copié, il rejoint ce salon.");
+    // lien d'invitation, le code arrive déjà rempli
+    try { const m = /[?&]code=([A-Za-z]{4})\b/.exec(location.search); if (m && !Kit.roomCode) { $("#input-code").value = m[1].toUpperCase(); setTimeout(() => { const n = $("#input-name"); if (n && !n.value) n.focus(); else $("#btn-join").focus(); }, 60); } } catch (e) { /* rien */ }
+    // chargement des boutons d'accueil
+    const busy = (b) => { if (!b) return; b.classList.add("is-loading"); b.disabled = true; setTimeout(() => idle(), 6000); };
+    const idle = () => ["#btn-create", "#btn-solo", "#btn-join"].forEach((q) => { const b = $(q); if (b) { b.classList.remove("is-loading"); b.disabled = false; } });
+    socket.on("room:joined", idle); socket.on("toast", idle); socket.on("room:gone", idle);
     $("#modal-close").onclick = () => $("#modal").classList.add("hidden");
+    document.addEventListener("keydown", (e) => { if (e.key !== "Escape") return; ["#modal", "#confirm-overlay"].forEach((q) => { const m = $(q); if (m && !m.classList.contains("hidden")) m.classList.add("hidden"); }); });
     $("#modal").addEventListener("click", (e) => { if (e.target.id === "modal") e.target.classList.add("hidden"); });
     $("#confirm-overlay").addEventListener("click", (e) => { if (e.target.id === "confirm-overlay") e.target.classList.add("hidden"); });
 
@@ -217,12 +234,12 @@
     $("#modal-title").textContent = cfg.helpTitle || "Comment jouer";
     const body = $("#modal-body"); body.innerHTML = "";
     cfg.help.forEach((h) => body.appendChild(el("div", { class: "help-item" }, [el("h3", { text: h.title }), el("p", { text: h.text })])));
-    $("#modal").classList.remove("hidden");
+    $("#modal").classList.remove("hidden"); setTimeout(() => $("#modal-close").focus(), 30);
   }
   Kit.showModal = function (title, nodes) {
     $("#modal-title").textContent = title; const b = $("#modal-body"); b.innerHTML = "";
     (nodes || []).forEach((n) => b.appendChild(typeof n === "string" ? el("p", { text: n }) : n));
-    $("#modal").classList.remove("hidden");
+    $("#modal").classList.remove("hidden"); setTimeout(() => $("#modal-close").focus(), 30);
   };
   Kit.confirm = function (text, yes) {
     $("#confirm-text").textContent = text;
@@ -236,6 +253,7 @@
     if (!rule.showIf) return true;
     return Object.keys(rule.showIf).every((k) => { const need = rule.showIf[k]; return Array.isArray(need) ? need.includes(s[k]) : s[k] === need; });
   }
+  function inkOn(hex) { const m = /^#?([0-9a-f]{6})$/i.exec(hex || ""); if (!m) return "#fff"; const n = parseInt(m[1], 16); const l = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)); return l > 150 ? "#23303a" : "#fff"; }
   function renderLobby(r) {
     const cfg = Kit.cfg; const host = Kit.isHost(); const meP = r.players.find((p) => p.you);
     $("#lobby-code").textContent = r.code;
@@ -243,12 +261,12 @@
     r.players.forEach((p) => {
       const col = cfg.colors[p.color % cfg.colors.length];
       const row = el("div", { class: "player" + (p.you ? " player--you" : "") }, [
-        el("span", { class: "player__dot", style: { background: col.hex }, title: col.name }),
+        el("span", { class: "player__dot", style: { background: col.hex, color: inkOn(col.hex) }, title: col.name, "aria-hidden": "true", text: (p.name || "?").trim().charAt(0).toUpperCase() }),
         el("div", { class: "player__main" }, [
           el("b", { text: p.name }),
           el("span", { class: "muted small", text: (p.isBot ? "Bot" : p.id === r.hostId ? "Hôte" : "Joueur") + (p.you ? " et c'est toi" : "") + (!p.isBot && !p.connected ? " hors ligne" : "") }),
         ]),
-        p.isBot ? (host ? el("select", { class: "mini-select", onchange: (e) => Kit.socket.emit("room:botLevel", { id: p.id, level: e.target.value }) }, cfg.botLevels.map((l) => el("option", { value: l.id, text: l.label, selected: l.id === p.level }))) : el("span", { class: "chip-mini", text: (cfg.botLevels.find((l) => l.id === p.level) || {}).label || "" })) : el("span", { class: "chip-mini " + (p.ready ? "chip-mini--ok" : ""), text: p.ready ? "prêt" : "pas prêt" }),
+        p.isBot ? (host ? el("select", { class: "mini-select", onchange: (e) => Kit.socket.emit("room:botLevel", { id: p.id, level: e.target.value }) }, cfg.botLevels.map((l) => el("option", { value: l.id, text: l.label, selected: l.id === p.level }))) : el("span", { class: "chip-mini", text: (cfg.botLevels.find((l) => l.id === p.level) || {}).label || "" })) : el("span", { class: "chip-mini " + (p.ready ? "chip-mini--ok" : ""), text: p.ready ? "✓ prêt" : "en attente" }),
         host && !p.you ? el("button", { class: "btn btn--tiny btn--danger", title: "Retirer", text: "×", onclick: () => Kit.socket.emit("room:kick", { id: p.id }) }) : null,
       ]);
       list.appendChild(row);
@@ -260,6 +278,9 @@
         list.appendChild(sw);
       }
     });
+    // places libres, pour que la table se voie remplir
+    const freeSlots = Math.min(cfg.maxPlayers - r.players.length, Math.max(1, cfg.minPlayers - r.players.length + 1));
+    for (let i = 0; i < freeSlots; i++) list.appendChild(el("div", { class: "player player--free" }, [el("span", { text: i === 0 ? "Place libre, partage le code ci-dessus" : "Place libre" })]));
     const bots = $("#add-bot-row"); bots.innerHTML = "";
     if (host && !cfg.noBots && r.players.length < cfg.maxPlayers) {
       const sel = el("select", { id: "bot-level", class: "mini-select" }, cfg.botLevels.map((l, i) => el("option", { value: l.id, text: l.label, selected: i === 1 })));

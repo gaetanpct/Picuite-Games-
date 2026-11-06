@@ -92,16 +92,6 @@
 .ml-stage .muted { color: rgba(255, 255, 255, 0.72); }
 @media (max-width: 520px) { .ml-stage { padding-bottom: 5rem; } .ml-opt { font-size: 0.98rem; } .ml-pchip { padding: 0.45rem 0.8rem; } }
 
-.dotc { display: inline-block; width: 13px; height: 13px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #0004; flex: none; vertical-align: -1px; }
 .ml-tbl .dotc, .ml-theme .dotc, .ml-award .dotc { margin-right: 0.35rem; }
-.tbl { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
-.tbl th { text-align: left; font-weight: 600; font-size: 0.8rem; border-bottom: 2px solid rgba(255, 255, 255, 0.25); padding: 0.2rem 0.3rem; }
-.tbl td { padding: 0.3rem; border-bottom: 1px dashed rgba(255, 255, 255, 0.18); font-variant-numeric: tabular-nums; }
-.tbl td.r, .tbl th.r { text-align: right; }
-.podium { display: flex; align-items: flex-end; justify-content: center; gap: 0.6rem; margin: 0.4rem 0 0.4rem; min-height: 190px; }
-.pod { width: 28%; text-align: center; }
-.pod__bar { border-radius: 12px 12px 0 0; background: linear-gradient(180deg, var(--accent-1), var(--accent-2)); display: flex; align-items: flex-start; justify-content: center; font-family: var(--font-title); font-size: 2rem; color: #3a2604; padding-top: 0.2rem; }
-.pod--1 .pod__bar { height: 120px; } .pod--2 .pod__bar { height: 86px; filter: saturate(0.6) brightness(1.1); } .pod--3 .pod__bar { height: 62px; filter: hue-rotate(-20deg) saturate(0.8); }
-.pod__nm { font-weight: 700; margin-bottom: 0.2rem; word-break: break-word; } .pod__ball { width: 34px; height: 34px; border-radius: 50%; margin: 0 auto 0.2rem; border: 3px solid #fff; box-shadow: 0 3px 8px #0006; animation: kbob 2.4s ease-in-out infinite; }
 .ml-menu { background: rgba(255, 255, 255, 0.14); border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 50%; color: #fff; padding: 0; cursor: pointer; }
 .ml-stage { padding-bottom: 6.5rem; }

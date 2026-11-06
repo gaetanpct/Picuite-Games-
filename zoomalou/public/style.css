@@ -58,16 +58,6 @@
 .sheet { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: rgba(8, 10, 24, 0.78); display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 20; overflow: auto; }
 .sheet .card { width: min(100%, 640px); max-height: 94%; overflow: auto; color: var(--ink); }
 .sheet h2 { font-size: 1.7rem; }
-.tbl { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
-.tbl th { text-align: left; font-weight: 600; color: var(--ink-soft); font-size: 0.8rem; border-bottom: 2px solid var(--line); padding: 0.2rem 0.3rem; }
-.tbl td { padding: 0.3rem; border-bottom: 1px dashed var(--line); font-variant-numeric: tabular-nums; }
-.tbl td.r, .tbl th.r { text-align: right; }
-.dotc { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #0004; margin-right: 0.35rem; vertical-align: -1px; }
-.podium { display: flex; align-items: flex-end; justify-content: center; gap: 0.6rem; margin: 0.4rem 0 1rem; min-height: 190px; }
-.pod { width: 28%; text-align: center; }
-.pod__bar { border-radius: 12px 12px 0 0; background: linear-gradient(180deg, var(--accent-1), var(--accent-2)); display: flex; align-items: flex-start; justify-content: center; font-family: var(--font-title); font-size: 2rem; color: #3a2604; padding-top: 0.2rem; }
-.pod--1 .pod__bar { height: 120px; } .pod--2 .pod__bar { height: 86px; filter: saturate(0.6) brightness(1.1); } .pod--3 .pod__bar { height: 62px; filter: hue-rotate(-20deg) saturate(0.8); }
-.pod__nm { font-weight: 700; margin-bottom: 0.2rem; word-break: break-word; } .pod__ball { width: 34px; height: 34px; border-radius: 50%; margin: 0 auto 0.2rem; border: 3px solid #fff; box-shadow: 0 3px 8px #0006; animation: kbob 2.4s ease-in-out infinite; }
 .sheet .row { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 0.9rem; flex-wrap: wrap; }
 .menu-row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; padding: 0.45rem 0; border-bottom: 1px dashed var(--line); } .menu-row p { margin: 0.15rem 0 0; }
 .keys { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.8rem; font-size: 0.92rem; } .keys kbd { background: #fff; border: 2px solid var(--line); border-radius: 6px; padding: 0 0.4rem; font-family: inherit; font-weight: 700; white-space: nowrap; }

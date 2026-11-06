@@ -18,6 +18,7 @@ process.on("uncaughtException", (e) => { console.error("Erreur non rattrapée", 
 process.on("unhandledRejection", (e) => { console.error("Promesse refusée", e && e.stack ? e.stack : e); });
 const app = express();
 const server = http.createServer(app);
+server.setMaxListeners(40);
 
 // ---------- découverte des jeux ----------
 const GAMES_DIR = __dirname;

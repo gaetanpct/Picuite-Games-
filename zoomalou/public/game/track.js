@@ -20,8 +20,10 @@
   // la voiture la plus lente (Bouboule) sert de référence pour dimensionner les sauts
   const WEAK = { vmax: 45, acc: 18 };
   const VTOP = 92; // vitesse maximale possible en vol, turbo compris
-  const OBS = { cone: { r: 0.75, h: 1.4 }, barrel: { r: 1.15, h: 1.7 }, crate: { r: 1.4, h: 2.2 }, pillar: { r: 0.95, h: 5 } };
-  const OBS_IDS = ["cone", "barrel", "crate", "pillar"];
+  const OBS = { cone: { r: 0.75, h: 1.4 }, barrel: { r: 1.15, h: 1.7 }, crate: { r: 1.4, h: 2.2 }, pillar: { r: 0.95, h: 5 }, tires: { r: 1.05, h: 1.2 }, rock: { r: 1.5, h: 2.1 }, bale: { r: 1.3, h: 1.6 }, ice: { r: 1.2, h: 1.8 }, crystal: { r: 0.95, h: 2.6 } };
+  const OBS_IDS = ["cone", "barrel", "crate", "pillar", "tires", "rock", "bale", "ice", "crystal"];
+  // chaque biome a ses propres obstacles
+  const OBS_BY = { cote: ["cone", "barrel", "crate", "tires", "bale"], desert: ["cone", "barrel", "rock", "bale", "crate"], neige: ["cone", "barrel", "ice", "tires", "pillar"], foret: ["rock", "bale", "barrel", "crate", "tires"], volcan: ["rock", "crystal", "barrel", "pillar", "tires"], bonbons: ["cone", "barrel", "crystal"], neon: ["pillar", "crystal", "crate", "barrel"] };
 
   function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   function hashSeed(s) { s = String(s); let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -30,19 +32,19 @@
 
   const BIOMES = {
     cote: { id: "cote", phys: {}, identity: "Route classique, la référence pour comparer", name: "Côte", icon: "🏖️", sky: ["#4fc8ff", "#fff3d6"], fog: "#d8f1ff", sun: "#fff3d0", amb: "#c8ecff", ground: "#f0dc9c", road: "#5b606c", wall: "#ffffff", curb: ["#ff5a4a", "#ffffff"], gravity: 9.8, plan: { dirt: 0.0, ice: 0, slow: 0.22 },
-      deco: ["palm", "palm", "rock", "parasol"], names: ["Corniche Salée", "Route des Mouettes", "Plage Express", "Marée Basse", "Phare en Vue"] },
+      deco: ["palm", "palm", "rock", "parasol", "phare", "bouee"], names: ["Corniche Salée", "Route des Mouettes", "Plage Express", "Marée Basse", "Phare en Vue"] },
     desert: { id: "desert", phys: { wind: 2.4, grip: 0.97 }, identity: "Vents de sable qui poussent la voiture de côté", name: "Désert", icon: "🌵", sky: ["#ffa94a", "#fff0cf"], fog: "#ffe2b0", sun: "#fff0c0", amb: "#ffe0b0", ground: "#e9b868", road: "#6a5a4a", wall: "#f2d29a", curb: ["#c0552a", "#f6e2b4"], gravity: 9.8, plan: { dirt: 0.5, ice: 0, slow: 0.12 },
-      deco: ["cactus", "cactus", "rock", "rock"], names: ["Piste Poussiéreuse", "Mirage Rapide", "Canyon Sec", "Dune Furieuse", "Oasis Express"] },
+      deco: ["cactus", "cactus", "rock", "rock", "pyramide", "arche"], names: ["Piste Poussiéreuse", "Mirage Rapide", "Canyon Sec", "Dune Furieuse", "Oasis Express"] },
     neige: { id: "neige", phys: { grip: 0.86, accel: 0.95 }, identity: "Adhérence réduite partout, glace fréquente", name: "Neige", icon: "⛄", sky: ["#9fd4ff", "#f4fbff"], fog: "#e6f3ff", sun: "#ffffff", amb: "#d0e8ff", ground: "#f4f9ff", road: "#4a5666", wall: "#dff0ff", curb: ["#2a6fb0", "#ffffff"], gravity: 9.8, plan: { dirt: 0, ice: 0.45, slow: 0.1 },
-      deco: ["pine", "pine", "snowman", "rock"], names: ["Piste Verglacée", "Col Blanc", "Tobogan Fou", "Sapin Givré", "Lac Gelé"] },
+      deco: ["pine", "pine", "snowman", "rock", "igloo"], names: ["Piste Verglacée", "Col Blanc", "Tobogan Fou", "Sapin Givré", "Lac Gelé"] },
     foret: { id: "foret", phys: { grip: 0.92, vmax: 0.98 }, identity: "Sol humide, moins d'adhérence et terre fréquente", name: "Forêt", icon: "🌲", sky: ["#6ed49a", "#e9ffe2"], fog: "#b9ecc4", sun: "#fff6c0", amb: "#a8e8b8", ground: "#3f9a50", road: "#4a4f46", wall: "#8a6a3a", curb: ["#8a5a2a", "#e8d8a8"], gravity: 9.8, plan: { dirt: 0.4, ice: 0, slow: 0.25 },
-      deco: ["tree", "tree", "pine", "mushroom", "rock"], names: ["Sentier des Cerfs", "Racines Folles", "Sous-Bois Rapide", "Champignon Express", "Clairière Piégeuse"] },
+      deco: ["tree", "tree", "pine", "mushroom", "rock", "tronc", "cabane"], names: ["Sentier des Cerfs", "Racines Folles", "Sous-Bois Rapide", "Champignon Express", "Clairière Piégeuse"] },
     volcan: { id: "volcan", phys: { boost: 1.4, accel: 1.04 }, identity: "Les turbos sont beaucoup plus puissants", name: "Volcan", icon: "🌋", sky: ["#6a2a3a", "#ff9a5a"], fog: "#d8785a", sun: "#ffc890", amb: "#ff9a70", ground: "#3e3038", road: "#2e2830", wall: "#6a4a50", curb: ["#ff5a1a", "#ffd84a"], gravity: 9.8, plan: { dirt: 0.2, ice: 0, slow: 0.15 },
-      deco: ["rock", "rock", "crystal", "crystal"], names: ["Coulée Rouge", "Cratère Express", "Cendres Chaudes", "La Fournaise", "Cheminée Folle"] },
+      deco: ["rock", "rock", "crystal", "crystal", "geyser", "obelisque"], names: ["Coulée Rouge", "Cratère Express", "Cendres Chaudes", "La Fournaise", "Cheminée Folle"] },
     bonbons: { id: "bonbons", phys: { bounce: 0.2, grip: 1.12, vmax: 0.97 }, identity: "Sol collant et réceptions qui rebondissent", name: "Bonbons", icon: "🍭", sky: ["#ffb3e0", "#fff4fb"], fog: "#ffd9f0", sun: "#fff0f8", amb: "#ffd0ee", ground: "#c98cf0", road: "#8a5a9a", wall: "#ffffff", curb: ["#ff4aa8", "#ffe14a"], gravity: 9.8, plan: { dirt: 0, ice: 0.05, slow: 0.35 },
-      deco: ["lolli", "cane", "gummy", "lolli"], names: ["Route Guimauve", "Chocolat Fondu", "Sucre d'Orge", "Gelée Rapide", "Caramel Express"] },
+      deco: ["lolli", "cane", "gummy", "lolli", "cupcake", "donut"], names: ["Route Guimauve", "Chocolat Fondu", "Sucre d'Orge", "Gelée Rapide", "Caramel Express"] },
     neon: { id: "neon", phys: { accel: 1.08, grip: 0.94 }, identity: "Gravité faible, grands sauts et voiture plus nerveuse", name: "Néon", icon: "🪐", sky: ["#07041f", "#3a1f7a"], fog: "#241250", sun: "#c8c0ff", amb: "#6a60c0", ground: "#14104a", road: "#1e1a50", wall: "#5affd8", curb: ["#ff4a8a", "#5affd8"], gravity: 4.6, stars: true, plan: { dirt: 0, ice: 0.2, slow: 0.05 },
-      deco: ["pylon", "pylon", "asteroid", "crystal"], names: ["Orbite Néon", "Anneau Lumineux", "Piste Stellaire", "Comète Express", "Voie Lactée"] },
+      deco: ["pylon", "pylon", "asteroid", "crystal", "anneau", "tour"], names: ["Orbite Néon", "Anneau Lumineux", "Piste Stellaire", "Comète Express", "Voie Lactée"] },
   };
   const BIOME_IDS = Object.keys(BIOMES);
 
@@ -71,7 +73,9 @@
     const targetLen = [700, 1100, 1700, 2800, 4200][size - 1] * (0.92 + rng() * 0.16);
     const maxR = [330, 440, 600, 820, 1050][size - 1];
     const hwN = [6.6, 5.6, 4.8, 4.2, 3.6][diff - 1]; // demi-largeur des passages étroits
-    const hw = hwN * 1.25; // demi-largeur ordinaire, plus large
+    // chaque course a sa propre largeur de route, plus ou moins large, tirée à part pour ne pas décaler le reste du circuit
+    const roadK = (diff >= 4 ? 0.98 : 0.92) + (1.22 - (diff >= 4 ? 0.98 : 0.92)) * mulberry32(hashSeed(spec.seed + "rk"))();
+    const hw = hwN * 1.25 * roadK; // demi-largeur ordinaire
     const elemSel = spec.elements || "auto";
     const elemK = elemSel === "peu" ? 0.45 : elemSel === "moyen" ? 1 : elemSel === "beaucoup" ? 1.7 : [0.45, 0.75, 1, 1.35, 1.7][diff - 1];
     // l'ambiance de la course change d'un circuit à l'autre
@@ -151,6 +155,27 @@
     const kChic = () => { const s = sgn(); return { surf: pickSurf(), parts: [{ angle: s * ang(30, 45), radius: rad(20, 28) }, { angle: -s * ang(55, 80), radius: rad(20, 28) }, { angle: s * ang(30, 45), radius: rad(20, 28) }] }; };
     const kSweep = () => { const s = sgn(); return { surf: pickSurf(), parts: [{ angle: s * ang(90, 170), radius: rad(70, 120) }] }; };
 
+    // escargot, un virage qui se resserre ou s'ouvre sans jamais s'arrêter de tourner
+    const kSpiral = () => { const s = sgn(); const open = rng() < 0.5; const R = open ? [rad(20, 26), rad(34, 46), rad(60, 85)] : [rad(60, 85), rad(34, 46), rad(20, 26)]; const A = [ang(70, 100), ang(80, 110), ang(60, 90)]; return { surf: pickSurf(), parts: [{ straight: rad(6, 12) }].concat(R.map((r, i) => ({ angle: s * A[i], radius: r }))) }; };
+    // fer à cheval, demi-tour où la route s'étrangle au sommet
+    const kFer = () => { const s = sgn(); const k = Math.max(3.2 / hw, 0.58); return { surf: pickSurf(), parts: [{ straight: rad(8, 14) }, { angle: s * ang(150, 178), radius: rad(26, 36) }, { straight: 8 }], wf: (f) => (f < 0.2 ? 1 + (k - 1) * sm(f / 0.2) : f < 0.8 ? k : k + (1 - k) * sm((f - 0.8) / 0.2)), reg(i0, i1) { items.push({ t: "neck", a: i0, b: i1 }); } }; };
+    // grand serpent, quatre courbes alternées dont la route se pince à chaque croisement
+    const kSerpent = () => { const s = sgn(); const lo = Math.max(3.1 / hw, 0.6); const parts = []; for (let q = 0; q < 4; q++) parts.push({ angle: (q % 2 ? -1 : 1) * s * ang(40, 58), radius: rad(46, 70) }); return { surf: pickSurf(), parts, wf: (f) => 1 - (1 - lo) * Math.cos(4 * Math.PI * f) ** 2 * sm(Math.min(f, 1 - f) / 0.1), reg(i0, i1) { items.push({ t: "neck", a: i0, b: i1 }); } }; };
+    // rond-point, un grand cercle large où chacun choisit sa trajectoire
+    const kRond = () => { const s = sgn(); const big = Math.min(1.5, 13 / hw); return { surf: pickSurf(), parts: [{ straight: 14 }, { angle: s * ang(230, 300), radius: rad(56, 74) }, { straight: 14 }], wf: (f) => 1 + (big - 1) * sm(Math.min(f, 1 - f) / 0.12), reg(i0, i1) { items.push({ t: "arena", a: i0, b: i1 }); } }; };
+    // entonnoir, la route se rétrécit sur toute sa longueur puis se rouvre d'un coup
+    const kEntonnoir = () => { const k = Math.max(3.0 / hw, 0.55); const len = rad(120, 170); return { surf: pickSurf(), parts: [{ straight: len }], wf: (f) => (f < 0.7 ? 1 - (1 - k) * sm(f / 0.7) : k + (1 - k) * sm((f - 0.74) / 0.12)), reg(i0, i1) { items.push({ t: "neck", a: i0, b: i1 }); } }; };
+    // lacets, des épingles enchaînées pendant que la route monte puis redescend
+    function kLacets() {
+      if (!pinOK() || room() < 460) return null;
+      const s = sgn(); const R = rad(17, 22); const cnt = pick([2, 3]); const parts = [{ straight: 16 }]; for (let q = 0; q < cnt; q++) { parts.push({ angle: (q % 2 ? -1 : 1) * s * ang(150, 172), radius: R }); parts.push({ straight: rad(10, 18) }); }
+      const up = rng() < 0.65; const hf = [0.6, 0.8, 1, 1.25][hillsLvl];
+      return { surf: pickSurf(), parts, reg(i0, i1) {
+        const N = i1 - i0 + 1; const Dh = Math.min(rad(9, 20) * hf, 0.09 * N * STEP) * (up ? 1 : -1); const arr = []; for (let i = 2; i <= N - 3; i++) { const t = (i - 2) / Math.max(1, N - 5); arr.push(Dh * sm(Math.min(2 * t, 2 - 2 * t))); }
+        const o0 = arr[0]; items.push({ t: "region", a: i0 + 2, b: i1 - 2, ofs: arr.map((v) => v - o0) }); items.push({ t: "steep", a: i0, type: "lacets" });
+      } };
+    }
+
     // ---------- largeurs variables ----------
     function kNeck() {
       const k = Math.max(2.9 / hw, 0.5); const len = rad(70, 110);
@@ -165,17 +190,21 @@
 
     // ---------- pentes raides ----------
     function kSteep() {
-      if (!pinOK()) return null; const type = pick(["col", "creux", "russes", "falaise", "col", "grande", "toboggan"]); const hf = [0.6, 0.8, 1, 1.25][hillsLvl]; const Dh = rad(9, 22) * hf; const sl = rad(0.28, 0.5);
+      if (!pinOK()) return null; const type = pick(["col", "creux", "russes", "falaise", "col", "grande", "toboggan", "escalier", "houle", "crete"]); const hf = [0.6, 0.8, 1, 1.25][hillsLvl]; const Dh = rad(9, 22) * hf; const sl = rad(0.28, 0.5);
       let segs;
       if (type === "col") { const L1 = Dh / sl; segs = [{ L: 24, dy: 0 }, { L: L1, dy: Dh }, { L: 14, dy: 0 }, { L: Dh / rad(0.3, 0.5), dy: -Dh }, { L: 24, dy: 0 }]; }
       else if (type === "creux") { const L1 = Dh / rad(0.3, 0.5); segs = [{ L: 24, dy: 0 }, { L: L1, dy: -Dh }, { L: 14, dy: 0 }, { L: Dh / sl, dy: Dh }, { L: 24, dy: 0 }]; }
       else if (type === "grande") { const D3 = rad(18, 34) * hf; segs = [{ L: 24, dy: 0 }, { L: D3 / rad(0.16, 0.26), dy: D3 }, { L: 20, dy: 0 }, { L: D3 / rad(0.2, 0.3), dy: -D3 }, { L: 24, dy: 0 }]; }
       else if (type === "toboggan") { const D3 = rad(16, 30) * hf; segs = [{ L: 24, dy: 0 }, { L: D3 / rad(0.18, 0.3), dy: -D3 }, { L: 16, dy: 0 }, { L: D3 / rad(0.16, 0.26), dy: D3 }, { L: 24, dy: 0 }]; }
       else if (type === "falaise") { const D2 = Dh * 0.8; segs = [{ L: 24, dy: 0 }, { L: D2 / 0.6, dy: -D2 }, { L: 18, dy: 0 }, { L: D2 / 0.34, dy: D2 }, { L: 24, dy: 0 }]; }
+      else if (type === "escalier") { const st = 3 + Math.floor(rng() * 2); const D = rad(2.6, 3.5) * Math.max(0.8, hf); segs = [{ L: 24, dy: 0 }]; for (let q = 0; q < st; q++) { segs.push({ L: rad(8, 10), dy: D }); segs.push({ L: rad(12, 16), dy: 0 }); } segs.push({ L: st * D / rad(0.25, 0.34), dy: -st * D }); segs.push({ L: 24, dy: 0 }); }
+      else if (type === "houle") { const k = 3 + Math.floor(rng() * 2); const A = rad(5, 8) * Math.max(0.8, hf); segs = [{ L: 24, dy: 0 }]; for (let q = 0; q < k; q++) { segs.push({ L: rad(42, 55), dy: A }); segs.push({ L: rad(42, 55), dy: -A }); } segs.push({ L: 24, dy: 0 }); }
+      else if (type === "crete") { const L1 = Dh / sl; const L3 = Dh / rad(0.3, 0.5); segs = [{ L: 24, dy: 0 }, { L: L1, dy: Dh }, { L: 46, dy: 0 }, { L: L3, dy: -Dh }, { L: 24, dy: 0 }]; }
       else { const k = 3 + Math.floor(rng() * 3); const D = rad(3.5, 6) * Math.max(0.8, hf); segs = [{ L: 24, dy: 0 }]; for (let q = 0; q < k; q++) { segs.push({ L: 30, dy: D }); segs.push({ L: 30, dy: -D }); } segs.push({ L: 24, dy: 0 }); }
       const total = segs.reduce((a, s2) => a + s2.L, 0); const n = Math.round(total / STEP) + 6;
       if (total + 10 > room() - 100) return null;
-      return { surf: pickSurf(), parts: [{ straight: n * STEP }], reg(i0, i1) { const ofs = slopeProfile(segs, n); const o0 = ofs[2]; const arr = []; for (let i = 2; i <= n - 3; i++) arr.push(ofs[i] - o0); items.push({ t: "region", a: i0 + 2, b: i1 - 2, ofs: arr }); items.push({ t: "steep", a: i0, type }); } };
+      let wfc = null; if (type === "crete") { const kk = Math.max(3.0 / hw, 0.55); const a0 = (24 + segs[1].L) / total, b0 = a0 + 46 / total; wfc = (f) => 1 - (1 - kk) * clamp(sm((f - (a0 - 0.05)) / 0.06) - sm((f - b0 + 0.02) / 0.06), 0, 1); }
+      return { surf: pickSurf(), parts: [{ straight: n * STEP }], wf: wfc || undefined, reg(i0, i1) { if (type === "crete") items.push({ t: "neck", a: i0 + 2, b: i1 - 2 }); const ofs = slopeProfile(segs, n); const o0 = ofs[2]; const arr = []; for (let i = 2; i <= n - 3; i++) arr.push(ofs[i] - o0); items.push({ t: "region", a: i0 + 2, b: i1 - 2, ofs: arr }); items.push({ t: "steep", a: i0, type }); } };
     }
 
     // ---------- obstacles ----------
@@ -186,22 +215,32 @@
       return { lo, hi };
     }
     function kObstacles() {
-      const pattern = pick(["slalom", "slalom", "barriere", "portail", "ilot", "ilot"]); const cw = 2.8 + (5 - diff) * 0.35; const types = biome.id === "bonbons" ? ["cone", "barrel"] : ["cone", "barrel", "crate", "pillar"];
-      const lenS = pattern === "slalom" || pattern === "ilot" ? rad(120, 190) : pattern === "barriere" ? rad(110, 150) : rad(70, 100); const n = Math.round(lenS / STEP); let sf = pickSurf(); if (sf === SURF.ICE) sf = SURF.ASPHALT;
+      const pattern = pick(["slalom", "slalom", "barriere", "portail", "ilot", "ilot", "entonnoir", "balayage"]); const cw = 2.8 + (5 - diff) * 0.35; const types = OBS_BY[biome.id] || ["cone", "barrel", "crate", "pillar"];
+      const bigT = types.filter((t) => OBS[t].r >= 0.95 && t !== "crystal"); const wideT = bigT.filter((t) => t !== "pillar"); const pk2 = (l, d) => { const a = l.length ? l : d; return pick(a); };
+      const lenS = pattern === "slalom" || pattern === "ilot" || pattern === "entonnoir" || pattern === "balayage" ? rad(120, 190) : pattern === "barriere" ? rad(110, 150) : rad(70, 100); const n = Math.round(lenS / STEP); let sf = pickSurf(); if (sf === SURF.ICE) sf = SURF.ASPHALT;
       return { surf: sf, parts: [{ straight: lenS }], reg(i0, i1) {
         const list = []; const place = (i, u, ty, side) => { list.push({ i, u, r: OBS[ty].r, ty, side }); };
         if (pattern === "slalom") {
           const gap = pick([11, 13, 15]); const ty = pick(types); const off = rad(0.7, 1.5); let sd = rng() < 0.5 ? 1 : -1; for (let i = i0 + 10; i < i1 - 8; i += gap) { place(i, sd * off, ty, sd); sd = -sd; }
         } else if (pattern === "ilot") {
-          const ty = pick(["pillar", "barrel", "crate"]); let sd = rng() < 0.5 ? 1 : -1; const gap = pick([20, 26]); for (let i = i0 + 12; i < i1 - 10; i += gap) { place(i, 0, ty, sd); sd = -sd; }
+          const ty = pk2(bigT, ["pillar", "barrel", "crate"]); let sd = rng() < 0.5 ? 1 : -1; const gap = pick([20, 26]); for (let i = i0 + 12; i < i1 - 10; i += gap) { place(i, 0, ty, sd); sd = -sd; }
+        } else if (pattern === "entonnoir") {
+          // des paires d'obstacles se resserrent autour d'un passage qui ondule, puis se rouvrent
+          const ty = pk2(wideT, ["barrel", "crate"]); const r0 = OBS[ty].r; const rows = 7 + Math.floor(rng() * 3); const sp = Math.floor((n - 28) / rows); const A = rad(1.2, 2.6); const ph = rng() * 6.28;
+          for (let q = 0; q < rows; q++) { const ic = i0 + 14 + q * sp; const t = q / (rows - 1); const gh = Math.max(cw / 2 + 0.15, (W[ic] - r0 - 2.2) * (1 - 0.85 * Math.sin(Math.PI * t))); const gc = A * Math.sin(ph + t * 6.28 * 1.1);
+            const ul = gc - gh - r0 - 1.45, ur = gc + gh + r0 + 1.45; if (Math.abs(ul) + r0 <= W[ic] + 0.1) place(ic, ul, ty, -1); if (Math.abs(ur) + r0 <= W[ic] + 0.1) place(ic, ur, ty, 1); }
+        } else if (pattern === "balayage") {
+          // une ligne d'obstacles traverse la route en diagonale, il faut changer de côté à chaque fois
+          const ty = pk2(wideT, ["barrel", "crate"]); const r0 = OBS[ty].r; const K = 6 + Math.floor(rng() * 3); const sp = Math.floor((n - 28) / K); const dir = rng() < 0.5 ? 1 : -1;
+          for (let q = 0; q < K; q++) { const ic = i0 + 14 + q * sp; const span = Math.max(0, W[ic] - r0 - 1.0); const u = dir * (-span + 2 * span * q / (K - 1)); place(ic, u, ty, u <= 0 ? -1 : 1); }
         } else if (pattern === "barriere") {
-          const ty = pick(["crate", "barrel"]); const tp = OBS[ty]; let sd = rng() < 0.5 ? 1 : -1; const count = 2 + Math.floor(rng() * 2); const sp = Math.floor((n - 24) / count);
+          const ty = pk2(wideT, ["crate", "barrel"]); const tp = OBS[ty]; let sd = rng() < 0.5 ? 1 : -1; const count = 2 + Math.floor(rng() * 2); const sp = Math.floor((n - 24) / count);
           for (let q = 0; q < count; q++) {
             const ic = i0 + 12 + q * sp; const w0 = W[ic]; const cmax = (2 * w0 - 2.7 - cw) / (2 * w0); const c = Math.min(rad(0.42, 0.6), cmax); const mMin = w0 - c * 2 * w0;
             const ms = []; for (let m = w0 - tp.r; m > mMin + tp.r + 0.01; m -= tp.r * 1.7) ms.push(m); ms.push(mMin + tp.r); ms.forEach((m) => place(ic, sd * m, ty, sd)); sd = -sd;
           }
         } else {
-          const ty = pick(["pillar", "barrel", "crate"]); const tp = OBS[ty]; const ic = i0 + Math.floor(n / 2); const gc = 1.5 + (5 - diff) * 0.35; const pu = gc + tp.r + 1.45;
+          const ty = pk2(bigT, ["pillar", "barrel", "crate"]); const tp = OBS[ty]; const ic = i0 + Math.floor(n / 2); const gc = 1.5 + (5 - diff) * 0.35; const pu = gc + tp.r + 1.45;
           for (const sd of [-1, 1]) { for (let u = pu; u <= W[ic] - tp.r + 0.1; u += tp.r * 1.8) place(ic, sd * u, ty, sd); }
         }
         // le couloir doit rester assez large et tous les obstacles doivent tenir sur la route
@@ -318,12 +357,12 @@
 
     // ---------- choix de la pièce suivante ----------
     function makeKind() {
-      const tw = mood.twist, fl = mood.flow; const cands = [[1.8 * fl, kStraight], [3, kCurve], [(0.7 + diff * 0.8) * tw, kHairpin], [1.6, kBends], [(0.6 + diff * 0.8) * tw, kChic], [1.2 * fl, kSweep], [(0.8 + diff * 0.6) * tw, kTight], [(0.5 + diff * 0.5) * tw, kEsses], [(0.15 + diff * 0.35) * tw, kDouble]];
+      const tw = mood.twist, fl = mood.flow; const cands = [[1.8 * fl, kStraight], [3, kCurve], [(0.7 + diff * 0.8) * tw, kHairpin], [1.6, kBends], [(0.6 + diff * 0.8) * tw, kChic], [1.2 * fl, kSweep], [(0.8 + diff * 0.6) * tw, kTight], [(0.5 + diff * 0.5) * tw, kEsses], [(0.15 + diff * 0.35) * tw, kDouble], [(0.25 + diff * 0.3) * tw, kSpiral], [(0.25 + diff * 0.3) * tw, kFer], [(0.5 + diff * 0.2) * fl, kSerpent]];
       if (wild > 0) {
         const k = wild * 0.8 * elemK; const sizeOK = size >= 2;
-        if (F.steep) cands.push([2.4 * k * mood.steep, kSteep]);
+        if (F.steep) { cands.push([2.4 * k * mood.steep, kSteep]); cands.push([0.9 * k * mood.steep, kLacets]); }
         if (F.obstacles) cands.push([1.8 * k * mood.obst, kObstacles]);
-        if (F.widths) { cands.push([0.8 * k * mood.width, kNeck]); cands.push([0.6 * k * mood.width, kArena]); cands.push([0.5 * k * mood.width, kPulse]); }
+        if (F.widths) { cands.push([0.8 * k * mood.width, kNeck]); cands.push([0.6 * k * mood.width, kArena]); cands.push([0.5 * k * mood.width, kPulse]); cands.push([0.5 * k * mood.width, kRond]); cands.push([0.6 * k * mood.width, kEntonnoir]); }
         if (F.gaps && sizeOK) cands.push([2.4 * k * mood.gap, kGap]);
         if (F.bridges && sizeOK) { cands.push([1.1 * k * mood.bridge, kBridge]); cands.push([0.9 * k * mood.bridge, kCorniche]); }
         if (F.mag && sizeOK) { cands.push([0.8 * k * mood.mag, kLoop]); cands.push([0.55 * k * mood.mag, kRoll]); cands.push([0.6 * k * mood.mag, kWall]); cands.push([0.4 * k * mood.mag, kCeiling]); }
@@ -415,7 +454,7 @@
     const magsOut = items.filter((it) => it.t === "mag").map((it) => ({ a: it.a, b: it.b, k: it.kind, f: round(it.f, 4) }));
     const gapsOut = items.filter((it) => it.t === "gap").map((it) => ({ cp: it.cp, lip: it.lip, land: it.land, vk: +it.vk.toFixed(3), tf: +it.tf.toFixed(3), vreq: +it.vreq.toFixed(2), G: it.G, La: it.La }));
     const kicks = gapsOut.map((g) => ({ i: g.lip, vy: g.vk }));
-    const stats = { loops: 0, rolls: 0, walls: 0, ceilings: 0, gaps: gapsOut.length, steep: items.filter((it) => it.t === "steep").length, bridges: items.filter((it) => it.t === "bridge").length, necks: items.filter((it) => it.t === "neck" || it.t === "arena").length, obstacles: items.filter((it) => it.t === "obspat").length, bumps: items.filter((it) => it.t === "bump").length };
+    const stats = { loops: 0, rolls: 0, walls: 0, ceilings: 0, gaps: gapsOut.length, steep: items.filter((it) => it.t === "steep").length, bridges: items.filter((it) => it.t === "bridge").length, necks: items.filter((it) => it.t === "neck" || it.t === "arena").length, obstacles: items.filter((it) => it.t === "obspat").length, bumps: items.filter((it) => it.t === "bump").length, lacets: items.filter((it) => it.t === "steep" && it.type === "lacets").length, road: +roadK.toFixed(2) };
     items.filter((it) => it.t === "mag").forEach((it) => { if (it.kind === "loop") stats.loops++; else if (it.kind === "roll") stats.rolls++; else if (it.kind === "wall") stats.walls++; else stats.ceilings++; });
     return {
       version: 2, spec: Object.assign({}, spec), biome: biome.id, name: biome.names[Math.floor(rng() * biome.names.length)], n, step: STEP, length: len, gravity: biome.gravity, airG: +airG.toFixed(3),

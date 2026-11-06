@@ -47,7 +47,7 @@ function nextRound(room) {
     const expl = players.filter((id) => id !== r.directorId);
     r.units = [{ id: 0, members: expl, mine: 0, perMember: true, turn: 0, shots: [], strikes: {}, solved: false, out: false, stallAt: 0, turnUntil: 0 }];
     g.stats[r.directorId].directed++;
-  } else if (s.key === "course" || s.key === "croise") {
+  } else if (s.key === "course" || s.key === "precision" || s.key === "croise") {
     r.units = players.map((id, i) => ({ id: i, members: [id], mine: s.key === "croise" ? (i + 1) % players.length : 0, perMember: false, shots: [], strikes: {}, solved: false, out: false, stallAt: 0 }));
   } else if (s.key === "equipes" && players.length >= 2) {
     const sh = shuffle(players); const t = [[], []]; sh.forEach((id, i) => t[i % 2].push(id));
@@ -154,8 +154,15 @@ function accuse(room, u, pid, placement) {
   if (r.s.share === "turn") { u.turn++; u.turnUntil = Date.now() + r.s.turnTime * 1000 * TS; }
   return { ok: false, hint, out: outNow };
 }
+const costOf = (u) => u.shotsUsed + 3 * (u.perMember ? Object.values(u.strikes).reduce((a, b) => a + b, 0) : (u.strikes.u || 0));
 function checkEnd(room) {
   const g = room.g, r = g.r; if (g.phase !== "play") return;
+  if (r.s.key === "precision") {
+    // temps illimité, la manche finit quand chacun a trouvé ou est sorti, le moins de tirs gagne
+    if (!r.units.every((u) => u.solved || u.out)) return;
+    const sv = r.units.filter((u) => u.solved).sort((a, b) => costOf(a) - costOf(b) || a.solvedAt - b.solvedAt);
+    return endRound(room, sv[0] || null);
+  }
   const solved = r.units.filter((u) => u.solved);
   if (solved.length) { solved.sort((a, b) => a.solvedAt - b.solvedAt); return endRound(room, solved[0]); }
   if (r.units.every((u) => u.out)) return endRound(room, null);
@@ -168,9 +175,10 @@ function endRound(room, win) {
   const used = (u) => u.shotsUsed;
   const coopLike = s.key === "coop" || s.key === "enigme" || s.key === "campagne";
   if (win) {
-    const bonus = s.shots ? Math.max(0, Math.floor((s.shots - used(win)) / 3)) : Math.max(0, 6 - Math.floor(used(win) / 3));
+    const bonus = s.shots ? Math.max(0, Math.floor((s.shots - used(win)) / 3)) : Math.max(0, 6 - Math.floor((s.key === "precision" ? costOf(win) : used(win)) / 3));
     const pts = 6 + Math.min(6, bonus) + (s.key === "enigme" || s.key === "campagne" ? 2 : 0);
     win.members.forEach((id) => { gains[id] += pts; g.stats[id].wins++; });
+    if (s.key === "precision") r.units.forEach((u) => { if (u !== win && u.solved) u.members.forEach((id) => { gains[id] += 3; }); });
     if (s.key === "classique") { gains[r.directorId] += Math.min(6, Math.floor(used(win) / 2)); }
     if (s.key === "croise") { /* le propriétaire de la mine résolue ne marque pas */ }
   } else {
@@ -180,7 +188,7 @@ function endRound(room, win) {
   if (!coopLike && s.key !== "classique") r.units.forEach((u) => { if (u !== win && u.solved === false && !u.out && win) { /* a continué à chercher, rien */ } });
   Object.keys(gains).forEach((id) => { g.scores[id] = (g.scores[id] || 0) + gains[id]; });
   r.result = { win: win ? win.id : null };
-  r.reveal = { gains, win: win ? win.id : null, mines: r.mines.map((m) => ({ owner: m.owner, gems: m.gems.map(pubGem) })), units: r.units.map((u) => ({ id: u.id, members: u.members, mine: u.mine, shots: u.shots.length, solved: u.solved, out: u.out, shotsList: u.shots.map(pubShotFull), asks: (u.asks || []).map((a) => ({ x: a.x, y: a.y, k: a.k, m: a.m })) })) };
+  r.reveal = { gains, win: win ? win.id : null, mines: r.mines.map((m) => ({ owner: m.owner, gems: m.gems.map(pubGem) })), units: r.units.map((u) => ({ id: u.id, members: u.members, mine: u.mine, cost: costOf(u), shots: u.shots.length, solved: u.solved, out: u.out, shotsList: u.shots.map(pubShotFull), asks: (u.asks || []).map((a) => ({ x: a.x, y: a.y, k: a.k, m: a.m })) })) };
   g.history.push({ round: g.round, ok: !!win, winners: win ? win.members : [], shots: win ? used(win) : null, director: r.directorId });
   g.phase = "reveal"; g.phaseUntil = Date.now() + REVEAL_MS; g.seq++; emitAll(room);
   const names = win ? win.members.map((id) => (defOf(room, id) || {}).name).join(" et ") : null;
@@ -293,6 +301,15 @@ function emitAll(room) { const g = room.g; if (!g) return; room.players.forEach(
 function bind(socket, helpers, api) {
   const { ctx, me, safe, toast } = helpers;
   const cur = () => { const room = ctx.room; const p = me(); return room && room.g && room.g.r && p ? { room, g: room.g, r: room.g.r, p } : null; };
+  // au plus juste, on peut renoncer à sa manche, et l'hôte peut la clore s'il ne reste que des joueurs qui ne bougent plus
+  socket.on("om:giveup", safe(() => {
+    const c = cur(); if (!c || c.g.phase !== "play" || c.r.s.key !== "precision") return; const u = unitOf(c.r, c.p.id); if (!u || u.solved || u.out) return;
+    u.out = true; c.g.api.sysChat(c.room, c.p.name + " renonce à cette manche."); emitAll(c.room); checkEnd(c.room);
+  }));
+  socket.on("om:forceend", safe(() => {
+    const c = cur(); if (!c || c.g.phase !== "play" || c.r.s.key !== "precision" || !helpers.isHost()) return;
+    c.r.units.forEach((u) => { if (!u.solved) u.out = true; }); c.g.api.sysChat(c.room, "L'hôte clôt la manche."); emitAll(c.room); checkEnd(c.room);
+  }));
   socket.on("om:place", safe((d) => {
     const c = cur(); if (!c || c.g.phase !== "setup") return; const mi = c.r.mines.findIndex((m) => m.owner === c.p.id); if (mi < 0) return;
     const gems = Gen.fromPlacement(c.r.W, c.r.H, c.r.inv, d && d.placement, c.r.s.adjacent);

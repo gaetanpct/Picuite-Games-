@@ -47,6 +47,12 @@
     const rows = [el("div", { class: "menu-row" }, [el("div", {}, [el("b", { text: "Sons" }), el("p", { class: "small muted", text: "Lasers, cristaux et éboulements." })]), sbtn]),
       el("h3", { text: "Les pierres", style: { marginTop: "0.8rem" } })];
     rows.push(el("p", { class: "small", text: "La sonde est transparente. Chaque pierre qu'elle touche la renvoie en diagonale et lui donne sa couleur, une seule fois par couleur. Rouge et bleu font du violet, rouge et jaune de l'orange, bleu et jaune du vert. Le blanc éclaircit. Un diamant renvoie sans colorer, le corps noir avale tout." }));
+    rows.push(el("p", { class: "small", text: "Dans une case de pierre, le trait blanc en diagonale est le miroir. Les deux faces renvoient le rayon de la même façon. Le côté coloré et le côté pâle ne changent rien, seule compte la diagonale, que tu peux retourner avec le bouton prévu." }));
+    if (G.st && G.st.phase === "play" && G.st.key === "precision") {
+      const mu = G.st.units.find((u) => u.id === G.st.myUnit);
+      if (mu && !mu.solved && !mu.out) rows.push(el("button", { class: "btn btn--ghost btn--small", style: { marginTop: "0.6rem" }, text: "Renoncer à cette manche", onclick: () => Kit.confirm("Renoncer à cette manche ? Tu ne marqueras rien.", () => { $("#modal").classList.add("hidden"); Kit.socket.emit("om:giveup"); }) }));
+      if (Kit.isHost()) rows.push(el("button", { class: "btn btn--ghost btn--small", style: { marginTop: "0.6rem" }, text: "Clore la manche pour tout le monde", onclick: () => Kit.confirm("Clore la manche ? Ceux qui cherchent encore sortent.", () => { $("#modal").classList.add("hidden"); Kit.socket.emit("om:forceend"); }) }));
+    }
     rows.push(el("button", { class: "btn btn--danger btn--small", style: { marginTop: "0.8rem" }, text: "Quitter la partie", onclick: () => Kit.confirm("Quitter la partie et revenir à l'accueil ?", () => { $("#modal").classList.add("hidden"); Kit.leave(); }) }));
     Kit.showModal("Menu", rows);
   }
@@ -271,10 +277,10 @@
     let banner = null;
     if (iAmDir) banner = "Tu es le Directeur, regarde-les chercher. Ta mine est affichée sous les rayons.";
     else if (!explorer) banner = "Tu regardes la partie.";
-    else if (mine.solved) banner = "Mine résolue, bravo !";
+    else if (mine.solved) banner = s.key === "precision" ? "Mine trouvée en " + mine.used + " tirs. Les autres ont tout leur temps, la manche finit quand tout le monde a fini." : "Mine résolue, bravo !";
     else if (mine.out) banner = "Tu es sorti de la manche.";
     else if (s.share === "turn") banner = mine.turn === myId() ? "C'est ton tour, tire, interroge une case ou accuse." : "Tour de " + nameOf(mine.turn) + ".";
-    else banner = s.key === "course" ? "Course. Ton carnet est secret, le premier qui accuse juste gagne." : s.key === "croise" ? "Tu explores la mine de ton voisin. La tienne est cachée plus bas." : s.key === "equipes" ? "Ton équipe " + mine.members.map(nameOf).join(" et ") + " partage un carnet secret." : "Vous fouillez ensemble, le carnet est commun.";
+    else banner = s.key === "precision" ? "Au plus juste. Aucune limite de temps, réfléchis autant que tu veux. Le moins de tirs gagne, une fausse accusation vaut trois tirs." : s.key === "course" ? "Course. Ton carnet est secret, le premier qui accuse juste gagne." : s.key === "croise" ? "Tu explores la mine de ton voisin. La tienne est cachée plus bas." : s.key === "equipes" ? "Ton équipe " + mine.members.map(nameOf).join(" et ") + " partage un carnet secret." : "Vous fouillez ensemble, le carnet est commun.";
     const mayAct = explorer && !mine.solved && !mine.out && (s.share !== "turn" || mine.turn === myId());
     const left = s.budget && mine ? Math.max(0, s.budget - mine.used) : null;
     const allowed = explorer ? ["tir", "ask", "pose", "note"] : [];
