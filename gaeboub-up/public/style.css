@@ -2303,3 +2303,7 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
 }
 .board-tile--type-mystery .board-tile__name { color: #ffe9b0; }
 
+
+/* accessibilité commune, ajoutée par la refonte v49 */
+button:focus-visible, a:focus-visible, select:focus-visible, [role="button"]:focus-visible, summary:focus-visible { outline: 3px solid #ffd23f; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }

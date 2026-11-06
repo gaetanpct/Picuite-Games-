@@ -528,3 +528,7 @@ input[type="text"]:focus { border-color: var(--plum-3); box-shadow: 0 0 0 4px rg
 .tile__portal-n { position: absolute; right: 3px; bottom: 1px; font-size: 0.42em; font-weight: 800; color: #fff; background: var(--pc); border-radius: 8px; padding: 0 4px; line-height: 1.35; }
 @keyframes portalSpin { to { transform: rotate(360deg); } }
 .pv--portal { color: #fff; font-size: 9px; display: grid; place-items: center; background-image: radial-gradient(circle, #8f7bff, transparent 80%); }
+
+/* accessibilité commune, ajoutée par la refonte v49 */
+button:focus-visible, a:focus-visible, select:focus-visible, [role="button"]:focus-visible, summary:focus-visible { outline: 3px solid #ffd23f; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }

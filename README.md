@@ -770,3 +770,64 @@ Les quatre derniers jeux changent de nom, d'allure et de règles. Seuls les noms
 - Dans Pétard Mouillé, les déblocages et records restent gardés sur l'appareil et le ressenti de la visée en vrai jeu reste à ajuster.
 - Dans Main Morte, les épreuves de réflexe comptent le temps de réception sur le serveur.
 - Les images 3D n'ont pas été vérifiées sur Safari ni sur de vieux téléphones.
+
+## Trente-troisième mise à jour, Main Morte, Mine de Rien et Zoomalou
+
+### Main Morte
+- Les écrans de lecture des règles et de choix des cartes sont refaits. Les règles des pactes et des trahisons sont toujours visibles, il n'y a plus de grand menu déroulant qui les cache. Sur téléphone, les sections se choisissent par onglets, sur ordinateur tout est affiché côte à côte.
+- Quand tous les joueurs humains cliquent sur prêt, la phase suivante démarre tout de suite. Cela marche pour la présentation, la lecture des règles, le choix des cartes et le résumé de l'épreuve. Les robots se déclarent prêts tout seuls.
+- Chaque phase dure plus longtemps, la lecture des règles deux minutes, le choix des cartes environ quatre-vingts secondes, le résumé de l'épreuve entre seize et quarante-cinq secondes selon le nombre d'événements à lire. Un compte à rebours reste visible.
+
+### Mine de Rien
+- Nouveau mode de base, Au plus juste. Tout le monde fouille la même mine, sans limite de temps, et la manche se termine quand chacun a trouvé ou renoncé. Celui qui a tiré le moins de fois gagne. Une fausse accusation compte pour trois tirs. Les robots n'imposent plus de rythme, puisque personne n'est pressé.
+- Le mode est aussi proposé dans le mode personnalisé, avec la mine, le nombre de pierres et la visibilité des rayons réglables.
+- Réponse à la question sur les pierres. Le côté plein ou vide d'une pierre est purement visuel. Les deux faces de la diagonale réfléchissent les rayons de la même façon, seuls comptent le sens de la diagonale et la rotation de la pierre.
+
+### Zoomalou
+- Nouveaux types de virages, spirales, épingles en fer à cheval, serpentins, ronds-points, entonnoirs et lacets. Les routes alternent maintenant des largeurs très différentes, larges, étroites ou en goulot.
+- Nouvelles pentes, escaliers, houles et crêtes, qui s'ajoutent aux montées et aux descentes.
+- Nouveaux obstacles et nouvelles façons de les disposer, pneus, rochers, bottes de paille, glace et cristaux, en entonnoir ou en balayage.
+- Treize nouveaux éléments de décor, phare, bouée, pyramide, arche, igloo, tronc, cabane, geyser, obélisque, cupcake, donut, anneau et tour. Aucun nouveau décor de fond, aucune nouvelle option.
+- Sur cent soixante-huit circuits générés, aucun n'est trop court, et quatre-vingt-quatre courses de robots se sont terminées sans blocage.
+
+### Pétard Mouillé
+- Les robots qui restaient coincés contre un rocher ou une rive reculent maintenant tous ensemble en biais pour se dégager. Le goulot de la rivière est un peu plus large.
+
+### Fichiers à déposer pour cette archive
+- Les dossiers hands-over, orapa-mine, zoomalou et fart-together en entier.
+- Le fichier README.md.
+- À supprimer dans le dépôt, orapa-mine/public/js/cave.js si ce n'est pas déjà fait.
+
+## Trente-quatrième mise à jour, audit de design du site et des jeux
+
+Principe de la refonte, garder l'esprit coloré et joueur de Picuite Games et retirer ce qui ressemble à un modèle générique. Chaque décoration qui n'avait pas de rôle a été retirée, celles qui donnent une personnalité ont été gardées. Chaque jeu garde ses couleurs, ses polices et son ambiance.
+
+### Un système commun
+- Une seule échelle de rayons, d'ombres, d'espaces et de tailles de texte, définie au début de common/public/kit.css pour les jeux et de public/style.css pour l'accueil.
+- Les boutons sont des aplats avec un bord bas, plus de dégradés brillants. Cinq variantes, principal, vert, danger, secondaire et discret, plus un bouton rond pour les icônes. Tous les états existent, survol, appui, désactivé, chargement et focus au clavier.
+- Les cartes n'ont plus de contour épais, la séparation se fait par l'espace et par une seule ombre. Les notifications, les fenêtres et le tchat partagent la même famille de surfaces.
+- Le classement, le tableau des scores et le podium sont désormais définis une seule fois dans le noyau commun. Les copies qui existaient dans Golfouille, Zoomalou et Mauvaises Langues sont supprimées. Sucré ou Salé, Orapa Mine, Fart Together et Hands Over n'avaient aucun style pour leur podium et leur tableau final, ils en ont maintenant un.
+- Accessibilité, contour visible au clavier partout, mouvement réduit respecté pour les animations, des notifications annoncées aux lecteurs d'écran, la touche Échap ferme les fenêtres.
+
+### Accueil du site
+- La page d'accueil est recomposée. Le menu est un simple texte, les trois étapes sont une ligne numérotée au lieu de trois cartes, la liste Quel jeu pour ce soir est une liste de lignes au lieu d'une seconde grille de cartes.
+- Les cartes de jeux sont plus compactes. Le nom et l'accroche se lisent d'un coup d'œil, les règles se déplient sous un bouton Comment on joue, et le texte du compteur s'adapte au nombre de jeux.
+- Les confettis restent, uniquement autour de l'en-tête, pour ne plus passer derrière le texte.
+- Les textes sont plus courts et plus précis, par exemple Voir les jeux et Comment ça marche.
+
+### Accueil et salon des jeux
+- Sur ordinateur, l'accueil de chaque jeu est en deux colonnes, le titre à gauche et le formulaire à droite. Sur téléphone, tout passe en une colonne alignée à gauche.
+- Le code du salon est grand, au centre de l'en-tête du salon, avec deux boutons, Copier le code et Copier le lien d'invitation. Le lien d'invitation ajoute le code dans l'adresse, et le code arrive déjà rempli chez ceux qui l'ouvrent.
+- Chaque joueur a une pastille avec son initiale, donc la couleur n'est plus le seul repère. Les places libres sont visibles, et l'état d'un joueur se lit en un mot, prêt ou en attente.
+- Les boutons Créer, Jouer contre un robot et Rejoindre montrent un indicateur de chargement et se bloquent le temps de la réponse du serveur.
+
+### Fichiers à déposer pour cette archive
+- Tout ce qui est listé pour la trente-troisième mise à jour.
+- Le dossier public en entier et le dossier common en entier.
+- Les dossiers golfouille, mauvaises-langues, pagaille, gaeboub-up et goliathicus en entier, seul leur fichier public/style.css change mais déposer le dossier évite de se tromper.
+
+### Limites connues
+- Tout a été testé en simulation avec des robots et dans un navigateur de test, pas avec de vrais joueurs sur plusieurs appareils.
+- L'audit a refait l'accueil du site, le noyau commun des salons et les écrans de fin. Les écrans de jeu eux-mêmes, par exemple le plateau de Gaeboub-up, la ville de Richissime Destiny ou la carte de Goliathicus, n'ont pas été redessinés, ils reçoivent seulement le contour au clavier et le mouvement réduit.
+- Les polices viennent de Google Fonts. Sans connexion à ce service, le navigateur utilise une police de remplacement et les titres sont moins expressifs.
+- Les images 3D n'ont pas été vérifiées sur Safari ni sur de vieux téléphones.
