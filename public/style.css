@@ -1,98 +1,116 @@
-/* PICUITE GAMES — identité "boîte de jeu" jaune soleil, contours encre, ombres franches */
+/* PICUITE GAMES, identité "boîte de jeu" jaune soleil.
+   Signature commune à tout le site : fond jaune pointillé, texte encre, ombres franches réservées aux objets importants
+   (la phrase du héros, les boutons, les cartes de jeux). Le reste respire par l'espace et non par des contours. */
 :root {
-  --sun: #ffd23f; --sun-2: #ffe27a; --ink: #1a1a2e; --coral: #ff5a5f; --mint: #3ddc97; --violet: #7c5cff; --cream: #fffaf0;
-  --shadow: 5px 5px 0 var(--ink); --shadow-sm: 3px 3px 0 var(--ink);
+  --sun: #ffd23f; --ink: #1a1a2e; --coral: #ff5a5f; --mint: #3ddc97; --violet: #7c5cff; --cream: #fffaf0;
+  --ink-soft: rgba(26, 26, 46, 0.7); --hair: rgba(26, 26, 46, 0.14);
+  --r-s: 10px; --r-m: 16px; --r-l: 24px; --r-pill: 99px;
+  --hard: 5px 5px 0 var(--ink); --hard-s: 3px 3px 0 var(--ink);
+  --t-s: 0.9rem; --t-m: 1rem; --t-l: 1.2rem; --t-h2: clamp(1.8rem, 4.5vw, 2.5rem); --t-h1: clamp(2.4rem, 6.4vw, 4.4rem);
   --head: "Baloo 2", "Fredoka", system-ui, sans-serif; --body: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body { margin: 0; font-family: var(--body); font-weight: 500; color: var(--ink); background: var(--sun); line-height: 1.5; overflow-x: hidden;
-  background-image: radial-gradient(rgba(26,26,46,.08) 2px, transparent 2.4px); background-size: 22px 22px; }
-h1, h2, h3, h4 { font-family: var(--head); font-weight: 800; line-height: 1.05; margin: 0 0 .4em; }
-p { margin: 0 0 .8em; }
+html { scroll-behavior: smooth; scroll-padding-top: 1rem; }
+body { margin: 0; font-family: var(--body); font-weight: 500; color: var(--ink); background: var(--sun); line-height: 1.55; overflow-x: hidden; -webkit-font-smoothing: antialiased;
+  background-image: radial-gradient(rgba(26, 26, 46, 0.07) 2px, transparent 2.4px); background-size: 22px 22px; }
+h1, h2, h3, h4 { font-family: var(--head); font-weight: 800; line-height: 1.08; margin: 0 0 0.4em; }
+p { margin: 0 0 0.8em; }
 a { color: inherit; }
-.muted { color: rgba(26,26,46,.65); }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; border-radius: 6px; }
+.muted { color: var(--ink-soft); }
 
-.confetti i { position: fixed; left: var(--x); top: var(--y); width: 26px; height: 26px; background: var(--c); border: 3px solid var(--ink); border-radius: 7px; transform: rotate(var(--r)); opacity: .9; z-index: 0; pointer-events: none; }
-.confetti i:nth-child(even) { border-radius: 50%; width: 20px; height: 20px; }
+.confetti { position: absolute; top: 0; left: 0; right: 0; height: 780px; overflow: hidden; pointer-events: none; z-index: 0; }
+.confetti i { position: absolute; left: var(--x); top: var(--y); width: 22px; height: 22px; background: var(--c); border-radius: 6px; transform: rotate(var(--r)); z-index: 0; pointer-events: none; }
+.confetti i:nth-child(even) { border-radius: 50%; width: 16px; height: 16px; }
 @media (max-width: 700px) { .confetti { display: none; } }
 
-.top { position: relative; z-index: 2; max-width: 1180px; margin: 0 auto; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.top { position: relative; z-index: 2; max-width: 1180px; margin: 0 auto; padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-.wm { font-family: var(--head); font-weight: 800; font-size: 2.1rem; line-height: .8; letter-spacing: .01em; }
-.wm small { display: block; font-size: .8rem; letter-spacing: .5em; margin-top: 5px; color: var(--coral); text-shadow: 1px 1px 0 var(--ink); -webkit-text-stroke: .4px var(--ink); }
-.top nav { display: flex; gap: 8px; flex-wrap: wrap; }
-.top nav a { text-decoration: none; font-weight: 800; padding: 6px 14px; border: 2.5px solid var(--ink); border-radius: 99px; background: var(--cream); box-shadow: var(--shadow-sm); font-size: .95rem; }
-.top nav a:hover { background: #fff; transform: translateY(-1px); }
+.wm { font-family: var(--head); font-weight: 800; font-size: 1.9rem; line-height: 0.85; }
+.wm small { display: block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.32em; margin-top: 4px; color: var(--coral); }
+.top nav { display: flex; gap: 6px; }
+.top nav a { text-decoration: none; font-weight: 700; padding: 6px 12px; border-radius: var(--r-pill); font-size: var(--t-s); transition: background 0.12s; }
+.top nav a:hover { background: rgba(26, 26, 46, 0.1); }
 
-main { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 0 20px 40px; }
-section { margin: 0 0 56px; }
-h2 { font-size: clamp(1.8rem, 4.5vw, 2.6rem); }
+main { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 0 20px 24px; }
+section { margin: 0 0 72px; }
+h2 { font-size: var(--t-h2); }
 
-/* héros */
-.hero { display: grid; grid-template-columns: 1.15fr .85fr; gap: 24px; align-items: center; padding: 16px 0 28px; }
-.kicker { display: inline-block; font-weight: 800; font-size: .9rem; padding: 4px 14px; background: var(--ink); color: var(--sun); border-radius: 99px; transform: rotate(-1.5deg); }
-.hero h1 { font-size: clamp(2.3rem, 6vw, 4.1rem); margin: 14px 0; }
-.hero h1 span { background: var(--coral); color: #fff; padding: 0 .18em; border: 3px solid var(--ink); border-radius: 14px; box-shadow: var(--shadow); display: inline-block; transform: rotate(-1.5deg); margin-top: 6px; }
-.lead { font-size: 1.15rem; max-width: 36em; }
-.cta-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-family: var(--head); font-weight: 800; font-size: 1.15rem; text-decoration: none; padding: 10px 24px; border: 3px solid var(--ink); border-radius: 16px; background: var(--ink); color: var(--sun); box-shadow: 4px 4px 0 rgba(26,26,46,.35); transition: transform .12s, box-shadow .12s; }
-.btn:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 rgba(26,26,46,.35); }
-.btn.ghost { background: var(--cream); color: var(--ink); }
+/* héros, composition décalée à gauche, les trois logos se chevauchent à droite */
+.hero { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 24px; align-items: center; padding: 20px 0 24px; }
+.kicker { font-weight: 800; font-size: var(--t-s); color: var(--ink-soft); margin: 0 0 6px; }
+.hero h1 { font-size: var(--t-h1); margin: 0 0 18px; }
+.hero h1 span { background: var(--coral); color: #fff; padding: 0 0.2em; border-radius: var(--r-m); box-shadow: var(--hard); display: inline-block; transform: rotate(-1.5deg); margin-top: 8px; }
+.lead { font-size: 1.15rem; max-width: 33em; }
+.cta-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 22px; }
+
+/* boutons, trois variantes plein, contour, discret */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-family: var(--head); font-weight: 800; font-size: 1.1rem; text-decoration: none; padding: 10px 24px; border: 0; border-radius: var(--r-m); background: var(--ink); color: var(--sun); box-shadow: 0 4px 0 rgba(26, 26, 46, 0.35); transition: transform 0.1s, box-shadow 0.1s; cursor: pointer; }
+.btn:hover { transform: translateY(-2px); box-shadow: 0 6px 0 rgba(26, 26, 46, 0.35); }
+.btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(26, 26, 46, 0.35); }
+.btn.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 3px var(--ink); }
+.btn.ghost:hover { background: rgba(255, 255, 255, 0.45); }
+
 .hero-art { position: relative; height: 330px; }
 .hero-art img { position: absolute; width: 56%; max-width: 230px; filter: drop-shadow(5px 6px 0 var(--ink)); }
 .hero-art .h1 { left: 0; top: 10%; transform: rotate(-9deg); width: 44%; }
 .hero-art .h2 { right: 0; top: 0; transform: rotate(8deg); width: 44%; }
 .hero-art .h3 { left: 28%; bottom: -2%; transform: rotate(-3deg); width: 46%; }
 
-/* comment ça marche */
-.steps3 { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
-.steps3 li { position: relative; background: var(--cream); border: 3px solid var(--ink); border-radius: 18px; padding: 22px 18px 14px; box-shadow: var(--shadow); }
-.steps3 b { font-family: var(--head); font-size: 1.3rem; font-weight: 800; display: block; margin-bottom: 4px; }
-.steps3 p { margin: 0; }
-.steps3 .n { position: absolute; top: -18px; left: 16px; width: 38px; height: 38px; border-radius: 50%; background: var(--violet); color: #fff; font-family: var(--head); font-weight: 800; font-size: 1.3rem; display: grid; place-items: center; border: 3px solid var(--ink); }
-.steps3 li:nth-child(2) .n { background: var(--coral); } .steps3 li:nth-child(3) .n { background: var(--mint); color: var(--ink); }
+/* les trois étapes, une ligne numérotée sans cartes */
+.steps3 { list-style: none; margin: 22px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 3px solid var(--ink); }
+.steps3 li { position: relative; padding: 18px 22px 4px 0; }
+.steps3 li + li { padding-left: 22px; border-left: 1px solid var(--hair); }
+.steps3 .n { display: block; font-family: var(--head); font-weight: 800; font-size: 3.2rem; line-height: 0.9; color: var(--violet); margin-bottom: 6px; }
+.steps3 li:nth-child(2) .n { color: var(--coral); } .steps3 li:nth-child(3) .n { color: #12a36a; }
+.steps3 b { font-family: var(--head); font-size: 1.25rem; font-weight: 800; display: block; margin-bottom: 4px; }
+.steps3 p { margin: 0; color: var(--ink-soft); }
+@media (max-width: 760px) { .steps3 { grid-template-columns: 1fr; } .steps3 li, .steps3 li + li { padding: 16px 0 6px; border-left: 0; } .steps3 li + li { border-top: 1px solid var(--hair); } .steps3 .n { display: inline-block; margin: 0 10px 0 0; font-size: 2.2rem; vertical-align: middle; } .steps3 b { display: inline; } .steps3 p { margin-top: 4px; } }
 
-/* cartes de jeux */
-.sub { font-size: 1.1rem; margin-bottom: 18px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; align-items: stretch; }
-.game { display: flex; flex-direction: column; background: var(--cream); border: 3px solid var(--ink); border-radius: 22px; box-shadow: var(--shadow); overflow: hidden; transition: transform .15s; }
-.game:hover { transform: translateY(-4px) rotate(-.3deg); }
-.game-top { position: relative; background: var(--a); border-bottom: 3px solid var(--ink); padding: 22px 18px 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; background-image: radial-gradient(rgba(255,255,255,.16) 2px, transparent 2.4px); background-size: 16px 16px; }
-.game-top img { width: 150px; height: 150px; filter: drop-shadow(4px 5px 0 rgba(0,0,0,.35)); }
-.tags { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-.tag { font-size: .8rem; font-weight: 800; padding: 3px 10px; background: var(--cream); border: 2.5px solid var(--ink); border-radius: 99px; }
-.game-body { padding: 16px 18px 20px; display: flex; flex-direction: column; flex: 1; }
-.game h3 { font-size: 1.9rem; margin-bottom: 2px; }
-.tagline { font-family: var(--head); font-weight: 700; font-size: 1.1rem; color: var(--a); margin-bottom: 8px; }
-.pitch { font-size: .98rem; }
-.game h4 { font-size: 1rem; text-transform: uppercase; letter-spacing: .08em; margin: 10px 0 6px; }
-.mini { margin: 0 0 12px; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 7px; }
-.mini li { counter-increment: s; position: relative; padding-left: 34px; font-size: .93rem; min-height: 26px; }
-.mini li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--a); color: #fff; font-family: var(--head); font-weight: 800; display: grid; place-items: center; border: 2.5px solid var(--ink); }
-.note { font-size: .85rem; padding: 8px 10px; background: #ffe8e0; border: 2px dashed var(--coral); border-radius: 10px; }
-.play { margin-top: auto; background: var(--a); color: #fff; border-color: var(--ink); width: 100%; }
-.game.soon { background: transparent; border-style: dashed; box-shadow: none; grid-column: 1 / -1; flex-direction: row; align-items: center; }
-.game.soon .game-body { justify-content: center; }
-.game.soon:hover { transform: none; }
-.game.soon .game-top { background: transparent; border-bottom: 0; border-right: 3px dashed var(--ink); min-width: 220px; justify-content: center; align-self: stretch; }
-@media (max-width: 640px) { .game.soon { flex-direction: column; } .game.soon .game-top { border-right: 0; border-bottom: 3px dashed var(--ink); min-width: 0; width: 100%; } }
-.qmark { font-family: var(--head); font-weight: 800; font-size: 5.5rem; width: 120px; height: 120px; display: grid; place-items: center; border: 3px dashed var(--ink); border-radius: 30px; transform: rotate(-6deg); }
+/* cartes de jeux, plus compactes, les étapes de règle se déplient */
+.sub { font-size: var(--t-l); margin-bottom: 20px; color: var(--ink-soft); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 26px 22px; align-items: stretch; }
+.game { display: flex; flex-direction: column; background: var(--cream); border-radius: var(--r-l); box-shadow: var(--hard); overflow: hidden; transition: transform 0.15s, box-shadow 0.15s; }
+.game:hover { transform: translate(-2px, -3px); box-shadow: 7px 8px 0 var(--ink); }
+.game-top { background: var(--a); padding: 18px 18px 14px; display: flex; align-items: center; gap: 14px; background-image: radial-gradient(rgba(255, 255, 255, 0.14) 2px, transparent 2.4px); background-size: 16px 16px; }
+.game-top img { width: 84px; height: 84px; flex: none; filter: drop-shadow(3px 4px 0 rgba(0, 0, 0, 0.3)); }
+.game-top h3 { font-size: 1.7rem; margin: 0; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.22); }
+.game-top .tagline { margin: 2px 0 0; font-weight: 700; font-size: 0.98rem; color: rgba(255, 255, 255, 0.95); line-height: 1.25; }
+.game-body { padding: 16px 18px 18px; display: flex; flex-direction: column; flex: 1; }
+.pitch { font-size: 0.98rem; }
+.meta { font-size: var(--t-s); font-weight: 700; color: var(--ink-soft); margin: 0 0 10px; }
+.how-to { margin: 0 0 12px; }
+.how-to summary { cursor: pointer; font-weight: 800; font-size: var(--t-s); padding: 4px 0; list-style: none; display: flex; align-items: center; gap: 6px; }
+.how-to summary::-webkit-details-marker { display: none; }
+.how-to summary::before { content: "+"; display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--a); color: #fff; font-size: 0.9rem; line-height: 1; }
+.how-to[open] summary::before { content: "−"; }
+.mini { margin: 6px 0 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 7px; }
+.mini li { counter-increment: s; position: relative; padding-left: 30px; font-size: 0.93rem; min-height: 24px; }
+.mini li::before { content: counter(s); position: absolute; left: 0; top: 1px; width: 22px; height: 22px; border-radius: 50%; background: var(--hair); font-family: var(--head); font-weight: 800; font-size: 0.85rem; display: grid; place-items: center; }
+.note { font-size: var(--t-s); padding: 8px 10px; background: rgba(255, 90, 95, 0.12); border-radius: var(--r-s); }
+.play { margin-top: auto; background: var(--a); color: #fff; width: 100%; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.32); }
+.game.soon { background: transparent; box-shadow: none; border: 3px dashed var(--ink); justify-content: center; }
+.game.soon:hover { transform: none; box-shadow: none; }
+.game.soon .game-top { background: transparent; }
+.game.soon .game-top h3 { color: var(--ink); text-shadow: none; }
+.game.soon .game-top .tagline { color: var(--ink-soft); }
+.qmark { font-family: var(--head); font-weight: 800; font-size: 3.6rem; width: 84px; height: 84px; flex: none; display: grid; place-items: center; border: 3px dashed var(--ink); border-radius: 22px; transform: rotate(-6deg); }
 
-/* quel jeu choisir */
-.pickgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 14px; }
-.pickitem { display: flex; gap: 14px; align-items: center; text-decoration: none; background: var(--cream); border: 3px solid var(--ink); border-left: 12px solid var(--a); border-radius: 16px; padding: 12px 14px; box-shadow: var(--shadow-sm); }
-.pickitem:hover { transform: translateX(3px); background: #fff; }
-.pickitem img { flex: none; width: 56px; height: 56px; }
-.pickitem b { font-family: var(--head); font-weight: 800; font-size: 1.2rem; }
-.pickitem p { margin: 0; font-size: .93rem; }
+/* quel jeu choisir, une liste de lignes et non une seconde grille de cartes */
+.pickgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 32px; margin-top: 12px; }
+.pickitem { display: flex; gap: 14px; align-items: center; text-decoration: none; padding: 12px 8px; border-bottom: 1px solid var(--hair); border-radius: var(--r-s); transition: background 0.12s; }
+.pickitem:hover { background: rgba(255, 255, 255, 0.4); }
+.pickitem img { flex: none; width: 48px; height: 48px; }
+.pickitem b { font-family: var(--head); font-weight: 800; font-size: 1.15rem; }
+.pickitem p { margin: 0; font-size: 0.93rem; color: var(--ink-soft); line-height: 1.35; }
 
-footer { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 22px 20px 40px; display: flex; align-items: center; gap: 12px; justify-content: center; border-top: 3px solid var(--ink); font-weight: 700; flex-wrap: wrap; text-align: center; }
+footer { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 22px 20px 40px; display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--hair); font-weight: 700; flex-wrap: wrap; }
 
 @media (max-width: 860px) {
   .hero { grid-template-columns: 1fr; }
-  .hero-art { height: 220px; order: -1; }
+  .hero-art { height: 210px; order: -1; }
   .hero-art img { width: 40%; max-width: 150px; }
   .top nav { display: none; }
 }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .game, .btn { transition: none; } }
+@media (max-width: 480px) { .game-top img { width: 68px; height: 68px; } .game-top h3 { font-size: 1.45rem; } .btn { width: 100%; } .cta-row { gap: 10px; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .game, .btn, .pickitem, .top nav a { transition: none; } .game:hover, .btn:hover { transform: none; } }

@@ -9,32 +9,30 @@
 
   function card(g, i) {
     const c = g.colors || ["#7c5cff", "#1a1a2e"];
+    const meta = (g.tags || []).slice(0, 3).join(" · ");
     return el("article", { class: "game", style: "--a:" + c[0] + ";--b:" + c[1] },
       el("div", { class: "game-top" },
-        el("img", { src: g.logo, alt: "Logo " + g.name, width: 120, height: 120 }),
-        el("div", { class: "tags" }, (g.tags || []).map((t) => el("span", { class: "tag" }, t)))),
+        el("img", { src: g.logo, alt: "Logo " + g.name, width: 84, height: 84, loading: i > 3 ? "lazy" : "eager" }),
+        el("div", {}, el("h3", {}, g.name), el("p", { class: "tagline" }, g.tagline))),
       el("div", { class: "game-body" },
-        el("h3", {}, g.name),
-        el("p", { class: "tagline" }, g.tagline),
+        meta ? el("p", { class: "meta" }, meta) : null,
         el("p", { class: "pitch" }, g.pitch),
-        el("h4", {}, "Comment on joue"),
-        el("ol", { class: "mini" }, (g.steps || []).map((s) => el("li", {}, s))),
+        (g.steps || []).length ? el("details", { class: "how-to" }, el("summary", {}, "Comment on joue"), el("ol", { class: "mini" }, g.steps.map((s) => el("li", {}, s)))) : null,
         g.note ? el("p", { class: "note" }, g.note) : null,
         el("a", { class: "btn play", href: "/" + g.id + "/" }, g.cta || "Jouer", el("span", { "aria-hidden": "true" }, " →"))));
   }
 
   function soon() {
     return el("article", { class: "game soon" },
-      el("div", { class: "game-top" }, el("div", { class: "qmark", "aria-hidden": "true" }, "?")),
-      el("div", { class: "game-body" },
-        el("h3", {}, "Un prochain jeu"),
-        el("p", { class: "tagline" }, "Une place est réservée sur la table."),
-        el("p", { class: "pitch" }, "D'autres jeux rejoindront Picuite Games. Reviens de temps en temps pour voir ce qui est arrivé.")));
+      el("div", { class: "game-top" }, el("div", { class: "qmark", "aria-hidden": "true" }, "?"),
+        el("div", {}, el("h3", {}, "Le prochain jeu"), el("p", { class: "tagline" }, "Une place est gardée sur la table."))),
+      el("div", { class: "game-body" }, el("p", { class: "pitch" }, "Reviens de temps en temps, d'autres jeux arrivent.")));
   }
 
   fetch("api/games").then((r) => r.json()).then((games) => {
     const grid = document.getElementById("grid");
     grid.textContent = "";
+    const sub = document.getElementById("sub"); if (sub) sub.textContent = games.length + " jeux à lancer entre amis, d'autres arrivent.";
     games.forEach((g, i) => grid.appendChild(card(g, i)));
     grid.appendChild(soon());
     const pick = document.getElementById("pick");
