@@ -9,13 +9,18 @@
   const FIXED = { refTries: 1, giveUp: "elimine", garage: 10, biomeOrder: "hasard", ghost: true, others: true, verify: "replay" };
   const BIOME_OPTIONS = Track.BIOME_IDS.map((id) => ({ value: id, label: Track.BIOMES[id].name, icon: Track.BIOMES[id].icon }));
   const FEATURE_OPTIONS = [
-    { value: "boosts", label: "Tapis turbo", icon: "⏩", desc: "Des tapis orange qui donnent un coup d'accélérateur." },
+    { value: "boosts", label: "Tapis turbo", icon: "⏩", desc: "Des tapis orange qui donnent un coup d'accélérateur, et parfois des super turbos violets, plus courts et bien plus forts." },
     { value: "jumps", label: "Bosses et sauts", icon: "🦘", desc: "Des bosses qui font décoller la voiture. Attention à l'atterrissage." },
-    { value: "gaps", label: "Trous à sauter", icon: "🕳️", desc: "Un trou dans la route à franchir en l'air. Le tremplin est calculé pour que ce soit toujours possible, même avec la voiture la plus lente." },
+    { value: "gaps", label: "Trous à sauter", icon: "🕳️", desc: "Un trou dans la route à franchir en l'air, parfois deux à la suite, parfois avec une réception bien plus bas ou plus haut. Le tremplin est calculé pour que ce soit toujours possible, même avec la voiture la plus lente." },
     { value: "steep", label: "Côtes et descentes raides", icon: "⛰️", desc: "Des montées très pentues où il faut de l'élan, et des descentes qui lancent la voiture." },
     { value: "obstacles", label: "Obstacles", icon: "🧱", desc: "Rochers, plots et barrières posés sur la route. Un passage est toujours laissé libre." },
     { value: "widths", label: "Route large ou étroite", icon: "↔️", desc: "La largeur change beaucoup, avec des goulots et de grandes arènes." },
-    { value: "bridges", label: "Ponts sans rebord", icon: "🌉", desc: "Des ponts surélevés sans mur. Une sortie de route fait tomber la voiture." },
+    { value: "bridges", label: "Ponts sans rebord", icon: "🌉", desc: "Ponts droits, viaducs en courbe, passerelles très étroites et ponts ondulés, tous sans mur. Une sortie de route fait tomber la voiture." },
+    { value: "forks", label: "Embranchements", icon: "🔀", desc: "La route se sépare en deux voies qui se rejoignent plus loin. L'une est plus courte mais piégée, terre, saut, obstacles, étroite ou en tunnel. L'autre est plus longue et plus sûre, parfois avec des turbos." },
+    { value: "cross", label: "Croisements sur deux niveaux", icon: "🎢", desc: "La route fait un grand tour en montant et repasse au-dessus d'elle-même sur un pont." },
+    { value: "verges", label: "Bas-côtés sans barrière", icon: "🌾", desc: "Des portions bordées de sable, d'herbe ou de neige au lieu d'un mur. Sortir de la route y freine beaucoup et fait glisser, une clôture basse arrête la voiture plus loin." },
+    { value: "movers", label: "Routes qui bougent", icon: "〰️", desc: "Des portions de route qui ondulent en vagues ou basculent comme un plateau pendant la course. Prises au bon moment elles font sauter la voiture." },
+    { value: "rings", label: "Anneaux turbo", icon: "⭕", desc: "Des anneaux à traverser, au sommet des sauts ou en portique sur la route. Passer dedans donne un gros turbo." },
     { value: "mag", label: "Zones sans gravité", icon: "🌀", desc: "Looping, vrille, mur et plafond. La voiture reste collée à la route même la tête en bas. La route n'est jamais à l'envers ailleurs que dans ces zones." },
     { value: "surfaces", label: "Sols variés", icon: "🧊", desc: "Terre, glace ou matière collante selon le biome. L'adhérence change." },
   ];
@@ -41,7 +46,7 @@
       { id: "carMode", label: "Choix des voitures", type: "chips", default: "winner", options: [{ value: "winner", label: "Le dernier vainqueur choisit" }, { value: "own", label: "Chacun la sienne" }, { value: "random", label: "Tirée au sort à chaque course" }], info: "Le dernier vainqueur choisit, celui qui a gagné la course précédente choisit la voiture de tout le monde (l'hôte pour la première course). Chacun la sienne, chaque pilote choisit sa voiture au garage. Tirée au sort, une voiture au hasard pour tous à chaque course." },
     ] },
     { category: "🛣️ Le circuit", rules: [
-      { id: "biomes", label: "Biomes possibles", type: "multi", default: Track.BIOME_IDS.slice(), options: BIOME_OPTIONS, info: "Coche les décors que tu veux croiser. Chaque biome a sa couleur de route, sa gravité et ses types de sols." },
+      { id: "biomes", label: "Biomes possibles", type: "multi", default: Track.BIOME_IDS.slice(), options: BIOME_OPTIONS, info: "Coche les décors que tu veux croiser. Chaque biome change la façon de piloter. Côte est la référence, Neige glisse, Néon a une gravité faible et des anneaux, Mégapole retourne la voiture dans des tubes, Jungle multiplie la terre et les embranchements, Usine fait bouger la route, Fête foraine croise ses routes et plonge, Dunes n'a presque pas de murs." },
       { id: "trackSize", label: "Longueur des circuits", type: "chips", default: 2, options: [{ value: 1, label: "Court" }, { value: 2, label: "Moyen" }, { value: 3, label: "Long" }, { value: 4, label: "Très long" }, { value: 5, label: "Géant" }], info: "Court fait environ 30 secondes de conduite, moyen environ 45, long environ 1 minute 15, très long environ 2 minutes, géant 3 minutes ou plus. Les circuits géants sont faits pour de vraies courses d'endurance." },
       { id: "difficulty", label: "Difficulté du circuit", type: "range", min: 1, max: 5, step: 1, default: 3, info: "En facile la route est presque toujours large avec peu d'éléments. En moyen, des passages larges et des passages étroits se mélangent. En très très dur, la route est serrée la plupart du temps, avec des virages serrés, des corniches sans rebord et beaucoup d'éléments. Les passages étroits tombent au hasard, chaque course est différente." },
       { id: "elements", label: "Quantité d'éléments sur le circuit", type: "chips", default: "auto", options: [{ value: "auto", label: "Selon la difficulté" }, { value: "peu", label: "Peu" }, { value: "moyen", label: "Moyenne" }, { value: "beaucoup", label: "Beaucoup" }], info: "Règle le nombre de virages serrés, de sauts, d'obstacles, de ponts et de montées. Selon la difficulté, un circuit facile en a peu et reste large, un circuit très difficile en a beaucoup et se resserre souvent." },
@@ -102,7 +107,7 @@
   function trackFor(s, baseSeed, index) {
     const r = Track.mulberry32(Track.hashSeed(baseSeed + "#" + index));
     const biome = pickBiome(s, index, r); const pp = paramsFor(s, baseSeed, index);
-    const tr = Track.generate({ seed: baseSeed + "#" + index, biome, size: pp.size, difficulty: pp.difficulty, hills: pp.hills, elements: pp.elements, features: { boosts: s.features.includes("boosts"), jumps: s.features.includes("jumps"), surfaces: s.features.includes("surfaces"), gaps: s.features.includes("gaps"), steep: s.features.includes("steep"), obstacles: s.features.includes("obstacles"), widths: s.features.includes("widths"), bridges: s.features.includes("bridges"), mag: s.features.includes("mag") } });
+    const tr = Track.generate({ seed: baseSeed + "#" + index, biome, size: pp.size, difficulty: pp.difficulty, hills: pp.hills, elements: pp.elements, features: FEATURE_OPTIONS.reduce((o, f) => { o[f.value] = s.features.includes(f.value); return o; }, {}) });
     tr.drawn = pp.drawn.slice(); if (s.crashRnd) tr.drawn.push(RND_LABEL.crash[crashKey(s, baseSeed, index)]);
     return tr;
   }

@@ -831,3 +831,68 @@ Principe de la refonte, garder l'esprit coloré et joueur de Picuite Games et re
 - L'audit a refait l'accueil du site, le noyau commun des salons et les écrans de fin. Les écrans de jeu eux-mêmes, par exemple le plateau de Gaeboub-up, la ville de Richissime Destiny ou la carte de Goliathicus, n'ont pas été redessinés, ils reçoivent seulement le contour au clavier et le mouvement réduit.
 - Les polices viennent de Google Fonts. Sans connexion à ce service, le navigateur utilise une police de remplacement et les titres sont moins expressifs.
 - Les images 3D n'ont pas été vérifiées sur Safari ni sur de vieux téléphones.
+
+## Trente-cinquième mise à jour, la grande mise à jour de Zoomalou
+
+### Conduite
+- Le turbo de dérapage a maintenant trois paliers bien visibles. Des étincelles bleues, puis orange, puis violettes sortent des roues, trois pastilles s'allument sur le tableau de bord et un petit son marque chaque palier. Plus le dérapage dure, plus le turbo de sortie est long.
+- Chaque voiture a son propre moteur, avec des rapports qui passent. Le Mastodonte gronde, la Libellule bourdonne, la Toupie ondule, le Volt siffle.
+- L'aspiration arrive en chrono contact. Rouler juste derrière une autre voiture donne un peu plus de vitesse, de quoi la rattraper et la dépasser sans que ce soit abusé. Des traînées de vent et le mot Aspiration l'indiquent. Le serveur rejoue l'aspiration pour valider les temps, comme les chocs.
+
+### Voitures
+- Les sept voitures ont des différences plus marquées. La Rallye-Pote est maintenant reine des bas-côtés, le Pétard encore plus rapide et plus fragile, la Toupie glisse encore plus, la Bouboule rebondit mieux sur les murs, le Mastodonte est plus lourd.
+- Trois nouvelles voitures à mécanique unique.
+- Volt, électrique. Il garde toute sa poussée jusqu'à sa vitesse de pointe et chaque coup de frein recharge une batterie rendue en poussée à la relance. Une jauge bleue montre la batterie.
+- Sauterelle, reine des airs. Elle se pilote en plein saut, plane un peu plus loin et se pose sans perdre de vitesse.
+- Comète, ses turbos s'additionnent au lieu de se remplacer, mais elle braque beaucoup moins pendant un turbo.
+- Chaque carte du garage affiche le trait principal de la voiture et une barre de poids.
+
+### Circuits
+- Embranchements. La route se sépare en deux voies séparées par un terre-plein puis se rejoint plus loin. Un butoir jaune et noir marque la séparation. La voie intérieure est plus courte mais piégée, terre, saut, obstacles, voie étroite ou tunnel. L'autre est plus longue et plus sûre, parfois avec des tapis turbo.
+- Croisements sur deux niveaux. La route fait un grand tour en montant et repasse au-dessus d'elle-même sur un pont porté par des piliers.
+- Tunnels, sur toute la route ou sur une seule voie d'embranchement, avec une voûte éclairée.
+- Ponts plus variés. En plus du pont droit et de la corniche, des viaducs en une seule grande courbe, des passerelles très étroites avec une bosse et des ponts ondulés, tous sans rebord.
+- Bas-côtés sans barrière. De longues portions bordées de sable, d'herbe, de neige ou de gravier. Sortir de la route y freine fort et fait glisser, une clôture basse arrête la voiture plus loin.
+- Routes qui bougent. Des portions qui ondulent en vagues ou basculent comme un plateau pendant la course. La physique et l'image suivent le même temps, prises au bon moment elles font sauter la voiture.
+- Nouveaux sauts. Le double saut, deux trous à la suite. Le plongeon, avec une réception bien plus bas et un trou plus long. Le saut montant, avec une réception plus haute.
+- Nouveaux éléments de vitesse. Les anneaux turbo dorés à traverser, au sommet des sauts, après une bosse ou en portique sur la route. Les super turbos violets, plus courts et bien plus forts.
+- Tubes où la voiture reste la tête en bas longtemps avant de se remettre à l'endroit.
+- Chaque nouvel élément se coche ou se décoche dans les animations du circuit du salon.
+
+### Biomes
+- Côte, Neige et Néon restent, avec en plus des congères au bord des routes de Neige et beaucoup d'anneaux en Néon.
+- Désert, Forêt, Volcan et Bonbons sont remplacés par cinq biomes qui changent vraiment la façon de piloter.
+- Mégapole, des tubes où l'on roule la tête à l'envers, des voies rapides surélevées et des tunnels, avec des tours en décor. Sur certains circuits plus d'un tiers du parcours se fait la tête en bas.
+- Jungle, des pistes de terre et des embranchements partout, des tunnels de verdure, des temples et des bambous.
+- Usine, la route bouge, vagues et plateaux qui basculent, avec cheminées, grues et conteneurs.
+- Fête foraine, montagnes russes, routes qui se croisent sur deux niveaux et grands plongeons, sous les grandes roues et les chapiteaux.
+- Dunes, presque aucun mur, de longs bas-côtés de sable, des crêtes et du vent.
+- Mégapole, Jungle, Usine et Fête foraine ont chacun un élément signature placé à coup sûr sur leurs circuits, tube, embranchement, route qui bouge et croisement.
+
+### Robots
+- Les robots choisissent leur voie à chaque embranchement. Les meilleurs essaient les deux pendant leur réglage et gardent la plus rapide, les débutants choisissent un peu au hasard.
+- Les robots de haut niveau ont des jours sans. Un Prodige sur six environ roule moins vite, fait plus d'erreurs et commet une vraie faute de pilotage. Ils ont aussi parfois des jours de grâce.
+- Le temps de l'auteur n'est jamais calculé un jour sans.
+
+### Salon
+- On peut maintenant jouer à huit, donc avec sept robots. Le salon s'arrêtait à six.
+- Le salon retient le dernier niveau de robot choisi, il n'y a plus à le resélectionner pour chaque robot. Ce réglage vaut pour tous les jeux.
+
+### Interface
+- Pendant le garage la caméra survole tout le circuit.
+- Au départ, cinq feux rouges s'allument un à un puis passent au vert, et la caméra descend en douceur derrière la voiture.
+- Nouveau tableau de bord, position en course et point de contrôle en haut, vitesse, paliers de dérapage, jauge de turbo, aspiration et batterie du Volt en bas.
+- La barre d'espace fait regarder derrière soi tant qu'elle est enfoncée, comme un rétroviseur. Un bouton fait la même chose sur téléphone, et le bouton L1 à la manette.
+- En chrono, une fois sa course finie ou abandonnée, on suit la caméra des pilotes encore en piste. Les flèches gauche et droite changent de pilote.
+- À la fin de la partie, chaque course peut être revue en replay avec le meilleur passage de chaque pilote, en caméra poursuite ou en caméra télé posée au bord du circuit, en vitesse normale, double ou ralentie.
+
+### Fichiers à déposer pour cette archive
+- Le dossier zoomalou en entier.
+- Le dossier common en entier, pour la mémoire du niveau des robots dans le salon.
+- Le fichier README.md.
+
+### Limites connues
+- Tout a été testé avec des robots, des clients simulés et un navigateur de test, pas avec de vrais joueurs sur plusieurs appareils.
+- Les dégâts visibles et le mode survie n'ont pas été faits, comme convenu, tant que les graphismes ne sont pas plus beaux.
+- Les sons des moteurs sont synthétisés par le navigateur, ils n'ont pas pu être écoutés pendant les tests.
+- Les replays gardent le meilleur passage de chaque pilote, pas toute la course de chacun.

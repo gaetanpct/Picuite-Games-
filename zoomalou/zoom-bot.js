@@ -60,9 +60,17 @@ const fallOf = (car, v) => 1 / (1 + Math.pow(Math.abs(v) / (car.vmax * (car.cv |
 
 // ---------- trajectoire ----------
 const lineCache = new WeakMap();
-function baseLine(tr, clear) {
+// choix de voie aux embranchements. Par défaut la voie dont le temps estimé est le plus court
+function forkGuess(tr) {
+  return (tr.forks || []).map((f) => {
+    const est = [0, 1].map((k) => { let L = 0, px = null, pz = null; for (let i = f.a; i <= f.b; i++) { const g = Track.forkGeo(f, i); const u = k === 0 ? (g.a0 + g.a1) / 2 : (g.b0 + g.b1) / 2; const x = tr.x[i] + -Math.cos(tr.h[i]) * u, z = tr.z[i] + Math.sin(tr.h[i]) * u; if (px != null) L += Math.hypot(x - px, z - pz); px = x; pz = z; }
+      const t = f.lanes[k].t; const sl = t === "terre" ? 0.86 : t === "obst" ? 0.88 : t === "etroit" || t === "tunnel" ? 0.96 : t === "saut" ? 0.95 : t === "turbo" ? 1.08 : t === "large" ? 1.02 : 1; return L / sl; });
+    return est[0] <= est[1] ? 0 : 1;
+  }).join("");
+}
+function baseLine(tr, clear, fk) {
   let m = lineCache.get(tr); if (!m) { m = new Map(); lineCache.set(tr, m); }
-  const key = Math.round(clear * 10); if (m.has(key)) return m.get(key);
+  fk = fk || ""; const key = Math.round(clear * 10) + "|" + fk; if (m.has(key)) return m.get(key);
   const n = tr.n, X = tr.x, Z = tr.z, H = tr.h, W = tr.w; const nx = new Float64Array(n), nz = new Float64Array(n), lo = new Float64Array(n), hi = new Float64Array(n), u = new Float64Array(n), px = Float64Array.from(X), pz = Float64Array.from(Z);
   const FL = Track.FLAG;
   for (let i = 0; i < n; i++) {
@@ -71,6 +79,19 @@ function baseLine(tr, clear) {
     if (tr.flags[i] & FL.MAG) { lo[i] = 0; hi[i] = 0; }
     const ln = Track.laneAt(tr, i); if (ln) { lo[i] = Math.max(lo[i], ln[0]); hi[i] = Math.min(hi[i], ln[1]); if (lo[i] > hi[i]) { const mid = (lo[i] + hi[i]) / 2; lo[i] = hi[i] = mid; } }
   }
+  // embranchements. Le pilote se place du côté de sa voie avant le butoir, puis reste dans la voie et dans son couloir libre
+  (tr.forks || []).forEach((f, k) => {
+    const side = fk.charAt(k) === "1" ? 1 : 0; let first = -1;
+    for (let i = f.a; i <= f.b && i < n; i++) {
+      const g = Track.forkGeo(f, i); const mm = Math.max(g.m, 1.3); const c = clear + 0.25;
+      let a2, b2; if (side === 0) { a2 = (g.m >= 1.2 ? g.a0 : -W[i]) + Car.HALF_W + c; b2 = -mm - Car.HALF_W - c; } else { a2 = mm + Car.HALF_W + c; b2 = (g.m >= 1.2 ? g.b1 : W[i]) - Car.HALF_W - c; }
+      if (f.lnObs === side && f.olo && f.olo[i - f.a] != null && g.m >= 1.2) { a2 = Math.max(a2, f.olo[i - f.a] + 0.1); b2 = Math.min(b2, f.ohi[i - f.a] - 0.1); }
+      if (i > (f.a + f.b) / 2 && g.m < 1.2) break;
+      if (a2 > b2) { const mid = (a2 + b2) / 2; a2 = b2 = mid; }
+      lo[i] = a2; hi[i] = b2; if (first < 0) first = i;
+    }
+    if (first > 0) for (let d = 1; d <= 18; d++) { const j = first - d; if (j < 0) break; lo[j] = Math.max(lo[j], lo[first] - 0.45 * d); hi[j] = Math.min(hi[j], hi[first] + 0.45 * d); if (lo[j] > hi[j]) { const mid = (lo[j] + hi[j]) / 2; lo[j] = hi[j] = mid; } }
+  });
   // entonnoir. Avant et après un obstacle le couloir se resserre progressivement, pour avoir le temps de se placer
   { const lo0 = Float64Array.from(lo), hi0 = Float64Array.from(hi);
     for (let i = 0; i < n; i++) {
@@ -107,7 +128,7 @@ function refFromFrames(tr, frames) {
 
 // construit la trajectoire et les vitesses cibles pour un jeu de paramètres
 function buildPlan(tr, car, th, ref) {
-  const n = tr.n; const base = baseLine(tr, th.clear); const X = tr.x, Z = tr.z;
+  const n = tr.n; const base = baseLine(tr, th.clear, th.fk); const X = tr.x, Z = tr.z;
   const lx = new Float64Array(n), lz = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     let u = base.u[i] * th.lineK;
@@ -127,13 +148,17 @@ function buildPlan(tr, car, th, ref) {
   // dans une zone sans gravité la ligne en plan ne veut rien dire, on ne freine pas pour elle
   for (let i = 0; i < n; i++) { if (tr.flags[i] & Track.FLAG.MAG) { for (let q = Math.max(0, i - 2); q <= Math.min(n - 1, i + 2); q++) ks[q] = 0; } }
   const vlimA = new Float64Array(n), vlimB = new Float64Array(n);
+  const fmap = tr.forks && tr.forks.length ? Track.forkMap(tr) : null; const carB = car.boostTurn ? Object.assign({}, car, { id: car.id + "B", turn: car.turn * car.boostTurn }) : null;
   for (let i = 0; i < n; i++) {
-    const s = tr.surf[i]; let cap = car.vmax; let cf = 1;
+    let s = tr.surf[i]; let cap = car.vmax; let cf = 1;
+    if (fmap && fmap[i] >= 0 && (tr.flags[i] & Track.FLAG.FORK)) { const ln = tr.forks[fmap[i]].lanes[(th.fk || "").charAt(fmap[i]) === "1" ? 1 : 0]; if (ln && ln.s) s = ln.s; }
     if (s === 1) { cap *= 0.93; cf = clamp(th.dirtK * (0.72 + 0.3 * car.dirt), 0.4, 1.2); } else if (s === 4) { cap *= 0.62; cf = 0.9; } else if (s === 2) cf = clamp(th.iceK * (0.35 + 1.1 * car.ice), 0.3, 1.1);
     let vc = ks[i] > 1e-4 ? speedForRadius(car, 1 / ks[i]) * th.corner * cf : 1e9; if ((tr.flags[i] & Track.FLAG.NOWALL) && vc < 1e8) vc *= 0.8;
+    // la Comète braque moins pendant un turbo, sa vitesse de virage sous turbo est plus basse
+    let vcB = vc; if (carB && ks[i] > 1e-4) { vcB = speedForRadius(carB, 1 / ks[i]) * th.corner * cf; if (tr.flags[i] & Track.FLAG.NOWALL) vcB *= 0.8; }
     let vr = 1e9; if (ref && th.refSpeed > 0 && ref.ok[i]) vr = th.refSpeed * ref.v[i];
     if (tr.flags[i] & Track.FLAG.NOWALL) cap *= 0.72;
-    vlimA[i] = Math.min(cap * 1.02, Math.max(vc, Math.min(vr, vc * 1.35))); vlimB[i] = Math.min(cap * 1.3, Math.max(vc, Math.min(vr, vc * 1.35)));
+    vlimA[i] = Math.min(cap * 1.02, Math.max(vc, Math.min(vr, vc * 1.35))); vlimB[i] = Math.min(cap * 1.3, Math.max(vcB, Math.min(vr, vcB * 1.35)));
   }
   const dec = car.brake * th.brake; const profA = new Float64Array(n), profB = new Float64Array(n);
   for (const [lim, prof] of [[vlimA, profA], [vlimB, profB]]) {
@@ -142,7 +167,7 @@ function buildPlan(tr, car, th, ref) {
   }
   // un saut demande une vitesse minimale au bord. Le pilote ne freine jamais avant la réception
   const gapMin = new Float64Array(n);
-  (tr.gaps || []).forEach((g) => { const need = Math.min(car.vmax * 0.97, g.vreq * 1.1 + 1.5); for (let i = Math.max(0, g.cp - 1); i <= Math.min(n - 1, g.land + 8); i++) { gapMin[i] = need; } });
+  (tr.gaps || []).forEach((g) => { const need = Math.min(car.vmax * 0.97, g.vreq * 1.1 + 1.5); for (let i = Math.max(0, g.cp - 1); i <= Math.min(n - 1, g.land + 8); i++) { gapMin[i] = Math.max(gapMin[i], need); } });
   return { lx, lz, profA, profB, gapMin };
 }
 
@@ -171,6 +196,7 @@ function drive(r, L, th, lv, rnd, mem) {
   if (mem.rev > 0) { mem.rev--; thr = 0; brk = 1; steer = -mem.revSteer; if (mem.rev === 0) mem.stuck = 20; }
   else if (mem.stuck > 50 && mem.tries < 3) { mem.rev = 50; mem.revSteer = steer; mem.tries++; mem.stuck = 0; }
   let rst = 0; if (mem.stuck > 110) { rst = 1; mem.stuck = 0; mem.tries = 0; }
+  const gf = mem.gaffe; if (gf && !r.rail && !r.air) { if (gf.t < 0 && r.idx >= gf.idx && vf > 18) gf.t = r.tick; if (gf.t >= 0 && r.tick - gf.t < gf.len) { steer = clamp(steer + gf.dir * 0.9, -1, 1); if (r.tick - gf.t < gf.len * 0.5) brk = 0, thr = 1; } }
   return { steer, thr, brk, rst };
 }
 
@@ -183,20 +209,22 @@ const gauss = (rnd) => { let s = 0; for (let i = 0; i < 4; i++) s += rnd(); retu
 function run(tr, carId, th, lv, seed, opts) {
   opts = opts || {}; const car = Car.CARS[carId] || Car.CARS.bolide; const rnd = Track.mulberry32(Track.hashSeed("bot" + seed));
   const L = opts.plan || buildPlan(tr, car, th, opts.ref); const r = Car.newRun(tr, carId, { slot: opts.slot || 0 });
-  const mem = { noise: 0, stuck: 0, lapse: 0, sat: false, rev: 0, revSteer: 0, tries: 0, pace: opts.pace == null ? 1 : opts.pace }; const maxT = Math.floor((opts.maxSeconds || 240) * 60); const bytes = opts.noBytes ? null : [];
+  const mem = { noise: 0, stuck: 0, lapse: 0, sat: false, rev: 0, revSteer: 0, tries: 0, pace: opts.pace == null ? 1 : opts.pace, gaffe: gaffeOf(tr, opts.form) }; const maxT = Math.floor((opts.maxSeconds || 240) * 60); const bytes = opts.noBytes ? null : [];
   while (!r.finished && r.tick < maxT) { const inp = Car.quant(drive(r, L, th, lv, rnd, mem)); if (bytes) bytes.push(Car.packInput(inp)); Car.step(r, inp); }
   return { r, bytes };
 }
+// une faute franche à un endroit du circuit, seulement les jours sans
+function gaffeOf(tr, form) { if (!form || !form.gaffe) return null; return { idx: Math.floor(tr.n * (0.15 + form.gaffe * 0.7)), dir: form.gDir, len: form.gLen, t: -1 }; }
 function cost(res, tr) { const r = res.r; if (r.finished) return r.finishTime + r.resets * 6 + r.hits * 0.01; return 400 + (tr.n - r.idx) * 0.5 + r.resets * 6; }
 
 const cacheOf = new WeakMap();
 const keyOf = (carId, levelId, refTag) => carId + "|" + levelId + "|" + (refTag || "");
 function entry(tr, key) { let m = cacheOf.get(tr); if (!m) { m = new Map(); cacheOf.set(tr, m); } return { get: () => m.get(key), set: (v) => m.set(key, v) }; }
-function startTheta(lv) { return Object.assign({}, TH0, { corner: TH0.corner * lv.corner, clear: lv.clear, lineK: lv.lineK }); }
+function startTheta(lv, tr) { return Object.assign({}, TH0, { corner: TH0.corner * lv.corner, clear: lv.clear, lineK: lv.lineK, fk: tr ? forkGuess(tr) : "" }); }
 
 // état de recherche, avancé par petites étapes pour ne pas bloquer le serveur
 function newSearch(tr, carId, lv, ref) {
-  const th = startTheta(lv); const s = { tr, carId, lv, ref, best: th, bestCost: Infinity, it: 0, t0: Date.now(), done: false, rnd: Track.mulberry32(Track.hashSeed(tr.name + carId + lv.id + tr.n)), grid: [] };
+  const th = startTheta(lv, tr); const s = { tr, carId, lv, ref, best: th, bestCost: Infinity, it: 0, t0: Date.now(), done: false, rnd: Track.mulberry32(Track.hashSeed(tr.name + carId + lv.id + tr.n)), grid: [] };
   const evalTh = (t) => cost(run(tr, carId, t, Object.assign({}, lv, { noise: 0, lapse: 0 }), "ev", { ref, noBytes: true }), tr);
   s.evalTh = evalTh;
   if (lv.evals > 0) { s.grid = [0.85, 1.0, 1.12, 1.25].map((c) => Object.assign({}, th, { corner: th.corner * c })); if (ref && lv.useRef) { s.grid.push(Object.assign({}, th, { refBlend: 1 }), Object.assign({}, th, { refBlend: 0.5 }), Object.assign({}, th, { refBlend: 1, refSpeed: 0.95 })); } }
@@ -211,6 +239,8 @@ function stepSearch(s) {
   else {
     const prog = (s.it - s.grid.length) / Math.max(1, lv.evals - s.grid.length); const sigma = 0.3 * (1 - prog) + 0.05; cand = Object.assign({}, s.best); const keys = Object.keys(RANGE).filter((k) => ((k !== "refBlend" && k !== "refSpeed") || (s.ref && lv.useRef)));
     const m = 1 + Math.floor(s.rnd() * 3); for (let q = 0; q < m; q++) { const k = keys[Math.floor(s.rnd() * keys.length)]; const [a, b] = RANGE[k]; cand[k] = clamp(cand[k] + gauss(s.rnd) * sigma * (b - a), a, b); }
+    // de temps en temps on essaie l'autre voie d'un embranchement
+    if (cand.fk && s.rnd() < 0.3) { const q = Math.floor(s.rnd() * cand.fk.length); cand.fk = cand.fk.slice(0, q) + (cand.fk.charAt(q) === "1" ? "0" : "1") + cand.fk.slice(q + 1); }
   }
   const c = s.evalTh(cand); s.it++; if (c < s.bestCost) { s.bestCost = c; s.best = cand; }
 }
@@ -227,7 +257,7 @@ function prepare(tr, carId, levelId, frames, refTag, cb) {
   const lv0 = LEVELS[levelId] || LEVELS.moyen; const ref = frames && lv0.useRef ? refFromFrames(tr, frames) : null; if (!ref) refTag = "";
   const key = keyOf(carId, levelId, refTag); const e = entry(tr, key); const have = e.get(); if (have && have.done) { if (cb) cb(have); return; }
   if (have && have.pending) { have.pending.push(cb); return; }
-  const lv = LEVELS[levelId] || LEVELS.moyen; const s = newSearch(tr, carId, lv, ref); const waiters = cb ? [cb] : []; e.set({ pending: waiters, done: false, th: startTheta(lv) });
+  const lv = LEVELS[levelId] || LEVELS.moyen; const s = newSearch(tr, carId, lv, ref); const waiters = cb ? [cb] : []; e.set({ pending: waiters, done: false, th: startTheta(lv, tr) });
   const tick = () => { const t0 = Date.now(); while (!s.done && Date.now() - t0 < 25) stepSearch(s); if (s.done) { finalize(tr, key, s); const v = e.get(); waiters.forEach((f) => { try { f(v); } catch (er) { console.error(er); } }); } else setImmediate(tick); };
   setImmediate(tick);
 }
@@ -237,6 +267,16 @@ function thetaFor(tr, carId, levelId, frames, refTag) {
   return prepareSync(tr, carId, levelId, frames, refTag).th;
 }
 
+// forme du jour. Un bon pilote a parfois un jour sans (rythme plus lent, plus d'erreurs et une vraie faute de pilotage) et parfois un jour de grâce
+const FORM = { debutant: [0, 0], moyen: [0.1, 0.1], champion: [0.15, 0.1], prodige: [0.17, 0.08] };
+function formOf(levelId, seed) {
+  const r = Track.mulberry32(Track.hashSeed("forme" + seed)); const f = FORM[levelId] || [0, 0]; const x = r();
+  if (x < f[0]) return { k: "sans", pace: 0.93 - r() * 0.03, noise: 5, lapse: 0.0015, gaffe: 0.25 + r() * 0.5, gDir: r() < 0.5 ? -1 : 1, gLen: 22 + Math.floor(r() * 18) };
+  if (x < f[0] + f[1]) return { k: "grace", pace: 1.012, noise: 0.5, lapse: 0, gaffe: 0 };
+  return null;
+}
+function applyForm(lv, form) { if (!form) return lv; return Object.assign({}, lv, { noise: Math.max(lv.noise * form.noise, form.k === "sans" ? 0.03 : 0), lapse: lv.lapse + form.lapse, pace: lv.pace * form.pace }); }
+
 // simule un essai complet d'un pilote automatique. opts.ref images d'inspiration, opts.refTag leur nom, opts.slot départ, opts.push essais précédents ratés
 function simulateRun(tr, carId, levelId, seed, maxSeconds, opts) {
   opts = opts || {}; let lv = LEVELS[levelId] || LEVELS.moyen; const rnd = Track.mulberry32(Track.hashSeed("per" + seed));
@@ -244,9 +284,11 @@ function simulateRun(tr, carId, levelId, seed, maxSeconds, opts) {
   const th = Object.assign({}, thetaFor(tr, carId, levelId, ref ? opts.ref : null, refTag)); const k = opts.push || 0;
   th.corner *= 1 + lv.push * k + (rnd() - 0.5) * lv.paceJit; th.brake *= 1 + (rnd() - 0.5) * lv.paceJit;
   lv = applyPersona(th, lv, opts.persona ? personaOf(opts.persona) : null);
+  const form = opts.noForm ? null : formOf(levelId, seed); lv = applyForm(lv, form);
+  if (th.fk && (levelId === "debutant" || levelId === "moyen")) th.fk = th.fk.split("").map((c) => (rnd() < (levelId === "debutant" ? 0.5 : 0.25) ? (c === "1" ? "0" : "1") : c)).join("");
   const pace = clamp(lv.pace * (1 + (rnd() - 0.5) * lv.paceJit * 2), 0.5, 1.05);
-  const res = run(tr, carId, th, lv, seed, { ref, slot: opts.slot, pace, maxSeconds: maxSeconds || 240 });
-  const r = res.r; return { bytes: Uint8Array.from(res.bytes), finished: r.finished, time: r.finishTime, resets: r.resets, hits: r.hits, ticks: r.tick, maxSpeed: r.maxSpeed };
+  const res = run(tr, carId, th, lv, seed, { ref, slot: opts.slot, pace, maxSeconds: maxSeconds || 240, form });
+  const r = res.r; return { bytes: Uint8Array.from(res.bytes), finished: r.finished, time: r.finishTime, resets: r.resets, hits: r.hits, ticks: r.tick, maxSpeed: r.maxSpeed, form: form ? form.k : "" };
 }
 // pilote automatique qui roule en direct, un pas à la fois, avec le même réglage que simulateRun. Il réagit à tout ce qui le pousse
 function createLive(tr, carId, levelId, seed, opts) {
@@ -255,9 +297,11 @@ function createLive(tr, carId, levelId, seed, opts) {
   const th = Object.assign({}, thetaFor(tr, carId, levelId, ref ? opts.ref : null, refTag)); const k = opts.push || 0;
   th.corner *= 1 + lv.push * k + (rnd() - 0.5) * lv.paceJit; th.brake *= 1 + (rnd() - 0.5) * lv.paceJit;
   lv = applyPersona(th, lv, opts.persona ? personaOf(opts.persona) : null);
+  const form = opts.noForm ? null : formOf(levelId, seed); lv = applyForm(lv, form);
+  if (th.fk && (levelId === "debutant" || levelId === "moyen")) th.fk = th.fk.split("").map((c) => (rnd() < (levelId === "debutant" ? 0.5 : 0.25) ? (c === "1" ? "0" : "1") : c)).join("");
   const pace = clamp(lv.pace * (1 + (rnd() - 0.5) * lv.paceJit * 2), 0.5, 1.05);
   const car = Car.CARS[carId] || Car.CARS.bolide; const L = buildPlan(tr, car, th, ref); const r = Car.newRun(tr, carId, { slot: opts.slot || 0 });
-  const mem = { noise: 0, stuck: 0, lapse: 0, sat: false, rev: 0, revSteer: 0, tries: 0, pace };
-  return { r, maxTicks: Math.floor((opts.maxSeconds || 240) * 60), step() { Car.step(r, Car.quant(drive(r, L, th, lv, rnd, mem))); } };
+  const mem = { noise: 0, stuck: 0, lapse: 0, sat: false, rev: 0, revSteer: 0, tries: 0, pace, gaffe: gaffeOf(tr, form) };
+  return { r, form: form ? form.k : "", maxTicks: Math.floor((opts.maxSeconds || 240) * 60), step() { Car.step(r, Car.quant(drive(r, L, th, lv, rnd, mem))); } };
 }
-module.exports = { personaOf, ARCH, LEVELS, simulateRun, createLive, prepare, prepareSync, refFromFrames };
+module.exports = { personaOf, ARCH, LEVELS, simulateRun, createLive, prepare, prepareSync, refFromFrames, formOf, forkGuess };

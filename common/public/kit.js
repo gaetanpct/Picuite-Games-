@@ -156,7 +156,7 @@
     socket.on("room:joined", ({ code, token }) => {
       Kit.roomCode = code; Kit.token = token || Kit.token;
       store.sset(pre + ".room", code); store.sset(pre + ".token", Kit.token);
-      if (pendingSolo) { pendingSolo = false; socket.emit("room:addBot", { level: cfg.botLevels[1].id }); }
+      if (pendingSolo) { pendingSolo = false; const kl = store.get(cfg.id + ".botLevel", ""); socket.emit("room:addBot", { level: cfg.botLevels.some((l) => l.id === kl) ? kl : cfg.botLevels[1].id }); }
     });
     socket.on("room:gone", () => { clearSession(); toast("Cette partie n'existe plus, le serveur a sans doute redémarré. Recrée un salon ou rejoins-en un.", "error"); Kit.showScreen("home"); });
     socket.on("room:kicked", () => { toast("Tu as été expulsé du salon.", "error"); clearSession(); fire("reset"); Kit.showScreen("home"); });
@@ -283,8 +283,10 @@
     for (let i = 0; i < freeSlots; i++) list.appendChild(el("div", { class: "player player--free" }, [el("span", { text: i === 0 ? "Place libre, partage le code ci-dessus" : "Place libre" })]));
     const bots = $("#add-bot-row"); bots.innerHTML = "";
     if (host && !cfg.noBots && r.players.length < cfg.maxPlayers) {
-      const sel = el("select", { id: "bot-level", class: "mini-select" }, cfg.botLevels.map((l, i) => el("option", { value: l.id, text: l.label, selected: i === 1 })));
-      bots.appendChild(el("button", { class: "btn btn--green btn--small", text: "Ajouter un bot", onclick: () => Kit.socket.emit("room:addBot", { level: sel.value }) }));
+      // le salon retient le dernier niveau choisi pour les robots
+      const keep = store.get(cfg.id + ".botLevel", ""); const want = cfg.botLevels.some((l) => l.id === keep) ? keep : (cfg.botLevels[1] || cfg.botLevels[0]).id;
+      const sel = el("select", { id: "bot-level", class: "mini-select", onchange: (e) => store.set(cfg.id + ".botLevel", e.target.value) }, cfg.botLevels.map((l) => el("option", { value: l.id, text: l.label, selected: l.id === want })));
+      bots.appendChild(el("button", { class: "btn btn--green btn--small", text: "Ajouter un bot", onclick: () => { store.set(cfg.id + ".botLevel", sel.value); Kit.socket.emit("room:addBot", { level: sel.value }); } }));
       bots.appendChild(sel);
     }
     // réglages
