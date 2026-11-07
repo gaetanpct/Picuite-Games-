@@ -2,15 +2,15 @@
  "name": "Cristal Tordu",
  "order": 8,
  "tagline": "Un mot secret, des dilemmes absurdes, une grille qui se vide.",
- "pitch": "Un jeu télé de déduction. Un joueur est l'Extralucide et connaît un mot caché dans une grille, parfois le prénom d'un joueur. Il reçoit des dilemmes tirés au hasard et doit relier son mot à l'un d'eux, même de loin. Les autres éliminent les mots qui ne collent pas, gardent leurs doutes sur des post-it et peuvent annoncer leur mot en avance pour gagner du temps. Six modes, des événements qui brouillent les pistes, des robots qui raisonnent vraiment et près de trois cents dilemmes.",
+ "pitch": "Un jeu télé de déduction. Un joueur est l'Extralucide et connaît un mot caché dans une grille, parfois le prénom d'un joueur. Il reçoit un dilemme tiré au hasard à chaque tour et doit relier son mot à l'un de ses côtés, même de loin, avec un joker pour changer de dilemme une fois par manche. Les autres éliminent autant de mots qu'ils veulent, sans minuteur, gardent leurs doutes sur des post-it et peuvent annoncer leur mot en avance pour gagner des points. Six modes, des événements qui brouillent les pistes, des robots qui raisonnent vraiment et près de trois cents dilemmes.",
  "tags": [
   "2 à 8 joueurs",
   "15 à 30 minutes",
   "Avec robots"
  ],
  "steps": [
-  "L'Extralucide reçoit des dilemmes au hasard et en choisit un.",
-  "Il désigne le côté qui lui ressemble, les autres éliminent des mots.",
+  "L'Extralucide reçoit un dilemme au hasard et désigne le côté qui lui ressemble.",
+  "Les autres éliminent autant de mots qu'ils veulent, sans limite de temps.",
   "On peut annoncer le mot en avance, sans jamais avoir éliminé le bon."
  ],
  "note": "Se joue ensemble, en équipes ou chacun pour soi.",

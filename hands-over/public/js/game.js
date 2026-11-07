@@ -45,7 +45,7 @@
   function build() {
     const sc = $("#screen-game"); sc.innerHTML = "";
     const view = E("div", { class: "ho-view", id: "ho-view" }); sc.appendChild(view);
-    const ui = E("div", { class: "ho-ui" }, [E("div", { class: "ho-top", id: "ho-top" }), E("div", { class: "ho-timer hidden", id: "ho-timer" }, [E("i", { id: "ho-timer-fill" })]), E("div", { class: "ho-stage-top" }), E("div", { class: "ho-main", id: "ho-main" })]); sc.appendChild(ui);
+    const ui = E("div", { class: "ho-ui" }, [E("div", { class: "ho-top", id: "ho-top" }), E("div", { class: "ho-timer hidden", id: "ho-timer" }, [E("i", { id: "ho-timer-fill" })]), E("div", { class: "ho-stage-top", id: "ho-stage-top" }), E("div", { class: "ho-main", id: "ho-main" }), E("div", { class: "ho-foot hidden", id: "ho-foot" })]); ui.id = "ho-ui"; sc.appendChild(ui);
     sc.appendChild(E("button", { class: "round-btn ho-menu", title: "Menu", text: "⚙️", onclick: openMenu }));
     G.noGL = !S.init(view); if (G.noGL) view.style.background = "radial-gradient(circle at 50% 20%, #5a0f1c, #0a0206 70%)";
     G.built = true; requestAnimationFrame(frame);
@@ -95,10 +95,11 @@
       else if (st.phase === "play" && st.view && st.view.turnEnds) { left = st.view.turnEnds - t; total = 10000; }
       else if (st.phase === "brief") { const b = st.brief || {}; left = (b.minLeft || 0) - (performance.now() - G.recv); total = Math.max(1, b.minTotal || 1); }
       else if (st.phase === "count") { left = st.left - (performance.now() - G.recv); total = st.countTotal || 3300; }
-      else if (st.phase !== "play" && st.phase !== "over") { left = st.left - (performance.now() - G.recv); total = st.phase === "judge" ? 9500 : st.phase === "prep" ? 30000 : 5500; }
-      if (st.phase === "play" && !(st.view && (st.view.ends || st.view.turnEnds))) tm.classList.add("hidden"); else { tm.classList.remove("hidden"); fill.style.width = Math.max(0, Math.min(100, (left / total) * 100)) + "%"; }
+      else if (st.phase !== "play" && st.phase !== "over" && st.phase !== "intro" && st.phase !== "prep" && st.phase !== "judge") { left = st.left - (performance.now() - G.recv); total = Math.max(1, st.total || 9000); }
+      if (st.phase === "intro" || st.phase === "brief" || st.phase === "prep" || st.phase === "judge" || (st.phase === "play" && !(st.view && (st.view.ends || st.view.turnEnds)))) tm.classList.add("hidden"); else { tm.classList.remove("hidden"); fill.style.width = Math.max(0, Math.min(100, (left / total) * 100)) + "%"; }
     }
-    if (st.phase === "brief") { const w = $("#ho-brief-wait"); if (w) { const left = (st.brief ? st.brief.minLeft : 0) - (performance.now() - G.recv); w.textContent = left > 0 ? "Lecture obligatoire encore " + secs(left) + " s, personne ne peut lancer avant." : "Le départ se fait quand tout le monde est prêt."; } }
+    if (st.phase === "brief") { const w = $("#ho-brief-wait"); if (w) { const left = (st.brief ? st.brief.minLeft : 0) - (performance.now() - G.recv); w.textContent = "Prends ton temps, le départ se fait quand tout le monde est prêt."; } }
+    if (st.phase !== "brief") { const w = $("#ho-brief-wait"); if (w && w.dataset.base !== undefined) { const left = st.left - (performance.now() - G.recv); w.textContent = w.dataset.base + (left > 0 && st.phase === "count" ? "  ·  il reste " + secs(left) + " s" : ""); } }
     if (st.phase === "count") { const e = $("#ho-count"); if (e) { const left = st.left - (performance.now() - G.recv); const n = Math.max(1, Math.min(3, Math.ceil(left / ((st.countTotal || 3300) / 3)))); e.textContent = String(n); if (n !== G.countN) { G.countN = n; sTick(); e.classList.remove("ho-count--pop"); void e.offsetWidth; e.classList.add("ho-count--pop"); } } }
     if (st.phase !== "play" || !st.view) return; const v = st.view; const id = st.ch.id;
     if (id === "hot") { const cells = document.querySelectorAll(".ho-hotcell"); const t2 = snow(); let lit = -1; v.seq.forEach((w) => { if (t2 >= v.start + w.at && t2 < v.start + w.at + w.dur) lit = w.cell; }); cells.forEach((c, k) => c.classList.toggle("ho-hotcell--lit", k === lit)); const msg = $("#ho-hot-msg"); if (msg) msg.textContent = t2 < v.start ? "Prépare-toi" : t2 > v.end ? "Terminé" : "Touche les mains allumées"; }
@@ -118,7 +119,9 @@
     const st = G.st; if (!st) return; const top = $("#ho-top"), main = $("#ho-main"); if (!top || !main) return;
     renderTop(st, top);
     const sig = JSON.stringify([st.phase, st.round, st.players, st.me, st.view ? Object.assign({}, st.view, { now: 0 }) : null, st.judged, st.plays, st.modifier, G.over ? 1 : 0, G.ui.tick]);
-    if (sig === G.sig) return; G.sig = sig; main.innerHTML = "";
+    if (sig === G.sig) return; G.sig = sig; const pk = st.phase + "|" + st.round; const keepY = G.lastPk === pk ? main.scrollTop : 0; G.lastPk = pk; main.innerHTML = "";
+    const ui = $("#ho-ui"), foot = $("#ho-foot"); if (ui) { ["intro", "brief", "prep", "judge", "count", "play", "over"].forEach((k) => ui.classList.toggle("ho-ph-" + k, st.phase === k)); ui.classList.toggle("ho-wide", st.phase === "brief" || st.phase === "prep" || st.phase === "judge"); }
+    if (foot) { foot.innerHTML = ""; const f = buildFoot(st); if (f) { foot.classList.remove("hidden"); f.forEach((x) => foot.appendChild(x)); } else foot.classList.add("hidden"); }
     if (G.over && st.phase === "over") return main.appendChild(buildOver());
     if (st.phase === "intro") main.appendChild(buildIntro(st));
     else if (st.phase === "brief") main.appendChild(buildBrief(st));
@@ -127,6 +130,7 @@
     else if (st.phase === "play") main.appendChild(buildPlay(st));
     else if (st.phase === "judge") main.appendChild(buildJudge(st));
     else if (st.phase === "over") main.appendChild(E("div", { class: "ho-card" }, [E("h2", { text: "Générique de fin" })]));
+    if (keepY) main.scrollTop = keepY;
   }
   function renderTop(st, top) {
     top.innerHTML = "";
@@ -136,32 +140,38 @@
   }
   function buildIntro(st) {
     const m = R.MODES.find((x) => x.value === st.mode);
-    return E("div", { class: "ho-card" }, [E("h2", { text: "Bienvenue dans Main Morte" }), E("p", { class: "ho-sub", text: m ? m.desc : "" }), E("p", { class: "ho-sub", text: "Chaque épreuve perdue coûte une main. Sans main, tu deviens fantôme et tu continues à jouer, tu peux même te venger." }), st.teams ? E("p", { class: "ho-sub", text: "Tu es dans l'équipe " + TEAMS[(st.players.find((p) => p.id === st.you) || {}).team || 0] + "." }) : null, Kit.isHost() ? E("div", { class: "ho-ctrl" }, [E("button", { class: "btn btn--accent", text: "Passer", onclick: () => Kit.socket.emit("ho:skip") })]) : null]);
+    return E("div", { class: "ho-card" }, [E("h2", { text: "Bienvenue dans Main Morte" }), E("p", { class: "ho-sub", text: m ? m.desc : "" }), E("p", { class: "ho-sub", text: "Chaque épreuve perdue coûte une main. Sans main, tu deviens fantôme et tu continues à jouer, tu peux même te venger." }), st.teams ? E("p", { class: "ho-sub", text: "Tu es dans l'équipe " + TEAMS[(st.players.find((p) => p.id === st.you) || {}).team || 0] + "." }) : null]);
+  }
+
+  // ----- pied de page commun, le bouton prêt ne recouvre plus le contenu -----
+  const FOOT_LABEL = { intro: "Je suis prêt", brief: "J'ai compris, je suis prêt", prep: "Mes cartes et mon pacte sont prêts", judge: "J'ai tout lu, épreuve suivante" };
+  function buildFoot(st) {
+    const ph = st.phase; if (!FOOT_LABEL[ph]) return null; const me = st.me; if (ph === "prep" && !me.alive) return null;
+    const done = ph === "prep" ? !!me.ready : !!me.read;
+    const wait = st.players.filter((p) => p.id !== st.you && (ph === "prep" ? p.alive && !p.ready : !(p.read || p.auto)));
+    let base = "";
+    if (ph !== "brief") base = done ? (wait.length ? "Tu es prêt, on attend " + wait.map((p) => nameOf(p.id)).join(", ") : "Tout le monde est prêt") : (wait.length ? "Déjà prêts  " + (st.players.length - 1 - wait.length) + " sur " + (st.players.length - 1) : "Tous les autres sont prêts");
+    const btn = E("button", { class: "btn btn--accent btn--big ho-foot__btn", id: "ho-readybtn", text: done ? (ph === "prep" ? "Prêt, j'attends les autres" : "Prêt, j'attends les autres") : FOOT_LABEL[ph], disabled: done, onclick: () => Kit.socket.emit("ho:ready") });
+    const info = E("div", { class: "ho-wait", id: "ho-brief-wait", text: "" }); if (ph !== "brief") info.dataset.base = base;
+    const out = [E("div", { class: "ho-foot__row" }, [btn, Kit.isHost() ? E("button", { class: "btn btn--ghost btn--small ho-foot__skip", text: ph === "prep" ? "Lancer" : "Passer", onclick: () => Kit.socket.emit("ho:skip") }) : null]), info];
+    return out;
   }
 
   // ----- lecture des règles -----
   function buildBrief(st) {
-    const ch = st.ch, b = st.brief || { icon: "🖐️", goal: "", cmds: [], lose: "", tip: "", extra: "", minLeft: 0, minTotal: 0 }; const me = st.me; const mustRead = true;
-    const kids = [];
-    kids.push(E("div", { class: "ho-brief ho-card" }, [
-      E("div", { class: "ho-brief__icon", text: b.icon }),
-      E("div", { class: "ho-fam", text: "Épreuve " + st.round + " sur " + st.rounds + "  ·  " + FAM[ch.family] }),
-      E("h2", { class: "ho-brief__name", text: ch.name }),
+    const ch = st.ch, b = st.brief || { icon: "🖐️", goal: "", cmds: [], lose: "", tip: "", extra: "", minLeft: 0, minTotal: 0 }; const me = st.me;
+    const hero = E("div", { class: "ho-brief ho-card" }, [
+      E("div", { class: "ho-brief__head" }, [E("div", { class: "ho-brief__icon", text: b.icon }), E("div", { class: "ho-brief__tt" }, [E("div", { class: "ho-fam", text: "Épreuve " + st.round + " sur " + st.rounds + "  ·  " + FAM[ch.family] }), E("h2", { class: "ho-brief__name", text: ch.name })])]),
       E("div", { class: "ho-goal" }, [E("small", { text: "Ton objectif" }), E("b", { text: b.goal || ch.rules })]),
       b.extra ? E("p", { class: "ho-variant", text: b.extra }) : null,
       st.modifier ? E("p", { class: "ho-variant", text: "Règle chaos. " + st.modifier.label + ", " + st.modifier.text }) : null,
-    ]));
-    if (b.cmds && b.cmds.length) kids.push(E("div", { class: "ho-card" }, [E("h3", { text: "Les commandes" })].concat(b.cmds.map((c) => E("div", { class: "ho-cmd" }, [E("span", { class: "ho-cmd__ic", text: c[0] }), E("span", { text: c[1] })])))));
-    kids.push(E("div", { class: "ho-card ho-card--lose" }, [E("h3", { text: "Ce qui te fait perdre" }), E("p", { class: "ho-bigp", text: b.lose || "" }), b.tip ? E("p", { class: "ho-tip", text: "Astuce. " + b.tip }) : null]));
-    if (!me.alive && st.amInPlay !== false) kids.push(E("p", { class: "ho-ghostbar", text: "👻 Tu es fantôme. Tu peux quand même jouer cette épreuve si elle l'autorise, sinon tu regardes." }));
-    const total = st.players.filter((p) => !p.auto);
-    kids.push(E("div", { class: "ho-card" }, [E("h3", { text: "Qui a fini de lire" }), E("div", { class: "ho-readers" }, st.players.map((p) => E("span", { class: "ho-reader" + (p.read || p.auto ? " ho-reader--ok" : "") }, [dot(p.id), " " + nameOf(p.id) + (p.read || p.auto ? "  ✔" : "  …")])))]));
-    kids.push(E("div", { class: "ho-ctrl ho-ctrl--sticky" }, [
-      E("button", { class: "btn btn--accent btn--big", id: "ho-readybtn", text: me.read ? "J'ai fini de lire, j'attends les autres" : "J'ai compris, je suis prêt", disabled: !!me.read, onclick: () => Kit.socket.emit("ho:ready") }),
-      E("div", { class: "ho-wait", id: "ho-brief-wait", text: "" }),
-      Kit.isHost() ? E("button", { class: "btn btn--ghost btn--small", text: "Passer", onclick: () => Kit.socket.emit("ho:skip") }) : null,
-    ]));
-    return E("div", { class: "ho-col" }, kids);
+      !me.alive && st.amInPlay !== false ? E("p", { class: "ho-ghostbar", text: "👻 Tu es fantôme. Tu peux quand même jouer cette épreuve si elle l'autorise, sinon tu regardes." }) : null,
+    ]);
+    const items = [hero];
+    if (b.cmds && b.cmds.length) items.push(E("div", { class: "ho-card" }, [E("h3", { text: "Les commandes" })].concat(b.cmds.map((c) => E("div", { class: "ho-cmd" }, [E("span", { class: "ho-cmd__ic", text: c[0] }), E("span", { text: c[1] })])))));
+    items.push(E("div", { class: "ho-card ho-card--lose" }, [E("h3", { text: "Ce qui te fait perdre" }), E("p", { class: "ho-bigp", text: b.lose || "" }), b.tip ? E("p", { class: "ho-tip", text: "Astuce. " + b.tip }) : null]));
+    items.push(E("div", { class: "ho-card" }, [E("h3", { text: "Qui a fini de lire" }), E("div", { class: "ho-readers" }, st.players.map((p) => E("span", { class: "ho-reader" + (p.read || p.auto ? " ho-reader--ok" : "") }, [dot(p.id), " " + nameOf(p.id) + (p.read || p.auto ? "  ✔" : "  …")])))]));
+    return E("div", { class: "ho-grid" }, items);
   }
   function buildCount(st) {
     return E("div", { class: "ho-col" }, [E("div", { class: "ho-card ho-countcard" }, [E("div", { class: "ho-fam", text: st.ch.name }), E("div", { class: "ho-count", id: "ho-count", text: "3" }), E("p", { class: "ho-hint", text: st.brief && st.brief.goal ? st.brief.goal : "" })])]);
@@ -174,22 +184,32 @@
       E("small", { class: "ho-cardbtn__when", text: d.when }), E("small", { text: d.text }), E("small", { class: "ho-cardbtn__risk", text: "Risque. " + d.risk })]);
   }
   function buildPrep(st) {
-    const ch = st.ch; const me = st.me; const alive = st.players.filter((p) => p.alive && p.id !== st.you); const kids = []; const b = st.brief || {};
-    kids.push(E("div", { class: "ho-card ho-card--slim" }, [E("div", { class: "ho-fam", text: "Avant l'épreuve  ·  " + FAM[ch.family] }), E("h2", { text: (b.icon || "") + " " + ch.name }), E("p", { class: "ho-sub", text: "Objectif. " + (b.goal || ch.rules) }), st.modifier ? E("p", { class: "ho-sub", style: { color: "#ffd23f" }, text: "Règle chaos. " + st.modifier.label + ", " + st.modifier.text }) : null, st.alarm ? E("p", { class: "ho-alarm", text: "🚨 L'alarme a retenti, tous les pactes de cette épreuve sont annulés." }) : null, !me.alive ? E("p", { class: "ho-ghostbar", text: "👻 Tu es fantôme, tu n'as ni carte ni pacte." }) : null]));
-    if (st.plays.length) kids.push(E("div", { class: "ho-card" }, [E("h3", { text: "Cartes jouées par la table" })].concat(st.plays.map((x) => E("p", { class: "ho-note" }, [dot(x.by), " " + nameOf(x.by) + " joue " + R.CARDS[x.card].icon + " " + R.CARDS[x.card].name + (x.target ? " sur " + nameOf(x.target) : "")])))));
-    if (me.alive && me.intel) { const I = me.intel; kids.push(E("div", { class: "ho-card ho-card--intel" }, [E("h3", { text: "🕵️ Ce que tu sais sur " + nameOf(I.target) }), E("p", { class: "ho-note", text: I.cards.length ? "Ses cartes sont " + I.cards.map((c) => R.CARDS[c].icon + " " + R.CARDS[c].name).join(", ") + "." : "Il n'a aucune carte." }), E("p", { class: "ho-note", text: I.pact ? "Il a un pacte avec " + nameOf(I.pact.with) + " et compte être " + (I.pact.loyal ? "fidèle" : "traître") + "." : "Il n'a aucun pacte pour l'instant." }), I.rancune ? E("p", { class: "ho-note", text: "Il porte une rancune de traître." }) : null])); }
+    const ch = st.ch; const me = st.me; const alive = st.players.filter((p) => p.alive && p.id !== st.you); const b = st.brief || {};
+    const items = [];
+    items.push(E("div", { class: "ho-card ho-card--slim ho-span" }, [E("div", { class: "ho-fam", text: "Avant l'épreuve  ·  " + FAM[ch.family] }), E("h2", { text: (b.icon || "") + " " + ch.name }), E("p", { class: "ho-goalline", text: "Objectif. " + (b.goal || ch.rules) }), st.modifier ? E("p", { class: "ho-sub", style: { color: "#ffd23f" }, text: "Règle chaos. " + st.modifier.label + ", " + st.modifier.text }) : null, st.alarm ? E("p", { class: "ho-alarm", text: "🚨 L'alarme a retenti, tous les pactes de cette épreuve sont annulés." }) : null, !me.alive ? E("p", { class: "ho-ghostbar", text: "👻 Tu es fantôme, tu n'as ni carte ni pacte. Regarde la table se préparer." }) : null]));
+    const tab = G.ui.tab || (st.cardsOn ? "cards" : "pact"); const hasIncoming = me.alive && st.pactsOn && !me.pact && me.props.some((x) => x.to === st.you);
+    if (me.alive && st.cardsOn && st.pactsOn) items.push(E("div", { class: "ho-tabs ho-span" }, [
+      E("button", { class: "ho-tab" + (tab === "cards" ? " ho-tab--on" : ""), text: "🃏 Cartes" + (me.cards.length ? "  " + me.cards.length : ""), onclick: () => { G.ui.tab = "cards"; G.ui.tick = Math.random(); renderAll(); } }),
+      E("button", { class: "ho-tab" + (tab === "pact" ? " ho-tab--on" : ""), text: "🤝 Pacte" + (hasIncoming ? "  ❗" : me.pact ? "  ✔" : ""), onclick: () => { G.ui.tab = "pact"; G.ui.tick = Math.random(); renderAll(); } })]));
+    const pane = (id, kids) => E("div", { class: "ho-pane" + (tab === id || !(st.cardsOn && st.pactsOn) ? "" : " ho-pane--off") }, kids);
+    // table et renseignements
+    if (st.plays.length || (me.alive && me.intel)) {
+      const tk = [];
+      if (st.plays.length) tk.push(E("h3", { text: "Cartes jouées par la table" }), ...st.plays.map((x) => E("p", { class: "ho-note" }, [dot(x.by), " " + nameOf(x.by) + " joue " + R.CARDS[x.card].icon + " " + R.CARDS[x.card].name + (x.target ? " sur " + nameOf(x.target) : "")])));
+      if (me.alive && me.intel) { const I = me.intel; tk.push(E("h3", { text: "🕵️ Ce que tu sais sur " + nameOf(I.target) }), E("p", { class: "ho-note", text: I.cards.length ? "Ses cartes sont " + I.cards.map((c) => R.CARDS[c].icon + " " + R.CARDS[c].name).join(", ") + "." : "Il n'a aucune carte." }), E("p", { class: "ho-note", text: I.pact ? "Il a un pacte avec " + nameOf(I.pact.with) + " et compte être " + (I.pact.loyal ? "fidèle" : "traître") + "." : "Il n'a aucun pacte pour l'instant." }), I.rancune ? E("p", { class: "ho-note", text: "Il porte une rancune de traître." }) : null); }
+      items.push(E("div", { class: "ho-card ho-card--intel ho-span" }, tk));
+    }
     if (me.alive && st.cardsOn) {
       const sel = G.ui.card; const c = me.cards[sel];
-      kids.push(E("div", { class: "ho-card" }, [E("h3", { text: "Tes cartes d'influence" }), E("p", { class: "ho-hint ho-hint--left", text: "Touche une carte pour la jouer. Tout le monde voit quelle carte tu joues, mais pas forcément si elle dit vrai." }),
+      items.push(pane("cards", [E("div", { class: "ho-card ho-card--full" }, [E("h3", { text: "Tes cartes d'influence" }), E("p", { class: "ho-hint ho-hint--left", text: "Touche une carte pour la jouer. Tout le monde voit quelle carte tu joues, mais pas forcément si elle dit vrai." }),
         me.cards.length ? E("div", { class: "ho-cards" }, me.cards.map((cd, i) => cardTile(cd, i, sel, () => { const needT = R.CARDS[cd].target; if (!needT) { Kit.socket.emit("ho:card", { i }); G.ui.card = undefined; } else { G.ui.card = i; G.ui.tick = Math.random(); renderAll(); } }))) : E("p", { class: "ho-hint", text: "Tu n'as aucune carte. On en gagne en remportant une épreuve ou grâce à un pacte." }),
-        c ? E("div", {}, [E("p", { class: "ho-hint", text: R.CARDS[c].icon + " " + R.CARDS[c].name + ". Choisis la cible." }), E("div", { class: "ho-targets" }, alive.map((p) => E("button", { class: "ho-pill", onclick: () => { Kit.socket.emit("ho:card", { i: sel, target: p.id }); G.ui.card = undefined; } }, [dot(p.id), nameOf(p.id) + (p.rancune ? " 🗡️" : "")])))]) : null,
+        c ? E("div", { class: "ho-target-box" }, [E("p", { class: "ho-hint ho-hint--left", text: R.CARDS[c].icon + " " + R.CARDS[c].name + ". Choisis la cible." }), E("div", { class: "ho-targets" }, alive.map((p) => E("button", { class: "ho-pill", onclick: () => { Kit.socket.emit("ho:card", { i: sel, target: p.id }); G.ui.card = undefined; } }, [dot(p.id), nameOf(p.id) + (p.rancune ? " 🗡️" : "")])))]) : null,
         me.shield ? E("p", { class: "ho-note", text: "🛡️ Ton bouclier est posé." }) : null, me.mirror ? E("p", { class: "ho-note", text: "🪞 Ton miroir vise " + nameOf(me.mirror) + "." }) : null, me.dbl ? E("p", { class: "ho-note", text: "✌️ Double ou rien est engagé." }) : null,
-        me.rancune ? E("p", { class: "ho-note", text: "🗡️ Tu portes une rancune de traître. Ta prochaine sanction coûtera une main de plus." }) : null]));
+        me.rancune ? E("p", { class: "ho-note", text: "🗡️ Tu portes une rancune de traître. Ta prochaine sanction coûtera une main de plus." }) : null])]));
     }
     if (me.alive && st.pactsOn) {
       const incoming = me.props.filter((x) => x.to === st.you); const mine = me.props.find((x) => x.from === st.you);
       const pk = [E("h3", { text: "Pacte secret" })];
-      pk.push(E("details", { class: "ho-details" }, [E("summary", { text: "Comment fonctionne un pacte et une trahison" })].concat(R.PACT_RULES.map((r) => E("p", { class: "ho-rule" }, [E("b", { text: r[0] + " " + r[1] + ". " }), r[2]])))));
       if (st.alarm) pk.push(E("p", { class: "ho-note", text: "Plus aucun pacte n'est possible ce tour." }));
       else if (me.pact) pk.push(E("p", { class: "ho-note ho-note--big", text: "🤝 Pacte avec " + nameOf(me.pact.with) + ". Tu as choisi d'être " + (me.pact.loyal ? "fidèle" : "traître") + ", seul toi le sais. Cela se joue à la fin de l'épreuve." }));
       else {
@@ -197,21 +217,21 @@
           E("button", { class: "ho-pill ho-pill--big", text: "Accepter et rester fidèle", onclick: () => Kit.socket.emit("ho:pactans", { from: id, ok: true, loyal: true }) }),
           E("button", { class: "ho-pill ho-pill--big ho-pill--bad", text: "Accepter et trahir", onclick: () => Kit.socket.emit("ho:pactans", { from: id, ok: true, loyal: false }) }),
           E("button", { class: "ho-pill", text: "Refuser", onclick: () => Kit.socket.emit("ho:pactans", { from: id, ok: false }) })]);
-        incoming.forEach((x) => pk.push(E("div", { class: "ho-note ho-note--big" }, [dot(x.from), " " + nameOf(x.from) + " te propose un pacte. Il a déjà fait son choix en secret.", choice(true, x.from)])));
+        incoming.forEach((x) => pk.push(E("div", { class: "ho-note ho-note--big ho-incoming" }, [dot(x.from), " " + nameOf(x.from) + " te propose un pacte. Il a déjà fait son choix en secret.", choice(true, x.from)])));
         if (mine) pk.push(E("p", { class: "ho-note", text: "Proposition envoyée à " + nameOf(mine.to) + ". Elle se joue à la fin de l'épreuve si elle est acceptée." }));
         else {
           G.ui.loyal = G.ui.loyal === undefined ? true : G.ui.loyal;
+          pk.push(E("p", { class: "ho-hint ho-hint--left", text: "Choisis ton camp en secret, puis ton allié. Il ne verra que ta proposition." }));
           pk.push(E("div", { class: "ho-two" }, [
             E("button", { class: "ho-opt" + (G.ui.loyal ? " ho-opt--on" : ""), onclick: () => { G.ui.loyal = true; G.ui.tick = Math.random(); renderAll(); } }, [E("b", { text: "💚 Fidèle" }), E("small", { text: "Si l'autre perd et que tu t'en sors, tu prends une main à sa place. Tu gagnes une carte et un point." })]),
             E("button", { class: "ho-opt ho-opt--bad" + (!G.ui.loyal ? " ho-opt--on" : ""), onclick: () => { G.ui.loyal = false; G.ui.tick = Math.random(); renderAll(); } }, [E("b", { text: "🗡️ Traître" }), E("small", { text: "Si l'autre perd et que tu t'en sors, il perd une main de plus et tu lui voles une carte. Tu portes ensuite une rancune, ta prochaine sanction coûte une main de plus." })])]));
-          pk.push(E("p", { class: "ho-hint ho-hint--left", text: "Choisis ton allié. Ton choix reste secret, il ne verra que ta proposition." }));
-          pk.push(E("div", { class: "ho-targets" }, alive.filter((p) => !p.pact).map((p) => E("button", { class: "ho-pill", onclick: () => Kit.socket.emit("ho:pact", { to: p.id, loyal: !!G.ui.loyal }) }, [dot(p.id), nameOf(p.id) + (p.rancune ? " 🗡️" : "")]))));
+          pk.push(E("div", { class: "ho-targets" }, alive.filter((p) => !p.pact).map((p) => E("button", { class: "ho-pill", onclick: () => Kit.socket.emit("ho:pact", { to: p.id, loyal: !!G.ui.loyal }) }, [dot(p.id), "Proposer à " + nameOf(p.id) + (p.rancune ? " 🗡️" : "")]))));
         }
       }
-      kids.push(E("div", { class: "ho-card" }, pk));
+      pk.push(E("h3", { class: "ho-rules__h", text: "Les règles du pacte" }), E("div", { class: "ho-rules" }, R.PACT_RULES.map((r) => E("div", { class: "ho-rule" }, [E("span", { class: "ho-rule__ic", text: r[0] }), E("p", {}, [E("b", { text: r[1] + ". " }), r[2]])]))));
+      items.push(pane("pact", [E("div", { class: "ho-card ho-card--full" }, pk)]));
     }
-    if (me.alive) kids.push(E("div", { class: "ho-ctrl ho-ctrl--sticky" }, [E("button", { class: "btn btn--accent btn--big", text: me.ready ? "En attente des autres" : "J'ai fini, on lance", disabled: me.ready, onclick: () => Kit.socket.emit("ho:ready") }), Kit.isHost() ? E("button", { class: "btn btn--ghost btn--small", text: "Lancer", onclick: () => Kit.socket.emit("ho:skip") }) : null]));
-    return E("div", { class: "ho-col" }, kids);
+    return E("div", { class: "ho-grid" }, items);
   }
 
   // ----- épreuves -----
@@ -334,9 +354,11 @@
     const lost = Object.keys(J.loss).filter((id) => J.loss[id].loss > 0); const kids = [E("h2", { text: lost.length ? "Les mains tombent" : "Personne ne perd rien" }), E("p", { class: "ho-sub", text: revealText(st, J) })];
     lost.forEach((id) => kids.push(E("p", { class: "ho-judge__loss" }, [dot(id), " " + nameOf(id) + " perd " + J.loss[id].loss + " main" + (J.loss[id].loss > 1 ? "s" : "") + (st.points ? "" : J.loss[id].after <= 0 ? ", il devient fantôme" : ""), E("small", { text: "   " + "✋".repeat(Math.max(0, J.loss[id].after)) })])));
     if (J.best) kids.push(E("p", { class: "ho-note", text: "Meilleur de l'épreuve  " + nameOf(J.best) + (st.cardsOn ? ", il pioche une carte." : ".") }));
-    const fx = pactCards(st, J); const spoken = new Set();
-    J.notes.forEach((n) => { if (!spoken.has(n)) kids.push(E("p", { class: "ho-note", text: n })); });
-    return E("div", { class: "ho-col" }, [E("div", { class: "ho-card" }, kids)].concat(fx));
+    const fx = pactCards(st, J); const spoken = new Set(); const notes = [];
+    J.notes.forEach((n) => { if (!spoken.has(n)) { spoken.add(n); notes.push(E("p", { class: "ho-note", text: n })); } });
+    const items = [E("div", { class: "ho-card" }, kids)];
+    if (notes.length) items.push(E("div", { class: "ho-card" }, [E("h3", { text: "Ce qui s'est passé" })].concat(notes)));
+    return E("div", { class: "ho-grid" }, items.concat(fx));
   }
   function buildOver() {
     const o = G.over; const kids = []; const top = o.rows.slice(0, 3); const order = top.length === 1 ? [top[0]] : top.length === 2 ? [top[1], top[0]] : [top[1], top[0], top[2]];

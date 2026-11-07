@@ -978,3 +978,30 @@ Cette archive contient tout le gameplay de la trente-sixième mise à jour plus 
 - La fluidité a été testée dans un navigateur de test, pas sur un vrai téléphone. Sur un appareil modeste, choisir la qualité basse coupe la lueur et le flou.
 - Certains changements sont discrets et difficiles à voir sur une capture, il faut jouer pour les juger.
 - Le dossier public/assets contient une cinquantaine de fichiers, vérifie qu'ils passent bien dans le dépôt.
+
+
+## Trente-huitième mise à jour, plus de minuteurs et Cristal Tordu simplifié
+
+### Cristal Tordu
+- L'Extralucide reçoit un seul dilemme par tour. Qu'il ait un rapport avec son mot ou non, il doit se débrouiller.
+- Il a un joker par manche. Une fois, il peut se défausser de son dilemme et en recevoir un nouveau tiré au hasard. Tous les modes en donnent un, sauf Expert.
+- Les anciens choix « les deux » et « aucun », la main de plusieurs dilemmes et le relancer sont supprimés. Les événements dilemme bonus et sablier le sont aussi.
+- Les enquêteurs éliminent autant de mots qu'ils veulent à chaque dilemme, il n'y a plus de limite par tour. Les robots gardent leur mesure habituelle.
+- Plus aucun minuteur, ni pour choisir le côté du dilemme, ni pour marquer les mots, ni pour le vote final. Le réglage du temps de discussion a disparu. Après chaque dilemme et chaque manche, chacun appuie sur un bouton pour continuer, et l'hôte peut forcer la suite si quelqu'un est parti.
+
+### Main Morte
+- Plus aucune limite de temps pour lire les règles, choisir ses cartes et ses pactes, ni lire les résultats. Il n'y a plus de lecture obligatoire minimale. On passe quand tout le monde a appuyé sur prêt, et l'hôte garde son bouton pour passer.
+- Les épreuves elles-mêmes gardent leur chronomètre, puisque c'est leur principe.
+- Le pied de page avec le bouton prêt est plus fin, la bulle de chat ne le cache plus sur téléphone, et en paysage les cartes et les pactes s'affichent côte à côte pour que les règles gardent presque tout l'écran.
+
+### Zoomalou
+- Quand la longueur des circuits est tirée au sort, tous les formats sortent maintenant, y compris très long et géant. Avant, seuls court, moyen et long pouvaient sortir.
+- Un pilote ou un robot bloqué est déclaré abandon, avec quinze secondes de pénalité, au lieu d'être attendu jusqu'à la fin.
+
+### Fichiers à déposer pour cette archive
+- Les dossiers zoomalou, sucre-ou-sale et hands-over en entier.
+- Le fichier README.md.
+
+### Limites connues
+- Je n'ai pas pu tester avec de vrais joueurs humains à plusieurs. Les essais ont été faits avec des robots et des clients simulés.
+- Si un joueur humain s'absente sans se déconnecter, les autres attendent, l'hôte doit alors forcer la suite.

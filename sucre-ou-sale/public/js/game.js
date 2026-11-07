@@ -71,7 +71,7 @@
     renderTop();
     const sc = $("#screen-game"); sc.style.setProperty("--t", String(s.tension || 0));
     sc.classList.toggle("sos-hot", (s.tension || 0) >= 0.7);
-    $("#sos-timer").classList.toggle("hidden", !(s.phase === "pick" || s.phase === "elim" || s.phase === "verdict" || s.phase === "reveal"));
+    $("#sos-timer").classList.add("hidden");
     const stage = $("#sos-stage"); const top = stage.scrollTop;
     stage.innerHTML = "";
     if (s.phase === "over") buildOver(stage);
@@ -108,7 +108,7 @@
     return box;
   }
   function playLine(s) {
-    const q = s.quota; const base = "Chacun peut marquer " + q + " mot" + (q > 1 ? "s" : "") + " par dilemme. ";
+    const base = "Chacun marque autant de mots qu'il veut, sans limite de temps. ";
     if (s.play === "solo") return base + "Chacun joue seul, personne ne voit tes marques.";
     if (s.play === "equipes") return base + "Deux équipes, la tienne et une rivale.";
     return base + (s.rule === "un" ? "Un seul joueur suffit à éliminer un mot." : s.rule === "unanimite" ? "Il faut l'accord de tous pour éliminer un mot." : "Il faut la majorité pour éliminer un mot.");
@@ -118,23 +118,18 @@
   function buildPick(st, s, iAmEx) {
     if (iAmEx) {
       st.appendChild(el("div", { class: "sos-card" }, [
-        el("h2", { text: s.needPicks > 1 ? "Dilemme bonus, carte " + (s.pickNo + 1) + " sur 2" : "Choisis un dilemme" }),
-        el("p", { class: "sos-hint", text: s.event && s.event.id === "inverse" ? "Dilemme inversé. Désigne le côté qui ressemble le MOINS à ton mot." : "Ces dilemmes sont tirés au hasard, certains collent à ton mot, d'autres pas du tout. Choisis celui que tu peux relier au mot, même de loin, et le côté qui lui ressemble." }),
+        el("h2", { text: "Ton dilemme" }),
+        el("p", { class: "sos-hint", text: s.event && s.event.id === "inverse" ? "Dilemme inversé. Désigne le côté qui ressemble le MOINS à ton mot." : "Ce dilemme est tiré au hasard, il peut coller à ton mot ou pas du tout. Qu'il y ait un rapport ou non, débrouille-toi, choisis le côté qui ressemble le plus à ton mot. Tu n'as aucune limite de temps." }),
         el("div", { class: "sos-secret" }, [el("span", { text: "Ton mot" }), el("b", { text: wordName(s, s.secretId) })]),
       ]));
       (s.hand || []).forEach((c) => {
         const btn = (side, txt) => el("button", { class: "sos-side sos-side--" + side, onclick: () => { Kit.socket.emit("sos:pick", { card: c.id, side }); sfx(() => sound.click()); } }, [el("small", { text: side === "A" ? "Sucré" : "Salé" }), el("b", { text: txt })]);
         st.appendChild(el("div", { class: "sos-hand" }, [btn("A", c.a), el("span", { class: "sos-vs", text: "ou" }), btn("B", c.b)]));
       });
-      if (s.joker && s.jokerOk) {
-        const hand = s.hand || [];
-        st.appendChild(el("div", { class: "sos-card sos-jokers" }, [el("b", { text: "Jokers, un seul par manche" }), el("p", { class: "small muted", text: "Si ton mot colle aux deux côtés ou à aucun, dis-le." }),
-          el("div", { class: "sos-jrow" }, hand.map((c) => el("div", { class: "sos-jcard" }, [el("span", { class: "small", text: c.a + " ou " + c.b }), el("button", { class: "btn btn--small btn--ghost", text: "Les deux", onclick: () => Kit.socket.emit("sos:pick", { card: c.id, side: "both" }) }), el("button", { class: "btn btn--small btn--ghost", text: "Aucun", onclick: () => Kit.socket.emit("sos:pick", { card: c.id, side: "none" }) })])))]));
-      }
-      if (s.rerollOk && !(s.picks && s.picks.length)) st.appendChild(el("div", { class: "sos-ctrl" }, [el("button", { class: "btn btn--ghost", text: "🔄 Rien ne colle, relancer mes dilemmes (une fois)", onclick: () => { Kit.socket.emit("sos:reroll"); sfx(() => sound.click()); } })]));
+      if (s.joker) st.appendChild(el("div", { class: "sos-ctrl" }, [s.jokerOk ? el("button", { class: "btn btn--ghost", text: "🃏 Joker, changer de dilemme (une fois par manche)", onclick: () => { Kit.socket.emit("sos:reroll"); sfx(() => sound.click()); } }) : el("p", { class: "sos-hint", text: "Ton joker est utilisé pour cette manche." })]));
       if (s.picks && s.picks.length) st.appendChild(dilemmaView(s));
     } else {
-      st.appendChild(el("div", { class: "sos-card sos-wait" }, [el("div", { class: "sos-ball" }, [el("span", { text: "🔮" })]), el("h2", { text: nameOf(s.extraId) + " réfléchit" }), el("p", { class: "sos-hint", text: "Il lit ses cartes et choisit le dilemme qui décrit le mieux son mot." }), s.event ? el("div", { class: "sos-event" }, [el("b", { text: s.event.label }), el("span", { text: s.event.text })]) : null]));
+      st.appendChild(el("div", { class: "sos-card sos-wait" }, [el("div", { class: "sos-ball" }, [el("span", { text: "🔮" })]), el("h2", { text: nameOf(s.extraId) + " réfléchit" }), el("p", { class: "sos-hint", text: "Il réfléchit au côté du dilemme qui ressemble le plus à son mot." }), s.event ? el("div", { class: "sos-event" }, [el("b", { text: s.event.label }), el("span", { text: s.event.text })]) : null]));
       if (s.picks && s.picks.length) st.appendChild(dilemmaView(s));
       st.appendChild(gridView(s, false, s.my !== undefined && s.my !== null));
     }
@@ -151,6 +146,12 @@
     });
     return box;
   }
+  // bouton de suite, aucun minuteur, on passe quand tous les joueurs présents sont prêts
+  function nextBtn(s, label) {
+    const row = el("div", { class: "sos-ctrl" }, [el("button", { class: "btn btn--accent btn--big", disabled: !!s.readyMe, text: s.readyMe ? "Prêt, on attend les autres (" + s.readyN + " sur " + s.humansN + ")" : label + " (" + s.readyN + " sur " + s.humansN + " prêts)", onclick: () => { Kit.socket.emit("sos:next"); sfx(() => sound.click()); } })]);
+    if (Kit.isHost() && s.humansN > 1) row.appendChild(el("button", { class: "btn btn--ghost btn--small", text: "Forcer la suite", onclick: () => Kit.socket.emit("sos:next", { force: true }) }));
+    return row;
+  }
   function resultView(s) {
     const r = s.result; if (!r) return el("div");
     const my = (r.groups || []).find((x) => x.id === s.my) || (r.groups || [])[0];
@@ -162,6 +163,7 @@
       else out.push(el("div", { class: "sos-gone" }, [el("b", { text: x.elim.length ? x.elim.length + " mot" + (x.elim.length > 1 ? "s" : "") + " éliminé" + (x.elim.length > 1 ? "s" : "") : "Aucun mot éliminé" }), el("span", { class: "small", text: x.elim.map((id) => wordName(s, id)).join(", ") })]));
     });
     if (my && my.busted) sfx(() => { if (!resultView.b) { resultView.b = 1; sound.fail(); setTimeout(() => { resultView.b = 0; }, 3000); } });
+    out.push(nextBtn(s, "Dilemme suivant"));
     return el("div", { class: "sos-card sos-result" }, out);
   }
 
@@ -249,7 +251,7 @@
       el("button", { class: "btn btn--ghost", text: "Finalement non", onclick: () => { G.early = false; Kit.socket.emit("sos:early", { word: -1 }); render(); } }),
     ]);
     return el("div", { class: "sos-ctrl" }, [
-      el("p", { class: "sos-hint", text: "Marque les mots à éliminer, " + used + " sur " + s.quota + ". " + (s.play === "solo" ? "" : "Les couleurs montrent qui a marqué quoi. ") + "Le 📌 sert à garder un œil sur un mot qui hésite." }),
+      el("p", { class: "sos-hint", text: "Marque autant de mots à éliminer que tu veux, " + used + " pour l'instant, prends ton temps. " + (s.play === "solo" ? "" : "Les couleurs montrent qui a marqué quoi. ") + "Le 📌 sert à garder un œil sur un mot qui hésite." }),
       el("button", { class: "btn btn--accent btn--big", text: valid ? "Marques validées, annuler" : "Je valide mes marques (" + nv + " sur " + total + " prêts)", onclick: () => { Kit.socket.emit(valid ? "sos:unvalid" : "sos:valid"); sfx(() => sound.click()); } }),
       left > 0 ? el("button", { class: "btn btn--ghost sos-early", text: "⚡ Je tiens mon mot" + (s.bonusEarly ? ", bonus jusqu'à +" + Math.min(3, left) : ""), onclick: () => { G.early = true; sfx(() => sound.click()); render(); } }) : null,
     ]);
@@ -274,7 +276,7 @@
     else st.appendChild(el("div", { class: "sos-card" }, [el("h3", { text: "Personne ne marque" })]));
     if (rv.steps && rv.steps.length) st.appendChild(el("div", { class: "sos-card" }, [el("h3", { text: "Les réponses de l'Extralucide" }), el("div", { class: "sos-recap" }, rv.steps.map((x) => el("div", { class: "sos-recap__row" }, x.picks.map((p) => el("span", { class: "small", text: p.a + " ou " + p.b + (p.side === "both" ? "  ·  les deux" : p.side === "none" ? "  ·  aucun" : "  ·  " + (p.side === "A" ? p.a : p.b)) + (p.inv ? " (inversé)" : "") })))))]));
     const host = Kit.isHost();
-    st.appendChild(el("div", { class: "sos-ctrl" }, [host ? el("button", { class: "btn btn--accent btn--big", text: "Manche suivante", onclick: () => Kit.socket.emit("sos:next") }) : el("p", { class: "sos-hint", text: "La manche suivante démarre toute seule." })]));
+    st.appendChild(nextBtn(s, "Manche suivante")); if (false) st.appendChild(el("div", { class: "sos-ctrl" }, [host ? el("button", { class: "btn btn--accent btn--big", text: "Manche suivante", onclick: () => Kit.socket.emit("sos:next") }) : el("p", { class: "sos-hint", text: "La manche suivante démarre toute seule." })]));
     if (rv.groups.some((g) => g.ok)) sfx(() => { if (!buildReveal.w) { buildReveal.w = 1; sound.win(); setTimeout(() => { buildReveal.w = 0; }, 4000); } });
   }
 
@@ -293,16 +295,6 @@
   }
 
   // ---------- horloge ----------
-  setInterval(() => {
-    const s = G.st; if (!s || !Kit.room) return;
-    const fill = $("#sos-timer-fill"), txt = $("#sos-timer-txt"), tm = $("#sos-timer"); if (!fill || !tm || tm.classList.contains("hidden")) return;
-    const left = Math.max(0, s.phaseUntil - snow()); const pct = Math.max(0, Math.min(100, (left / s.phaseTotal) * 100));
-    fill.style.width = pct + "%"; txt.textContent = secs(left) + " s";
-    tm.classList.toggle("sos-timer--hot", pct < 25 && s.phase !== "reveal");
-    const sec = secs(left);
-    if (s.phase !== "reveal" && pct < 25 && sec > 0 && sec !== G.lastTick) { G.lastTick = sec; sfx(() => sound.tone(sec <= 3 ? 880 : 660, 0.05, "square", 0.05)); }
-  }, 250);
-
   // ---------- branchement ----------
   Kit.on("reset", () => { G.st = null; G.over = null; G.sig = ""; G.phaseKey = ""; G.prevElim = null; });
   Kit.on("room", (r) => { if (r.status === "lobby") { G.st = null; G.over = null; G.phaseKey = ""; G.prevElim = null; } else if (G.st) renderTop(); });
@@ -315,13 +307,13 @@
     colors: COLORS, botLevels: [{ id: "naif", label: "Naïf" }, { id: "fute", label: "Futé" }, { id: "genie", label: "Génie" }], maxPlayers: 8, minPlayers: 2, schema: R.SCHEMA,
     help: [
       { title: "Le principe", text: "À chaque manche, un joueur devient l'Extralucide. Il connaît un mot secret caché dans une grille. Les autres sont des enquêteurs, ils doivent trouver ce mot sans jamais l'éliminer." },
-      { title: "Les dilemmes", text: "L'Extralucide reçoit plusieurs dilemmes tirés au hasard, sans rapport avec son mot. Certains collent bien, d'autres pas du tout. Il choisit celui qu'il peut relier à son mot, même de loin, puis le côté qui lui ressemble. Si rien ne va, il relance sa main une fois." },
+      { title: "Les dilemmes", text: "L'Extralucide reçoit un seul dilemme par tour, tiré au hasard. Qu'il ait un rapport avec son mot ou non, il doit se débrouiller pour désigner le côté qui lui ressemble. Une fois par manche, il peut utiliser son joker pour se défausser du dilemme et en recevoir un nouveau." },
       { title: "Éliminer", text: "Après chaque dilemme, les enquêteurs discutent et marquent les mots qui collent à l'autre côté. Un mot marqué par assez de monde disparaît, selon la règle choisie par l'hôte. Si le mot secret disparaît, c'est perdu. Le 📌 permet de garder un œil sur un mot qui hésite." },
       { title: "Les post-it", text: "Chaque dilemme joué laisse un post-it avec la réponse de l'Extralucide, les mots éliminés et ceux qui ont hésité. Touche un post-it pour relire les détails." },
-      { title: "Gagner vite", text: "Les cinq dilemmes sont un maximum. Quand le groupe est sûr, il peut annoncer son mot en avance avec le bouton éclair et gagner un bonus de rapidité. Mais s'il se trompe, la manche est perdue." },
+      { title: "Gagner vite", text: "Les cinq dilemmes sont un maximum, et il n'y a aucune limite de temps ni de mots éliminés par dilemme. Quand le groupe est sûr, il peut annoncer son mot en avance avec le bouton éclair et gagner un bonus de rapidité. Mais s'il se trompe, la manche est perdue." },
       { title: "Les prénoms", text: "Des prénoms de joueurs se cachent parmi les mots. Si l'Extralucide doit faire deviner un prénom, servez-vous de ce que vous savez de la personne." },
-      { title: "Les jokers", text: "Une fois par manche, l'Extralucide peut répondre « les deux » ou « aucun » quand son mot ne rentre dans aucun côté, selon les réglages." },
-      { title: "Les événements", text: "Selon les réglages, un dilemme peut être inversé, doublé, chronométré par un sablier, ou ramener un mot éliminé. L'événement est annoncé en plein écran." },
+      { title: "Les jokers", text: "Une fois par manche, l'Extralucide peut se défausser de son dilemme et en recevoir un nouveau tiré au hasard. Le mode Expert n'en donne pas." },
+      { title: "Les événements", text: "Selon les réglages, un dilemme peut être inversé ou ramener un mot éliminé. L'événement est annoncé en plein écran." },
       { title: "Les modes", text: "Classique et Express se jouent tous ensemble. Expert agrandit la grille et durcit les dilemmes. Chaos mise sur l'absurde. Équipes oppose deux groupes. Tournoi se joue chacun pour soi avec une dernière manche double." },
       { title: "Les robots", text: "Naïf devine à peu près et oublie vite. Futé raisonne dilemme par dilemme. Génie cumule tous les indices et évite de prendre des risques inutiles." },
     ],

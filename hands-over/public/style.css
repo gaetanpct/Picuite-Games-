@@ -151,3 +151,73 @@
 @media (max-width: 520px) { .ho-brief__icon { font-size: 4.2rem; } .ho-two { grid-template-columns: 1fr; } .ho-count { font-size: 6.5rem; } }
 .ho-ctrl--sticky { position: sticky; bottom: -5.2rem; z-index: 3; margin-bottom: -4.4rem; padding: 0.5rem 0.5rem 5.2rem; gap: 0.3rem; background: rgba(10, 2, 6, 0.97); border-top: 2px solid rgba(230, 57, 70, 0.5); border-radius: 18px 18px 0 0; }
 .ho-goalline { margin: 0.2rem 0; padding: 0.3rem 0.6rem; border-radius: 10px; background: rgba(255, 210, 63, 0.16); border: 2px solid #ffd23f; font-weight: 700; font-size: 0.95rem; }
+
+/* Refonte de la disposition, plus de barre qui recouvre, pied de page fixe, deux colonnes sur grand écran */
+.ho-main { padding-bottom: 0.9rem; }
+.ho-ui.ho-ph-brief .ho-stage-top, .ho-ui.ho-ph-prep .ho-stage-top { display: none; }
+.ho-ui.ho-ph-judge .ho-stage-top { flex-basis: 15%; min-height: 70px; }
+.ho-ui.ho-wide .ho-main { max-width: 1120px; }
+.ho-foot { flex: none; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; padding: 0.55rem 0.8rem calc(0.55rem + env(safe-area-inset-bottom, 0px)); background: rgba(10, 2, 6, 0.97); border-top: 2px solid rgba(230, 57, 70, 0.55); }
+.ho-foot.hidden { display: none; }
+.ho-foot__row { display: flex; align-items: center; gap: 0.6rem; width: 100%; max-width: 760px; }
+.ho-foot__btn { flex: 1; }
+.ho-foot .ho-wait { max-width: 760px; width: 100%; text-align: center; }
+.ho-grid { display: grid; grid-template-columns: 1fr; gap: 0.6rem; align-content: start; }
+.ho-span { grid-column: 1 / -1; }
+.ho-brief { text-align: left; }
+.ho-brief__head { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.5rem; }
+.ho-brief__icon { font-size: 3.6rem; animation: none; }
+.ho-brief__name { font-size: 1.7rem !important; margin: 0.1rem 0 0 !important; }
+.ho-brief__tt { min-width: 0; }
+.ho-tabs { display: flex; gap: 0.4rem; }
+.ho-tab { flex: 1; padding: 0.55rem 0.4rem; border-radius: 14px; border: 2px solid rgba(255, 255, 255, 0.25); background: rgba(18, 6, 10, 0.9); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.ho-tab--on { border-color: #ffd23f; background: rgba(255, 210, 63, 0.22); color: #ffd23f; }
+.ho-pane { min-width: 0; }
+.ho-pane--off { display: none; }
+.ho-rules { display: flex; flex-direction: column; gap: 0.1rem; }
+.ho-rules__h { margin-top: 0.8rem !important; }
+.ho-rule { display: flex; gap: 0.55rem; align-items: flex-start; margin: 0.25rem 0; padding: 0.3rem 0.45rem; background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
+.ho-rule p { margin: 0; font-size: 0.85rem; line-height: 1.35; }
+.ho-rule__ic { font-size: 1.3rem; flex: none; width: 1.7rem; text-align: center; }
+.ho-incoming { padding: 0.5rem; border: 2px solid #ffd23f; border-radius: 14px; background: rgba(255, 210, 63, 0.08); margin: 0.4rem 0; }
+.ho-target-box { margin-top: 0.4rem; padding-top: 0.3rem; border-top: 1px dashed rgba(255, 255, 255, 0.25); }
+.ho-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.45rem; }
+@media (min-width: 900px) {
+  .ho-ui.ho-wide .ho-grid { grid-template-columns: 1fr 1fr; align-items: start; }
+  .ho-tabs { display: none; }
+  .ho-pane--off { display: block; }
+  .ho-brief__icon { font-size: 4.4rem; }
+  .ho-brief__name { font-size: 2.1rem !important; }
+  .ho-goal b { font-size: 1.5rem; }
+}
+@media (max-width: 700px) {
+  .ho-foot { padding-right: 4.8rem; }
+  .ho-ph-brief .ho-quip, .ho-ph-prep .ho-quip { display: none; }
+  .ho-ph-brief .ho-top, .ho-ph-prep .ho-top { padding-bottom: 0; }
+  .ho-two { grid-template-columns: 1fr; }
+}
+
+/* Pied de page compact, les règles, les cartes et les pactes gardent toute la place */
+.ho-foot { gap: 0.1rem; padding: 0.3rem 0.7rem calc(0.3rem + env(safe-area-inset-bottom, 0px)); }
+.ho-foot .ho-foot__btn { padding: 0.5rem 0.9rem !important; font-size: 1rem !important; min-height: 0 !important; line-height: 1.15; }
+.ho-foot__skip { padding: 0.35rem 0.7rem !important; }
+.ho-foot .ho-wait { font-size: 0.72rem; line-height: 1.2; }
+.ho-main { padding-bottom: 0.6rem; }
+@media (max-height: 560px) {
+  .ho-foot { flex-direction: row; align-items: center; gap: 0.6rem; }
+  .ho-foot__row { flex: 1; max-width: none; }
+  .ho-foot .ho-wait { width: auto; max-width: 38%; text-align: left; }
+  .ho-ph-brief .ho-top, .ho-ph-prep .ho-top, .ho-ph-judge .ho-top { padding-top: 0.15rem; }
+  .ho-ui.ho-ph-judge .ho-stage-top { display: none; }
+}
+@media (max-width: 700px) { .ho-foot { padding-right: 4.9rem; } }
+/* paysage sur téléphone, cartes et pacte côte à côte, la lecture garde presque tout l'écran */
+@media (max-height: 560px) and (min-width: 600px) {
+  .ho-ui.ho-wide .ho-grid { grid-template-columns: 1fr 1fr; align-items: start; }
+  .ho-tabs { display: none; }
+  .ho-pane--off { display: block; }
+  .ho-ph-brief .ho-quip, .ho-ph-prep .ho-quip, .ho-ph-judge .ho-quip { display: none; }
+  .ho-brief__icon { font-size: 2.4rem; }
+  .ho-brief__name { font-size: 1.3rem !important; }
+}
+@media (max-height: 560px) { .ho-card { padding: 0.45rem 0.7rem; } .ho-main { padding-top: 0.15rem; gap: 0.4rem; } }

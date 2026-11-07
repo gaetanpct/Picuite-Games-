@@ -23,7 +23,7 @@ function start(room, api) {
   const g = room.g = { api, s, phase: "intro", until: 0, round: 0, rounds: s.rounds, P: {}, ch: null, c: null, mem: {}, history: [], timer: null, over: false, final: null, quip: pick(HOST.intro), seq: 0, pacts: [], props: [], plays: [], used: [], res: null, mod: null, notes: [], lastChange: 0, botT: 0 };
   const teamOf = {}; if (s.teams && ids.length >= 2) shuffle(ids).forEach((id, i) => { teamOf[id] = i % 2; });
   room.players.forEach((p) => { g.P[p.id] = { hands: s.hands, max: s.hands, alive: !p.left, ghost: false, cards: [], points: 0, team: teamOf[p.id] !== undefined ? teamOf[p.id] : null, shield: 0, mark: 0, st: { wins: 0, loses: 0, played: 0, betrayals: 0, ghostWins: 0, helped: 0, betrayed: 0, revived: 0 }, rancune: 0, intel: null, revived: false, briefOk: false }; if (s.cards) { g.P[p.id].cards.push(pickOne(CARD_IDS)); g.P[p.id].cards.push(pickOne(CARD_IDS)); } });
-  g.until = Date.now() + 5500 * TS;
+  g.until = 0; g.total = 0;
   api.sysChat(room, "Le plateau est prêt. Mode " + s.mode + ", " + s.hands + " main" + (s.hands > 1 ? "s" : "") + " chacun.");
   g.timer = setInterval(() => { try { tick(room); } catch (e) { console.error("tick ho", e); } }, 200);
   emitAll(room);
@@ -36,17 +36,19 @@ const draw = (g, id, n) => { const P = g.P[id]; for (let i = 0; i < (n || 1); i+
 // ---------- boucle ----------
 function tick(room) {
   const g = room.g; if (!g || g.over) return; const now = Date.now();
-  if (g.phase === "intro") { if (now >= g.until) nextRound(room); return; }
+  if (g.phase === "intro") { const hu = present(room).filter((p) => !autoCtl(p)); if (hu.length === 0 || hu.every((p) => g.P[p.id].briefOk)) nextRound(room); return; }
   if (g.phase === "brief") {
     botBrief(room, now);
     const humans = present(room).filter((p) => !autoCtl(p));
     const allReady = humans.length === 0 || humans.every((p) => g.P[p.id].briefOk);
-    if (now >= g.briefMin && (allReady || now >= g.until)) leaveBrief(room); return;
+    if (allReady) leaveBrief(room); return;
   }
   if (g.phase === "prep") {
     botPrep(room, now);
     const humans = present(room).filter((p) => !autoCtl(p) && g.P[p.id].alive);
-    if (now >= g.until || (humans.length && humans.every((p) => g.P[p.id].ready))) startCount(room); return;
+    // aucune limite de temps, on passe quand tous les humains en vie sont prêts. Sans humain en vie, quand les robots ont fini
+    const botsDone = present(room).every((p) => !autoCtl(p) || !g.P[p.id].alive || g.P[p.id].ready || (g.mem[p.id] && g.mem[p.id].prepAt && now >= g.mem[p.id].prepAt));
+    if (humans.length ? humans.every((p) => g.P[p.id].ready) : botsDone) startCount(room); return;
   }
   if (g.phase === "count") { if (now >= g.until) startPlay(room); return; }
   if (g.phase === "play") {
@@ -56,7 +58,12 @@ function tick(room) {
     if (mod.isDone(c, now)) return judge(room);
     if (ch || now - g.lastChange > 700) { g.lastChange = now; emitAll(room); } return;
   }
-  if (g.phase === "judge") { if (now >= g.until) afterJudge(room); return; }
+  if (g.phase === "judge") {
+    // les robots finissent de lire au bout de quelques secondes, tout le monde prêt fait passer à la suite
+    present(room).forEach((p) => { if (!autoCtl(p)) return; const P = g.P[p.id]; if (!P || P.briefOk) return; const m = g.mem[p.id] || (g.mem[p.id] = {}); if (!m.judgeAt) m.judgeAt = now + (2500 + rng() * 5500) * TS; if (now >= m.judgeAt) { P.briefOk = true; emitAll(room); } });
+    const hu = present(room).filter((p) => !autoCtl(p));
+    if (hu.length ? hu.every((p) => g.P[p.id].briefOk) : present(room).every((p) => g.P[p.id].briefOk)) afterJudge(room); return;
+  }
 }
 
 // ---------- tour ----------
@@ -81,13 +88,13 @@ function nextRound(room) {
   g.speed = speed; g.phase = "brief"; g.quip = pick(HOST.next); g.c = null; g.alarm = false;
   const B = BRIEF[id] || { goal: "", cmds: [], lose: "", tip: "" }; const text = [def.rules, B.goal, B.lose, B.tip, briefExtra(id, g.pre)].concat((B.cmds || []).map((x) => x[1])).join(" ");
   const words = text.split(/\s+/).length; const minMs = Math.min(26000, Math.max(10000, 4500 + words * 300));
-  g.briefMin = Date.now() + minMs * TS; g.until = Date.now() + 70000 * TS; g.briefMinMs = minMs * TS;
+  g.briefMin = 0; g.until = 0; g.total = 0; g.briefMinMs = 0;
   Object.values(g.P).forEach((P) => { P.briefOk = false; });
   emitAll(room);
 }
 function leaveBrief(room) {
   const g = room.g, s = g.s; const useful = s.cards || s.pacts;
-  if (useful && aliveIds(room).length >= 1) { g.phase = "prep"; g.until = Date.now() + 30000 * TS; emitAll(room); }
+  if (useful && aliveIds(room).length >= 1) { g.phase = "prep"; g.total = 0; g.until = 0; emitAll(room); }
   else startCount(room);
 }
 function startCount(room) { const g = room.g; g.phase = "count"; g.until = Date.now() + 3300 * TS; emitAll(room); }
@@ -158,7 +165,9 @@ function judge(room) {
   g.judged = { id: g.ch.id, losers, pev, revived: ghostWin && g.P[ghostWin].alive ? ghostWin : null, loss: outs, scores: res.scores, reveal: res.reveal, notes: g.notes.slice(), best: bestId || null, ghostWin };
   g.history.push({ round: g.round, id: g.ch.id, name: g.ch.name, losers: losers.map((x) => nm(room, x)), best: bestId ? nm(room, bestId) : null });
   const anyDown = dead.length && !s.points; g.quip = anyDown ? pick(HOST.ghost) : losers.length ? pick(HOST.lose) : pick(HOST.none);
-  g.phase = "judge"; g.until = Date.now() + 9500 * TS; emitAll(room);
+  const lines = losers.length + g.notes.length + pev.length + (bestId ? 1 : 0); g.total = Math.min(45000, Math.max(16000, 9000 + lines * 3200)) * TS;
+  Object.values(g.P).forEach((Q) => { Q.briefOk = false; }); g.mem = {};
+  g.phase = "judge"; g.until = 0; g.total = 0; emitAll(room);
 }
 function nm(room, id) { const p = byId(room, id); return p ? p.name : "?"; }
 function afterJudge(room) {
@@ -254,11 +263,11 @@ function botPrep(room, now) {
 // ---------- état envoyé ----------
 function publicState(room, forId) {
   const g = room.g, s = g.s; const now = Date.now(); const P = g.P[forId] || {};
-  const st = { phase: g.phase, left: g.until ? Math.max(0, g.until - now) : 0, mode: s.mode, sfx: s.sfx, countTotal: 3300 * TS, round: g.round, rounds: g.rounds, quip: g.quip, you: forId, seq: ++g.seq, teams: s.teams, points: s.points, cardsOn: s.cards, pactsOn: s.pacts, modifier: g.mod ? Object.assign({ id: g.mod }, MODS[g.mod]) : null, now,
+  const st = { phase: g.phase, left: g.until ? Math.max(0, g.until - now) : 0, mode: s.mode, sfx: s.sfx, countTotal: 3300 * TS, total: g.total || 0, round: g.round, rounds: g.rounds, quip: g.quip, you: forId, seq: ++g.seq, teams: s.teams, points: s.points, cardsOn: s.cards, pactsOn: s.pacts, modifier: g.mod ? Object.assign({ id: g.mod }, MODS[g.mod]) : null, now,
     players: room.players.map((p) => { const Q = g.P[p.id]; return { id: p.id, hands: Q.hands, max: Q.max, alive: Q.alive, points: Q.points, team: Q.team, cardsN: Q.cards.length, ready: !!Q.ready, read: !!Q.briefOk, ghost: !Q.alive, rancune: Q.rancune > 0, mark: Q.mark > 0, revived: !!Q.revived, auto: autoCtl(p) && !p.isBot, pact: g.pacts.some((x) => x.a === p.id || x.b === p.id) }; }),
     me: { cards: (P.cards || []).slice(), alive: !!P.alive, shield: !!P.shield, mirror: P.mirror || null, dbl: !!P.dbl, intel: P.intel || null, rancune: P.rancune | 0, ready: !!P.ready, read: !!P.briefOk, props: g.props.filter((x) => x.to === forId || x.from === forId), pact: (g.pacts.find((x) => x.a === forId || x.b === forId) || null) && (() => { const x = g.pacts.find((y) => y.a === forId || y.b === forId); return { with: x.a === forId ? x.b : x.a, loyal: x.a === forId ? x.la : x.lb }; })() },
     plays: g.plays.map((x) => ({ by: x.by, card: x.card, target: x.target })), ch: g.ch, alarm: !!g.alarm };
-  if (g.ch && (g.phase === "brief" || g.phase === "prep" || g.phase === "count" || g.phase === "play")) { const B = BRIEF[g.ch.id] || {}; st.brief = { icon: B.icon || "🖐️", goal: B.goal || "", cmds: B.cmds || [], lose: B.lose || "", tip: B.tip || "", extra: briefExtra(g.ch.id, g.pre), minLeft: g.phase === "brief" ? Math.max(0, g.briefMin - now) : 0, minTotal: g.briefMinMs || 0 }; }
+  if (g.ch && (g.phase === "brief" || g.phase === "prep" || g.phase === "count" || g.phase === "play")) { const B = BRIEF[g.ch.id] || {}; st.brief = { icon: B.icon || "🖐️", goal: B.goal || "", cmds: B.cmds || [], lose: B.lose || "", tip: B.tip || "", extra: briefExtra(g.ch.id, g.pre), minLeft: 0, minTotal: g.briefMinMs || 0 }; }
   if (g.c && (g.phase === "play" || g.phase === "judge")) { const def = D[g.ch.id]; st.view = def.view(g.c, forId, now); st.part = g.c.part; st.amIn = g.c.part.includes(forId); }
   if (g.phase === "judge" && g.judged) st.judged = g.judged;
   return st;
@@ -286,13 +295,13 @@ function bind(socket, helpers, api) {
   }));
   socket.on("ho:ready", safe(() => {
     const c = cur(); if (!c) return; const P = c.g.P[c.p.id]; if (!P) return;
-    if (c.g.phase === "brief") { P.briefOk = true; emitAll(c.room); }
+    if (c.g.phase === "brief" || c.g.phase === "intro" || c.g.phase === "judge") { P.briefOk = true; emitAll(c.room); }
     else if (c.g.phase === "prep" && P.alive) { P.ready = true; emitAll(c.room); }
   }));
   socket.on("ho:skip", safe(() => {
     const c = cur(); if (!c || !helpers.isHost()) return; const now = Date.now();
     if (c.g.phase === "intro") nextRound(c.room);
-    else if (c.g.phase === "brief") { if (now < c.g.briefMin) return toast("Laisse à tout le monde le temps de lire les règles."); leaveBrief(c.room); }
+    else if (c.g.phase === "brief") { leaveBrief(c.room); }
     else if (c.g.phase === "prep") startCount(c.room);
     else if (c.g.phase === "judge") afterJudge(c.room);
   }));

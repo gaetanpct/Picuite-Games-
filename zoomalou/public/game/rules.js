@@ -61,7 +61,7 @@
       { id: "elements", label: "Quantité d'éléments sur le circuit", type: "chips", default: "auto", options: [{ value: "auto", label: "Selon la difficulté" }, { value: "peu", label: "Peu" }, { value: "moyen", label: "Moyenne" }, { value: "beaucoup", label: "Beaucoup" }], info: "Règle le nombre de virages serrés, de sauts, d'obstacles, de ponts et de montées. Selon la difficulté, un circuit facile en a peu et reste large, un circuit très difficile en a beaucoup et se resserre souvent." },
       { id: "hills", label: "Relief", type: "range", min: 0, max: 3, step: 1, default: 2, format: (v) => ["plat", "doux", "vallonné", "montagneux"][v], info: "Les bosses font décoller la voiture, les côtes la ralentissent." },
       { id: "rnd", label: "Circuits différents à chaque course", type: "multi", default: [], options: [
-        { value: "size", label: "Longueur", icon: "📏", desc: "Court, moyen ou long, tiré au sort à chaque course." },
+        { value: "size", label: "Longueur", icon: "📏", desc: "Court, moyen, long, très long ou géant, tiré au sort à chaque course." },
         { value: "difficulty", label: "Difficulté", icon: "🎯", desc: "Facile, intermédiaire ou difficile, tiré au sort à chaque course." },
         { value: "elements", label: "Quantité d'éléments", icon: "🧩", desc: "Peu, moyenne ou beaucoup d'obstacles, de tremplins, de virages et de turbos." },
         { value: "hills", label: "Relief", icon: "⛰️", desc: "Plat, doux, vallonné ou montagneux, tiré au sort à chaque course." },
@@ -115,8 +115,8 @@
   function pickBiome(s, i, r) { const l = s.biomes; if (s.biomeOrder === "unique") return l[0]; if (s.biomeOrder === "ordre") return l[i % l.length]; return l[Math.floor(r() * l.length)]; }
   // génère le circuit numéro index d'une partie, identique pour le serveur et pour l'aperçu du salon
   // valeurs tirées au sort pour la course numéro index. Chaque paramètre a son propre tirage et ne reprend jamais la valeur de la course d'avant
-  const RND_SETS = { size: [1, 2, 3], difficulty: ["facile", "moyen", "dur"], elements: ["peu", "moyen", "beaucoup"], hills: [0, 1, 2, 3], crash: ["doux", "normal", "brutal"] };
-  const RND_LABEL = { size: { 1: "courte", 2: "moyenne", 3: "longue" }, difficulty: { facile: "facile", moyen: "intermédiaire", dur: "difficile" }, elements: { peu: "peu d'éléments", moyen: "éléments moyens", beaucoup: "beaucoup d'éléments" }, hills: { 0: "plat", 1: "relief doux", 2: "vallonné", 3: "montagneux" }, crash: { doux: "chocs doux", normal: "chocs normaux", brutal: "chocs brutaux" } };
+  const RND_SETS = { size: [1, 2, 3, 4, 5], difficulty: ["facile", "moyen", "dur"], elements: ["peu", "moyen", "beaucoup"], hills: [0, 1, 2, 3], crash: ["doux", "normal", "brutal"] };
+  const RND_LABEL = { size: { 1: "courte", 2: "moyenne", 3: "longue", 4: "très longue", 5: "géante" }, difficulty: { facile: "facile", moyen: "intermédiaire", dur: "difficile" }, elements: { peu: "peu d'éléments", moyen: "éléments moyens", beaucoup: "beaucoup d'éléments" }, hills: { 0: "plat", 1: "relief doux", 2: "vallonné", 3: "montagneux" }, crash: { doux: "chocs doux", normal: "chocs normaux", brutal: "chocs brutaux" } };
   const DIFF_VALUE = (tier, r) => (tier === "facile" ? 1 + Math.floor(r() * 2) : tier === "dur" ? 4 + Math.floor(r() * 2) : 3);
   function drawFor(key, baseSeed, index) {
     const set = RND_SETS[key]; let prev = null, v = null;
