@@ -287,10 +287,17 @@
           for (let q = 0; q < SEG; q++) { const t0 = Math.PI * q / SEG, t1 = Math.PI * (q + 1) / SEG; const pa0 = P(i, ca + Math.cos(t0) * ra, da + Math.sin(t0) * ha), pa1 = P(i, ca + Math.cos(t1) * ra, da + Math.sin(t1) * ha), pb0 = P(i + 1, cb + Math.cos(t0) * rb, db + Math.sin(t0) * hb), pb1 = P(i + 1, cb + Math.cos(t1) * rb, db + Math.sin(t1) * hb); quad(pa0, pb0, pa1, pb1, tcol.clone().multiplyScalar(0.85 + 0.15 * ((i >> 2) % 2)), tp, tc); }
           if ((i - tu.a) % 7 === 0) lights.push(P(i, ca, da + ha - 0.35));
         }
-        // butte de terre au-dessus des tunnels hors ville
-        if (B.id !== "megapole" && B.id !== "usine" && tu.lane < 0) { const mid = Math.floor((tu.a + tu.b) / 2); const len = (tu.b - tu.a) * tr.step; const hill = mesh(G.sph(1, 10, 6), mat(B.ground), X[mid], Y[mid] + 4.5, Z[mid]); hill.scale.set(W[mid] + 7, 4.2, len * 0.55); hill.rotation.y = H[mid]; group.add(hill); }
+        // butte de terre collée à la voûte, elle suit la route et s'amincit aux deux bouts
+        if (B.id !== "megapole" && B.id !== "usine" && tu.lane < 0) {
+          const gcol = col(B.ground).multiplyScalar(0.82);
+          for (let i = tu.a; i < tu.b && i < n - 1; i++) {
+            const e0 = 1.5 * Math.min(1, Math.min(i - tu.a, tu.b - i) / 8), e1 = 1.5 * Math.min(1, Math.min(i + 1 - tu.a, tu.b - i - 1) / 8);
+            const ra = W[i] + 0.7, rb = W[i + 1] + 0.7, ha = Math.max(5.2, ra * 0.9), hb = Math.max(5.2, rb * 0.9);
+            for (let q = 0; q < 8; q++) { const t0 = Math.PI * q / 8, t1 = Math.PI * (q + 1) / 8; const pa0 = P(i, Math.cos(t0) * (ra + e0), Math.sin(t0) * (ha + e0) + 0.05), pa1 = P(i, Math.cos(t1) * (ra + e0), Math.sin(t1) * (ha + e0) + 0.05), pb0 = P(i + 1, Math.cos(t0) * (rb + e1), Math.sin(t0) * (hb + e1) + 0.05), pb1 = P(i + 1, Math.cos(t1) * (rb + e1), Math.sin(t1) * (hb + e1) + 0.05); quad(pa0, pb0, pa1, pb1, gcol.clone().multiplyScalar(0.92 + 0.08 * ((i >> 2) % 2)), tp, tc); }
+          }
+        }
       });
-      if (tp.length) { const g2 = new T.BufferGeometry(); g2.setAttribute("position", new T.Float32BufferAttribute(tp, 3)); g2.setAttribute("color", new T.Float32BufferAttribute(tc, 3)); g2.computeVertexNormals(); const tm = new T.Mesh(g2, new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true, side: T.DoubleSide })); tm.castShadow = View.quality !== "low"; group.add(tm); }
+      if (tp.length) { const g2 = new T.BufferGeometry(); g2.setAttribute("position", new T.Float32BufferAttribute(tp, 3)); g2.setAttribute("color", new T.Float32BufferAttribute(tc, 3)); g2.computeVertexNormals(); const tm = new T.Mesh(g2, new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true, side: T.DoubleSide })); tm.castShadow = false; tm.receiveShadow = false; group.add(tm); }
       const lm = new T.MeshBasicMaterial({ color: lcol }); lights.forEach((p) => group.add(new T.Mesh(G.box(1.6, 0.18, 0.6), lm).translateX(p[0]).translateY(p[1]).translateZ(p[2])));
     }
     // pastilles turbo
@@ -392,7 +399,7 @@
   function buildTrackside(tr) {
     const MD = window.ZoomModels && ZoomModels.ready ? ZoomModels : null; if (!MD || !MD.deco.grandStandCovered) return null;
     const g = new T.Group(); const n = tr.n, FL = tr.flags, FG = Track.FLAG; const VW = tr.vw || [];
-    const bad = (i) => (FL[i] & (FG.MAG | FG.OVER | FG.UNDER | FG.NOWALL | FG.FORK | FG.XING | FG.CUT | FG.GAP | FG.TUNNEL | FG.MOVE)) !== 0;
+    const bad = (i) => (FL[i] & (FG.MAG | FG.OVER | FG.UNDER | FG.NOWALL | FG.FORK | FG.XING | FG.CUT | FG.GAP | FG.TUNNEL | FG.MOVE | FG.BANK)) !== 0;
     const place = (k, i, side, off, face, s) => { const o = MD.decoObject(k); if (!o) return null; const u = side * (tr.w[i] + (VW[i] || 0) + off); o.position.set(tr.x[i] - Math.cos(tr.h[i]) * u, tr.y[i] - 0.05, tr.z[i] + Math.sin(tr.h[i]) * u); o.rotation.y = tr.h[i] + (face ? (side > 0 ? -Math.PI / 2 : Math.PI / 2) : 0); if (s) o.scale.setScalar(s); g.add(o); return o; };
     const B = tr.biome; const st = tr.start.idx;
     // départ

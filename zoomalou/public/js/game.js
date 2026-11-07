@@ -186,7 +186,7 @@
     if (k.arrowleft || t.left) steer -= 1; if (k.arrowright || t.right) steer += 1;
     let thr = (k.arrowup || t.gas) ? 1 : 0, brk = (k.arrowdown || t.brake) ? 1 : 0;
     const gp = navigator.getGamepads ? navigator.getGamepads()[0] : null;
-    if (gp) { const ax = gp.axes[0] || 0; if (Math.abs(ax) > 0.12) steer = clamp(ax, -1, 1); if ((gp.buttons[7] && gp.buttons[7].value > 0.1) || (gp.buttons[0] && gp.buttons[0].pressed)) thr = 1; if (gp.buttons[6] && gp.buttons[6].value > 0.1) brk = 1; if (gp.buttons[2] && gp.buttons[2].pressed && !G.gpRst) { G.rstReq = true; G.gpRst = true; } if (!(gp.buttons[2] && gp.buttons[2].pressed)) G.gpRst = false; if (gp.buttons[3] && gp.buttons[3].pressed && !G.gpRs) { G.gpRs = true; restartAttempt(); } if (!(gp.buttons[3] && gp.buttons[3].pressed)) G.gpRs = false; const lb = !!(gp.buttons[4] && gp.buttons[4].pressed); if (lb !== !!G.gpBack) { G.gpBack = lb; V.lookBack(lb); } }
+    if (gp) { const ax = gp.axes[0] || 0; if (Math.abs(ax) > 0.2) steer = clamp((Math.abs(ax) - 0.2) / 0.8 * Math.sign(ax), -1, 1); if ((gp.buttons[7] && gp.buttons[7].value > 0.1) || (gp.buttons[0] && gp.buttons[0].pressed)) thr = 1; if (gp.buttons[6] && gp.buttons[6].value > 0.1) brk = 1; if (gp.buttons[2] && gp.buttons[2].pressed && !G.gpRst) { G.rstReq = true; G.gpRst = true; } if (!(gp.buttons[2] && gp.buttons[2].pressed)) G.gpRst = false; if (gp.buttons[3] && gp.buttons[3].pressed && !G.gpRs) { G.gpRs = true; restartAttempt(); } if (!(gp.buttons[3] && gp.buttons[3].pressed)) G.gpRs = false; const lb = !!(gp.buttons[4] && gp.buttons[4].pressed); if (lb !== !!G.gpBack) { G.gpBack = lb; V.lookBack(lb); } }
     const rst = G.rstReq ? 1 : 0; G.rstReq = false;
     return { steer, thr, brk, rst };
   }
@@ -444,7 +444,7 @@
     const gkey = [G.track.name, G.carId, CM, s.chooser, G.author, isHost0, !!(cm && cm.ready), Kit.room && Kit.room.hostId].join("|");
     g.classList.remove("hidden");
     if (g.dataset.key === gkey && g.firstChild) { const t = $("#gar-secs"); if (t) t.textContent = carWho() + " · départ dans " + secs + " s"; return; }
-    g.dataset.key = gkey; g.innerHTML = "";
+    const oldCars = g.querySelector(".cars"); const keepScroll = oldCars ? oldCars.scrollLeft : -1; g.dataset.key = gkey; g.innerHTML = "";
     const B = TR.BIOMES[G.track.biome];
     g.appendChild(el("div", { class: "garage__info" }, [G.stage ? el("span", { class: "pill pill--stage", text: "🚴 Étape " + (G.stage.i + 1) + " sur " + G.stage.n + " · " + G.stage.icon + " " + G.stage.name + " · voiture " + (G.stage.car === "imposee" ? "imposée" : "libre") }) : null, G.survie ? el("span", { class: "pill pill--stage", text: "🪦 Survie · le dernier à chaque point de contrôle est éliminé" }) : null, el("b", { text: B.icon + " " + G.track.name }), el("span", { class: "small", text: B.name + (B.identity ? " (" + B.identity.toLowerCase() + ")" : "") + " · " + Math.round(G.track.length) + " m · environ " + Math.round(G.track.length / 27) + " s de conduite" + (G.author ? " · temps de l'auteur " + fmtS(G.author) : "") })].concat(G.track.drawn && G.track.drawn.length ? [el("span", { class: "small", style: { display: "block" }, text: "Tiré au sort pour cette course, " + G.track.drawn.join(", ") })] : [])));
     const cmode = CM || "winner"; const canPick = cmode === "own" || (cmode === "winner" && s.chooser === myId()); const cards = el("div", { class: "cars" + (canPick ? "" : " cars--locked") });
@@ -457,7 +457,7 @@
         el("div", { class: "stat" }, [el("span", { text: "Turbo de dérapage" }), bar(c.drift / 1.4)]), el("div", { class: "stat" }, [el("span", { text: "Solidité aux chocs" }), bar(1.25 - c.wall * 0.75)]), el("div", { class: "stat" }, [el("span", { text: "Poids" }), bar(c.mass / 2.2)]),
       ]));
     });
-    g.appendChild(cards);
+    g.appendChild(cards); if (keepScroll >= 0) { cards.scrollLeft = keepScroll; requestAnimationFrame(() => { cards.scrollLeft = keepScroll; }); }
     g.appendChild(el("div", { class: "legend" }, [el("kbd", { text: "↑" }), el("span", { text: "accélérer" }), el("kbd", { text: "↓" }), el("span", { text: "reculer" }), el("kbd", { text: "←" }), el("kbd", { text: "→" }), el("span", { text: "tourner" }), el("kbd", { text: "Entrée" }), el("span", { text: "recommencer" }), el("kbd", { text: "Maj" }), el("span", { text: "dernier point de contrôle" }), el("kbd", { text: "Espace" }), el("span", { text: "regarder derrière" })]));
     const ready = !!(cm && cm.ready);
     g.appendChild(el("div", { class: "garage__row" }, [

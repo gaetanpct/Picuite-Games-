@@ -757,7 +757,7 @@
     const nDeco = Math.min(900, Math.round(120 + len * 0.28 * (spec.decor == null ? 1 : spec.decor)));
     let minY = 1e9; for (let i = 0; i < n; i++) if (Y[i] < minY) minY = Y[i];
     for (let a = 0; a < nDeco * 3 && dec.length < nDeco; a++) {
-      const i = Math.floor(decRng() * n); const side = decRng() < 0.5 ? -1 : 1; const off = W[i] + VW[i] + 3 + Math.pow(decRng(), 1.6) * 55;
+      const i = Math.floor(decRng() * n); const side = decRng() < 0.5 ? -1 : 1; const off = W[i] + VW[i] + 3 + Math.pow(decRng(), 1.6) * 55; if (FL[i] & FLAG.BANK) continue;
       const rx = -Math.cos(H[i]), rz = Math.sin(H[i]); const px = X[i] + rx * off * side, pz = Z[i] + rz * off * side;
       const k = biome.deco[Math.floor(decRng() * biome.deco.length)]; const big = BIG_DECO[k] || 0;
       if (nearTrack(px, pz) < 2.5 + big + (FL[i] & FLAG.MAG ? 14 : 0)) continue;

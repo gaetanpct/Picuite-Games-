@@ -961,6 +961,13 @@ Cette archive contient tout le gameplay de la trente-sixième mise à jour plus 
 ### Sons
 - Vrais sons de moteur dont la hauteur suit la vitesse, dérapage et impact, à la place des sons synthétiques.
 
+### Corrections après essais
+- Tunnels, la grosse tache pâle à l'entrée venait de la butte de terre posée au dessus. Elle est remplacée par une enveloppe fine qui épouse la voûte et s'amincit aux deux bouts. La voûte ne projette plus d'ombre sur la route avant l'entrée.
+- Virages relevés, la voiture ne décolle plus quand elle glisse vers l'intérieur à grande vitesse, ce qui lui faisait perdre sa direction. La route penchée aide aussi un peu à garder le cap.
+- Plus aucun décor n'est posé le long des virages relevés, pour ne pas passer à travers le bord relevé de la route.
+- Manette, la zone morte du joystick est plus large, pour qu'un joystick usé ne fasse plus partir la voiture tout seul sur le côté.
+- Garage, la liste des voitures garde sa position quand on la fait défiler puis qu'on choisit une voiture, au lieu de revenir à gauche.
+
 ### Fichiers à déposer pour cette archive
 - Le dossier zoomalou en entier, avec son sous-dossier public/assets.
 - Le fichier README.md.

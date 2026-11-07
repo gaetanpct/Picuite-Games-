@@ -286,6 +286,8 @@
     { const vf2 = r.vx * nfx + r.vz * nfz, vl2 = r.vx * -Math.cos(r.hd) + r.vz * Math.sin(r.hd); const mix = r.air ? car.airSteer || 0 : 1;
       if (mix >= 1) { r.vx = nfx * vf2 + -Math.cos(r.hd) * vl2; r.vz = nfz * vf2 + Math.sin(r.hd) * vl2; }
       else if (mix > 0) { const ax = nfx * vf2 + -Math.cos(r.hd) * vl2 * 0.6, az = nfz * vf2 + Math.sin(r.hd) * vl2 * 0.6; const k2 = mix * 0.1; const sp0 = Math.hypot(r.vx, r.vz); let nx = r.vx + (ax - r.vx) * k2, nz = r.vz + (az - r.vz) * k2; const sp1 = Math.hypot(nx, nz) || 1; r.vx = nx / sp1 * sp0; r.vz = nz / sp1 * sp0; } }
+    // virage relevé. La route penchée aide un peu à garder le cap, la voiture suit la courbe sans qu'on corrige sans cesse
+    if (bk0 > 0.02 && !r.air && !r.spin) { const psb = sampleAt(tr, r.idx); const eh = wrap(psb.h - r.hd); if (Math.abs(eh) < 0.7) r.hd += eh * Math.min(0.012, 0.04 * bk0); }
     const ox = r.x, oz = r.z;
     r.x += r.vx * DT; r.z += r.vz * DT;
     // position sur le circuit
@@ -340,7 +342,8 @@
     const offroad = (nowall || r.out) && Math.abs(u) > ps.w + 0.2; let solid = ps.solid && !offroad; const bkn = tr.bank ? Track.bankAt(tr, r.idx) : 0; r.bank = bkn; const gy = solid ? ps.y + laneDy + u * bkn : -1e9;
     if (!r.air) {
       const freeY = r.y + r.climb * DT - 0.5 * gAir * DT * DT;
-      if (!solid || (gy < freeY - (0.012 + SNAP) && Math.hypot(r.vx, r.vz) > 6)) { r.air = true; r.vy = r.climb - gAir * DT; r.y = freeY; }
+      const bkTol = bkn ? Math.abs(bkn) * Math.abs(r.vx * rrx + r.vz * rrz) * DT * 1.6 + 0.04 : 0; // sur un virage relevé la route descend sous la voiture quand elle glisse vers l'intérieur, ce n'est pas un saut
+      if (!solid || (gy < freeY - (0.012 + SNAP + bkTol) && Math.hypot(r.vx, r.vz) > 6)) { r.air = true; r.vy = r.climb - gAir * DT; r.y = freeY; }
       else { r.climb = (gy - r.y) / DT; if (r.climb > 30) r.climb = 30; if (r.climb < -30) r.climb = -30; r.y = gy; }
     } else {
       r.vy -= gAir * DT; r.y += r.vy * DT;
