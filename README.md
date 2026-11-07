@@ -967,6 +967,7 @@ Cette archive contient tout le gameplay de la trente-sixième mise à jour plus 
 - Plus aucun décor n'est posé le long des virages relevés, pour ne pas passer à travers le bord relevé de la route.
 - Manette, la zone morte du joystick est plus large, pour qu'un joystick usé ne fasse plus partir la voiture tout seul sur le côté.
 - Garage, la liste des voitures garde sa position quand on la fait défiler puis qu'on choisit une voiture, au lieu de revenir à gauche.
+- Pilote bloqué, si un pilote ou un robot rate cinq fois de suite le même point de contrôle, ou reste cinquante secondes sans gagner de terrain, il est considéré comme ayant abandonné. On n'attend plus la fin du temps de course. Il reçoit une pénalité de quinze secondes ajoutée au temps du dernier pour le classement cumulé, au lieu de cinq avant. Un message dans le chat prévient les autres. Cela vaut en chrono fantôme et en chrono contact.
 
 ### Fichiers à déposer pour cette archive
 - Le dossier zoomalou en entier, avec son sous-dossier public/assets.

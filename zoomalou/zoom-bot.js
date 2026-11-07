@@ -233,7 +233,7 @@ function run(tr, carId, th, lv, seed, opts) {
   opts = opts || {}; const car = Car.CARS[carId] || Car.CARS.bolide; const rnd = Track.mulberry32(Track.hashSeed("bot" + seed));
   const L = opts.plan || buildPlan(tr, car, th, opts.ref); const r = Car.newRun(tr, carId, { slot: opts.slot || 0 });
   const mem = { noise: 0, stuck: 0, lapse: 0, sat: false, rev: 0, revSteer: 0, tries: 0, pace: opts.pace == null ? 1 : opts.pace, gaffe: gaffeOf(tr, opts.form) }; const maxT = Math.floor((opts.maxSeconds || 240) * 60); const bytes = opts.noBytes ? null : [];
-  while (!r.finished && r.tick < maxT) { const inp = Car.quant(drive(r, L, th, lv, rnd, mem)); if (bytes) bytes.push(Car.packInput(inp)); Car.step(r, inp); }
+  while (!r.finished && !r.stuck && r.tick < maxT) { const inp = Car.quant(drive(r, L, th, lv, rnd, mem)); if (bytes) bytes.push(Car.packInput(inp)); Car.step(r, inp); }
   return { r, bytes };
 }
 // une faute franche à un endroit du circuit, seulement les jours sans
@@ -313,7 +313,7 @@ function simulateRun(tr, carId, levelId, seed, maxSeconds, opts) {
   if (th.fk && (levelId === "debutant" || levelId === "moyen")) th.fk = th.fk.split("").map((c) => (rnd() < (levelId === "debutant" ? 0.5 : 0.25) ? (c === "1" ? "0" : "1") : c)).join("");
   const pace = clamp(lv.pace * (1 + (rnd() - 0.5) * lv.paceJit * 2), 0.5, 1.05);
   const res = run(tr, carId, th, lv, seed, { ref, slot: opts.slot, pace, maxSeconds: maxSeconds || 240, form });
-  const r = res.r; return { bytes: Uint8Array.from(res.bytes), finished: r.finished, time: r.finishTime, resets: r.resets, hits: r.hits, ticks: r.tick, maxSpeed: r.maxSpeed, form: form ? form.k : "" };
+  const r = res.r; return { bytes: Uint8Array.from(res.bytes), finished: r.finished, time: r.finishTime, resets: r.resets, stuck: !!r.stuck, hits: r.hits, ticks: r.tick, maxSpeed: r.maxSpeed, form: form ? form.k : "" };
 }
 // pilote automatique qui roule en direct, un pas à la fois, avec le même réglage que simulateRun. Il réagit à tout ce qui le pousse
 function createLive(tr, carId, levelId, seed, opts) {

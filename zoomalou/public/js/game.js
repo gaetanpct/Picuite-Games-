@@ -241,6 +241,7 @@
           if (r.lastResetTick === r.tick) { V.resetFollow(); setBanner("Retour au point de contrôle", null, 900); }
         }
         if (r.finished && !run.done) finishRun(run);
+        if (r.stuck && !run.done && !run.finishSent && isChrono(G.mode) && G.st && G.st.phase === "race") { run.done = true; Kit.socket.emit("z:end", { kind: "restart", stuck: 1 }); G.run = null; G.wantArm = false; G.myDone = true; V.hideCar("me"); setBanner("Tu es bloqué, course abandonnée", "Pénalité de quinze secondes ajoutée à ton total", 4000); }
         if (run.out && run.challenger && !run.done && G.record && G.mode === "essence" && r.tick / 60 > G.record.time + 1 && !run.lost) { run.lost = true; setBanner("Trop tard", "Le record ne peut plus être battu, ton réservoir est vide", 2400); Kit.socket.emit("z:end", { kind: "restart" }); }
       }
       speed = Math.hypot(r.vx, r.vz); shownTime = want >= 0 ? r.tick / 60 : 0; active = want >= 0 && !r.finished;

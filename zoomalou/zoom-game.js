@@ -12,7 +12,7 @@ const TS = Math.max(0.001, Number(process.env.ZOOM_TIME_SCALE) || 1);
 const INTRO_MS = 3500 * TS, ROUND_END_MS = 6500 * TS, FIRST_GO_MS = 3000, NEXT_GO_MS = 1300;
 const IDLE_MS = 40000 * TS;
 const isChrono = (s) => s.mode === "chrono" || s.mode === "contact";
-const NO_TIME_PENALTY = 5; // secondes ajoutées au temps du dernier pour un pilote sans temps, quand les temps sont cumulés
+const NO_TIME_PENALTY = 15; // secondes ajoutées au temps du dernier pour un pilote sans temps, quand les temps sont cumulés
 const BOT_GAP = 1.5; // secondes de jeu entre deux essais d'un automate
 const BOT_LAG = { debutant: 26, moyen: 18, champion: 13, prodige: 9 }, BOT_REACT = { debutant: 1.6, moyen: 1.0, champion: 0.6, prodige: 0.35 };
 const rng = Math.random;
@@ -149,7 +149,7 @@ function planBotAttempt(room, def) {
     }
     const r = Bot.simulateRun(track, P.car, lvl, seedStr, capOf(track), { slot, ref: use && use.frames, refTag: tag, push: k, persona: g.baseSeed + def.id + g.roundIdx });
     const now = Date.now(); const at = Math.max(g.goAt, P.nextAt || 0, now + 50);
-    if (!r.finished) { P.botDone = true; P.done = true; return; }
+    if (!r.finished) { P.botDone = true; P.done = true; if (r.stuck) g.api.sysChat(room, def.name + " est bloqué et abandonne, pénalité."); return; }
     const rp = Car.replay(track, P.car, r.bytes, null, { slot });
     P.plan = { at, dur: r.time * 1000 * TS, time: r.time, frames: rp.frames, bytes: r.bytes, car: P.car, slot, done: false }; P.tryCount = (P.tryCount || 0) + 1; P.botDone = true;
   });
@@ -160,13 +160,14 @@ function stepLive(room, def, P, now) {
   const g = room.g, L = P.live, r = L.lv.r; if (L.done) return;
   if (now >= L.at) {
     const want = Math.floor((now - L.at) / (Car.DT * 1000 * TS)); let guard = 0;
-    while (L.n < want && !r.finished && L.n < L.lv.maxTicks && guard++ < 40) {
+    while (L.n < want && !r.finished && L.n < L.lv.maxTicks && !r.stuck && guard++ < 40) {
       if (room.settings.mode === "contact") r.draftT = Car.draftTarget(r, othersOf(room, def.id, now));
       L.lv.step(); L.n++; if ((L.n - 1) % 6 === 0) L.frames.push(r.x, r.y, r.z, r.hd, r.pitch, r.rail ? 2 : r.air ? 1 : 0, r.boostT > 0 ? 1 : 0, r.idx);
       botContacts(room, def, P, r, now);
     }
     P.feed = { x: r.x, y: r.y, z: r.z, vx: r.vx, vz: r.vz, h: r.hd, p: r.pitch, a: r.rail ? 2 : r.air ? 1 : 0, b: r.boostT > 0 ? 1 : 0, i: r.idx, car: P.car };
     if (r.finished) { L.frames.push(r.x, r.y, r.z, r.hd, r.pitch, 0, 0, r.idx); L.done = true; P.done = true; P.feed = null; P.live = null; acceptTime(room, def.id, +r.finishTime.toFixed(2), null, P.car, L.frames); }
+    else if (r.stuck) { L.done = true; P.done = true; P.feed = null; P.live = null; g.api.sysChat(room, def.name + " est bloqué et abandonne, pénalité."); }
     else if (L.n >= L.lv.maxTicks || now > g.raceEnd + 500) { L.done = true; P.done = true; P.feed = null; P.live = null; }
   }
 }
@@ -421,7 +422,7 @@ function endRound(room) {
   if (isChrono(s)) {
     // chaque place a sa valeur, deux temps identiques au centième partagent la place du dessus
     timed.forEach((P, i) => { let k = i; while (k > 0 && Math.abs(timed[k - 1].best - P.best) < 0.005) k--; pts[P.id] = scale[k]; }); winner = timed[0] ? timed[0].id : null;
-    // temps cumulés. Sans temps sur une course, on prend le temps du dernier plus cinq secondes. Si personne n'a de temps, la course ne compte pas
+    // temps cumulés. Sans temps sur une course, on prend le temps du dernier plus quinze secondes. Si personne n'a de temps, la course ne compte pas
     // survie. L'ordre d'élimination fait le classement, le vainqueur d'abord
     if (s.survie) { ps.forEach((P) => { pts[P.id] = 0; }); const fin = timed.filter((P) => !P.out).map((P) => P.id); const rest = room.players.filter((d) => !g.players[d.id].out && !fin.includes(d.id)).map((d) => ({ id: d.id, i: progressOf(room, d).idx })).sort((a, b) => b.i - a.i).map((x) => x.id);
       const order = fin.concat(rest, g.elim.slice().reverse()); order.forEach((id, i) => { pts[id] = scale[Math.min(i, scale.length - 1)]; }); winner = order[0] || null; g.svOrder = order; }
@@ -604,7 +605,7 @@ function endAttempt(room, id, d, toast) {
       else { P.tries = 0; g.api.sysChat(room, def.name + " n'a pas pu valider son passage, l'essai n'est pas perdu."); emitState(room); return; }
     }
     P.done = true;
-    if (kind !== "finish") g.api.sysChat(room, def.name + " abandonne.");
+    if (kind !== "finish") g.api.sysChat(room, def.name + (d.stuck ? " est bloqué et abandonne, pénalité." : " abandonne."));
     emitState(room); return;
   }
   const t = g.turn; if (g.phase !== "turns" || !t || t.pid !== id || !t.att) return;

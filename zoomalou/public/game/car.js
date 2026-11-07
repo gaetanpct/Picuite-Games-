@@ -63,7 +63,7 @@
     const car = CARS[carId] || CARS.bolide; const st = tr.start; const slot = (opts && opts.slot) || 0;
     const r = {
       tr, car, tick: 0, x: st.x - Math.cos(st.h) * slot, z: st.z + Math.sin(st.h) * slot, slot, y: st.y, hd: st.h, vx: 0, vz: 0, vy: 0, air: false, idx: st.idx, prevIdx: st.idx, cp: 0, cpIdx: st.idx, cpHd: st.h,
-      finished: false, finishTime: 0, boostT: 0, driftT: 0, resets: 0, hits: 0, climb: 0, steerV: 0, pitch: 0, roll: 0, lastResetTick: -999, maxSpeed: 0, onSurf: 0, wallHit: 0, landed: 0, boostEvt: 0,
+      finished: false, finishTime: 0, boostT: 0, driftT: 0, resets: 0, hits: 0, climb: 0, steerV: 0, pitch: 0, roll: 0, lastResetTick: -999, bestIdx: 0, lastGain: 0, cpFails: 0, lastFailCp: -1, stuck: false, maxSpeed: 0, onSurf: 0, wallHit: 0, landed: 0, boostEvt: 0,
       rail: false, mag: -1, ux: 0, uz: 0, wasSolid: true, spin: 0, lane: -1, laneF: -1, draft: 0, draftT: 0, drTier: 0, batt: 0, boostLv: 1, onVerge: false, ringEvt: 0, cut: -1, bank: 0,
       opts: opts || {},
     };
@@ -102,9 +102,10 @@
     // en sortie de piste avec le retour au départ, tout est à refaire depuis la ligne
     if (r.out && r.opts && r.opts.leave === "zero") { r.cp = 0; r.cpIdx = tr.start.idx; r.cpHd = tr.start.h; }
     r.out = false; const s = sampleAt(tr, r.cpIdx);
-    r.x = s.x; r.z = s.z; r.y = s.y; r.hd = s.h; r.vx = 0; r.vz = 0; r.vy = 0; r.air = false; r.idx = r.cpIdx; r.prevIdx = r.cpIdx; r.boostT = 0; r.driftT = 0; r.climb = 0; r.resets++; r.lastResetTick = r.tick; r.rail = false; r.mag = -1; r.wasSolid = true; r.pitch = 0; r.lane = -1; r.laneF = -1; r.drTier = 0; r.batt = 0; r.boostLv = 1; r.cut = -1;
+    r.x = s.x; r.z = s.z; r.y = s.y; r.hd = s.h; r.vx = 0; r.vz = 0; r.vy = 0; r.air = false; r.idx = r.cpIdx; r.prevIdx = r.cpIdx; r.boostT = 0; r.driftT = 0; r.climb = 0; r.resets++; if (r.lastFailCp === r.cpIdx) r.cpFails++; else { r.lastFailCp = r.cpIdx; r.cpFails = 1; } r.lastResetTick = r.tick; r.rail = false; r.mag = -1; r.wasSolid = true; r.pitch = 0; r.lane = -1; r.laneF = -1; r.drTier = 0; r.batt = 0; r.boostLv = 1; r.cut = -1;
   }
 
+  const STUCK_FAILS = 5, STUCK_TICKS = 50 * 60; // cinq retours au même point de contrôle, ou cinquante secondes sans avancer
   const SNAP = 0.05; // débattement de suspension, la voiture reste collée au sol sur les cassures de pente légères
   const OBS_CAR = 1.1; // rayon d'une voiture pour les obstacles
   const STEP = Track.STEP;
@@ -230,6 +231,9 @@
     if (r.finished) return;
     const tr = r.tr, car = r.car, g = tr.gravity, gAir = airGOf(tr) * (car.glide || 1);
     r.tick++;
+    // blocage. Même point de contrôle raté plusieurs fois de suite, ou plus aucun terrain gagné depuis très longtemps. N'agit pas sur la physique
+    if (r.idx > r.bestIdx + 2) { r.bestIdx = r.idx; r.lastGain = r.tick; }
+    r.stuck = r.cpFails >= STUCK_FAILS || r.tick - r.lastGain > STUCK_TICKS;
     if (inp.rst && r.tick - r.lastResetTick > 30) { resetToCheckpoint(r); return; }
     if (r.draftT != null) r.draft += ((r.draftT || 0) * 0.25 - r.draft) * 0.05;
     if (r.rail) { stepRail(r, inp); return; }
