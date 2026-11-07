@@ -896,3 +896,77 @@ Principe de la refonte, garder l'esprit coloré et joueur de Picuite Games et re
 - Les dégâts visibles et le mode survie n'ont pas été faits, comme convenu, tant que les graphismes ne sont pas plus beaux.
 - Les sons des moteurs sont synthétisés par le navigateur, ils n'ont pas pu être écoutés pendant les tests.
 - Les replays gardent le meilleur passage de chaque pilote, pas toute la course de chacun.
+
+## Trente-sixième mise à jour, Zoomalou, éditeur de circuit, survie et course à étapes
+
+### Éditeur de circuit à la souris
+- Dans le salon, l'hôte a un bouton Dessiner mon circuit. On trace la route d'un seul trait sur une carte, du départ à l'arrivée, à la souris ou au doigt. On peut reprendre le trait depuis son bout, annuler le dernier trait ou tout effacer.
+- Trois tailles de carte, 500 m, 900 m ou 1,4 km de côté. La longueur et la durée de conduite s'affichent pendant qu'on dessine.
+- Le jeu lisse le dessin, arrondit les virages trop secs pour qu'ils restent prenables, ajoute le relief, puis pose tout seul les éléments là où ils ont leur place, sauts et ponts sur les lignes droites, côtes, tunnels, obstacles, embranchements, routes qui bougent, et des virages relevés dans les longues courbes.
+- Quand le trait se recoupe, le croisement devient au choix un pont qui passe au-dessus ou un carrefour à niveau. Si deux croisements tombent au même endroit, le second devient un carrefour.
+- Les endroits impossibles sont entourés en rouge avec une explication, deux routes qui se frôlent sans se croiser, un croisement trop rasant, trop près du départ, ou un circuit trop long ou trop court. Le bouton Jouer ce circuit ne s'active que quand tout est bon.
+- On peut donner un nom au circuit. Il sert pour toutes les courses de la partie, seul le biome peut changer. Un bouton permet de revenir aux circuits au hasard.
+
+### Nouveaux éléments de circuit
+- Virages relevés. De grandes courbes inclinées vers l'intérieur, comme sur un anneau de vitesse. La voiture y tourne plus fort et glisse moins, on les prend bien plus vite qu'un virage plat. La voiture penche avec la route.
+- Carrefours à niveau. La route fait un grand tour et recoupe son propre passage à la même hauteur, sans mur au milieu et avec des hachures jaunes au sol. En chrono contact, les voitures qui arrivent sur le côté peuvent se percuter.
+- Raccourcis par les airs. La route fait un grand détour en forme d'Ω et un tremplin jaune et noir, d'un seul côté de la route et annoncé par un panneau, permet de couper tout droit par-dessus. Il faut arriver vite et bien droit. Trop lent ou de travers, la voiture tombe dans le détour et revient au point de contrôle. Le saut est calculé pour que la voiture la plus lente puisse passer avec un bon élan. Sur la mini carte, une ligne pointillée jaune le montre.
+- Les trois se cochent ou se décochent dans les animations du circuit. Mégapole a beaucoup de virages relevés, Usine et Mégapole des carrefours, Dunes, Néon et Jungle des raccourcis.
+- Les robots savent prendre les virages relevés plus vite, choisissent de sauter ou non, s'alignent sur l'axe du tremplin, et ne retentent pas un raccourci qu'ils viennent de rater.
+
+### Mode survie
+- Nouvelle option Survie en chrono fantôme et en chrono contact. À chaque point de contrôle, le dernier à le franchir est éliminé.
+- Quand il reste peu de points de contrôle pour beaucoup de pilotes, plusieurs sortent d'un coup, pour qu'il ne reste qu'un vainqueur à l'arrivée.
+- Les circuits sont au moins longs en survie, pour laisser le temps de remonter.
+- Le tableau de bord indique combien de pilotes sont encore en course et où aura lieu la prochaine élimination. Un pilote éliminé suit les autres avec la caméra.
+- Le classement suit l'ordre d'élimination et les points suivent ce classement.
+
+### Course à étapes
+- Nouveau format Course à étapes en chrono fantôme et en chrono contact, de trois à cinq étapes.
+- Chaque étape a son profil, plaine plate et rapide, montagne pleine de relief, étape folle bourrée d'éléments, et une étape reine plus longue et plus dure pour finir.
+- Une étape sur deux, la voiture est imposée à tout le monde, tirée au sort. Les autres, chacun choisit la sienne.
+- Le classement général additionne les temps de toutes les étapes. Son premier porte le maillot jaune 🟡, visible dans le tableau des pilotes et à la fin de chaque étape.
+
+### Fichiers à déposer pour cette archive
+- Le dossier zoomalou en entier.
+- Le fichier README.md.
+
+### Limites connues
+- Tout a été testé avec des robots, des clients simulés et un navigateur de test, pas avec de vrais joueurs sur plusieurs appareils.
+- En survie, la position des joueurs humains vient de leur navigateur, comme l'affichage des autres voitures.
+- Un circuit dessiné garde ses croisements à plat autour du point de croisement, le relief n'y revient qu'un peu plus loin.
+
+
+## Trente-septième mise à jour, le design de Zoomalou
+
+Cette archive contient tout le gameplay de la trente-sixième mise à jour plus un gros passage sur le design. Les modèles 3D viennent de Kenney, en licence libre, et sont recolorés pour s'accorder à chaque biome.
+
+### Voitures et décor
+- Les voitures sont maintenant de vrais modèles 3D, berline, sportive, SUV, monospace, camion, bolide futuriste. Chacune prend la couleur choisie par le joueur.
+- Le bord de piste est décoré de tribunes, bannières, panneaux, lampadaires, drapeaux à damier, arbres, palmiers, cactus et rochers selon le biome.
+- Si un modèle ne se charge pas, le jeu retombe sur les anciennes formes simples, rien ne casse.
+
+### Retours visuels
+- Les traces de pneus restent sur la route quand on dérape ou freine fort.
+- Des étincelles jaillissent aux chocs et aux atterrissages.
+- Le nuage de poussière sur la terre et le sable a été gardé petit, léger et transparent, pour ne jamais cacher la route.
+- La caméra penche légèrement dans les virages, et un flou de vitesse léger apparaît en pleine accélération.
+- Une lueur douce (bloom) donne du relief aux néons et aux phares. Elle se coupe seule en qualité basse ou en mode compatibilité.
+
+### Garage et podium
+- Le garage présente la voiture sur un plateau qui tourne, en 3D.
+- À la fin d'une course, le podium est en 3D avec les trois premiers. Un bouton permet de le revoir depuis les résultats.
+- Les temps intermédiaires s'affichent en course.
+
+### Sons
+- Vrais sons de moteur dont la hauteur suit la vitesse, dérapage et impact, à la place des sons synthétiques.
+
+### Fichiers à déposer pour cette archive
+- Le dossier zoomalou en entier, avec son sous-dossier public/assets.
+- Le fichier README.md.
+
+### Limites connues
+- Les sons n'ont pas été écoutés, seulement vérifiés techniquement. Leur volume est peut-être à régler.
+- La fluidité a été testée dans un navigateur de test, pas sur un vrai téléphone. Sur un appareil modeste, choisir la qualité basse coupe la lueur et le flou.
+- Certains changements sont discrets et difficiles à voir sur une capture, il faut jouer pour les juger.
+- Le dossier public/assets contient une cinquantaine de fichiers, vérifie qu'ils passent bien dans le dépôt.

@@ -74,12 +74,12 @@ const isAuto = (room, def) => def.isBot || (!def.connected && def.absentAuto);
 
 // voiture d'un pilote au début d'une course selon le mode de choix
 function carFor(room, id) {
-  const g = room.g, s = room.settings; const rr = Track.mulberry32(Track.hashSeed(g.baseSeed + "car" + g.roundIdx));
-  if (s.carMode === "random") { return Car.CAR_ORDER[Math.floor(rr() * Car.CAR_ORDER.length)]; }
+  const g = room.g, s = room.settings; const rr = Track.mulberry32(Track.hashSeed(g.baseSeed + "car" + g.roundIdx)); const cm = Rules.carModeFor(s, g.roundIdx);
+  if (cm === "random") { return Car.CAR_ORDER[Math.floor(rr() * Car.CAR_ORDER.length)]; }
   const def = room.players.find((p) => p.id === id);
-  if (s.carMode === "own" && def && isAuto(room, def) && g.roundIdx > 0) return chooseCar(room, def).id;
-  if (s.carMode === "own" && def && isAuto(room, def)) { const r2 = Track.mulberry32(Track.hashSeed(g.baseSeed + "bc" + g.roundIdx + id)); return Car.CAR_ORDER[Math.floor(r2() * Car.CAR_ORDER.length)]; }
-  const prev = g.players[id] && g.players[id].car; if (s.carMode === "own" && prev && Car.CARS[prev]) return prev;
+  if (cm === "own" && def && isAuto(room, def) && g.roundIdx > 0) return chooseCar(room, def).id;
+  if (cm === "own" && def && isAuto(room, def)) { const r2 = Track.mulberry32(Track.hashSeed(g.baseSeed + "bc" + g.roundIdx + id)); return Car.CAR_ORDER[Math.floor(r2() * Car.CAR_ORDER.length)]; }
+  const prev = g.players[id] && g.players[id].car; if (cm === "own" && prev && Car.CARS[prev]) return prev;
   return g.car;
 }
 
@@ -92,10 +92,11 @@ function startRound(room) {
   g.trackMsg = Object.assign({}, g.track); delete g.trackMsg.spec;
   g.turn = null; g.record = null; g.results = null; g.raceEnd = 0;
   // quand le vainqueur de la dernière course est un pilote automatique, c'est lui qui choisit la voiture de tout le monde, d'après le prochain circuit
-  if (s.carMode === "winner" && g.roundIdx > 0) { const cd = room.players.find((p) => p.id === g.chooser); if (cd && isAuto(room, cd)) { const pick = chooseCar(room, cd); g.car = pick.id; g.api.sysChat(room, cd.name + " a gagné la dernière course et choisit " + Car.CARS[pick.id].name + " " + Car.CARS[pick.id].icon + ", " + pick.why + "."); } }
+  if (Rules.carModeFor(s, g.roundIdx) === "random") g.car = carFor(room, null);
+  if (Rules.carModeFor(s, g.roundIdx) === "winner" && g.roundIdx > 0) { const cd = room.players.find((p) => p.id === g.chooser); if (cd && isAuto(room, cd)) { const pick = chooseCar(room, cd); g.car = pick.id; g.api.sysChat(room, cd.name + " a gagné la dernière course et choisit " + Car.CARS[pick.id].name + " " + Car.CARS[pick.id].icon + ", " + pick.why + "."); } }
   Object.values(g.players).forEach((P) => { if (P.best != null && (P.bestAll == null || P.best < P.bestAll)) P.bestAll = P.best; P.ready = false; P.best = null; P.bestBytes = null; P.pos = null; P.att = null; P.tries = 0; P.finishes = 0; P.feed = null; P.car = carFor(room, P.id); P.tryCount = 0; P.bestFrames = null; P.bestCar = null; P.fuel = 0; P.out = false; P.done = false; P.botDone = false; });
   g.carsUsed = g.carsUsed || {}; Object.values(g.players).forEach((P) => { (g.carsUsed[P.id] = g.carsUsed[P.id] || []).push(P.car); });
-  g.elim = []; g.stage = "open"; g.turnSeq = 0; g.target = null;
+  g.elim = []; g.stage = "open"; g.turnSeq = 0; g.target = null; g.svGate = 0; g.svPass = {};
   const seats = room.players.map((p) => p.id);
   if (s.mode === "essence") {
     if (s.order === "retard") { const st = standings(room); const byRank = st.slice().reverse().map((r) => r.id); g.order = byRank.length === seats.length ? byRank : seats; }
@@ -106,7 +107,7 @@ function startRound(room) {
   g.api.emitAll(room, "z:round", roundMsg(room));
   prepareBots(room); emitState(room);
 }
-function roundMsg(room) { const g = room.g; return { now: Date.now(), index: g.roundIdx, total: g.total, mode: room.settings.mode, track: g.trackMsg, author: g.author, car: g.car, order: g.order, slots: g.slots }; }
+function roundMsg(room) { const g = room.g; return { now: Date.now(), index: g.roundIdx, total: g.total, mode: room.settings.mode, track: g.trackMsg, author: g.author, car: g.car, order: g.order, slots: g.slots, carMode: Rules.carModeFor(room.settings, g.roundIdx), stage: g.track.stage || null, survie: !!room.settings.survie }; }
 // les pilotes automatiques étudient le circuit pendant le garage, et le temps de l'auteur se calcule avec la voiture choisie
 function prepareBots(room) {
   const g = room.g, track = g.track, car = g.car; const levels = new Set(["prodige"]); room.players.forEach((d) => { if (d.isBot) levels.add(botLevelOf(d)); });
@@ -121,7 +122,8 @@ function beginDrive(room) {
   if (isChrono(s)) {
     g.extended = false; g.allDoneAt = 0; g.goAt = Date.now() + 4200; g.phase = "race"; g.win = windowOf(g, s); g.raceEnd = g.goAt + g.win * 1000 * TS; g.phaseUntil = g.raceEnd;
     room.players.forEach((def) => { const P = g.players[def.id]; P.plan = null; P.live = null; P.planning = false; P.nextAt = 0; P.botN = 0; });
-    g.api.sysChat(room, "Tout le monde sur la ligne, départ dans quelques secondes. Vous avez ensuite " + g.win + " secondes pour signer votre meilleur temps" + (s.mode === "contact" ? ", et les voitures se touchent." : "."));
+    if (s.survie) g.api.sysChat(room, "Survie, tout le monde sur la ligne. À chaque point de contrôle, le dernier à passer est éliminé" + (s.mode === "contact" ? ", et les voitures se touchent." : "."));
+    else g.api.sysChat(room, (g.track.stage ? g.track.stage.icon + " " + g.track.stage.name + " " + (g.track.stage.i + 1) + " sur " + g.track.stage.n + ". " : "") + "Tout le monde sur la ligne, départ dans quelques secondes. Vous avez ensuite " + g.win + " secondes pour signer votre meilleur temps" + (s.mode === "contact" ? ", et les voitures se touchent." : "."));
   } else { g.phase = "turns"; g.turnIdx = -1; { const tank = tankOf(g); Object.values(g.players).forEach((P) => { P.fuel = tank; }); g.tank = tank; } nextTurn(room); }
   emitState(room);
 }
@@ -371,6 +373,43 @@ function tickTurn(room, now) {
   }
 }
 
+// ---------- survie ----------
+// à chaque point de contrôle, le dernier à le franchir est éliminé. La ligne d'arrivée compte comme le dernier point.
+// S'il reste peu de points pour beaucoup de pilotes, plusieurs sortent d'un coup pour qu'il ne reste qu'un vainqueur à l'arrivée
+function progressOf(room, def) {
+  const g = room.g, P = g.players[def.id], tr = g.track; const nG = tr.cps.length + 1;
+  if (P.best != null) return { gates: nG, idx: tr.n + 1e4 - P.best };
+  let idx = -1, cp = -1;
+  if (P.live && P.live.lv && P.live.n > 0) { idx = P.live.lv.r.idx; cp = P.live.lv.r.cp; }
+  else if (P.feed) idx = P.feed.i || 0; else if (P.pos && P.att && !P.done) idx = P.pos.i || 0;
+  if (idx < 0) return { gates: 0, idx: -1 };
+  if (cp < 0) { cp = 0; while (cp < tr.cps.length && tr.cps[cp] <= idx) cp++; }
+  return { gates: cp, idx };
+}
+function survieTick(room, now) {
+  const g = room.g, tr = g.track; const nG = tr.cps.length + 1;
+  room.players.forEach((d) => { const P = g.players[d.id]; if (P.out) return; if (d.left) { svEliminate(room, d.id, g.svGate, "left"); return; } const pr = progressOf(room, d); const ps = (g.svPass[d.id] = g.svPass[d.id] || []); for (let k = 0; k < pr.gates && k < nG; k++) if (ps[k] == null) ps[k] = now; });
+  for (let guard = 0; guard < 4 && g.svGate < nG; guard++) {
+    const alive = room.players.filter((d) => !g.players[d.id].out); if (alive.length <= 1) return;
+    const k = g.svGate; const e = Math.max(1, Math.ceil((alive.length - 1) / (nG - k)));
+    const rows = alive.map((d) => { const pr = progressOf(room, d); const ps = g.svPass[d.id] || []; return { id: d.id, t: ps[k] == null ? Infinity : ps[k], idx: pr.idx }; });
+    const passed = rows.filter((r) => r.t !== Infinity).length; if (passed < alive.length - e) return;
+    rows.sort((a, b) => a.t - b.t || b.idx - a.idx); const out = rows.slice(alive.length - e);
+    g.svGate++; out.reverse().forEach((r) => svEliminate(room, r.id, k, "gate"));
+    g.api.emitAll(room, "z:svGate", { gate: g.svGate, gates: nG, alive: room.players.filter((d) => !g.players[d.id].out).length });
+  }
+}
+function svEliminate(room, id, gate, why) {
+  const g = room.g, P = g.players[id]; if (!P || P.out) return; const nG = g.track.cps.length + 1;
+  P.out = true; P.done = true; P.svGate = gate; g.elim.push(id); P.feed = null; P.att = null; P.pos = null; if (P.live) { P.live = null; } if (P.plan) P.plan.done = true; P.botDone = true;
+  const alive = room.players.filter((d) => !g.players[d.id].out).length;
+  g.api.emitAll(room, "z:elim", { pid: id, gate, gates: nG, alive, why });
+  if (why !== "left") g.api.sysChat(room, pName(room, id) + " est éliminé " + (gate >= nG - 1 ? "à l'arrivée" : "au point de contrôle " + (gate + 1)) + ". Encore " + alive + " en course.");
+  emitState(room);
+}
+// premier du classement général en course à étapes, le maillot jaune
+function leaderOf(room) { const g = room.g; if (room.settings.format !== "etapes" || !g || !g.history || !g.history.length) return null; const st = standings(room); return st[0] ? st[0].id : null; }
+
 // ---------- fin de manche ----------
 function endRound(room) {
   const g = room.g, s = room.settings;
@@ -383,6 +422,9 @@ function endRound(room) {
     // chaque place a sa valeur, deux temps identiques au centième partagent la place du dessus
     timed.forEach((P, i) => { let k = i; while (k > 0 && Math.abs(timed[k - 1].best - P.best) < 0.005) k--; pts[P.id] = scale[k]; }); winner = timed[0] ? timed[0].id : null;
     // temps cumulés. Sans temps sur une course, on prend le temps du dernier plus cinq secondes. Si personne n'a de temps, la course ne compte pas
+    // survie. L'ordre d'élimination fait le classement, le vainqueur d'abord
+    if (s.survie) { ps.forEach((P) => { pts[P.id] = 0; }); const fin = timed.filter((P) => !P.out).map((P) => P.id); const rest = room.players.filter((d) => !g.players[d.id].out && !fin.includes(d.id)).map((d) => ({ id: d.id, i: progressOf(room, d).idx })).sort((a, b) => b.i - a.i).map((x) => x.id);
+      const order = fin.concat(rest, g.elim.slice().reverse()); order.forEach((id, i) => { pts[id] = scale[Math.min(i, scale.length - 1)]; }); winner = order[0] || null; g.svOrder = order; }
     if (timed.length) { const pen = +(timed[timed.length - 1].best + NO_TIME_PENALTY).toFixed(2); ps.forEach((P) => { const counted = P.best != null ? P.best : pen; if (P.best == null) { P.dnf++; penalised[P.id] = true; } P.cum = +(P.cum + counted).toFixed(2); P.counted++; P.lastCounted = counted; timeOfRow[P.id] = counted; }); }
   } else {
     // place finale, le dernier debout puis les éliminés du plus tardif au plus précoce
@@ -391,14 +433,14 @@ function endRound(room) {
   }
   if (winner) { g.players[winner].wins++; g.lastWinner = winner; }
   ps.forEach((P) => { P.pts += pts[P.id] || 0; });
-  const rows = ps.map((P) => ({ id: P.id, best: P.best, car: P.car, tries: P.tryCount || 0, pts: pts[P.id] || 0, total: P.pts, finishes: P.finishes, winner: P.id === winner, counted: timeOfRow[P.id] == null ? null : timeOfRow[P.id], pen: !!penalised[P.id], cum: isChrono(s) ? P.cum : null })).sort((a, b) => (a.best == null) - (b.best == null) || a.best - b.best);
-  g.history.push({ track: g.track.name, biome: g.track.biome, drawn: g.track.drawn || [], rows: rows.map((r) => ({ id: r.id, best: r.best, pts: r.pts, counted: r.counted, pen: r.pen })) });
+  const rows = ps.map((P) => ({ id: P.id, best: P.best, car: P.car, tries: P.tryCount || 0, pts: pts[P.id] || 0, total: P.pts, finishes: P.finishes, winner: P.id === winner, counted: timeOfRow[P.id] == null ? null : timeOfRow[P.id], pen: !!penalised[P.id], cum: isChrono(s) ? P.cum : null, sv: s.survie ? (P.out ? P.svGate : -1) : null })).sort((a, b) => (s.survie && g.svOrder ? g.svOrder.indexOf(a.id) - g.svOrder.indexOf(b.id) : (a.best == null) - (b.best == null) || a.best - b.best));
+  g.history.push({ track: g.track.name, biome: g.track.biome, drawn: g.track.drawn || [], stage: g.track.stage ? g.track.stage.icon + " " + g.track.stage.name : null, rows: rows.map((r) => ({ id: r.id, best: r.best, pts: r.pts, counted: r.counted, pen: r.pen })) });
   // replay de la course, le meilleur passage de chaque pilote, consultable à la fin de la partie
   try {
     const cars = []; ps.forEach((P) => { if (P.best == null) return; let fr = P.bestFrames; if (!fr && P.bestBytes) fr = Car.replay(g.track, P.bestCar || P.car, P.bestBytes, null, { leave: s.leave, slot: g.slots[P.id] || 0 }).frames; if (!fr || fr.length < 16) return; cars.push({ id: P.id, car: P.bestCar || P.car, time: P.best, frames: Array.from(fr, (v) => Math.round(v * 100) / 100) }); });
     g.replays[g.roundIdx] = { i: g.roundIdx, name: g.track.name, biome: g.track.biome, winner, cars };
   } catch (e) { console.error("replay zoom", e); }
-  g.api.emitAll(room, "z:roundEnd", { index: g.roundIdx, track: g.track.name, author: g.author, rows, winner, last: g.roundIdx + 1 >= g.total, until: g.phaseUntil, now: Date.now(), mode: s.mode, rule: ruleOf(s), cumRank: cumRanks(room), drawn: g.track.drawn || [], recordTime: winner && g.players[winner].best != null ? g.players[winner].best : null });
+  g.api.emitAll(room, "z:roundEnd", { index: g.roundIdx, track: g.track.name, author: g.author, rows, winner, last: g.roundIdx + 1 >= g.total, until: g.phaseUntil, now: Date.now(), mode: s.mode, rule: ruleOf(s), cumRank: cumRanks(room), survie: !!s.survie, gates: g.track.cps.length + 1, stage: g.track.stage || null, leader: leaderOf(room), drawn: g.track.drawn || [], recordTime: winner && g.players[winner].best != null ? g.players[winner].best : null });
   
   emitState(room);
 }
@@ -425,7 +467,7 @@ function standings(room) {
 }
 function overMsg(room) {
   const g = room.g;
-  return { rows: standings(room), rule: ruleOf(room.settings), history: g.history, seed: g.baseSeed, mode: room.settings.mode, players: room.players.map((p) => ({ id: p.id, name: p.name, color: p.color })),
+  return { rows: standings(room), rule: ruleOf(room.settings), history: g.history, seed: g.baseSeed, mode: room.settings.mode, format: room.settings.format, survie: !!room.settings.survie, players: room.players.map((p) => ({ id: p.id, name: p.name, color: p.color })),
     replays: { settings: g.settingsSnap, list: (g.replays || []).filter(Boolean).map((r) => ({ i: r.i, name: r.name, biome: r.biome, n: r.cars.length })) } };
 }
 function finishMatch(room) {
@@ -447,6 +489,7 @@ function tick(room) {
     if (now >= g.phaseUntil || (allReady && g.phaseUntil - now > 1500)) { if (allReady && now < g.phaseUntil) g.phaseUntil = now + 800; else beginDrive(room); }
   } else if (g.phase === "race") {
     tickBots(room, now);
+    if (s.survie && now > g.goAt) survieTick(room, now);
     // tout le monde a fini ou abandonné, la course se termine après un court temps pour savourer
     const everyoneDone = room.players.every((def) => { const P = g.players[def.id]; if (def.left) return true; return !!P.done; });
     if (everyoneDone && now > g.goAt) { if (!g.allDoneAt) g.allDoneAt = now; else if (now - g.allDoneAt > 3500) return endRound(room); }
@@ -477,7 +520,7 @@ function tick(room) {
 function publicState(room) {
   const g = room.g, s = room.settings, t = g.turn;
   return {
-    now: Date.now(), phase: g.phase, phaseUntil: g.phaseUntil, roundIdx: g.roundIdx, total: g.total, chooser: g.chooser, mode: s.mode, raceEnd: g.raceEnd, goAt: g.goAt || 0, order: g.order, car: g.car, slots: g.slots,
+    now: Date.now(), phase: g.phase, phaseUntil: g.phaseUntil, roundIdx: g.roundIdx, total: g.total, chooser: g.chooser, mode: s.mode, carMode: Rules.carModeFor(s, g.roundIdx), etape: g.track && g.track.stage ? g.track.stage : null, survie: !!s.survie, svGate: g.svGate || 0, gates: g.track ? g.track.cps.length + 1 : 0, leader: leaderOf(room), raceEnd: g.raceEnd, goAt: g.goAt || 0, order: g.order, car: g.car, slots: g.slots,
     turn: t ? { idx: t.idx, pid: t.pid, role: t.role, fuel: t.fuel, fuelLeft: t.fuelLeft, introUntil: t.introUntil, goAt: t.att ? t.att.goAt : 0, tries: t.tries, auto: !!t.auto, ended: t.ended, stage: g.stage } : null,
     stage: g.stage, elim: g.elim,
     record: g.record ? { time: g.record.time, pid: g.record.pid, car: g.record.car } : null,
@@ -494,8 +537,8 @@ function bind(socket, h, api) {
   const pid = () => { const p = me(); return p ? p.id : null; };
   socket.on("z:car", safe((d) => {
     if (!inGame()) return; const g = ctx.room.g;
-    const mode = ctx.room.settings.carMode;
-    if (mode === "random") return toast("La voiture est tirée au sort à chaque course.");
+    const mode = Rules.carModeFor(ctx.room.settings, g.roundIdx);
+    if (mode === "random") return toast(ctx.room.settings.format === "etapes" ? "Pour cette étape, la voiture est imposée à tout le monde." : "La voiture est tirée au sort à chaque course.");
     if (mode === "winner" && pid() !== g.chooser) return toast("Seul " + pName(ctx.room, g.chooser) + " choisit la voiture, " + (g.lastWinner ? "il a gagné la dernière course." : "c'est l'hôte pour la première course."));
     if (g.phase !== "garage") return toast("Le garage est fermé pour cette course.");
     const id = String((d || {}).id); if (!Car.CARS[id]) return;

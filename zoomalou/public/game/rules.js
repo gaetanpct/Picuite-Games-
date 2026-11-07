@@ -18,6 +18,9 @@
     { value: "bridges", label: "Ponts sans rebord", icon: "🌉", desc: "Ponts droits, viaducs en courbe, passerelles très étroites et ponts ondulés, tous sans mur. Une sortie de route fait tomber la voiture." },
     { value: "forks", label: "Embranchements", icon: "🔀", desc: "La route se sépare en deux voies qui se rejoignent plus loin. L'une est plus courte mais piégée, terre, saut, obstacles, étroite ou en tunnel. L'autre est plus longue et plus sûre, parfois avec des turbos." },
     { value: "cross", label: "Croisements sur deux niveaux", icon: "🎢", desc: "La route fait un grand tour en montant et repasse au-dessus d'elle-même sur un pont." },
+    { value: "xing", label: "Carrefours à niveau", icon: "✖️", desc: "La route fait un grand tour et recoupe son propre passage à la même hauteur. En chrono contact, gare aux voitures qui arrivent sur le côté." },
+    { value: "bank", label: "Virages relevés", icon: "🌀", desc: "De grandes courbes inclinées vers l'intérieur, comme sur un anneau de vitesse. On les prend bien plus vite qu'un virage plat." },
+    { value: "cut", label: "Raccourcis par les airs", icon: "🛫", desc: "La route fait un grand détour et un tremplin, d'un seul côté, permet de couper tout droit. Il faut arriver vite et bien droit, sinon la voiture tombe dans le détour et revient au point de contrôle." },
     { value: "verges", label: "Bas-côtés sans barrière", icon: "🌾", desc: "Des portions bordées de sable, d'herbe ou de neige au lieu d'un mur. Sortir de la route y freine beaucoup et fait glisser, une clôture basse arrête la voiture plus loin." },
     { value: "movers", label: "Routes qui bougent", icon: "〰️", desc: "Des portions de route qui ondulent en vagues ou basculent comme un plateau pendant la course. Prises au bon moment elles font sauter la voiture." },
     { value: "rings", label: "Anneaux turbo", icon: "⭕", desc: "Des anneaux à traverser, au sommet des sauts ou en portique sur la route. Passer dedans donne un gros turbo." },
@@ -27,12 +30,18 @@
   const fmtMult = (v) => v + " fois";
   const SCHEMA = [
     { category: "🏁 La partie", rules: [
+      { id: "format", label: "Format", type: "cards", default: "libre", options: [
+        { value: "libre", label: "Partie classique", icon: "🏁", desc: "Une série de courses indépendantes, chacune sur un nouveau circuit." },
+        { value: "etapes", label: "Course à étapes", icon: "🚴", desc: "De trois à cinq étapes au profil différent, plaine, montagne, étape folle et une étape reine pour finir. Une étape sur deux la voiture est imposée à tout le monde, sinon chacun choisit la sienne. Le classement général additionne les temps et son premier porte le maillot jaune." },
+      ], showIf: { mode: ["chrono", "contact"] }, info: "La course à étapes se joue en chrono fantôme ou en chrono contact." },
+      { id: "stages", label: "Nombre d'étapes", type: "chips", default: 4, options: [{ value: 3, label: "3 étapes" }, { value: 4, label: "4 étapes" }, { value: 5, label: "5 étapes" }], showIf: { format: "etapes", mode: ["chrono", "contact"] } },
+      { id: "survie", label: "Survie", type: "bool", default: false, showIf: { format: "libre", mode: ["chrono", "contact"] }, info: "À chaque point de contrôle, le dernier à le franchir est éliminé. Quand il reste peu de points de contrôle, plusieurs pilotes peuvent sortir d'un coup, et la ligne d'arrivée élimine tous ceux qui ne sont pas premiers. Les circuits sont au moins longs pour laisser le temps de remonter. Le classement suit l'ordre d'élimination." },
       { id: "rounds", label: "Nombre de courses", type: "range", min: 1, max: 12, step: 1, default: 5, info: "Chaque course se joue sur un nouveau circuit généré pour toi. À chaque course, chaque place rapporte un nombre de points différent. Le dernier en marque un, le premier en marque le plus, et un pilote sans temps ne marque rien." },
       { id: "winRule", label: "Qui gagne la compétition", type: "cards", default: "points", options: [
         { value: "points", label: "Classement et points", icon: "🏅", desc: "Chaque course rapporte des points selon la place. Le plus de points au total gagne." },
         { value: "temps", label: "Cumul des temps", icon: "⏱️", desc: "On additionne le meilleur temps de chaque pilote sur toutes les courses. Le plus petit total gagne. Un pilote sans temps reçoit celui du dernier de la course plus cinq secondes." },
         { value: "mixte", label: "Mixte", icon: "⚖️", desc: "On additionne la place au classement des points et la place au classement des temps cumulés. Le plus petit total gagne, et à égalité le meilleur temps cumulé l'emporte." },
-      ], showIf: { mode: ["chrono", "contact"] }, info: "Ne concerne que les modes chrono. En mode essence, le classement se fait toujours aux points." },
+      ], showIf: { mode: ["chrono", "contact"], format: "libre", survie: false }, info: "Ne concerne que les modes chrono. En mode essence, le classement se fait toujours aux points. En survie aussi." },
       { id: "mode", label: "Mode de jeu", type: "cards", default: "essence", options: [
         { value: "essence", label: "Essence", icon: "⛽", desc: "Chaque pilote a un réservoir proportionnel à la durée du circuit, et chaque essai en consomme, y compris le premier. Chacun pose un temps, puis le dernier du classement joue avec l'essence qui lui reste pour battre l'avant-dernier. Tant qu'il reste dernier c'est encore à lui. Sans essence, il garde un tout dernier essai pour reprendre la place, et s'il le rate il est éliminé. Les duels peuvent donc se répéter longtemps. Le dernier pilote en course gagne." },
         { value: "chrono", label: "Chrono fantôme", icon: "👻", desc: "Tout le monde part en même temps depuis la même ligne, n'a droit qu'à un seul essai sans recommencer, et le meilleur temps gagne. Les voitures sont des fantômes, elles ne se touchent jamais." },
@@ -81,9 +90,28 @@
       else { const ok = valuesOf(r); const want = typeof ok[0] === "number" ? Number(v) : v; if (ok.includes(want)) out[r.id] = want; }
     });
     if (!out.biomes.length) out.biomes = [Track.BIOME_IDS[0]];
+    out.trace = cleanTrace(input && input.trace);
+    if (out.mode === "essence") { out.format = "libre"; out.survie = false; }
+    if (out.format === "etapes") { out.survie = false; out.winRule = "temps"; out.rounds = out.stages; }
+    if (out.survie) out.winRule = "points";
     Object.assign(out, FIXED);
     return out;
   }
+  // tracé dessiné à la souris. Points entiers de 0 à 1000 à plat, x puis y, taille de la carte en mètres, type de croisement
+  function cleanTrace(t) {
+    if (!t || typeof t !== "object" || !Array.isArray(t.p)) return null; const p = [];
+    for (let i = 0; i + 1 < t.p.length && p.length < 1600; i += 2) { const a = Math.round(Number(t.p[i])), b = Math.round(Number(t.p[i + 1])); if (!isFinite(a) || !isFinite(b)) continue; p.push(Math.max(0, Math.min(1000, a)), Math.max(0, Math.min(1000, b))); }
+    if (p.length < 16) return null; const sz = [500, 900, 1400].includes(Number(t.s)) ? Number(t.s) : 900;
+    return { p, s: sz, x: t.x === "niveau" ? "niveau" : "pont", name: String(t.name || "").replace(/[\u0000-\u001f<>]/g, "").slice(0, 24) };
+  }
+  // profils des étapes. La dernière est toujours l'étape reine, les autres tournent
+  const STAGES = { plaine: { id: "plaine", name: "Étape de plaine", icon: "🌾", hills: 0, elements: "peu", diff: -1, size: 0 }, montagne: { id: "montagne", name: "Étape de montagne", icon: "⛰️", hills: 3, elements: "moyen", diff: 0, size: 0 }, folle: { id: "folle", name: "Étape folle", icon: "🎢", hills: 2, elements: "beaucoup", diff: 0, size: 0 }, reine: { id: "reine", name: "Étape reine", icon: "👑", hills: 3, elements: "beaucoup", diff: 1, size: 1 } };
+  function stageOf(s, i) {
+    if (!s || s.format !== "etapes") return null; const n = s.stages || 4; const id = i >= n - 1 ? "reine" : ["plaine", "montagne", "folle"][i % 3];
+    return Object.assign({ i, n, car: i % 2 === 1 ? "imposee" : "libre" }, STAGES[id]);
+  }
+  // choix des voitures réellement appliqué à une course. En course à étapes, une étape sur deux la voiture est tirée au sort pour tous
+  const carModeFor = (s, i) => (s && s.format === "etapes" ? (i % 2 === 1 ? "random" : "own") : s.carMode);
   function pickBiome(s, i, r) { const l = s.biomes; if (s.biomeOrder === "unique") return l[0]; if (s.biomeOrder === "ordre") return l[i % l.length]; return l[Math.floor(r() * l.length)]; }
   // génère le circuit numéro index d'une partie, identique pour le serveur et pour l'aperçu du salon
   // valeurs tirées au sort pour la course numéro index. Chaque paramètre a son propre tirage et ne reprend jamais la valeur de la course d'avant
@@ -106,9 +134,15 @@
   }
   function trackFor(s, baseSeed, index) {
     const r = Track.mulberry32(Track.hashSeed(baseSeed + "#" + index));
-    const biome = pickBiome(s, index, r); const pp = paramsFor(s, baseSeed, index);
-    const tr = Track.generate({ seed: baseSeed + "#" + index, biome, size: pp.size, difficulty: pp.difficulty, hills: pp.hills, elements: pp.elements, features: FEATURE_OPTIONS.reduce((o, f) => { o[f.value] = s.features.includes(f.value); return o; }, {}) });
+    const biome = pickBiome(s, index, r); const pp = paramsFor(s, baseSeed, index); const st = stageOf(s, index);
+    if (st) { pp.hills = st.hills; pp.elements = st.elements; pp.difficulty = Math.max(1, Math.min(5, pp.difficulty + st.diff)); pp.size = Math.max(1, Math.min(5, pp.size + st.size)); }
+    if (s.survie) pp.size = Math.max(3, pp.size);
+    const spec = { seed: baseSeed + "#" + index, biome, size: pp.size, difficulty: pp.difficulty, hills: pp.hills, elements: pp.elements, features: FEATURE_OPTIONS.reduce((o, f) => { o[f.value] = s.features.includes(f.value); return o; }, {}) };
+    // un circuit dessiné reste le même à chaque course, seul le biome peut changer
+    if (s.trace) { spec.trace = s.trace; spec.seed = "trace" + (s.seed || "") + s.trace.p.length; }
+    const tr = Track.generate(spec);
     tr.drawn = pp.drawn.slice(); if (s.crashRnd) tr.drawn.push(RND_LABEL.crash[crashKey(s, baseSeed, index)]);
+    if (st) tr.stage = st;
     return tr;
   }
   const CRASH_K = { doux: 0.5, normal: 1, brutal: 1.6 };
@@ -120,5 +154,5 @@
     for (let i = 0; i < n; i++) out.push(n - i + Math.max(0, b - i));
     return out;
   }
-  return { SCHEMA, defaults, normalize, trackFor, allRules, crashK, crashKey, paramsFor, scale };
+  return { SCHEMA, defaults, normalize, trackFor, allRules, crashK, crashKey, paramsFor, scale, stageOf, carModeFor, cleanTrace, STAGES };
 });

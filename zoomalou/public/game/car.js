@@ -64,7 +64,7 @@
     const r = {
       tr, car, tick: 0, x: st.x - Math.cos(st.h) * slot, z: st.z + Math.sin(st.h) * slot, slot, y: st.y, hd: st.h, vx: 0, vz: 0, vy: 0, air: false, idx: st.idx, prevIdx: st.idx, cp: 0, cpIdx: st.idx, cpHd: st.h,
       finished: false, finishTime: 0, boostT: 0, driftT: 0, resets: 0, hits: 0, climb: 0, steerV: 0, pitch: 0, roll: 0, lastResetTick: -999, maxSpeed: 0, onSurf: 0, wallHit: 0, landed: 0, boostEvt: 0,
-      rail: false, mag: -1, ux: 0, uz: 0, wasSolid: true, spin: 0, lane: -1, laneF: -1, draft: 0, draftT: 0, drTier: 0, batt: 0, boostLv: 1, onVerge: false, ringEvt: 0,
+      rail: false, mag: -1, ux: 0, uz: 0, wasSolid: true, spin: 0, lane: -1, laneF: -1, draft: 0, draftT: 0, drTier: 0, batt: 0, boostLv: 1, onVerge: false, ringEvt: 0, cut: -1, bank: 0,
       opts: opts || {},
     };
     r.y = sampleAt(tr, r.idx).y; return r;
@@ -102,7 +102,7 @@
     // en sortie de piste avec le retour au départ, tout est à refaire depuis la ligne
     if (r.out && r.opts && r.opts.leave === "zero") { r.cp = 0; r.cpIdx = tr.start.idx; r.cpHd = tr.start.h; }
     r.out = false; const s = sampleAt(tr, r.cpIdx);
-    r.x = s.x; r.z = s.z; r.y = s.y; r.hd = s.h; r.vx = 0; r.vz = 0; r.vy = 0; r.air = false; r.idx = r.cpIdx; r.prevIdx = r.cpIdx; r.boostT = 0; r.driftT = 0; r.climb = 0; r.resets++; r.lastResetTick = r.tick; r.rail = false; r.mag = -1; r.wasSolid = true; r.pitch = 0; r.lane = -1; r.laneF = -1; r.drTier = 0; r.batt = 0; r.boostLv = 1;
+    r.x = s.x; r.z = s.z; r.y = s.y; r.hd = s.h; r.vx = 0; r.vz = 0; r.vy = 0; r.air = false; r.idx = r.cpIdx; r.prevIdx = r.cpIdx; r.boostT = 0; r.driftT = 0; r.climb = 0; r.resets++; r.lastResetTick = r.tick; r.rail = false; r.mag = -1; r.wasSolid = true; r.pitch = 0; r.lane = -1; r.laneF = -1; r.drTier = 0; r.batt = 0; r.boostLv = 1; r.cut = -1;
   }
 
   const SNAP = 0.05; // débattement de suspension, la voiture reste collée au sol sur les cassures de pente légères
@@ -135,8 +135,8 @@
   }
   // progression sur le circuit, commune au sol et aux zones sans gravité
   function progress(r) {
-    const tr = r.tr; const nextCp = tr.cps[r.cp];
-    if (nextCp !== undefined && r.prevIdx < nextCp && r.idx >= nextCp) { r.cp++; r.cpIdx = nextCp; r.cpHd = sampleAt(tr, nextCp).h; r.cpEvt = r.tick; }
+    const tr = r.tr;
+    for (let nextCp = tr.cps[r.cp]; nextCp !== undefined && r.prevIdx < nextCp && r.idx >= nextCp; nextCp = tr.cps[r.cp]) { r.cp++; r.cpIdx = nextCp; r.cpHd = sampleAt(tr, nextCp).h; r.cpEvt = r.tick; }
     const F = tr.n - 3;
     if (r.cp >= tr.cps.length && r.prevIdx < F && r.idx >= F) {
       const frac = (F - r.prevIdx) / Math.max(1e-6, r.idx - r.prevIdx); r.finished = true; r.finishTime = (r.tick - 1 + Math.min(1, Math.max(0, frac))) * DT;
@@ -199,6 +199,33 @@
   }
   function onPad(tr, idx, u) { const L = tr.pads; if (!L || !L.length) return 0; for (let q = 0; q < L.length; q++) { const p = L[q]; if (idx >= p.a && idx <= p.b + 1 && u >= p.u0 && u <= p.u1) return p.k; } return 0; }
 
+  // vol d'un raccourci. La voiture a quitté la route au tremplin et file tout droit au dessus du détour, elle se pose sur la route d'en face
+  function stepCut(r, inp) {
+    const tr = r.tr, car = r.car, c = tr.cuts[r.cut]; const gAir = airGOf(tr) * (car.glide || 1);
+    r.steerV += (inp.steer - r.steerV) * Math.min(1, DT * 14); const fx0 = Math.sin(r.hd), fz0 = Math.cos(r.hd); const vf = r.vx * fx0 + r.vz * fz0;
+    const fall = 1 / (1 + Math.pow(Math.abs(vf) / (car.vmax * (car.cv || 0.68)), 1.6) * 0.85); r.hd += -r.steerV * car.turn * Math.min(1, Math.abs(vf) / 6) * fall * (car.airCtl || 0.35) * DT;
+    if (car.airSteer) { const nfx = Math.sin(r.hd), nfz = Math.cos(r.hd); const sp0 = Math.hypot(r.vx, r.vz); const k2 = car.airSteer * 0.1; let nx = r.vx + (nfx * sp0 - r.vx) * k2, nz = r.vz + (nfz * sp0 - r.vz) * k2; const sp1 = Math.hypot(nx, nz) || 1; r.vx = nx / sp1 * sp0; r.vz = nz / sp1 * sp0; }
+    if (r.boostT > 0) { r.boostT--; if (r.boostT <= 0) r.boostLv = 1; }
+    r.x += r.vx * DT; r.z += r.vz * DT; r.vy -= gAir * DT; r.y += r.vy * DT; r.prevIdx = r.idx; r.wallHit = 0; r.landed = 0; r.onSurf = 0;
+    const fx = Math.sin(c.h), fz = Math.cos(c.h); const d = (r.x - c.ax) * fx + (r.z - c.az) * fz;
+    let est = d < c.D ? c.lip + (c.land - c.lip) * Math.max(0, d) / c.D : c.land + (d - c.D) / STEP; est = Math.min(tr.n - 2, Math.max(r.prevIdx, est));
+    if (d > c.D - 10) {
+      const pj = project(tr, r.x, r.z, Math.min(tr.n - 2, c.land + Math.max(0, (d - c.D) / STEP)), 8, 12);
+      if (pj.idx >= c.land - 5) {
+        const ps = sampleAt(tr, pj.idx); const u = (r.x - ps.x) * -Math.cos(ps.h) + (r.z - ps.z) * Math.sin(ps.h); est = Math.max(r.prevIdx, pj.idx);
+        if (Math.abs(u) <= ps.w - 0.3 && ps.solid) { const gy = ps.y + u * Track.bankAt(tr, pj.idx);
+          if (r.y <= gy) { const impact = -r.vy; r.y = gy; r.air = false; r.cut = -1; r.climb = 0; r.landed = impact; r.idx = est; r.wasSolid = true;
+            const sf2 = 1 - Math.min(0.3, Math.max(0, impact - 2.5) * 0.026 * (tr.crashK || 1) * (car.soft == null ? 1 : car.soft)); r.vx *= sf2; r.vz *= sf2; progress(r); return; } }
+      }
+    }
+    r.idx = est;
+    // trop court ou à côté, la voiture tombe dans le détour et revient au point de contrôle
+    if (r.y < Math.min(tr.y[c.land], tr.y[c.lip]) - 3.5 || r.y < tr.groundY + 0.4) { resetToCheckpoint(r); return; }
+    { const hs = Math.max(1e-6, Math.hypot(r.vx, r.vz)); r.pitch += (Math.atan2(r.vy, Math.max(hs, 4)) - r.pitch) * 0.12; }
+    const spd = Math.hypot(r.vx, r.vz); if (spd > r.maxSpeed) r.maxSpeed = spd;
+    progress(r);
+  }
+
   function step(r, inp) {
     if (r.finished) return;
     const tr = r.tr, car = r.car, g = tr.gravity, gAir = airGOf(tr) * (car.glide || 1);
@@ -206,6 +233,7 @@
     if (inp.rst && r.tick - r.lastResetTick > 30) { resetToCheckpoint(r); return; }
     if (r.draftT != null) r.draft += ((r.draftT || 0) * 0.25 - r.draft) * 0.05;
     if (r.rail) { stepRail(r, inp); return; }
+    if (r.cut >= 0) { stepCut(r, inp); return; }
     const fx = Math.sin(r.hd), fz = Math.cos(r.hd), rx = -Math.cos(r.hd), rz = Math.sin(r.hd);
     let vf = r.vx * fx + r.vz * fz, vl = r.vx * rx + r.vz * rz;
     const sp = sampleAt(tr, r.idx);
@@ -224,12 +252,14 @@
     else if (surf === S.ICE) { gripMul = car.ice; drag = 0.05; }
     else if (surf === S.SLOW) { gripMul = 0.9; vmax *= 0.62; accMul = 0.75; drag = 1.1; }
     else if (surf === S.VERGE) { const vk = car.verge || 1; gripMul = Math.min(1, car.dirt * 0.55 * vk); vmax *= Math.min(0.92, 0.56 * vk); accMul *= 0.7; drag = 1.5 / vk; }
+    // virage relevé. La route penchée tient la voiture, on tourne plus fort et on glisse moins
+    const bk0 = !r.air && tr.bank ? Math.abs(Track.bankAt(tr, r.idx)) : 0; if (bk0 > 0.01) gripMul *= 1 + 1.5 * bk0;
     // aspiration, derrière une autre voiture en mode contact
     if (r.draft > 0.01) { vmax *= 1 + 0.07 * r.draft; accMul += 0.35 * r.draft; }
     // direction
     const target = inp.steer; r.steerV += (target - r.steerV) * Math.min(1, DT * 14); const st = r.steerV;
     const sgnV = vf >= 0 ? 1 : -1; const sf = Math.min(1, Math.abs(vf) / 6);
-    const fall = 1 / (1 + Math.pow(Math.abs(vf) / (car.vmax * (car.cv || 0.68)), 1.6) * 0.85);
+    const fall = 1 / (1 + Math.pow(Math.abs(vf) / (car.vmax * (car.cv || 0.68) * (1 + 1.25 * bk0)), 1.6) * 0.85);
     let yaw = -st * car.turn * sf * fall * sgnV; if (r.air) yaw *= car.airCtl || 0.35; if (r.boostT > 0 && car.boostTurn) yaw *= car.boostTurn; r.hd += yaw * DT;
     if (r.spin) { r.hd += r.spin * DT; r.spin *= 0.9; if (Math.abs(r.spin) < 0.03) r.spin = 0; }
     // accélération
@@ -302,8 +332,12 @@
     if (!r.air && tr.kicks && tr.kicks.length && Math.hypot(r.vx, r.vz) > 3) {
       for (let q = 0; q < tr.kicks.length; q++) { const kk = tr.kicks[q]; if (r.prevIdx < kk.i && r.idx >= kk.i) { r.air = true; r.vy = kk.vy; r.climb = 0; r.y = Math.max(r.y, ps.y) + 0.02; r.kickEvt = r.tick; break; } }
     }
+    // tremplin de raccourci, seulement du côté de la route où il est posé
+    if (!r.air && tr.cuts && tr.cuts.length && Math.hypot(r.vx, r.vz) > 12) {
+      for (let q = 0; q < tr.cuts.length; q++) { const c = tr.cuts[q]; if (r.prevIdx < c.lip + 0.5 && r.idx >= c.lip + 0.5 && u >= c.u0 - 0.25 && u <= c.u1 + 0.25) { r.air = true; r.vy = c.vk; r.climb = 0; r.y = ps.y + 0.55; r.cut = q; r.kickEvt = r.tick; r.cutEvt = r.tick; progress(r); return; } }
+    }
     // hauteur et envol
-    const offroad = (nowall || r.out) && Math.abs(u) > ps.w + 0.2; let solid = ps.solid && !offroad; const gy = solid ? ps.y + laneDy : -1e9;
+    const offroad = (nowall || r.out) && Math.abs(u) > ps.w + 0.2; let solid = ps.solid && !offroad; const bkn = tr.bank ? Track.bankAt(tr, r.idx) : 0; r.bank = bkn; const gy = solid ? ps.y + laneDy + u * bkn : -1e9;
     if (!r.air) {
       const freeY = r.y + r.climb * DT - 0.5 * gAir * DT * DT;
       if (!solid || (gy < freeY - (0.012 + SNAP) && Math.hypot(r.vx, r.vz) > 6)) { r.air = true; r.vy = r.climb - gAir * DT; r.y = freeY; }

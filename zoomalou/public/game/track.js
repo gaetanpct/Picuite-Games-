@@ -14,7 +14,7 @@
   const STEP = 2;
   const SURF = { ASPHALT: 0, DIRT: 1, ICE: 2, BOOST: 3, SLOW: 4, SUPER: 5, VERGE: 6 };
   // VERGE bas-côté sans barrière, OVER route qui passe au-dessus d'une autre, UNDER route qui passe dessous, FORK cœur d'un embranchement, MOVE route qui bouge
-  const FLAG = { BOOST: 1, JUMP: 2, MAG: 4, GAP: 8, NOWALL: 16, KICK: 32, VERGE: 64, OVER: 128, UNDER: 256, FORK: 512, TUNNEL: 1024, MOVE: 2048 };
+  const FLAG = { BOOST: 1, JUMP: 2, MAG: 4, GAP: 8, NOWALL: 16, KICK: 32, VERGE: 64, OVER: 128, UNDER: 256, FORK: 512, TUNNEL: 1024, MOVE: 2048, XING: 4096, BANK: 8192, CUT: 16384 };
   const SURF_NAMES = ["Bitume", "Terre", "Glace", "Turbo", "Collant", "Super turbo", "Bas-côté"];
   // en vol, la pesanteur est plus forte que sur la route. Les sauts restent courts et lisibles
   const AIRK = 1.9;
@@ -36,19 +36,19 @@
     cote: { id: "cote", phys: {}, identity: "Route classique, la référence pour comparer", name: "Côte", icon: "🏖️", sky: ["#4fc8ff", "#fff3d6"], fog: "#d8f1ff", sun: "#fff3d0", amb: "#c8ecff", ground: "#f0dc9c", road: "#5b606c", wall: "#ffffff", curb: ["#ff5a4a", "#ffffff"], gravity: 9.8, plan: { dirt: 0.0, ice: 0, slow: 0.22 }, vergeK: "sable", vergeCol: "#ecd28c",
       el: { verge: 0.25 }, deco: ["palm", "palm", "rock", "parasol", "phare", "bouee"], names: ["Corniche Salée", "Route des Mouettes", "Plage Express", "Marée Basse", "Phare en Vue"] },
     neige: { id: "neige", phys: { grip: 0.86, accel: 0.95 }, identity: "Adhérence réduite partout, glace fréquente et congères sur les bords", name: "Neige", icon: "⛄", sky: ["#9fd4ff", "#f4fbff"], fog: "#e6f3ff", sun: "#ffffff", amb: "#d0e8ff", ground: "#f4f9ff", road: "#4a5666", wall: "#dff0ff", curb: ["#2a6fb0", "#ffffff"], gravity: 9.8, plan: { dirt: 0, ice: 0.45, slow: 0.1 }, vergeK: "neige", vergeCol: "#ffffff",
-      el: { verge: 0.45, tunnel: 1.3, fork: 0.9 }, deco: ["pine", "pine", "snowman", "rock", "igloo"], names: ["Piste Verglacée", "Col Blanc", "Tobogan Fou", "Sapin Givré", "Lac Gelé"] },
+      el: { verge: 0.45, tunnel: 1.3, fork: 0.9, bank: 1.2 }, deco: ["pine", "pine", "snowman", "rock", "igloo"], names: ["Piste Verglacée", "Col Blanc", "Tobogan Fou", "Sapin Givré", "Lac Gelé"] },
     neon: { id: "neon", phys: { accel: 1.08, grip: 0.94 }, identity: "Gravité faible, grands sauts et anneaux turbo à traverser", name: "Néon", icon: "🪐", sky: ["#07041f", "#3a1f7a"], fog: "#241250", sun: "#c8c0ff", amb: "#6a60c0", ground: "#14104a", road: "#1e1a50", wall: "#5affd8", curb: ["#ff4a8a", "#5affd8"], gravity: 4.6, stars: true, plan: { dirt: 0, ice: 0.2, slow: 0.05 }, vergeK: "gravier", vergeCol: "#2a2470",
-      el: { ring: 2.4, gap: 1.4, drop: 1.4, mag: 1.2, verge: 0 }, deco: ["pylon", "pylon", "asteroid", "crystal", "anneau", "tour"], names: ["Orbite Néon", "Anneau Lumineux", "Piste Stellaire", "Comète Express", "Voie Lactée"] },
+      el: { ring: 2.4, gap: 1.4, drop: 1.4, mag: 1.2, verge: 0, cut: 1.6, bank: 1.3 }, deco: ["pylon", "pylon", "asteroid", "crystal", "anneau", "tour"], names: ["Orbite Néon", "Anneau Lumineux", "Piste Stellaire", "Comète Express", "Voie Lactée"] },
     megapole: { id: "megapole", phys: { grip: 1.04 }, identity: "Tubes où l'on roule la tête à l'envers, voies rapides et tunnels", name: "Mégapole", icon: "🏙️", sky: ["#5ab8e8", "#e8f6ff"], fog: "#cfe6f4", sun: "#fff8e8", amb: "#bfe0f4", ground: "#8a96a4", road: "#3a3f4c", wall: "#d8e4ee", curb: ["#21c5e8", "#f2f6fa"], gravity: 9.8, plan: { dirt: 0, ice: 0, slow: 0.08 }, vergeK: "gravier", vergeCol: "#9aa4ae",
-      el: { mag: 3.4, tube: 3.4, tubeLen: 1.5, magGap: 22, tunnel: 2.2, bridge: 1.6, cross: 1.6, sup: 1.6, obst: 0.6, steep: 0.6, verge: 0 }, deco: ["immeuble", "immeuble", "tourverre", "panneau", "immeuble", "antenne"], names: ["Périphérique Zéro", "Voie Suspendue", "Tunnel Azur", "Échangeur Fou", "Quartier des Tours"] },
+      el: { mag: 3.4, tube: 3.4, tubeLen: 1.5, magGap: 22, tunnel: 2.2, bridge: 1.6, cross: 1.6, sup: 1.6, obst: 0.6, steep: 0.6, verge: 0, bank: 2.2, xing: 1.4 }, deco: ["immeuble", "immeuble", "tourverre", "panneau", "immeuble", "antenne"], names: ["Périphérique Zéro", "Voie Suspendue", "Tunnel Azur", "Échangeur Fou", "Quartier des Tours"] },
     jungle: { id: "jungle", phys: { grip: 0.95 }, identity: "Pistes de terre, embranchements partout et tunnels de verdure", name: "Jungle", icon: "🌿", sky: ["#7ad8a0", "#f0ffe8"], fog: "#bfe8c4", sun: "#fff6c0", amb: "#a8e8b8", ground: "#3a8a46", road: "#4f4a3c", wall: "#7a5a32", curb: ["#c25a2a", "#f2e2b4"], gravity: 9.8, plan: { dirt: 0.55, ice: 0, slow: 0.18 }, vergeK: "herbe", vergeCol: "#4fa84e",
-      el: { fork: 5, tunnel: 1.6, verge: 0.4, steep: 1.2, mag: 0.4 }, deco: ["palmier2", "fougere", "tree", "temple", "bambou", "rock"], names: ["Sentier du Jaguar", "Racines Folles", "Temple Perdu", "Liane Express", "Marais Rapide"] },
+      el: { fork: 5, tunnel: 1.6, verge: 0.4, steep: 1.2, mag: 0.4, cut: 1.4, bank: 0.5 }, deco: ["palmier2", "fougere", "tree", "temple", "bambou", "rock"], names: ["Sentier du Jaguar", "Racines Folles", "Temple Perdu", "Liane Express", "Marais Rapide"] },
     usine: { id: "usine", phys: { grip: 1.0 }, identity: "Le circuit bouge, routes en vagues et plateaux qui basculent", name: "Usine", icon: "🏭", sky: ["#e8a46a", "#fbe6c8"], fog: "#e9cfae", sun: "#ffe0b0", amb: "#f0d0a8", ground: "#6e6862", road: "#36363c", wall: "#ffb21a", curb: ["#ffb21a", "#24242a"], gravity: 9.8, plan: { dirt: 0, ice: 0, slow: 0.15 }, vergeK: "gravier", vergeCol: "#8a847c",
-      el: { mover: 6, obst: 1.3, cross: 1.2, tunnel: 1.3, sup: 1.4, verge: 0.15 }, deco: ["cheminee", "grue", "conteneur", "conteneur", "cuve", "rock"], names: ["Chaîne de Montage", "Haut Fourneau", "Atelier Express", "Piston Fou", "Entrepôt 9"] },
+      el: { mover: 6, obst: 1.3, cross: 1.2, tunnel: 1.3, sup: 1.4, verge: 0.15, xing: 1.6 }, deco: ["cheminee", "grue", "conteneur", "conteneur", "cuve", "rock"], names: ["Chaîne de Montage", "Haut Fourneau", "Atelier Express", "Piston Fou", "Entrepôt 9"] },
     foraine: { id: "foraine", phys: { grip: 1.02 }, identity: "Montagnes russes, routes qui se croisent et grands plongeons", name: "Fête foraine", icon: "🎡", sky: ["#ff9a8a", "#ffe6c0"], fog: "#ffd8c0", sun: "#fff0d0", amb: "#ffd0c8", ground: "#5aa86a", road: "#5a4a6a", wall: "#ffffff", curb: ["#ff3a6a", "#ffd23f"], gravity: 9.8, plan: { dirt: 0, ice: 0, slow: 0.1 }, vergeK: "herbe", vergeCol: "#6ab86a",
-      el: { cross: 6, drop: 2.6, dbl: 2, ring: 1.6, mag: 1.3, gap: 1.2, verge: 0.1 }, deco: ["grandeRoue", "chapiteau", "ballons", "manege", "tree", "ballons"], names: ["Grand Huit", "Train Fantôme", "Chenille Folle", "Barbe à Papa", "Le Plongeon"] },
+      el: { cross: 6, drop: 2.6, dbl: 2, ring: 1.6, mag: 1.3, gap: 1.2, verge: 0.1, bank: 1.6, xing: 0.45, cut: 1.2 }, deco: ["grandeRoue", "chapiteau", "ballons", "manege", "tree", "ballons"], names: ["Grand Huit", "Train Fantôme", "Chenille Folle", "Barbe à Papa", "Le Plongeon"] },
     dunes: { id: "dunes", phys: { wind: 2.2, grip: 0.97 }, identity: "Presque aucun mur, des bas-côtés de sable, des crêtes et du vent", name: "Dunes", icon: "🏜️", sky: ["#ffa94a", "#fff0cf"], fog: "#ffe2b0", sun: "#fff0c0", amb: "#ffe0b0", ground: "#e9b868", road: "#6a5a4a", wall: "#f2d29a", curb: ["#c0552a", "#f6e2b4"], gravity: 9.8, plan: { dirt: 0.3, ice: 0, slow: 0.08 }, vergeK: "sable", vergeCol: "#f0c878",
-      el: { verge: 0.92, steep: 1.6, jumps: 1.6, bridge: 0.5, mag: 0.35, fork: 0.8 }, deco: ["dune", "cactus", "rock", "dune", "pyramide", "arche"], names: ["Piste Poussiéreuse", "Mirage Rapide", "Mer de Sable", "Dune Furieuse", "Oasis Express"] },
+      el: { verge: 0.92, steep: 1.6, jumps: 1.6, bridge: 0.5, mag: 0.35, fork: 0.8, cut: 1.8, bank: 0.6 }, deco: ["dune", "cactus", "rock", "dune", "pyramide", "arche"], names: ["Piste Poussiéreuse", "Mirage Rapide", "Mer de Sable", "Dune Furieuse", "Oasis Express"] },
   };
   const BIOME_IDS = Object.keys(BIOMES);
   // grands décors, posés plus loin de la route pour que la caméra ne passe pas au travers
@@ -73,8 +73,8 @@
     const biome = BIOMES[spec.biome] || BIOMES.cote;
     const diff = clamp(spec.difficulty || 3, 1, 5), size = clamp(spec.size || 2, 1, 5);
     const hillsLvl = clamp(spec.hills == null ? 2 : spec.hills, 0, 3);
-    const F = Object.assign({ boosts: true, jumps: true, surfaces: true, gaps: true, steep: true, obstacles: true, widths: true, bridges: true, mag: true, forks: true, verges: true, cross: true, movers: true, rings: true }, spec.features || {});
-    const EL = Object.assign({ fork: 1, verge: 0.2, cross: 1, tunnel: 1, mover: 0.35, mag: 1, tube: 0.4, magGap: 60, ring: 1, gap: 1, bridge: 1, obst: 1, steep: 1, drop: 1, dbl: 1, sup: 1, jumps: 1 }, biome.el || {});
+    const F = Object.assign({ boosts: true, jumps: true, surfaces: true, gaps: true, steep: true, obstacles: true, widths: true, bridges: true, mag: true, forks: true, verges: true, cross: true, movers: true, rings: true, bank: true, xing: true, cut: true }, spec.features || {});
+    const EL = Object.assign({ fork: 1, verge: 0.2, cross: 1, tunnel: 1, mover: 0.35, mag: 1, tube: 0.4, magGap: 60, ring: 1, gap: 1, bridge: 1, obst: 1, steep: 1, drop: 1, dbl: 1, sup: 1, jumps: 1, bank: 1, xing: 1, cut: 1 }, biome.el || {});
     const wild = clamp(spec.special == null ? 3 : spec.special, 0, 4);
     const airG = biome.gravity * AIRK;
     const targetLen = [700, 1100, 1700, 2800, 4200][size - 1] * (0.92 + rng() * 0.16);
@@ -92,7 +92,7 @@
     const X = [], Z = [], H = [], W = [], SF = [], FL = [];
     const items = []; const starts = []; // éléments enregistrés et début de chaque pièce posée
     let x = 0, z = 0, h = 0, wMax = hw;
-    const grid = new Map(); const CELL = 24;
+    const grid = new Map(); const CELL = 24; const blk = []; // couloirs de vol des raccourcis, où rien d'autre ne doit passer
     const gk = (px, pz) => Math.floor(px / CELL) + "," + Math.floor(pz / CELL);
     const push = (surf, flag, hwv) => { const w = hwv || hw; X.push(x); Z.push(z); H.push(h); W.push(w); SF.push(surf); FL.push(flag || 0); if (w > wMax) wMax = w; const k = gk(x, z); let l = grid.get(k); if (!l) { l = []; grid.set(k, l); } l.push(X.length - 1); };
     const regrid = () => { grid.clear(); for (let i = 0; i < X.length; i++) { const k = gk(X[i], Z[i]); let l = grid.get(k); if (!l) { l = []; grid.set(k, l); } l.push(i); } };
@@ -116,6 +116,7 @@
         const p = pts[i]; if (Math.hypot(p.x, p.z) > maxR) return false;
         const R = Math.ceil((wMax + p.w + 7) / CELL); const gx = Math.floor(p.x / CELL), gz = Math.floor(p.z / CELL);
         for (let a = -R; a <= R; a++) for (let b = -R; b <= R; b++) { const l = grid.get((gx + a) + "," + (gz + b)); if (!l) continue; for (let q = 0; q < l.length; q++) { const j = l[q]; if (j >= old) continue; const dx = X[j] - p.x, dz = Z[j] - p.z, lim = W[j] + p.w + 7; if (dx * dx + dz * dz < lim * lim) return false; } }
+        for (let q = 0; q < blk.length; q++) { const o = blk[q]; const dx = o.x - p.x, dz = o.z - p.z, lim = o.r + p.w + 2; if (dx * dx + dz * dz < lim * lim) return false; }
         if (!noSelf) for (let j = 0; j < i - 14; j++) { const lim = pts[j].w + p.w + 7; if ((i - j) * STEP < lim * 1.25) continue; const dx = pts[j].x - p.x, dz = pts[j].z - p.z; if (dx * dx + dz * dz < lim * lim) return false; }
       }
       return true;
@@ -134,10 +135,11 @@
     }
     const sgn = () => { const toward = Math.atan2(-x, -z); let d = toward - h; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; const bias = Math.min(0.85, Math.hypot(x, z) / maxR); return (rng() < 0.5 + 0.4 * bias * Math.sign(d || 1)) ? 1 : -1; };
     const lastPinEnd = () => { let m = -999; items.forEach((it) => { if (it.t === "region" && it.b > m) m = it.b; }); return m; };
-    const pinOK = () => X.length - lastPinEnd() >= 26;
+    let cur = null; // position courante quand on habille un tracé dessiné
+    const pinOK = () => (cur == null ? X.length : cur) - lastPinEnd() >= 26;
     const lastMag = () => { let m = -9999; items.forEach((it) => { if (it.t === "mag" && it.b > m) m = it.b; }); return m; };
     const lastOf = (t) => { let m = -9999; items.forEach((it) => { if (it.t === t && it.a > m) m = it.a; }); return m; };
-    const room = () => targetLen - STEP * X.length;
+    const room = () => (cur == null ? targetLen - STEP * X.length : (X.length - 40 - cur) * STEP);
     const straightPts = (n, w, fl) => { const out = []; let cx = x, cz = z; for (let i = 0; i < n; i++) { cx += Math.sin(h) * STEP; cz += Math.cos(h) * STEP; out.push({ x: cx, z: cz, h, w: w || hw, fl: fl || 0 }); } return out; };
 
     // ---------- pièces classiques ----------
@@ -368,6 +370,50 @@
         items.push({ t: "region", a: i0, b: i1, ofs }); items.push({ t: "cross", a: i0, b: i1, cp: i0 + 3 });
       } };
     }
+    // ---------- carrefour à niveau, la route fait un grand tour et recoupe son propre passage à la même hauteur ----------
+    // en mode contact les voitures des deux passages peuvent se percuter au milieu
+    function kCarrefour() {
+      if (X.length - lastPinEnd() < 12 || room() < 640) return null;
+      const s = sgn(); const R = rad(34, 46); const Lin = R + rad(30, 46); const Lout = R + hw + 40;
+      const parts = [{ straight: Lin }, { angle: s * Math.PI * 1.5, radius: R }, { straight: Lout }];
+      return { surf: SURF.ASPHALT, noSelf: true, parts, reg(i0, i1) {
+        const N = i1 - i0 + 1; items.push({ t: "region", a: i0, b: i1, ofs: new Array(N).fill(0) });
+        // les deux passages au plus près l'un de l'autre, puis les bouts de route à l'intérieur du croisement
+        let best = 1e9, ja = -1, jb = -1; for (let a = i0; a <= i1; a++) for (let b = a + 30; b <= i1; b++) { const d = Math.hypot(X[a] - X[b], Z[a] - Z[b]); if (d < best) { best = d; ja = a; jb = b; } }
+        if (ja < 0 || best > 3) return;
+        for (let q = i0; q <= i1; q++) { const o = Math.abs(q - ja) < Math.abs(q - jb) ? jb : ja; let m = 1e9; for (let k = o - 14; k <= o + 14; k++) { if (k < i0 || k > i1) continue; m = Math.min(m, Math.hypot(X[q] - X[k], Z[q] - Z[k]) - W[k]); } if (m < 2.5) FL[q] |= FLAG.XING; }
+        items.push({ t: "xing", a: i0, b: i1, cp: i0 + 3, ja, jb });
+      } };
+    }
+    // ---------- virage relevé, une grande courbe inclinée vers l'intérieur qu'on prend bien plus vite qu'un virage plat ----------
+    function kBank() {
+      if (room() < 260) return null;
+      const s = sgn(); const R = rad(24, 40); const A = ang(110, 200); const tilt = clamp(0.24 + diff * 0.03 + rng() * 0.1, 0.24, 0.42);
+      const L0 = 16; return { surf: SURF.ASPHALT, parts: [{ straight: L0 }, { angle: s * A, radius: R }, { straight: L0 }], reg(i0, i1) {
+        const N = i1 - i0 + 1; const a = Math.round(L0 / STEP), b = N - 1 - Math.round(L0 / STEP); const arr = [];
+        for (let j = 0; j < N; j++) { const e = sm((j - a + 9) / 14) * sm((b + 9 - j) / 14); arr.push(+(s * tilt * e).toFixed(3)); if (e > 0.05) FL[i0 + j] |= FLAG.BANK; }
+        items.push({ t: "bank", a: i0, b: i1, B: arr });
+      } };
+    }
+    // ---------- raccourci par les airs, la route fait un grand détour en Ω et un tremplin d'un côté permet de couper tout droit ----------
+    // le détour est sûr. Le saut fait gagner du temps, mais trop lent on tombe court et on revient au point de contrôle
+    function kCut() {
+      if (!pinOK() || room() < 620 || size < 2) return null;
+      const s = sgn(); const R = rad(18, 23); const R2 = Math.max(rad(9, 12), hw + 4.5); const L = rad(4, 8); const Lapp = rad(80, 100); const Lout = rad(70, 90);
+      const D = 2 * R + 2 * R2; const vA = accelSpeed(Lapp, WEAK.vmax, WEAK.acc); const vreq = Math.min(36, vA * 0.86); const vk = airG * (D - 5) / (2 * vreq);
+      const parts = [{ straight: Lapp }, { angle: s * Math.PI / 2, radius: R }, { straight: L }, { angle: -s * Math.PI, radius: R2 }, { straight: L }, { angle: s * Math.PI / 2, radius: R }, { straight: Lout }];
+      const ns = parts.map((p) => Math.max(1, Math.round((p.straight ? p.straight : Math.abs(p.angle) * p.radius) / STEP)));
+      return { surf: SURF.ASPHALT, parts, reg(i0, i1) {
+        const N = i1 - i0 + 1; const lip = i0 + ns[0] - 1; const land = i0 + ns[0] + ns[1] + ns[2] + ns[3] + ns[4] + ns[5];
+        if (land >= i1 - 6) return; items.push({ t: "region", a: i0, b: i1, ofs: new Array(N).fill(0) });
+        // le tremplin occupe le côté opposé au détour
+        const side = s > 0 ? 1 : -1; const wl = W[lip]; const u0 = side > 0 ? 0.6 : -wl + 0.6, u1 = side > 0 ? wl - 0.6 : -0.6;
+        const ax = X[lip], az = Z[lip], bx = X[land], bz = Z[land]; const Dm = Math.hypot(bx - ax, bz - az);
+        for (let d = 8; d < Dm - 16; d += 4) { const t = d / Dm; blk.push({ x: ax + (bx - ax) * t, z: az + (bz - az) * t, r: 3.2, a: i0 }); }
+        for (let q = lip - 2; q <= lip; q++) FL[q] |= FLAG.CUT;
+        items.push({ t: "cut", a: i0, b: i1, cp: i0 + 3, lip, land, u0: +u0.toFixed(2), u1: +u1.toFixed(2), vk: +vk.toFixed(3), vreq: +vreq.toFixed(2), D: +Dm.toFixed(2) });
+      } };
+    }
     // ---------- route qui bouge, en vagues qui roulent vers le pilote ou en plateau qui bascule ----------
     function kMover() {
       if (room() < 360) return null;
@@ -499,13 +545,121 @@
         if (F.cross && sizeOK) cands.push([0.55 * k * EL.cross, kCross]);
         if (F.movers && sizeOK) cands.push([0.5 * k * EL.mover, kMover]);
         cands.push([0.55 * k * EL.tunnel, kTunnel]);
+        if (F.bank) cands.push([0.8 * k * EL.bank, kBank]);
+        if (F.xing && sizeOK) cands.push([0.6 * k * EL.cross * EL.xing, kCarrefour]);
+        if (F.cut && sizeOK) cands.push([0.75 * k * EL.cut, kCut]);
       }
       const tot = cands.reduce((a, c) => a + c[0], 0); let r = rng() * tot;
       for (let tries = 0; tries < 6; tries++) { let pickF = cands[cands.length - 1][1]; let t = r; for (const c of cands) { if ((t -= c[0]) < 0) { pickF = c[1]; break; } } const kind = pickF(); if (kind) return kind; r = rng() * tot; }
       return kStraight();
     }
 
+    // ---------- tracé dessiné à la souris ----------
+    // le dessin arrive en points de 0 à 1000 sur une carte carrée de trace.s mètres de côté. Il est lissé pour que chaque virage reste prenable,
+    // puis habillé automatiquement. Les endroits où il se recoupe deviennent des ponts ou des carrefours
+    const traceErr = []; let traceInfo = null;
+    function traceGeom() {
+      const T = spec.trace; if (!T || !Array.isArray(T.p) || T.p.length < 16) return null;
+      const sc = clamp(Number(T.s) || 900, 300, 2000) / 1000; let P = [];
+      for (let i = 0; i + 1 < T.p.length; i += 2) { const px = (500 - T.p[i]) * sc, pz = (500 - T.p[i + 1]) * sc; if (!isFinite(px) || !isFinite(pz)) continue; const q = P[P.length - 1]; if (!q || Math.hypot(px - q[0], pz - q[1]) > 0.5) P.push([px, pz]); }
+      if (P.length < 4) return null;
+      const resample = (Q, st) => { const out = [Q[0].slice()]; let need = st; let p0 = Q[0]; for (let i = 1; i < Q.length; i++) { const p1 = Q[i]; let d = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]); let a = p0; while (d >= need) { const t = need / d; a = [a[0] + (p1[0] - a[0]) * t, a[1] + (p1[1] - a[1]) * t]; out.push(a); d = Math.hypot(p1[0] - a[0], p1[1] - a[1]); need = st; } need -= d; p0 = p1; } const L = Q[Q.length - 1], E = out[out.length - 1]; if (Math.hypot(L[0] - E[0], L[1] - E[1]) > st * 0.4) out.push(L.slice()); return out; };
+      const smooth = (Q, passes) => { for (let it = 0; it < passes; it++) { const c = Q.map((q) => q.slice()); for (let i = 1; i < Q.length - 1; i++) { Q[i][0] = (c[i - 1][0] + 2 * c[i][0] + c[i + 1][0]) / 4; Q[i][1] = (c[i - 1][1] + 2 * c[i][1] + c[i + 1][1]) / 4; } } return Q; };
+      // lissage à grande échelle puis fin, pour gommer le tremblement de la main
+      P = smooth(resample(P, 6), 3); P = smooth(resample(P, STEP), 4);
+      // rayon minimal. Une voiture virtuelle suit le dessin en visant un peu devant elle, sans jamais tourner plus sec que le rayon minimal.
+      // Les angles trop vifs sont arrondis et le tracé ne s'écarte jamais beaucoup du dessin
+      { const Rmin = 16, amax = STEP / Rmin, look = 7; const out = []; let qx = P[0][0], qz = P[0][1]; let th = Math.atan2(P[Math.min(3, P.length - 1)][0] - qx, P[Math.min(3, P.length - 1)][1] - qz); let sI = 0; const end = P.length - 1;
+        out.push([qx, qz]);
+        for (let k = 0; k < P.length * 3 && out.length < 4000; k++) {
+          let bi = sI, bd = 1e18; for (let q = sI; q <= Math.min(end, sI + 12); q++) { const d = (P[q][0] - qx) ** 2 + (P[q][1] - qz) ** 2; if (d < bd) { bd = d; bi = q; } } sI = bi;
+          if (sI >= end - 1 && Math.hypot(P[end][0] - qx, P[end][1] - qz) < STEP * 1.5) break;
+          const tg = P[Math.min(end, sI + look)]; let want = Math.atan2(tg[0] - qx, tg[1] - qz) - th; while (want > Math.PI) want -= 2 * Math.PI; while (want < -Math.PI) want += 2 * Math.PI;
+          th += clamp(want, -amax, amax); qx += Math.sin(th) * STEP; qz += Math.cos(th) * STEP; out.push([qx, qz]);
+        }
+        P = out; }
+      if (P.length < 40) return null;
+      // ligne droite de départ avant le premier point, et une petite ligne droite d'arrivée
+      const d0 = [P[1][0] - P[0][0], P[1][1] - P[0][1]], l0 = Math.hypot(d0[0], d0[1]) || 1; const pre = []; for (let k = 15; k >= 1; k--) pre.push([P[0][0] - d0[0] / l0 * STEP * k, P[0][1] - d0[1] / l0 * STEP * k]);
+      const m = P.length; const d1 = [P[m - 1][0] - P[m - 2][0], P[m - 1][1] - P[m - 2][1]], l1 = Math.hypot(d1[0], d1[1]) || 1; const post = []; for (let k = 1; k <= 6; k++) post.push([P[m - 1][0] + d1[0] / l1 * STEP * k, P[m - 1][1] + d1[1] / l1 * STEP * k]);
+      return pre.concat(P, post);
+    }
+    function layoutTrace(P) {
+      X.length = Z.length = H.length = W.length = SF.length = FL.length = 0; grid.clear(); let hPrev = null;
+      for (let i = 0; i < P.length; i++) { const a = P[Math.min(i, P.length - 2)], b = P[Math.min(i + 1, P.length - 1)]; let hh = Math.atan2(b[0] - a[0], b[1] - a[1]); if (hPrev != null) { while (hh - hPrev > Math.PI) hh -= 2 * Math.PI; while (hh - hPrev < -Math.PI) hh += 2 * Math.PI; } hPrev = hh; x = P[i][0]; z = P[i][1]; h = hh; push(pickSurf(), 0, hw); }
+      const n0 = X.length;
+      // surfaces par morceaux, comme des pièces
+      { let i = 30; while (i < n0) { const L = Math.round(rad(40, 120) / STEP); const sf = pickSurf(); for (let q = i; q < Math.min(n0, i + L); q++) SF[q] = sf; i += L; } for (let q = 0; q < 30; q++) SF[q] = SURF.ASPHALT; }
+      // ---- croisements ----
+      const near = new Int32Array(n0).fill(-1), nd = new Float64Array(n0).fill(1e9);
+      for (let j = 0; j < n0; j++) { const gx = Math.floor(X[j] / CELL), gz = Math.floor(Z[j] / CELL); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const l = grid.get((gx + a) + "," + (gz + b)); if (!l) continue; for (const i of l) { if (i > j - 30) continue; const d = Math.hypot(X[i] - X[j], Z[i] - Z[j]); if (d < nd[j]) { nd[j] = d; near[j] = i; } } } }
+      const close = (j) => near[j] >= 0 && nd[j] < W[j] + W[near[j]] + 1.5;
+      const crossings = []; let j = 0;
+      while (j < n0) { if (!close(j)) { j++; continue; } let a = j; while (j < n0 && close(j)) j++; const b = j - 1; let bj = a; for (let q = a; q <= b; q++) if (nd[q] < nd[bj]) bj = q; const bi = near[bj];
+        const ang2 = Math.abs(Math.sin(H[bj] - H[bi]));
+        if (nd[bj] > 1.6) traceErr.push({ x: +X[bj].toFixed(1), z: +Z[bj].toFixed(1), k: "proche" });
+        else if (ang2 < 0.5) traceErr.push({ x: +X[bj].toFixed(1), z: +Z[bj].toFixed(1), k: "rasant" });
+        else if (bi < 24 || bj > n0 - 24) traceErr.push({ x: +X[bj].toFixed(1), z: +Z[bj].toFixed(1), k: "bout" });
+        else crossings.push({ ic: bi, jc: bj }); }
+      const level = spec.trace.x === "niveau"; const Hc = 8.6, ndn = Math.ceil(Hc / 0.24 / STEP); const OV = new Float64Array(n0); const busy = new Uint8Array(n0); let nb = 0, nl = 0;
+      const mark = (c, r) => { for (let q = Math.max(0, c - r); q <= Math.min(n0 - 1, c + r); q++) busy[q] = 1; };
+      crossings.forEach((c) => { const hold = Math.ceil((W[c.ic] + 9) / STEP); c.j0 = c.jc - hold - ndn; c.j1 = c.jc + hold + ndn; c.i0 = c.ic - hold - 4; c.i1 = c.ic + hold + 4; c.hold = hold; });
+      crossings.forEach((c) => { c.lvl = level || c.j0 < 16 || c.j1 > n0 - 10 || crossings.some((o) => (c.j0 <= o.i1 && c.j1 >= o.i0)); });
+      crossings.forEach((c) => {
+        mark(c.ic, 30); mark(c.jc, 30);
+        if (c.lvl) { nl++; for (const q0 of [c.ic, c.jc]) { const o = q0 === c.ic ? c.jc : c.ic; for (let q = q0 - 16; q <= q0 + 16; q++) { if (q < 0 || q >= n0) continue; let mm = 1e9; for (let k = o - 16; k <= o + 16; k++) if (k >= 0 && k < n0) mm = Math.min(mm, Math.hypot(X[q] - X[k], Z[q] - Z[k]) - W[k]); if (mm < 2.5) FL[q] |= FLAG.XING; } } items.push({ t: "xing", a: c.ic - 14, b: c.ic + 14, ja: c.ic, jb: c.jc, trace: 1 }); items.push({ t: "xing", a: c.jc - 14, b: c.jc + 14, ja: c.ic, jb: c.jc, dup: 1 }); return; }
+        nb++; for (let q = c.j0; q <= c.j1; q++) { const t = q < c.jc - c.hold ? sm((q - c.j0) / ndn) : q > c.jc + c.hold ? sm((c.j1 - q) / ndn) : 1; OV[q] = Math.max(OV[q], Hc * t); }
+        for (let q = c.j0; q <= c.j1; q++) busy[q] = 1;
+      });
+      // ponts. Chaque bosse de hauteur devient une zone de hauteur fixée
+      { let q = 0; while (q < n0) { if (OV[q] <= 0) { q++; continue; } const a = Math.max(0, q - 2); while (q < n0 && OV[q] > 0) q++; const b = Math.min(n0 - 1, q + 1); const ofs = []; for (let k = a; k <= b; k++) ofs.push(+OV[k].toFixed(3)); items.push({ t: "region", a, b, ofs, over: 1 }); } }
+      { const Lt = (n0 - 1) * STEP; if (Lt > 6500) traceErr.push({ x: +X[n0 - 1].toFixed(1), z: +Z[n0 - 1].toFixed(1), k: "long" }); if (Lt < 380) traceErr.push({ x: +X[n0 - 1].toFixed(1), z: +Z[n0 - 1].toFixed(1), k: "court" }); }
+      traceInfo = { crossings: nb, levels: nl, errors: traceErr.length };
+      // ---- habillage automatique ----
+      const kap = new Float64Array(n0); for (let i = 1; i < n0 - 1; i++) { let d = H[i + 1] - H[i - 1]; kap[i] = Math.abs(d) / (2 * STEP); }
+      const maxKap = (a, b) => { let m = 0; for (let q = a; q <= b; q++) if (kap[q] > m) m = kap[q]; return m; };
+      const kk = Math.max(0.35, wild * 0.8) * elemK; const inl = [[1.8 * mood.flow, kStraight, 1 / 150]];
+      if (wild > 0) {
+        if (F.steep) inl.push([2.4 * kk * mood.steep * EL.steep, kSteep, 1]);
+        if (F.obstacles) inl.push([1.8 * kk * mood.obst * EL.obst, kObstacles, 1 / 150]);
+        if (F.widths) { inl.push([0.8 * kk * mood.width, kNeck, 1 / 80]); inl.push([0.6 * kk * mood.width, kEntonnoir, 1 / 120]); inl.push([0.5 * kk * mood.width, kPulse, 1 / 100]); }
+        if (F.gaps) { const gk = kk * mood.gap * EL.gap; inl.push([1.6 * gk, () => kGap("simple"), 1 / 260]); inl.push([0.45 * gk * EL.dbl, () => kGap("double"), 1 / 260]); inl.push([0.45 * gk * EL.drop, () => kGap("plongeon"), 1 / 260]); inl.push([0.3 * gk, () => kGap("montant"), 1 / 260]); }
+        if (F.bridges) { const bk = kk * mood.bridge * EL.bridge; inl.push([0.6 * bk, kBridge, 1 / 140]); inl.push([0.4 * bk, kPasserelle, 1 / 160]); inl.push([0.45 * bk, kPontVague, 1 / 140]); }
+        if (F.forks) inl.push([1.5 * kk * EL.fork, kFork, 1 / 45]);
+        if (F.movers) inl.push([0.5 * kk * EL.mover, kMover, 1 / 150]);
+        inl.push([0.55 * kk * EL.tunnel, kTunnel, 1]);
+      }
+      const tot = inl.reduce((a2, c2) => a2 + c2[0], 0); cur = 36; let guard = 0;
+      while (cur < n0 - 60 && guard++ < 3000) {
+        if (busy[cur]) { cur++; continue; }
+        let r = rng() * tot, pickC = inl[0]; for (const c2 of inl) { if ((r -= c2[0]) < 0) { pickC = c2; break; } }
+        const kind = pickC[1](); if (!kind || kind.make) { cur += 3; continue; }
+        const Nk = kind.parts.reduce((a2, p) => a2 + Math.max(1, Math.round((p.straight ? p.straight : Math.abs(p.angle) * p.radius) / STEP)), 0); const e = cur + Nk - 1;
+        if (e >= n0 - 40) { cur += 6; continue; } let free = true; for (let q = cur; q <= e; q++) if (busy[q]) { free = false; break; }
+        if (!free || maxKap(cur, e) > pickC[2]) { cur += 4; continue; }
+        if (kind.wf) for (let q = 0; q < Nk; q++) W[cur + q] = hw * kind.wf((q + 1) / Nk);
+        if (kind.surf != null) for (let q = cur; q <= e; q++) SF[q] = kind.surf;
+        kind.reg(cur, e, null); for (let q = cur; q <= e; q++) busy[q] = 1;
+        cur = e + 1 + Math.round(rad(14, 70) / Math.max(0.4, elemK) / STEP);
+      }
+      cur = null;
+      // virages relevés là où la route tourne longtemps du même côté
+      if (F.bank && wild > 0) {
+        const sk = (i) => Math.sign(H[i + 1] - H[i - 1]); let i = 30;
+        while (i < n0 - 30) {
+          if (kap[i] < 1 / 110) { i++; continue; } const sg = sk(i); let e = i; let tot2 = 0; while (e < n0 - 30 && kap[e] >= 1 / 140 && sk(e) === sg) { tot2 += kap[e] * STEP; e++; }
+          if (e - i >= 16 && tot2 >= 1.3 && rng() < clamp(0.45 * EL.bank * elemK, 0.2, 0.9)) {
+            const a = Math.max(24, i - 8), b = Math.min(n0 - 24, e + 8); let ok = true; for (let q = a; q <= b; q++) if (busy[q] || FL[q]) { ok = false; break; }
+            if (ok) { const avg = tot2 / ((e - i) * STEP); const tilt = clamp(0.2 + avg * 8, 0.22, 0.42) * sg; const arr = []; for (let q = a; q <= b; q++) { const env = sm((q - a) / 10) * sm((b - q) / 10); arr.push(+(tilt * env).toFixed(3)); if (env > 0.05) FL[q] |= FLAG.BANK; busy[q] = 1; } items.push({ t: "bank", a, b, B: arr }); }
+          }
+          i = e + 1;
+        }
+      }
+      return crossings;
+    }
     // ---------- pose ----------
+    const TRACE = spec.trace ? traceGeom() : null; let traceX = null;
+    if (TRACE) traceX = layoutTrace(TRACE); else {
     { const kind = { surf: SURF.ASPHALT, parts: [{ straight: 30 }] }; commit(kind, plan(kind)); }
     let tries = 0, last = 0, back = 0; const maxTries = 600 + size * 300;
     // élément signature du biome, essayé en priorité à des moments donnés du circuit pour que chaque biome ait toujours son caractère
@@ -523,14 +677,16 @@
           while (starts.length > 2 && removed < 24 + Math.floor(rng() * 70) && X.length - removed > 40) { cut = starts.pop(); removed = X.length - cut; }
           X.length = H.length = Z.length = W.length = SF.length = FL.length = cut; x = X[cut - 1]; z = Z[cut - 1]; h = H[cut - 1];
           for (let q = items.length - 1; q >= 0; q--) if (items[q].a >= cut) items.splice(q, 1);
+          for (let q = blk.length - 1; q >= 0; q--) if (blk[q].a >= cut) blk.splice(q, 1);
           regrid();
         } else break;
       }
     }
     for (const L of [30, 20, 12, 6]) { const kind = { surf: SURF.ASPHALT, parts: [{ straight: L }] }; const pts = plan(kind); if (fits(pts) || L === 6) { commit(kind, pts); break; } }
+    }
     const n = X.length;
     // largeur variable discrète sur les routes ordinaires
-    if (F.widths) { const p1 = rng() * 6.28, p2 = rng() * 6.28; const special = new Uint8Array(n); items.forEach((it) => { if (it.b != null && (it.t === "region" || it.t === "neck" || it.t === "arena" || it.t === "obspat" || it.t === "fork" || it.t === "cross" || it.t === "mover")) { for (let i = Math.max(0, it.a); i <= Math.min(n - 1, it.b); i++) special[i] = 1; } });
+    if (F.widths) { const p1 = rng() * 6.28, p2 = rng() * 6.28; const special = new Uint8Array(n); items.forEach((it) => { if (it.b != null && (it.t === "region" || it.t === "neck" || it.t === "arena" || it.t === "obspat" || it.t === "fork" || it.t === "cross" || it.t === "mover" || it.t === "bank" || it.t === "xing" || it.t === "cut")) { for (let i = Math.max(0, it.a); i <= Math.min(n - 1, it.b); i++) special[i] = 1; } });
       for (let i = 0; i < n; i++) if (!special[i] && !(FL[i] & (FLAG.MAG | FLAG.NOWALL))) W[i] = Math.round(W[i] * (1 + 0.07 * Math.sin(i * 0.045 + p1) + 0.05 * Math.sin(i * 0.11 + p2)) * 100) / 100;
       // passages étroits, de temps en temps, d'autant plus souvent que le circuit est dur
       if (narrowFrac > 0.01 && n > 140) {
@@ -538,8 +694,8 @@
         while (i < n - 40) { const Ln = Math.round(30 + rng() * 70); const Lw = Math.round(clamp(Ln * (1 - narrowFrac) / narrowFrac * (0.4 + rng() * 1.2), 18, 400)); for (let q = 0; q < Ln && i + q < n; q++) m[i + q] = 1; i += Ln + Lw; }
         let t = m; for (let pass = 0; pass < 3; pass++) { const o = new Float32Array(n); for (let a = 0; a < n; a++) { let sum = 0, c = 0; for (let b = Math.max(0, a - 8); b <= Math.min(n - 1, a + 8); b++) { sum += t[b]; c++; } o[a] = sum / c; } t = o; }
         const steepA = new Set(); items.forEach((it) => { if (it.t === "steep") steepA.add(it.a + 2); });
-        const blocked = new Uint8Array(n); items.forEach((it) => { if (it.b != null && (it.t === "neck" || it.t === "arena" || it.t === "obspat" || it.t === "fork" || it.t === "cross" || it.t === "mover" || (it.t === "region" && !steepA.has(it.a)))) for (let a = Math.max(0, it.a); a <= Math.min(n - 1, it.b); a++) blocked[a] = 1; });
-        for (let a = 0; a < n; a++) if (FL[a] & (FLAG.MAG | FLAG.NOWALL | FLAG.GAP | FLAG.JUMP | FLAG.KICK | FLAG.FORK | FLAG.MOVE)) blocked[a] = 1;
+        const blocked = new Uint8Array(n); items.forEach((it) => { if (it.b != null && (it.t === "neck" || it.t === "arena" || it.t === "obspat" || it.t === "fork" || it.t === "cross" || it.t === "mover" || it.t === "bank" || it.t === "xing" || it.t === "cut" || (it.t === "region" && !steepA.has(it.a)))) for (let a = Math.max(0, it.a); a <= Math.min(n - 1, it.b); a++) blocked[a] = 1; });
+        for (let a = 0; a < n; a++) if (FL[a] & (FLAG.MAG | FLAG.NOWALL | FLAG.GAP | FLAG.JUMP | FLAG.KICK | FLAG.FORK | FLAG.MOVE | FLAG.XING | FLAG.BANK | FLAG.CUT)) blocked[a] = 1;
         const dist = new Float32Array(n).fill(1e9); let dd = 1e9; for (let a = 0; a < n; a++) { dd = blocked[a] ? 0 : dd + 1; dist[a] = dd; } dd = 1e9; for (let a = n - 1; a >= 0; a--) { dd = blocked[a] ? 0 : dd + 1; if (dd < dist[a]) dist[a] = dd; }
         for (let a = 0; a < n; a++) { const k = t[a] * clamp((dist[a] - 3) / 14, 0, 1) * clamp((a - 36) / 20, 0, 1) * clamp((n - 40 - a) / 20, 0, 1); if (k <= 0.001) continue; const nw = hwN * (0.95 + 0.1 * Math.sin(a * 0.07 + p2)); if (W[a] > nw) W[a] = Math.round((W[a] + (nw - W[a]) * k) * 100) / 100; }
       } }
@@ -550,6 +706,8 @@
     const noiseF = (() => { const r2 = mulberry32(hashSeed(spec.seed + "hy")); const a = [], b = []; for (let i = 0; i < 6; i++) { a.push(r2() * 6.28); b.push(0.5 + r2()); } return (t) => { let s = 0; for (let i = 0; i < 3; i++) s += Math.sin(t * (0.011 + i * 0.013) * (1 + b[i] * 0.4) + a[i]) / (1 + i); return s; }; })();
     const amp = [0, 1.2, 2.6, 4.2][hillsLvl];
     const nz = new Array(n); for (let i = 0; i < n; i++) { const ramp = Math.min(1, i / 20) * Math.min(1, (n - 1 - i) / 20); nz[i] = noiseF(i) * amp * ramp; }
+    // près d'un croisement dessiné, les deux passages repartent du même niveau
+    if (traceX && traceX.length) for (let i = 0; i < n; i++) { let d = 1e9; traceX.forEach((c) => { d = Math.min(d, Math.abs(i - c.ic), Math.abs(i - c.jc)); }); nz[i] *= sm((d - 34) / 40); }
     const Y = nz.slice(); const BL = 10; const pinned = new Uint8Array(n);
     items.filter((it) => it.t === "region").sort((p, q) => p.a - q.a).forEach((rg) => {
       const yr = nz[rg.a]; const ob = rg.ofs[rg.b - rg.a];
@@ -566,7 +724,7 @@
       if (it.t === "mag") { for (let i = it.a - 6; i <= it.b + 6; i++) if (i >= 0 && i < n) bad[i] = 1; must.push(it.cp); }
       if (it.t === "gap") { for (let i = it.cp - 1; i <= it.land + 6; i++) if (i >= 0 && i < n) bad[i] = 1; must.push(it.cp); }
       if (it.t === "bridge") { for (let i = it.a; i <= it.a + 60; i++) if (i >= 0 && i < n) bad[i] = 1; must.push(it.cp); }
-      if (it.t === "fork" || it.t === "mover" || it.t === "cross") { for (let i = it.a - 6; i <= it.b + 6; i++) if (i >= 0 && i < n) bad[i] = 1; if (it.t === "cross") must.push(it.cp); }
+      if (it.t === "fork" || it.t === "mover" || it.t === "cross" || it.t === "xing" || it.t === "cut") { for (let i = it.a - 6; i <= it.b + 6; i++) if (i >= 0 && i < n) bad[i] = 1; if (it.t === "cross" || it.t === "xing" || it.t === "cut") must.push(it.cp); }
     });
     cps = cps.filter((c) => !bad[c]); must.forEach((c) => { if (c > 4 && c < n - 60) cps.push(c); }); cps = Array.from(new Set(cps)).sort((a, b) => a - b);
     // deux points de contrôle trop proches se gênent. On garde celui qui protège un élément spécial
@@ -582,7 +740,7 @@
     // de longues portions bordées de sable, d'herbe ou de neige. Sortir de la route freine et fait glisser, une clôture basse arrête la voiture plus loin
     const VW = new Float32Array(n); const vergeW = biome.vergeW || 6.2;
     if (F.verges && EL.verge > 0) {
-      const vr = mulberry32(hashSeed(spec.seed + "vg")); const ok = (i) => i > 36 && i < n - 36 && !(FL[i] & (FLAG.MAG | FLAG.NOWALL | FLAG.GAP | FLAG.KICK | FLAG.JUMP | FLAG.FORK | FLAG.MOVE | FLAG.OVER | FLAG.UNDER | FLAG.TUNNEL));
+      const vr = mulberry32(hashSeed(spec.seed + "vg")); const ok = (i) => i > 36 && i < n - 36 && !(FL[i] & (FLAG.MAG | FLAG.NOWALL | FLAG.GAP | FLAG.KICK | FLAG.JUMP | FLAG.FORK | FLAG.MOVE | FLAG.OVER | FLAG.UNDER | FLAG.TUNNEL | FLAG.XING | FLAG.BANK | FLAG.CUT));
       let i = 40;
       while (i < n - 40) {
         if (!ok(i)) { i++; continue; }
@@ -603,6 +761,7 @@
       const rx = -Math.cos(H[i]), rz = Math.sin(H[i]); const px = X[i] + rx * off * side, pz = Z[i] + rz * off * side;
       const k = biome.deco[Math.floor(decRng() * biome.deco.length)]; const big = BIG_DECO[k] || 0;
       if (nearTrack(px, pz) < 2.5 + big + (FL[i] & FLAG.MAG ? 14 : 0)) continue;
+      if (blk.some((o) => Math.hypot(o.x - px, o.z - pz) < o.r + 7 + big)) continue;
       dec.push({ k, x: +px.toFixed(1), z: +pz.toFixed(1), s: +(0.8 + decRng() * 0.9).toFixed(2), r: +(decRng() * 6.28).toFixed(2) });
     }
 
@@ -616,6 +775,9 @@
     const forksOut = items.filter((it) => it.t === "fork").map((it) => ({ a: it.a, b: it.b, c0: it.c0, c1: it.c1, m: it.m, wa: it.wa, wb: it.wb, inner: it.inner, shape: it.shape, lanes: it.lanes.map((l) => ({ t: l.t, s: l.s, dy: l.dy, crest: l.crest || 0 })), olo: it.lnObs >= 0 ? it.olo : null, ohi: it.lnObs >= 0 ? it.ohi : null, lnObs: it.lnObs }));
     const padsOut = items.filter((it) => it.t === "pad").map((it) => ({ a: it.a, b: it.b, u0: it.u0, u1: it.u1, k: it.k }));
     const moversOut = items.filter((it) => it.t === "mover").map((it) => ({ a: it.a, b: it.b, k: it.k, A: it.A, T: it.T, ph: it.ph, L: it.L }));
+    const cutsOut = items.filter((it) => it.t === "cut").map((it) => ({ a: it.a, b: it.b, lip: it.lip, land: it.land, u0: it.u0, u1: it.u1, vk: it.vk, vreq: it.vreq, D: it.D, ax: +X[it.lip].toFixed(2), az: +Z[it.lip].toFixed(2), h: +H[it.lip].toFixed(4) }));
+    const xingsOut = items.filter((it) => it.t === "xing" && !it.dup).map((it) => ({ a: it.a, b: it.b, ja: it.ja, jb: it.jb }));
+    let bankOut = null; items.filter((it) => it.t === "bank").forEach((it) => { if (!bankOut) bankOut = new Array(n).fill(0); for (let j = 0; j < it.B.length && it.a + j < n; j++) bankOut[it.a + j] = it.B[j]; });
     const tunnelsOut = items.filter((it) => it.t === "tunnel").map((it) => ({ a: it.a, b: it.b, lane: it.lane == null ? -1 : it.lane }));
     // anneaux turbo. Au sommet de la trajectoire d'un saut, après une bosse ou en portique sur une ligne droite. Les traverser donne un gros turbo
     const rings = [];
@@ -624,19 +786,20 @@
       gapsOut.forEach((g) => { if (rr() > Math.min(0.95, 0.55 * EL.ring)) return; const G2 = g.G; const v = g.vreq * 1.25; const t = (G2 / 2 + 1) / v; const hgt = g.vk * t - 0.5 * airG * t * t; const i = g.lip + Math.max(1, Math.round(G2 / 2 / STEP)); if (i >= n - 2) return; rings.push({ i, u: 0, y: +(Y[g.lip] + 0.7 + Math.max(0.6, hgt)).toFixed(2), r: 3.0 }); });
       items.filter((it) => it.t === "bump").forEach((it) => { if (rr() > Math.min(0.9, 0.35 * EL.ring)) return; const i = it.a + 9; if (i < n - 2) rings.push({ i, u: 0, y: +(Y[i] + 2.4).toFixed(2), r: 3.0 }); });
       const want = Math.round(len / 700 * 1.4 * EL.ring * (rr() < 0.5 ? 1 : 0.5)); let tries2 = 0;
-      while (rings.filter((q) => q.g).length < want && tries2++ < 200) { const i = 50 + Math.floor(rr() * (n - 100)); let bad2 = false; for (let q = Math.max(0, i - 24); q <= Math.min(n - 1, i + 24); q++) if (FL[q] & (FLAG.MAG | FLAG.GAP | FLAG.FORK | FLAG.MOVE | FLAG.UNDER | FLAG.OVER | FLAG.NOWALL | FLAG.KICK)) bad2 = true; if (bad2) continue; if (rings.some((q) => Math.abs(q.i - i) < 40)) continue; const u = (rr() * 2 - 1) * Math.max(0, W[i] - 3.4); rings.push({ i, u: +u.toFixed(2), y: +(Y[i] + 2.1).toFixed(2), r: 2.8, g: 1 }); }
+      while (rings.filter((q) => q.g).length < want && tries2++ < 200) { const i = 50 + Math.floor(rr() * (n - 100)); let bad2 = false; for (let q = Math.max(0, i - 24); q <= Math.min(n - 1, i + 24); q++) if (FL[q] & (FLAG.MAG | FLAG.GAP | FLAG.FORK | FLAG.MOVE | FLAG.UNDER | FLAG.OVER | FLAG.NOWALL | FLAG.KICK | FLAG.XING | FLAG.BANK | FLAG.CUT)) bad2 = true; if (bad2) continue; if (rings.some((q) => Math.abs(q.i - i) < 40)) continue; const u = (rr() * 2 - 1) * Math.max(0, W[i] - 3.4); rings.push({ i, u: +u.toFixed(2), y: +(Y[i] + 2.1).toFixed(2), r: 2.8, g: 1 }); }
       rings.sort((a2, b2) => a2.i - b2.i);
     }
-    const stats = { forks: forksOut.length, cross: items.filter((it) => it.t === "cross").length, movers: moversOut.length, tunnels: tunnelsOut.length, rings: rings.length, verge: Math.round(vwOut.filter((v) => v > 0.3).length * STEP), tubes: 0, doubles: gapsOut.filter((g) => g.v === "double").length, plongeons: gapsOut.filter((g) => g.v === "plongeon").length, supers: SF.filter((v) => v === SURF.SUPER).length, loops: 0, rolls: 0, walls: 0, ceilings: 0, gaps: gapsOut.length, steep: items.filter((it) => it.t === "steep").length, bridges: items.filter((it) => it.t === "bridge").length, necks: items.filter((it) => it.t === "neck" || it.t === "arena").length, obstacles: items.filter((it) => it.t === "obspat").length, bumps: items.filter((it) => it.t === "bump").length, lacets: items.filter((it) => it.t === "steep" && it.type === "lacets").length, road: +roadK.toFixed(2) };
+    const stats = { forks: forksOut.length, cross: items.filter((it) => it.t === "cross").length, movers: moversOut.length, tunnels: tunnelsOut.length, rings: rings.length, verge: Math.round(vwOut.filter((v) => v > 0.3).length * STEP), banks: items.filter((it) => it.t === "bank").length, xings: xingsOut.length, cuts: cutsOut.length, tubes: 0, doubles: gapsOut.filter((g) => g.v === "double").length, plongeons: gapsOut.filter((g) => g.v === "plongeon").length, supers: SF.filter((v) => v === SURF.SUPER).length, loops: 0, rolls: 0, walls: 0, ceilings: 0, gaps: gapsOut.length, steep: items.filter((it) => it.t === "steep").length, bridges: items.filter((it) => it.t === "bridge").length, necks: items.filter((it) => it.t === "neck" || it.t === "arena").length, obstacles: items.filter((it) => it.t === "obspat").length, bumps: items.filter((it) => it.t === "bump").length, lacets: items.filter((it) => it.t === "steep" && it.type === "lacets").length, road: +roadK.toFixed(2) };
     items.filter((it) => it.t === "mag").forEach((it) => { if (it.kind === "loop") stats.loops++; else if (it.kind === "roll") stats.rolls++; else if (it.kind === "wall") stats.walls++; else if (it.kind === "tube") stats.tubes++; else stats.ceilings++; });
     return {
-      version: 3, spec: Object.assign({}, spec), biome: biome.id, name: biome.names[Math.floor(rng() * biome.names.length)], n, step: STEP, length: len, gravity: biome.gravity, airG: +airG.toFixed(3),
+      version: 3, spec: Object.assign({}, spec), biome: biome.id, name: TRACE ? (String(spec.trace.name || "").slice(0, 24) || "Circuit dessiné") : biome.names[Math.floor(rng() * biome.names.length)], trace: TRACE ? { info: traceInfo, err: traceErr } : null, n, step: STEP, length: len, gravity: biome.gravity, airG: +airG.toFixed(3),
       x: round(X, 2), z: round(Z, 2), y: round(Y, 2), h: round(H, 3), w: round(W, 2), surf: SF, flags: FL, cps, groundY: +(minY - 1.2).toFixed(2), decor: dec,
-      mags: magsOut, gaps: gapsOut, kicks, obs, lanes, stats, crosses: items.filter((it) => it.t === "cross").map((it) => ({ a: it.a, b: it.b })), forks: forksOut, pads: padsOut, movers: moversOut, tunnels: tunnelsOut, rings, vw: vwOut, vergeK: biome.vergeK || "sable",
+      mags: magsOut, gaps: gapsOut, kicks, obs, lanes, stats, crosses: items.filter((it) => it.t === "cross").map((it) => ({ a: it.a, b: it.b })), forks: forksOut, pads: padsOut, movers: moversOut, tunnels: tunnelsOut, rings, vw: vwOut, bank: bankOut, cuts: cutsOut, xings: xingsOut, vergeK: biome.vergeK || "sable",
       start: { x: X[2], z: Z[2], y: +Y[2].toFixed(2), h: H[2], idx: 2 },
     };
   }
   function generate(spec) {
+    if (spec.trace && spec.trace.p) return build(spec, 0);
     const size = clamp(spec.size || 2, 1, 5); const want = [700, 1100, 1700, 2800, 4200][size - 1] * 0.82; let best = null;
     for (let a = 0; a < (size >= 4 ? 14 : 8); a++) { const t = build(spec, a); if (!best || t.length > best.length) best = t; if (t.length >= want) return t; }
     return best;
@@ -690,5 +853,7 @@
     if (mv.k === "vague") return mv.A * env * Math.sin(2 * Math.PI * (t / mv.T + j / mv.L) + mv.ph);
     return mv.A * env * Math.sin(2 * Math.PI * t / mv.T + mv.ph) * (2 * j / N - 1);
   }
-  return { STEP, SURF, SURF_NAMES, FLAG, BIOMES, BIOME_IDS, AIRK, WEAK, VTOP, OBS, OBS_IDS, mulberry32, hashSeed, generate, magMap, frameAt, solidAt, obsBuckets, laneAt, accelSpeed, forkMap, forkGeo, forkDy, moverMap, moverDy };
+  // pente latérale de la route (virage relevé). Le bord droit est plus haut de u fois cette valeur
+  function bankAt(tr, idx) { const B = tr.bank; if (!B) return 0; let i = Math.floor(idx); if (i < 0) i = 0; if (i > tr.n - 2) i = tr.n - 2; const t = idx - i; return B[i] + (B[i + 1] - B[i]) * (t < 0 ? 0 : t > 1 ? 1 : t); }
+  return { bankAt, STEP, SURF, SURF_NAMES, FLAG, BIOMES, BIOME_IDS, AIRK, WEAK, VTOP, OBS, OBS_IDS, mulberry32, hashSeed, generate, magMap, frameAt, solidAt, obsBuckets, laneAt, accelSpeed, forkMap, forkGeo, forkDy, moverMap, moverDy };
 });

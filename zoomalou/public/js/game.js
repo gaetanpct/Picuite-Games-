@@ -44,13 +44,39 @@
     comete: { w: "sawtooth", f0: 54, cut: 1100, g: 0.026, gears: 5, whistle: 0.7, sub: 0.3 },
   };
   const eng = { ctx: null, car: null };
+  // vrais enregistrements de moteur, de dérapage et de choc (Kenney, licence CC0), le moteur synthétisé reste en secours et pour le Volt électrique
+  const SMP = { buf: {}, loading: false };
+  const SAMPLE_P = { bolide: { s: "engine", r0: 0.9, cut: 5200 }, petard: { s: "engine-motorcycle", r0: 0.95, cut: 6000 }, rallye: { s: "engine", r0: 0.72, cut: 2600 }, toupie: { s: "engine-motorcycle", r0: 1.15, cut: 4200 }, bouboule: { s: "engine", r0: 1.05, cut: 2200 }, mastodonte: { s: "engine", r0: 0.52, cut: 1500 }, libellule: { s: "engine-motorcycle", r0: 1.3, cut: 7000 }, sauterelle: { s: "engine-motorcycle", r0: 1.05, cut: 3800 }, comete: { s: "engine", r0: 1.1, cut: 6000 } };
+  function loadSamples() {
+    if (SMP.loading || !eng.ctx || !window.fetch) return; SMP.loading = true;
+    ["engine", "engine-motorcycle", "skid", "impact"].forEach((k) => { fetch("assets/audio/" + k + ".ogg").then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error("son absent")))).then((b) => new Promise((res, rej) => eng.ctx.decodeAudioData(b, res, rej))).then((buf) => { SMP.buf[k] = buf; if (k.indexOf("engine") === 0) eng.car = null; }).catch(() => { /* le son synthétisé reste */ }); });
+  }
   function engineStart() {
     if (eng.ctx || !sound.enabled) return;
-    try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const out = ctx.createGain(); out.gain.value = 0; out.connect(ctx.destination); eng.ctx = ctx; eng.out = out; } catch (e) { /* pas de son */ }
+    try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const out = ctx.createGain(); out.gain.value = 0; out.connect(ctx.destination); eng.ctx = ctx; eng.out = out; loadSamples(); } catch (e) { /* pas de son */ }
+  }
+  // crissement des pneus, en boucle, plus ou moins fort
+  function engineSkid(level) {
+    if (!eng.ctx || !SMP.buf.skid) return; if (!eng.skid) { try { const src = eng.ctx.createBufferSource(); src.buffer = SMP.buf.skid; src.loop = true; const g = eng.ctx.createGain(); g.gain.value = 0; src.connect(g); g.connect(eng.ctx.destination); src.start(); eng.skid = { src, g }; } catch (e) { return; } }
+    eng.skid.g.gain.setTargetAtTime(sound.enabled ? level * 0.16 : 0, eng.ctx.currentTime, 0.06);
+  }
+  // choc, renvoie vrai si le vrai son a été joué
+  function engineImpact(hit) {
+    if (!eng.ctx || !SMP.buf.impact || !sound.enabled) return false; const now = performance.now(); if (now - (eng.lastImpact || 0) < 120) return true; eng.lastImpact = now;
+    try { const src = eng.ctx.createBufferSource(); src.buffer = SMP.buf.impact; src.playbackRate.value = 0.85 + Math.random() * 0.3; const g = eng.ctx.createGain(); g.gain.value = Math.min(0.55, 0.12 + hit * 0.02); src.connect(g); g.connect(eng.ctx.destination); src.start(); return true; } catch (e) { return false; }
+  }
+  // démarrage au garage, un coup d'accélérateur à vide
+  function engineRev(carId) {
+    engineStart(); if (!eng.ctx || !sound.enabled) return; try { if (eng.ctx.resume) eng.ctx.resume(); } catch (e) { /* rien */ }
+    engineBuild(carId); const t = eng.ctx.currentTime; const lv = eng.sample ? 0.5 : (eng.P ? eng.P.g : 0.03) * 1.3;
+    if (eng.sample) { const r0 = eng.SP.r0; const pr = eng.sample.playbackRate; pr.cancelScheduledValues(t); pr.setValueAtTime(r0 * 0.5, t); pr.linearRampToValueAtTime(r0 * 1.55, t + 0.35); pr.linearRampToValueAtTime(r0 * 0.6, t + 1.2); }
+    else if (eng.osc) { const f = eng.osc.frequency; f.cancelScheduledValues(t); f.setValueAtTime(eng.P.f0, t); f.linearRampToValueAtTime(eng.P.f0 * 2.6, t + 0.35); f.linearRampToValueAtTime(eng.P.f0 * 1.1, t + 1.2); }
+    const g = eng.out.gain; g.cancelScheduledValues(t); g.setValueAtTime(0, t); g.linearRampToValueAtTime(lv, t + 0.08); g.setValueAtTime(lv, t + 0.9); g.linearRampToValueAtTime(0, t + 1.4); G.revUntil = performance.now() + 1450;
   }
   function engineBuild(carId) {
     if (!eng.ctx || eng.car === carId) return; const ctx = eng.ctx; const P = ENGINE[carId] || ENGINE.bolide;
-    (eng.nodes || []).forEach((nd) => { try { nd.stop && nd.stop(); nd.disconnect(); } catch (e) { /* rien */ } }); eng.nodes = [];
+    (eng.nodes || []).forEach((nd) => { try { nd.stop && nd.stop(); nd.disconnect(); } catch (e) { /* rien */ } }); eng.nodes = []; eng.sample = null;
+    const SP = SAMPLE_P[carId]; if (SP && SMP.buf[SP.s]) { const src = ctx.createBufferSource(); src.buffer = SMP.buf[SP.s]; src.loop = true; src.playbackRate.value = SP.r0; const filt = ctx.createBiquadFilter(); filt.type = "lowpass"; filt.frequency.value = SP.cut; src.connect(filt); filt.connect(eng.out); src.start(); eng.nodes.push(src, filt); eng.sample = src; eng.sfilt = filt; eng.SP = SP; eng.P = P; eng.car = carId; return; }
     const filt = ctx.createBiquadFilter(); filt.type = "lowpass"; filt.frequency.value = P.cut; const mix = ctx.createGain(); mix.gain.value = 1; filt.connect(mix); mix.connect(eng.out);
     const osc = ctx.createOscillator(); osc.type = P.w; osc.connect(filt); osc.start(); eng.nodes.push(osc, filt, mix); eng.osc = osc; eng.filt = filt; eng.P = P; eng.car = carId;
     if (P.sub) { const o2 = ctx.createOscillator(); o2.type = "sine"; const g2 = ctx.createGain(); g2.gain.value = P.sub; o2.connect(g2); g2.connect(filt); o2.start(); eng.sub = o2; eng.nodes.push(o2, g2); } else eng.sub = null;
@@ -58,9 +84,10 @@
     if (P.rough || P.wobble) { const lfo = ctx.createOscillator(); lfo.type = P.rough ? "square" : "sine"; lfo.frequency.value = P.rough ? 16 : 5; const lg = ctx.createGain(); lg.gain.value = P.rough ? 0.45 * P.rough : 0; lfo.connect(lg); lg.connect(mix.gain); if (P.wobble) { const fg = ctx.createGain(); fg.gain.value = 6 * P.wobble; lfo.connect(fg); fg.connect(osc.frequency); eng.nodes.push(fg); } lfo.start(); eng.lfo = lfo; eng.nodes.push(lfo, lg); } else eng.lfo = null;
   }
   function engineUpdate(speed, active, carId) {
-    if (!eng.ctx) return; engineBuild(carId || G.carId || "bolide"); const t = eng.ctx.currentTime; const P = eng.P; const car = CA.CARS[carId] || CA.CARS.bolide;
+    if (!eng.ctx) return; if (G.revUntil && performance.now() < G.revUntil) return; engineBuild(carId || G.carId || "bolide"); const t = eng.ctx.currentTime; const P = eng.P; const car = CA.CARS[carId] || CA.CARS.bolide;
     const span = car.vmax * 1.1 / P.gears; const gear = Math.min(P.gears - 1, Math.floor(speed / span)); const rpm = P.gears === 1 ? speed / (car.vmax * 1.2) : 0.3 + 0.7 * clamp((speed - gear * span) / span, 0, 1);
     const f = P.f0 * (1 + 1.8 * rpm) * (1 + 0.07 * gear);
+    if (eng.sample) { eng.sample.playbackRate.setTargetAtTime(eng.SP.r0 * (0.55 + 1.05 * rpm) * (1 + 0.05 * gear), t, 0.05); eng.out.gain.setTargetAtTime(active && sound.enabled ? 0.42 * (0.7 + 0.5 * Math.min(1, speed / 40)) : 0, t, 0.1); if (!active) engineSkid(0); return; }
     eng.osc.frequency.setTargetAtTime(f, t, 0.04); if (eng.sub) eng.sub.frequency.setTargetAtTime(f / 2, t, 0.04); if (eng.wh) eng.wh.frequency.setTargetAtTime(f * 7, t, 0.06); if (eng.lfo && P.rough) eng.lfo.frequency.setTargetAtTime(8 + rpm * 22, t, 0.1);
     eng.filt.frequency.setTargetAtTime(P.cut * (0.55 + rpm * 0.9), t, 0.05);
     eng.out.gain.setTargetAtTime(active && sound.enabled ? P.g * (0.75 + 0.45 * Math.min(1, speed / 40)) : 0, t, 0.1);
@@ -78,6 +105,7 @@
       el("div", { id: "z-fuel", class: "pill z-fuel nopoint hidden" }),
       el("div", { id: "z-fx", class: "z-fx nopoint" }),
       el("div", { id: "z-race", class: "pill z-race nopoint hidden" }),
+      el("div", { id: "z-split", class: "z-split hidden" }),
       el("div", { id: "z-retro", class: "pill z-retro nopoint hidden", text: "Rétroviseur" }),
       el("div", { id: "z-lights", class: "z-lights nopoint hidden" }, [0, 1, 2, 3, 4].map(() => el("i"))),
       el("div", { id: "z-speed", class: "pill z-speed nopoint" }, [el("div", { class: "z-kmh" }, [el("b", { id: "z-kmh", text: "0" }), el("span", { text: "km/h" })]), el("div", { class: "z-gauges" }, [el("div", { class: "z-drift", id: "z-drift" }, [el("i"), el("i"), el("i")]), el("div", { class: "z-boost" }, [el("i", { id: "z-boost" })]), el("span", { class: "z-tag hidden", id: "z-draft", text: "Aspiration" }), el("div", { class: "z-batt hidden", id: "z-batt" }, [el("i")])])]),
@@ -110,7 +138,10 @@
     if (!G.viewInit) { V.init($("#gl-host"), store.get("zoom.quality", autoQuality())); G.viewInit = true; V.paused = false; V.onFrame = onFrame; }
     G.track = m.track; G.roundIdx = m.index; G.total = m.total; G.mode = m.mode; G.author = m.author; G.carId = m.car || G.carId; G.botPlan = null; G.order = m.order || []; G.slots = m.slots || {};
     G.run = null; G.myBest = null; G.myBestFrames = null; G.ghostFrames = null; G.record = null; G.snaps = {}; G.bufs = {}; G.off = {}; G.turn = null; G.wantArm = false; G.armedAt = 0; G.waiting = false; G.specId = null; G.replay = null; hideReplayBar();
-    closeSheet(); V.loadTrack(G.track); V.resize(); V.removeAllCars(); setBanner("Course " + (m.index + 1) + " sur " + m.total, G.track.name + " · " + TR.BIOMES[G.track.biome].name + (G.track.drawn && G.track.drawn.length ? " · " + G.track.drawn.join(", ") : ""), 3400);
+    G.stage = m.stage || null; G.survie = !!m.survie; G.carModeEff = m.carMode || null; G.cpT = {}; G.lastShowCar = null; if (V.podiumOff) V.podiumOff();
+    closeSheet(); V.loadTrack(G.track); V.resize(); V.removeAllCars();
+    if (G.stage) setBanner("Étape " + (G.stage.i + 1) + " sur " + G.stage.n, G.stage.icon + " " + G.stage.name + " · " + G.track.name + " · voiture " + (G.stage.car === "imposee" ? "imposée" : "libre"), 3600);
+    else setBanner((G.survie ? "Survie · " : "") + "Course " + (m.index + 1) + " sur " + m.total, G.survie ? "Le dernier à chaque point de contrôle est éliminé" : G.track.name + " · " + TR.BIOMES[G.track.biome].name + (G.track.drawn && G.track.drawn.length ? " · " + G.track.drawn.join(", ") : ""), 3400);
   }
   function onRecord(m) {
     G.record = { time: m.time, pid: m.pid, car: m.car, frames: m.frames }; if (!isChrono(G.mode)) { G.ghostFrames = m.frames; G.ghostCar = m.car; G.ghostPtr = 0; }
@@ -125,7 +156,7 @@
 
   // ---------- état ----------
   function onState(s) {
-    clock(s.now); const old = G.st; G.st = s; { const mine = (s.players || []).find((q) => q.id === myId()); G.carId = (mine && mine.car) || s.car || G.carId; }
+    clock(s.now); const old = G.st; G.st = s; if (s.carMode) G.carModeEff = s.carMode; { const mine = (s.players || []).find((q) => q.id === myId()); G.carId = (mine && mine.car) || s.car || G.carId; }
     if (!G.track) return;
     if (s.turn && (!G.turn || G.turn.pid !== s.turn.pid || G.turn.idx !== s.turn.idx)) { /* z:turn arrive juste avant */ }
     if (G.turn && s.turn) { G.turn.fuelLeft = s.turn.fuelLeft; G.turn.tries = s.turn.tries; G.turn.goAt = s.turn.goAt; G.turn.ended = s.turn.ended; }
@@ -202,8 +233,9 @@
           if (r.drTier > tierWas) Kit.sound.tone([0, 520, 700, 940][r.drTier], 0.08, "square", 0.05);
           if (r.ringEvt === r.tick) { Kit.sound.tone(990, 0.08, "triangle", 0.09); Kit.sound.tone(1320, 0.14, "triangle", 0.08, 0.07); V.shake(0.12); }
           if (r.tick % 6 === 1) run.frames.push(r.x, r.y, r.z, r.hd, r.pitch, r.rail ? 2 : r.air ? 1 : 0, r.boostT > 0 ? 1 : 0, r.idx);
-          if (r.cpEvt === r.tick) { V.flashGate(r.cp); Kit.sound.tone(880, 0.12, "triangle", 0.1); G.cpBanner = performance.now(); setBanner("Point de contrôle " + r.cp + " sur " + tr.cps.length, fmtS(r.tick / 60), 1100); }
-          if (r.wallHit > 5) { V.shake(Math.min(0.6, r.wallHit * 0.03)); Kit.sound.noise(0.12, 0.08, 0, 900); }
+          if (r.cpEvt === r.tick) { V.flashGate(r.cp); Kit.sound.tone(880, 0.12, "triangle", 0.1); G.cpBanner = performance.now(); setBanner("Point de contrôle " + r.cp + " sur " + tr.cps.length, fmtS(r.tick / 60), 1100); showSplit(r.cp, r.tick / 60); }
+          if (r.wallHit > 5) { V.shake(Math.min(0.6, r.wallHit * 0.03)); if (!engineImpact(r.wallHit)) Kit.sound.noise(0.12, 0.08, 0, 900);
+            { const sp = CA.sampleAt(tr, r.idx); const u = (r.x - sp.x) * -Math.cos(sp.h) + (r.z - sp.z) * Math.sin(sp.h); const sd = u >= 0 ? 1 : -1; const rx = -Math.cos(r.hd), rz = Math.sin(r.hd); if (V.sparks) V.sparks(r.x + rx * sd * 1.05, r.y + 0.45, r.z + rz * sd * 1.05, -Math.sin(r.hd), -Math.cos(r.hd), Math.min(22, 6 + Math.round(r.wallHit))); } }
           if (r.landed > 3 && r.tick - (run.lastLand || 0) > 10) { run.lastLand = r.tick; V.puff(r.x, r.y + 0.3, r.z, "#dddddd", 6, 3, 1, 1.2); r.landed = 0; }
           if (r.boostEvt === r.tick) { Kit.sound.tone(380, 0.3, "sawtooth", 0.07, 0, 900); V.shake(0.15); }
           if (r.lastResetTick === r.tick) { V.resetFollow(); setBanner("Retour au point de contrôle", null, 900); }
@@ -221,8 +253,7 @@
       const fx = Math.sin(r.hd), fz = Math.cos(r.hd); const vf = r.vx * fx + r.vz * fz, vl = r.vx * -Math.cos(r.hd) + r.vz * Math.sin(r.hd);
       V.setCarState("me", { x: r.x, y: r.y, z: r.z, h: r.hd, p: r.pitch, a: r.rail ? 2 : r.air ? 1 : 0, i: r.idx, b: r.boostT > 0, speed: vf, steer: -r.steerV, skid: Math.abs(vl) > 4 && !r.air ? 1 : 0, dt: run.done ? 0 : r.drTier, dr: r.draft }, false);
       car.skidCol = r.onSurf === 1 ? "#a07a50" : r.onSurf === 2 ? "#e0f4ff" : r.onSurf === 6 ? "#e8d4a0" : "#dddddd";
-      if (r.onSurf === 6 && !r.air && vf > 10 && Math.random() < 0.5) V.puff(r.x - Math.sin(r.hd) * 1.6, r.y + 0.3, r.z - Math.cos(r.hd) * 1.6, TR.BIOMES[tr.biome].vergeCol || "#e8d4a0", 2, 2.2, 1.4, 1.3);
-      if (r.onSurf === 1 && !r.air && vf > 15 && Math.random() < 0.3) V.puff(r.x - Math.sin(r.hd) * 1.6, r.y + 0.3, r.z - Math.cos(r.hd) * 1.6, "#b08a5a", 1, 1.5, 1, 1.1);
+      engineSkid(Math.abs(vl) > 4 && !r.air && !run.done ? Math.min(1, (Math.abs(vl) - 3) / 8) : r.drTier > 0 && !run.done ? 0.5 : 0);
     } else if (cm && (s.phase === "garage" || s.phase === "race" || myTurnActive())) {
       V.ensureCar("me", cm.car, hexOf(cm.color), false, null); V.setCarState("me", gridPose(isChrono(G.mode) ? (G.slots[myId()] || 0) : 0), true);
     } else V.hideCar("me");
@@ -230,9 +261,9 @@
     const spectating = s.phase === "turns" && s.turn && s.turn.pid !== myId();
     updateSpec(s, run);
     if (G.replay) { /* la caméra est réglée par le replay */ }
-    else if (s.phase === "garage") { V.setOrbit("fly"); V.follow("me"); }
-    else if (s.phase === "roundEnd" || s.phase === "over") { V.setOrbit(true); V.follow("me"); }
-    else { V.setOrbit(null); V.follow(spectating ? s.turn.pid : G.specId && V.cars[G.specId] && V.cars[G.specId].root.visible ? G.specId : "me"); }
+    else if (s.phase === "garage") { const mineP = me(); V.setOrbit("fly"); V.follow("me"); if (V.setShowroom) V.setShowroom(!(mineP && mineP.ready)); }
+    else if (s.phase === "roundEnd" || s.phase === "over") { V.setOrbit(true); V.follow("me"); if (V.setShowroom) V.setShowroom(false); }
+    else { if (V.setShowroom) V.setShowroom(false); V.setOrbit(null); V.follow(spectating ? s.turn.pid : G.specId && V.cars[G.specId] && V.cars[G.specId].root.visible ? G.specId : "me"); }
     // autres voitures
     const contact = G.mode === "contact"; const showOthers = S().others || contact;
     const chronoGrid = isChrono(G.mode) && (s.phase === "race" || s.phase === "garage");
@@ -303,7 +334,7 @@
       const prev = G.snaps[c.id]; const n = Object.assign({ at: now, vx: 0, vz: 0 }, c);
       if (prev) { const dt = (now - prev.at) / 1000; if (dt > 0.015 && dt < 0.6) { n.vx = prev.vx * 0.4 + ((c.x - prev.x) / dt) * 0.6; n.vz = prev.vz * 0.4 + ((c.z - prev.z) / dt) * 0.6; } else { n.vx = prev.vx; n.vz = prev.vz; } }
       if (typeof c.vx === 'number' && (c.vx || c.vz)) { n.vx = c.vx; n.vz = c.vz; }
-      G.snaps[c.id] = n;
+      G.snaps[c.id] = n; if (G.cpT && isChrono(G.mode)) trackCps(c.id, c.i || 0, m.t || now);
     });
   }
   // contact entre pilotes. Chaque voiture est faite de deux cercles. Le choc est appliqué à ma voiture et noté pour que le serveur le rejoue.
@@ -328,6 +359,23 @@
     else { setBanner("Panne d'essence", nm + " est éliminé", 2400); sound.fail(); }
     if (m.pid === myId()) { G.run = null; G.waiting = false; }
   }
+  // ---------- temps intermédiaires ----------
+  // passage des autres voitures à chaque point de contrôle, d'après leurs positions reçues. Au mien, l'écart avec le plus rapide ou avec le record
+  function trackCps(id, i, t) { const tr = G.track; if (!tr || !G.st || !G.st.goAt) return; const C = (G.cpT[id] = G.cpT[id] || { k: 0, t: [] }); while (C.k < tr.cps.length && i >= tr.cps[C.k]) { C.t[C.k] = Math.max(0, (t - G.st.goAt) / 1000); C.k++; } }
+  function showSplit(k, t) {
+    const box = $("#z-split"); if (!box) return; let txt = "", cls = ""; const tr = G.track;
+    if (!isChrono(G.mode) && G.ghostFrames) { const f = G.ghostFrames; const nF = f.length / 8; const idx = tr.cps[k - 1]; let q = 0; while (q < nF - 1 && f[q * 8 + 7] < idx) q++; if (q > 0) { const a = f[(q - 1) * 8 + 7], b = f[q * 8 + 7]; const u = b > a ? clamp((idx - a) / (b - a), 0, 1) : 0; const gt = (q - 1 + u) / 10; const d = t - gt; txt = (d <= 0 ? "−" : "+") + fmt(Math.abs(d)) + " s sur le record"; cls = d <= 0 ? "good" : "bad"; } }
+    else if (isChrono(G.mode)) { let best = null, who = null; Object.keys(G.cpT || {}).forEach((id) => { if (id === myId()) return; const v = G.cpT[id].t[k - 1]; if (v != null && (best == null || v < best)) { best = v; who = id; } }); if (best == null) { txt = "En tête à ce point de contrôle"; cls = "good"; } else { const d = t - best; txt = (d <= 0 ? "−" : "+") + fmt(Math.abs(d)) + " s sur " + nameOf(who); cls = d <= 0 ? "good" : "bad"; } }
+    if (!txt) return; box.textContent = txt; box.className = "z-split z-split--" + cls; clearTimeout(G.splitT); G.splitT = setTimeout(() => { box.className = "z-split hidden"; }, 2600);
+  }
+  // survie. Un pilote est éliminé à un point de contrôle
+  function onElim(m) {
+    const last = m.gate >= m.gates - 1; const where = last ? "à l'arrivée" : "au point de contrôle " + (m.gate + 1);
+    if (m.pid === myId()) {
+      if (G.run && !G.run.done) { G.run.done = true; G.run.finishSent = true; } G.run = null; G.wantArm = false; G.myDone = true; V.hideCar("me");
+      setBanner("Éliminé", "Tu étais dernier " + where + ". Flèches gauche et droite pour suivre un autre pilote", 3800); sound.fail();
+    } else { feed(nameOf(m.pid) + " est éliminé " + where); V.hideCar(m.pid); if (m.alive === 2 && G.run && !G.run.done) setBanner("Duel final", "Plus que deux pilotes en course", 1800); }
+  }
   function onResult(m) { if (m.pid !== myId()) feed(nameOf(m.pid) + " termine en " + fmtS(m.time)); }
   function onBotTurn(m) { clock(m.now); G.botPlan = m; }
   // horloge d'un tour d'automate, calculée comme sur le serveur à partir du plan reçu
@@ -343,11 +391,11 @@
     clock(m.now); G.endInfo = m; G.run = null;
     const tbl = el("table", { class: "tbl" }, [
       el("thead", {}, [el("tr", {}, [el("th", { text: "Pilote" }), el("th", { class: "r", text: "Meilleur temps" }), el("th", { class: "r", text: "Essais" }), el("th", { class: "r", text: "Points" }), el("th", { class: "r", text: "Total" })].concat(m.rule && m.rule !== "points" ? [el("th", { class: "r", text: "Cumul des temps" })] : []))]),
-      el("tbody", {}, m.rows.map((r) => { const p = stP(r.id) || {}; const car = CA.CARS[r.car]; const cumCell = m.rule && m.rule !== "points" ? [el("td", { class: "r", text: r.cum == null ? "-" : fmtS(r.cum) + (r.pen ? " (sans temps, " + fmtS(r.counted) + " comptées)" : "") + (m.cumRank && m.cumRank[r.id] ? ", " + m.cumRank[r.id] + (m.cumRank[r.id] === 1 ? "er" : "e") : "") })] : []; return el("tr", {}, [el("td", {}, [el("span", { class: "dotc", style: { background: hexOf(p.color) } }), (r.winner ? "🏆 " : "") + (p.name || "?") + (car ? " " + car.icon : "")]), el("td", { class: "r", text: r.best == null ? "-" : fmtS(r.best) }), el("td", { class: "r", text: String(r.tries || 0) }), el("td", { class: "r", text: "+" + r.pts }), el("td", { class: "r", text: String(r.total) })].concat(cumCell)); })),
+      el("tbody", {}, m.rows.map((r) => { const p = stP(r.id) || {}; const car = CA.CARS[r.car]; const cumCell = m.rule && m.rule !== "points" ? [el("td", { class: "r", text: r.cum == null ? "-" : fmtS(r.cum) + (r.pen ? " (sans temps, " + fmtS(r.counted) + " comptées)" : "") + (m.cumRank && m.cumRank[r.id] ? ", " + m.cumRank[r.id] + (m.cumRank[r.id] === 1 ? "er" : "e") : "") })] : []; return el("tr", {}, [el("td", {}, [el("span", { class: "dotc", style: { background: hexOf(p.color) } }), (r.winner ? "🏆 " : "") + (m.leader === r.id ? "🟡 " : "") + (p.name || "?") + (car ? " " + car.icon : "")]), el("td", { class: "r", text: m.survie && r.sv != null && r.sv >= 0 ? "éliminé " + (r.sv >= m.gates - 1 ? "à l'arrivée" : "au contrôle " + (r.sv + 1)) : r.best == null ? "-" : fmtS(r.best) }), el("td", { class: "r", text: String(r.tries || 0) }), el("td", { class: "r", text: "+" + r.pts }), el("td", { class: "r", text: String(r.total) })].concat(cumCell)); })),
     ]);
     const note = el("p", { id: "sheet-next", class: "muted small", text: "" });
-    const info = el("p", { class: "muted", text: m.track + (m.drawn && m.drawn.length ? " · " + m.drawn.join(", ") : "") + (m.rule === "temps" ? " · le meilleur cumul des temps gagne" : m.rule === "mixte" ? " · places aux points et aux temps cumulés" : "") + (m.author ? " · temps de l'auteur " + fmtS(m.author) : "") + (m.recordTime && m.mode === "essence" ? " · temps du vainqueur " + fmtS(m.recordTime) : "") });
-    openSheet([el("h2", { text: "Course " + (m.index + 1) + " terminée" }), info, tbl, note]); G.sheet = { kind: "end", note };
+    const info = el("p", { class: "muted", text: (m.stage ? m.stage.icon + " " + m.stage.name + " · " : "") + (m.survie ? "Survie · " : "") + m.track + (m.leader ? " · maillot jaune " + nameOf(m.leader) : "") + (m.drawn && m.drawn.length ? " · " + m.drawn.join(", ") : "") + (m.rule === "temps" ? (m.stage ? " · le classement général additionne les temps" : " · le meilleur cumul des temps gagne") : m.rule === "mixte" ? " · places aux points et aux temps cumulés" : "") + (m.author ? " · temps de l'auteur " + fmtS(m.author) : "") + (m.recordTime && m.mode === "essence" ? " · temps du vainqueur " + fmtS(m.recordTime) : "") });
+    openSheet([el("h2", { text: (m.stage ? "Étape " + (m.stage.i + 1) + " sur " + m.stage.n : "Course " + (m.index + 1)) + " terminée" }), info, tbl, note]); G.sheet = { kind: "end", note };
   }
   function onOver(m) {
     G.endInfo = null; const rows = m.rows; const top = rows.slice(0, 3); const order = top.length === 1 ? [top[0]] : top.length === 2 ? [top[1], top[0]] : [top[1], top[0], top[2]];
@@ -363,10 +411,23 @@
       host ? el("button", { class: "btn btn--accent", text: "Retour au salon", onclick: () => Kit.backToLobby() }) : el("span", { class: "muted small", text: "L'hôte peut relancer une partie depuis le salon." }),
     ]);
     G.overInfo = m;
-    const rlist = (m.replays && m.replays.list) || []; const rbox = rlist.length ? el("div", { class: "replays" }, [el("h3", { text: "Revoir les courses" }), el("div", { class: "chips" }, rlist.map((r) => el("button", { class: "chip", text: "Course " + (r.i + 1) + " · " + r.name + " " + (TR.BIOMES[r.biome] ? TR.BIOMES[r.biome].icon : ""), onclick: () => Kit.socket.emit("z:replay", { i: r.i }) })))]) : null;
-    openSheet([el("h2", { text: "Fin de la partie" }), el("p", { class: "muted small", style: { textAlign: "center" }, text: m.rule === "temps" ? "Victoire au cumul des temps" : m.rule === "mixte" ? "Victoire mixte, places aux points et aux temps cumulés" : "Victoire aux points" }), pod, tbl, rbox, btns]); G.sheet = { kind: "over" }; if (!G.overSound) { sound.win(); G.overSound = true; } V.setOrbit(true);
+    const rlist = (m.replays && m.replays.list) || []; const rbox = rlist.length ? el("div", { class: "replays" }, [el("h3", { text: "Revoir les courses" }), el("div", { class: "chips" }, rlist.map((r) => el("button", { class: "chip", text: (m.format === "etapes" ? "Étape " : "Course ") + (r.i + 1) + " · " + r.name + " " + (TR.BIOMES[r.biome] ? TR.BIOMES[r.biome].icon : ""), onclick: () => Kit.socket.emit("z:replay", { i: r.i }) })))]) : null;
+    const nodes = [el("h2", { text: m.format === "etapes" ? "Classement général" : "Fin de la partie" }), el("p", { class: "muted small", style: { textAlign: "center" }, text: m.format === "etapes" ? "🟡 Maillot jaune pour " + (rows[0] ? rows[0].name : "?") + ", le plus petit total de temps sur toutes les étapes" : m.survie ? "Survie, les points suivent l'ordre d'élimination" : m.rule === "temps" ? "Victoire au cumul des temps" : m.rule === "mixte" ? "Victoire mixte, places aux points et aux temps cumulés" : "Victoire aux points" }), pod, tbl, rbox, btns];
+    if (V.podium) nodes.splice(2, 0, el("div", { style: { textAlign: "center", margin: "0.2rem 0 0.4rem" } }, [el("button", { class: "btn btn--ghost btn--small", text: "🏆 Revoir le podium en 3D", onclick: () => showPodium(m, nodes) })]));
+    if (!G.overSound) { sound.win(); G.overSound = true; }
+    if (V.podium && !G.podiumShown) { G.podiumShown = true; showPodium(m, nodes); return; }
+    openSheet(nodes); G.sheet = { kind: "over" }; V.setOrbit(true);
   }
 
+  // podium 3D, les trois premiers sur leurs marches, puis le classement
+  function showPodium(m, nodes) {
+    closeSheet(); const rows = m.rows.slice(0, 3); const list = rows.map((r) => { const p = stP(r.id) || {}; return { carId: p.car || G.carId || "bolide", hex: hexOf(r.color), name: r.name }; });
+    V.podium(list); V.setOrbit(true); const host = $("#screen-game") || document.body; ["z-podtitle", "z-podbtn"].forEach((id) => { const o = $("#" + id); if (o) o.remove(); });
+    const title = el("div", { id: "z-podtitle", class: "z-podtitle" }, [el("b", { text: m.format === "etapes" ? "🟡 " + (rows[0] ? rows[0].name : "") : "🏆 " + (rows[0] ? rows[0].name : "") }), el("span", { text: m.format === "etapes" ? "Maillot jaune de la course à étapes" : "Vainqueur de la partie" })]);
+    const open = () => { title.remove(); btn.remove(); clearTimeout(G.podT); openSheet(nodes); G.sheet = { kind: "over" }; };
+    const btn = el("button", { id: "z-podbtn", class: "btn btn--accent btn--big z-podbtn", text: "Voir le classement", onclick: open });
+    host.appendChild(title); host.appendChild(btn); clearTimeout(G.podT); G.podT = setTimeout(() => { if (document.body.contains(btn)) open(); }, 6500);
+  }
   // ---------- éléments d'interface ----------
   function openSheet(nodes) { const s = $("#sheet"); s.innerHTML = ""; s.appendChild(el("div", { class: "card" }, nodes)); s.classList.remove("hidden"); }
   function closeSheet() { const s = $("#sheet"); if (s) { s.classList.add("hidden"); s.innerHTML = ""; } G.sheet = null; }
@@ -378,17 +439,18 @@
     const g = $("#garage"); if (!g || !G.st || !G.track) return; const s = G.st; const cm = me();
     // on ne reconstruit le garage que si son contenu change, sinon un clic en cours serait perdu
     const secs = Math.max(0, Math.ceil((s.phaseUntil - snow()) / 1000)); const isHost0 = Kit.isHost();
-    const carWho = () => (S().carMode === "random" ? "Voiture tirée au sort pour tous" : S().carMode === "winner" ? (s.chooser === myId() ? "Tu choisis la voiture de tout le monde" : nameOf(s.chooser) + " choisit la voiture de tout le monde") : "Choisis ta voiture");
-    const gkey = [G.track.name, G.carId, S().carMode, s.chooser, G.author, isHost0, !!(cm && cm.ready), Kit.room && Kit.room.hostId].join("|");
+    const CM = G.carModeEff || S().carMode;
+    const carWho = () => (CM === "random" ? (G.stage ? "Voiture imposée pour cette étape" : "Voiture tirée au sort pour tous") : CM === "winner" ? (s.chooser === myId() ? "Tu choisis la voiture de tout le monde" : nameOf(s.chooser) + " choisit la voiture de tout le monde") : "Choisis ta voiture");
+    const gkey = [G.track.name, G.carId, CM, s.chooser, G.author, isHost0, !!(cm && cm.ready), Kit.room && Kit.room.hostId].join("|");
     g.classList.remove("hidden");
     if (g.dataset.key === gkey && g.firstChild) { const t = $("#gar-secs"); if (t) t.textContent = carWho() + " · départ dans " + secs + " s"; return; }
     g.dataset.key = gkey; g.innerHTML = "";
     const B = TR.BIOMES[G.track.biome];
-    g.appendChild(el("div", { class: "garage__info" }, [el("b", { text: B.icon + " " + G.track.name }), el("span", { class: "small", text: B.name + (B.identity ? " (" + B.identity.toLowerCase() + ")" : "") + " · " + Math.round(G.track.length) + " m · environ " + Math.round(G.track.length / 27) + " s de conduite" + (G.author ? " · temps de l'auteur " + fmtS(G.author) : "") })].concat(G.track.drawn && G.track.drawn.length ? [el("span", { class: "small", style: { display: "block" }, text: "Tiré au sort pour cette course, " + G.track.drawn.join(", ") })] : [])));
-    const cmode = S().carMode || "winner"; const canPick = cmode === "own" || (cmode === "winner" && s.chooser === myId()); const cards = el("div", { class: "cars" + (canPick ? "" : " cars--locked") });
+    g.appendChild(el("div", { class: "garage__info" }, [G.stage ? el("span", { class: "pill pill--stage", text: "🚴 Étape " + (G.stage.i + 1) + " sur " + G.stage.n + " · " + G.stage.icon + " " + G.stage.name + " · voiture " + (G.stage.car === "imposee" ? "imposée" : "libre") }) : null, G.survie ? el("span", { class: "pill pill--stage", text: "🪦 Survie · le dernier à chaque point de contrôle est éliminé" }) : null, el("b", { text: B.icon + " " + G.track.name }), el("span", { class: "small", text: B.name + (B.identity ? " (" + B.identity.toLowerCase() + ")" : "") + " · " + Math.round(G.track.length) + " m · environ " + Math.round(G.track.length / 27) + " s de conduite" + (G.author ? " · temps de l'auteur " + fmtS(G.author) : "") })].concat(G.track.drawn && G.track.drawn.length ? [el("span", { class: "small", style: { display: "block" }, text: "Tiré au sort pour cette course, " + G.track.drawn.join(", ") })] : [])));
+    const cmode = CM || "winner"; const canPick = cmode === "own" || (cmode === "winner" && s.chooser === myId()); const cards = el("div", { class: "cars" + (canPick ? "" : " cars--locked") });
     CA.CAR_ORDER.forEach((id) => {
       const c = CA.CARS[id]; const on = G.carId === id; const bar = (v) => el("i", { style: { width: Math.round(clamp(v, 0.08, 1) * 80) + "px" } });
-      cards.appendChild(el("button", { class: "carcard" + (on ? " carcard--on" : ""), onclick: () => { if (canPick) { Kit.socket.emit("z:car", { id }); sound.click(); } else toast(cmode === "random" ? "La voiture est tirée au sort à chaque course." : nameOf(s.chooser) + " choisit la voiture, il a gagné la dernière course ou c'est l'hôte pour la première.", "info"); } }, [
+      cards.appendChild(el("button", { class: "carcard" + (on ? " carcard--on" : ""), onclick: () => { if (canPick) { Kit.socket.emit("z:car", { id }); sound.click(); } else toast(cmode === "random" ? (G.stage ? "Pour cette étape, la voiture est imposée à tout le monde." : "La voiture est tirée au sort à chaque course.") : nameOf(s.chooser) + " choisit la voiture, il a gagné la dernière course ou c'est l'hôte pour la première.", "info"); } }, [
         el("b", {}, [el("span", { class: "ic", text: c.icon }), c.name]), el("p", { class: "trait", text: c.trait || "" }), el("p", { text: c.desc }),
         el("div", { class: "stat" }, [el("span", { text: "Vitesse" }), bar(c.vmax / 70)]), el("div", { class: "stat" }, [el("span", { text: "Accélération" }), bar((c.acc * (c.accPow ? 1.15 : 1)) / 31)]),
         el("div", { class: "stat" }, [el("span", { text: "Adhérence" }), bar(c.grip / 7.6)]), el("div", { class: "stat" }, [el("span", { text: "Maniabilité" }), bar(c.turn / 3)]),
@@ -402,22 +464,26 @@
       el("span", { class: "pill", id: "gar-secs", text: carWho() + " · départ dans " + secs + " s" }),
       el("button", { class: "btn " + (ready ? "btn--ghost" : "btn--green") + " btn--big", text: ready ? "Je ne suis plus prêt" : "Je suis prêt", onclick: () => Kit.socket.emit("z:ready") }),
     ]));
+    if (cm && cm.car && G.lastShowCar !== cm.car) { G.lastShowCar = cm.car; setTimeout(() => { if (V.carHop) V.carHop("me"); engineRev(cm.car); }, 120); }
     if (cm && cm.car) { const c = V.ensureCar("me", cm.car, hexOf(cm.color), false, null); const st = G.track.start; V.setCarState("me", { x: st.x, y: st.y, z: st.z, h: st.h, p: 0, a: 0, b: 0, speed: 0 }, true); }
   }
   function renderBoard() {
     const s = G.st; if (!s) return; const box = $("#z-board"); box.innerHTML = "";
     const ess = s.mode === "essence";
-    box.appendChild(el("h4", {}, [el("span", { text: (ess ? "Essence" : s.mode === "contact" ? "Contact" : "Fantôme") + " · course " + Math.min(s.total, s.roundIdx + 1) }), el("span", { text: ess ? "temps · essence" : (S().winRule === "temps" ? "meilleur · cumul" : "meilleur · pts") })]));
+    const stg = s.etape; const sv = !!s.survie;
+    box.appendChild(el("h4", {}, [el("span", { text: (ess ? "Essence" : s.mode === "contact" ? "Contact" : "Fantôme") + (sv ? " · survie" : "") + (stg ? " · étape " + (stg.i + 1) + " sur " + stg.n : " · course " + Math.min(s.total, s.roundIdx + 1)) }), el("span", { text: ess ? "temps · essence" : (S().winRule === "temps" ? "meilleur · général" : "meilleur · pts") })]));
     let list = s.players.slice();
     if (ess && s.stage !== "open") list.sort((a, b) => (!!a.out - !!b.out) || (a.best == null) - (b.best == null) || a.best - b.best);
     else if (ess && s.order && s.order.length) list.sort((a, b) => s.order.indexOf(a.id) - s.order.indexOf(b.id));
+    else if (sv) list.sort((a, b) => (!!a.out - !!b.out) || (a.best == null) - (b.best == null) || a.best - b.best);
     else list.sort((a, b) => (a.best == null) - (b.best == null) || a.best - b.best);
     list.forEach((p) => {
       const turn = ess && s.turn && s.turn.pid === p.id && s.phase === "turns"; const holder = ess && s.record && s.record.pid === p.id && s.stage === "duel" && !p.out;
       let right = String(p.pts); if (!ess && S().winRule === "temps") right = p.cum == null ? "-" : fmt(p.cum);
+      if (sv && p.out) right = "éliminé";
       if (ess) right = p.out ? "éliminé" : s.stage === "duel" ? Math.round(turn && s.turn.fuelLeft != null ? s.turn.fuelLeft : p.fuel) + " s" : "-";
-      box.appendChild(el("div", { class: "brow" + (p.id === myId() ? " brow--you" : "") + (turn ? " brow--turn" : "") + (ess && p.out ? " brow--out" : "") }, [
-        el("i", { style: { background: hexOf(p.color) } }), el("span", { class: "nm", text: (holder ? "🎯 " : "") + p.name + (p.isBot || p.auto ? " 🤖" : !p.connected ? " 💤" : "") }),
+      box.appendChild(el("div", { class: "brow" + (p.id === myId() ? " brow--you" : "") + (turn ? " brow--turn" : "") + ((ess || sv) && p.out ? " brow--out" : "") }, [
+        el("i", { style: { background: hexOf(p.color) } }), el("span", { class: "nm", text: (holder ? "🎯 " : "") + (s.leader === p.id ? "🟡 " : "") + p.name + (p.isBot || p.auto ? " 🤖" : !p.connected ? " 💤" : "") }),
         el("span", { class: "st", text: p.best == null ? "-" : fmt(p.best) }), el("span", { class: "pt", text: right })]));
     });
   }
@@ -452,6 +518,7 @@
     { const rc = $("#z-race"); let txt = "";
       if (run && !run.done && run.countdown === 0) { const ncp = G.track.cps.length; txt = "Contrôle " + run.r.cp + " sur " + ncp;
         if (isChrono(G.mode) && s) { const mine = run.r.idx; let ahead = 0, tot = 1; s.players.forEach((p) => { if (p.id === myId() || p.left) return; tot++; const sn = G.snaps[p.id]; if (p.best != null && p.finishes > 0) ahead++; else if (sn && Date.now() - sn.at < 1500 && sn.i > mine) ahead++; }); txt = "Position " + (ahead + 1) + " sur " + tot + " · " + txt; } }
+      if (s && s.survie && s.phase === "race") { const alive = s.players.filter((p) => !p.out && !p.left).length; const nx = s.svGate || 0; txt = (txt ? txt + " · " : "") + "🪦 " + alive + " en course · " + (nx >= (s.gates || 1) - 1 ? "arrivée décisive" : "prochaine élimination au contrôle " + (nx + 1)); }
       rc.classList.toggle("hidden", !txt); if (G.lastDom.rc !== txt) { rc.textContent = txt; G.lastDom.rc = txt; } }
     { const gb = $("#btn-giveup"); const show = !!(s && s.mode === "essence" && s.phase === "turns" && s.turn && s.turn.role === "duel" && s.turn.pid === myId() && !s.turn.ended); gb.classList.toggle("hidden", !show); }
     // essence
@@ -510,6 +577,8 @@
     (tr.obs || []).forEach((ob) => dot(P(ob.x, ob.z), "#ffb347", 1.8));
     tr.cps.forEach((c) => dot(P(tr.x[c], tr.z[c]), "#33e0ff", 3));
     (tr.rings || []).forEach((rg) => dot(P(tr.x[rg.i], tr.z[rg.i]), "#ffcf33", 2));
+    (tr.cuts || []).forEach((c) => { const a = P(tr.x[c.lip], tr.z[c.lip]), b = P(tr.x[c.land], tr.z[c.land]); g.strokeStyle = "#ffcf33"; g.lineWidth = Math.max(1.5, (o.lw || 5) * 0.4); g.setLineDash([3, 4]); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); g.setLineDash([]); });
+    (tr.xings || []).forEach((x) => dot(P(tr.x[x.ja], tr.z[x.ja]), "#ff8a3a", 3.5));
     dot(P(tr.x[tr.start.idx], tr.z[tr.start.idx]), "#7aff7a", 5); dot(P(tr.x[tr.n - 3], tr.z[tr.n - 3]), "#ffffff", 5);
     (o.dots || []).forEach((d) => dot(P(d.x, d.z), d.hex, d.big ? 6 : 5));
   }
@@ -580,7 +649,7 @@
   // ---------- replays de fin de partie ----------
   function hideReplayBar() { const b = $("#z-replay"); if (b) { b.classList.add("hidden"); b.innerHTML = ""; } V.setTV && V.setTV(false); }
   function onReplayData(m) {
-    const ov = G.overInfo; if (!ov || !ov.replays) return;
+    const ov = G.overInfo; if (!ov || !ov.replays) return; if (V.podiumOff) V.podiumOff(); ["z-podtitle", "z-podbtn"].forEach((id) => { const o = $("#" + id); if (o) o.remove(); }); clearTimeout(G.podT);
     let tr = null; try { tr = ZR.trackFor(ov.replays.settings, ov.seed, m.i); } catch (e) { console.error(e); }
     if (!tr || !m.cars || !m.cars.length) { toast("Ce replay n'est pas disponible.", "error"); return; }
     G.track = tr; V.loadTrack(tr); V.resize(); V.removeAllCars(); closeSheet();
@@ -620,12 +689,88 @@
     const st = t.stats || {}; const parts = []; const pl = (n, a, b) => n + " " + (n > 1 ? b : a);
     if (st.loops) parts.push(pl(st.loops, "looping", "loopings")); if (st.rolls) parts.push(pl(st.rolls, "vrille", "vrilles")); if (st.walls) parts.push(pl(st.walls, "mur à grimper", "murs à grimper")); if (st.ceilings) parts.push(pl(st.ceilings, "plafond", "plafonds"));
     if (st.gaps) parts.push(pl(st.gaps, "trou à sauter", "trous à sauter")); if (st.steep) parts.push(pl(st.steep, "côte raide", "côtes raides")); if (st.bridges) parts.push(pl(st.bridges, "pont sans rebord", "ponts sans rebord")); if (st.necks) parts.push(pl(st.necks, "passage étroit ou large", "passages étroits ou larges")); if (st.obstacles) parts.push(pl(st.obstacles, "série d'obstacles", "séries d'obstacles"));
-    if (st.forks) parts.push(pl(st.forks, "embranchement", "embranchements")); if (st.cross) parts.push(pl(st.cross, "croisement sur deux niveaux", "croisements sur deux niveaux")); if (st.tunnels) parts.push(pl(st.tunnels, "tunnel", "tunnels")); if (st.movers) parts.push(pl(st.movers, "route qui bouge", "routes qui bougent")); if (st.tubes) parts.push(pl(st.tubes, "tube à l'envers", "tubes à l'envers")); if (st.rings) parts.push(pl(st.rings, "anneau turbo", "anneaux turbo")); if (st.doubles) parts.push(pl(st.doubles, "double saut", "doubles sauts")); if (st.plongeons) parts.push(pl(st.plongeons, "plongeon", "plongeons")); if (st.verge > 40) parts.push(Math.round(st.verge) + " m de bas-côtés sans barrière");
+    if (st.forks) parts.push(pl(st.forks, "embranchement", "embranchements")); if (st.cross) parts.push(pl(st.cross, "croisement sur deux niveaux", "croisements sur deux niveaux")); if (st.tunnels) parts.push(pl(st.tunnels, "tunnel", "tunnels")); if (st.movers) parts.push(pl(st.movers, "route qui bouge", "routes qui bougent")); if (st.tubes) parts.push(pl(st.tubes, "tube à l'envers", "tubes à l'envers")); if (st.rings) parts.push(pl(st.rings, "anneau turbo", "anneaux turbo")); if (st.doubles) parts.push(pl(st.doubles, "double saut", "doubles sauts")); if (st.plongeons) parts.push(pl(st.plongeons, "plongeon", "plongeons")); if (t.trace && t.trace.info && t.trace.info.crossings) parts.push(pl(t.trace.info.crossings, "pont où la route se croise", "ponts où la route se croise")); if (st.banks) parts.push(pl(st.banks, "virage relevé", "virages relevés")); if (st.xings) parts.push(pl(st.xings, "carrefour à niveau", "carrefours à niveau")); if (st.cuts) parts.push(pl(st.cuts, "raccourci par les airs", "raccourcis par les airs")); if (st.verge > 40) parts.push(Math.round(st.verge) + " m de bas-côtés sans barrière");
     return parts.length ? "Au programme " + parts.join(", ") + "." : "Un circuit sans élément spécial.";
+  }
+  // ---------- éditeur de circuit à la souris ----------
+  // l'hôte dessine la route d'un seul trait. Le jeu la lisse, la met en relief, pose les éléments et transforme chaque croisement en pont ou en carrefour
+  const ED_SIZES = [{ v: 500, t: "Petite carte, 500 m" }, { v: 900, t: "Moyenne, 900 m" }, { v: 1400, t: "Grande, 1,4 km" }];
+  const ED_ERR = { proche: "Deux bouts de route se frôlent sans se croiser. Écarte-les ou fais-les vraiment se croiser.", rasant: "Croisement trop rasant. Les routes doivent se couper franchement, presque en croix.", bout: "Un croisement touche le départ ou l'arrivée. Éloigne-le un peu.", long: "Circuit trop long, plus de 6,5 km. Prends une carte plus petite ou raccourcis le trait.", court: "Circuit trop court. Allonge le trait ou prends une carte plus grande." };
+  function openEditor() {
+    const s0 = S(); const old = s0.trace; const E = { p: old ? old.p.slice() : [], strokes: old ? [0] : [], s: old ? old.s : 900, x: old ? old.x : "pont", name: old ? old.name || "" : "", tr: null, drawing: false };
+    const wrap = el("div", { class: "z-editor", id: "z-editor" }); const cv = el("canvas", { class: "z-editor__cv", width: 1000, height: 1000 }); const status = el("div", { class: "z-editor__status small" });
+    const chips = (list, get, set) => el("div", { class: "chips" }, list.map((o) => { const b = el("button", { class: "chip" + (get() === o.v ? " chip--on" : ""), text: o.t, onclick: () => { set(o.v); [...b.parentNode.children].forEach((x) => x.classList.remove("chip--on")); b.classList.add("chip--on"); rebuild(); } }); return b; }));
+    const nameIn = el("input", { class: "input", type: "text", maxlength: 24, placeholder: "Nom du circuit, facultatif", value: E.name, oninput: (e) => { E.name = e.target.value; } });
+    const okBtn = el("button", { class: "btn btn--green", text: "Jouer ce circuit", onclick: () => { if (!E.tr || E.tr.trace.err.length) return; Kit.socket.emit("room:settings", { settings: { trace: { p: E.p, s: E.s, x: E.x, name: E.name.trim() } } }); close(); toast("Circuit dessiné prêt. Il servira pour toutes les courses de la partie.", "info"); } });
+    const close = () => { wrap.remove(); document.removeEventListener("keydown", onKey); };
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    document.addEventListener("keydown", onKey);
+    wrap.appendChild(el("div", { class: "z-editor__box card" }, [
+      el("div", { class: "z-editor__head" }, [el("h2", { text: "✏️ Dessine ton circuit" }), el("button", { class: "btn btn--ghost btn--small", text: "Fermer", onclick: close })]),
+      el("p", { class: "small muted", text: "Trace la route d'un seul trait, du départ (vert) à l'arrivée (damier). Tu peux reprendre le trait depuis son bout rouge. Le jeu arrondit les virages trop secs, ajoute le relief et les éléments, et chaque croisement devient un pont ou un carrefour." }),
+      el("div", { class: "z-editor__main" }, [cv, el("div", { class: "z-editor__side" }, [
+        el("b", { class: "small", text: "Taille de la carte" }), chips(ED_SIZES, () => E.s, (v) => { E.s = v; }),
+        el("b", { class: "small", text: "Quand la route se croise" }), chips([{ v: "pont", t: "Un pont passe au-dessus" }, { v: "niveau", t: "Carrefour à niveau" }], () => E.x, (v) => { E.x = v; }),
+        el("b", { class: "small", text: "Nom" }), nameIn, status,
+        el("div", { class: "row" }, [el("button", { class: "btn btn--ghost btn--small", text: "Annuler le dernier trait", onclick: () => { if (!E.strokes.length) return; E.p.length = E.strokes.pop(); rebuild(); } }), el("button", { class: "btn btn--ghost btn--small", text: "Tout effacer", onclick: () => { E.p = []; E.strokes = []; rebuild(); } })]),
+        okBtn,
+      ])]),
+    ]));
+    document.body.appendChild(wrap);
+    const g = cv.getContext("2d");
+    const toCv = (e) => { const r = cv.getBoundingClientRect(); return [Math.round(clamp((e.clientX - r.left) / r.width * 1000, 0, 1000)), Math.round(clamp((e.clientY - r.top) / r.height * 1000, 0, 1000))]; };
+    const endPt = () => (E.p.length >= 2 ? [E.p[E.p.length - 2], E.p[E.p.length - 1]] : null);
+    cv.addEventListener("pointerdown", (e) => {
+      const q = toCv(e); const ep = endPt();
+      if (ep && Math.hypot(q[0] - ep[0], q[1] - ep[1]) > 45) { status.textContent = "Reprends le trait depuis son bout rouge, ou efface pour recommencer."; status.className = "z-editor__status small bad"; return; }
+      E.drawing = true; E.strokes.push(E.p.length); if (!ep) E.p.push(q[0], q[1]); cv.setPointerCapture(e.pointerId); e.preventDefault();
+    });
+    cv.addEventListener("pointermove", (e) => { if (!E.drawing) return; const q = toCv(e); const ep = endPt(); if (ep && Math.hypot(q[0] - ep[0], q[1] - ep[1]) < 7) return; if (E.p.length >= 1600) return; E.p.push(q[0], q[1]); draw(); });
+    const up = () => { if (!E.drawing) return; E.drawing = false; if (E.strokes.length && E.p.length - E.strokes[E.strokes.length - 1] < 2) E.strokes.pop(); rebuild(); };
+    cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+    function rebuild() {
+      E.tr = null;
+      if (E.p.length >= 16) { try { const st = S(); E.tr = TR.generate({ seed: "trace" + (st.seed || "") + E.p.length, biome: (st.biomes || [])[0] || "cote", size: st.trackSize, difficulty: st.difficulty, hills: st.hills, elements: st.elements, features: {}, trace: { p: E.p, s: E.s, x: E.x } }); } catch (err) { console.error(err); E.tr = null; } }
+      draw(); const t = E.tr;
+      if (!t) { status.className = "z-editor__status small"; status.textContent = E.p.length ? "Continue le trait, il est encore trop court." : "Pose le doigt ou la souris sur la carte et trace la route."; okBtn.disabled = true; return; }
+      const inf = t.trace.info; const err = t.trace.err; const kinds = [...new Set(err.map((e2) => e2.k))];
+      status.className = "z-editor__status small" + (err.length ? " bad" : " good");
+      status.textContent = (Math.round(t.length / 10) * 10) + " m, environ " + Math.round(t.length / 27) + " s de conduite" + (inf.crossings ? ", " + inf.crossings + " pont" + (inf.crossings > 1 ? "s" : "") : "") + (inf.levels ? ", " + inf.levels + " carrefour" + (inf.levels > 1 ? "s" : "") : "") + ". " + (err.length ? kinds.map((k) => ED_ERR[k]).join(" ") : "Tout est bon, tu peux jouer ce circuit.");
+      okBtn.disabled = !!err.length;
+    }
+    function draw() {
+      g.clearRect(0, 0, 1000, 1000); g.fillStyle = "#1a1e3a"; g.fillRect(0, 0, 1000, 1000);
+      const step = 100 / (E.s / 1000); g.strokeStyle = "rgba(255,255,255,0.07)"; g.lineWidth = 1; for (let k = 500 % step; k <= 1000; k += step) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k, 1000); g.stroke(); g.beginPath(); g.moveTo(0, k); g.lineTo(1000, k); g.stroke(); }
+      g.fillStyle = "rgba(255,255,255,0.35)"; g.font = "22px system-ui"; g.fillText("une case fait 100 m", 14, 984);
+      const t = E.tr; const sc = E.s / 1000; const C = (x, z) => [500 - x / sc, 500 - z / sc];
+      if (t) {
+        const wpx = Math.max(3, 2 * 6 / sc); g.lineCap = "round"; g.lineJoin = "round";
+        for (const pass of [0, 1]) { g.strokeStyle = pass ? "#5b606c" : "#0c0e1e"; g.lineWidth = pass ? wpx : wpx + 6; g.beginPath(); for (let i = 0; i < t.n; i += 2) { const q = C(t.x[i], t.z[i]); if (!i) g.moveTo(q[0], q[1]); else g.lineTo(q[0], q[1]); } g.stroke(); }
+        for (let i = 0; i < t.n - 1; i++) if (t.flags[i] & TR.FLAG.OVER) { const a = C(t.x[i], t.z[i]), b = C(t.x[i + 1], t.z[i + 1]); g.strokeStyle = "#9aa4ff"; g.lineWidth = wpx; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+        (t.xings || []).forEach((x) => { const q = C(t.x[x.ja], t.z[x.ja]); g.fillStyle = "#ff8a3a"; g.beginPath(); g.arc(q[0], q[1], 12, 0, 6.3); g.fill(); });
+        const st = C(t.x[t.start.idx], t.z[t.start.idx]), fin = C(t.x[t.n - 3], t.z[t.n - 3]);
+        g.fillStyle = "#7aff7a"; g.beginPath(); g.arc(st[0], st[1], 14, 0, 6.3); g.fill(); g.fillStyle = "#ffffff"; g.fillRect(fin[0] - 12, fin[1] - 12, 24, 24); g.fillStyle = "#14172b"; g.fillRect(fin[0] - 12, fin[1] - 12, 12, 12); g.fillRect(fin[0], fin[1], 12, 12);
+        t.trace.err.forEach((e2) => { const q = C(e2.x, e2.z); g.strokeStyle = "#ff4a5a"; g.lineWidth = 6; g.beginPath(); g.arc(q[0], q[1], 34, 0, 6.3); g.stroke(); });
+      }
+      if (E.p.length >= 2) { g.strokeStyle = t ? "rgba(255,214,107,0.55)" : "#ffd66b"; g.lineWidth = t ? 3 : 6; g.lineCap = "round"; g.beginPath(); g.moveTo(E.p[0], E.p[1]); for (let i = 2; i < E.p.length; i += 2) g.lineTo(E.p[i], E.p[i + 1]); g.stroke(); const ep = endPt(); g.fillStyle = "#ff4a5a"; g.beginPath(); g.arc(ep[0], ep[1], 11, 0, 6.3); g.fill(); }
+    }
+    rebuild();
   }
   // ---------- aperçu dans le salon ----------
   function renderPreview(box, room) {
     const s = room.settings; const host = Kit.isHost(); const seeded = !!(s.seed && s.seed.trim());
+    if (s.trace) {
+      const key2 = JSON.stringify([s.biomes, s.trackSize, s.difficulty, s.elements, s.hills, s.features, s.seed, s.trace.p.length, s.trace.s, s.trace.x, s.trace.p[s.trace.p.length - 1]]);
+      if (key2 !== G.prev.key) { try { G.prev.track = ZR.trackFor(s, "x", 0); } catch (e) { G.prev.track = null; console.error(e); } G.prev.key = key2; }
+      box.innerHTML = ""; const t = G.prev.track; if (!t) return;
+      const cv2 = el("canvas", { width: 340, height: 340, style: { width: "170px", height: "170px", borderRadius: "12px", background: "#14172b", flex: "none" } });
+      box.appendChild(el("div", { class: "lobby-prev" }, [el("h3", { text: "Circuit dessiné" }), el("div", { style: { display: "flex", gap: "0.8rem", flexWrap: "wrap", marginTop: "0.4rem" } }, [cv2, el("div", { style: { flex: 1, minWidth: "140px" } }, [
+        el("div", { class: "meta", text: "✏️ " + t.name }), el("p", { class: "small", text: Math.round(t.length) + " m · environ " + Math.round(t.length / 27) + " s de conduite · le même tracé à chaque course, le biome peut changer" }),
+        el("p", { class: "small muted", text: elementsText(t) }),
+        host ? el("div", { class: "row" }, [el("button", { class: "btn btn--small btn--accent", text: "Modifier le tracé", onclick: openEditor }), el("button", { class: "btn btn--small btn--ghost", text: "Revenir aux circuits au hasard", onclick: () => Kit.socket.emit("room:settings", { settings: { trace: null } }) })]) : el("p", { class: "small muted", text: "L'hôte a dessiné ce circuit." }),
+      ])])]));
+      drawMap(cv2, t, { lw: 6, pad: 14 }); return;
+    }
     if (!seeded && !G.prev.seed) G.prev.seed = Math.random().toString(36).slice(2, 8);
     const seed = seeded ? s.seed.trim() : G.prev.seed; if (seeded && G.prev.idx >= s.rounds) G.prev.idx = 0; const idx = seeded ? G.prev.idx : 0;
     const key = JSON.stringify([s.biomes, s.biomeOrder, s.trackSize, s.difficulty, s.elements, s.hills, s.features, s.rnd, s.crashRnd, seed, idx]);
@@ -647,6 +792,7 @@
         !seeded && host ? el("button", { class: "btn btn--small btn--accent", text: "Jouer ce parcours", onclick: () => { G.prev.idx = 0; Kit.socket.emit("room:settings", { settings: { seed } }); } }) : null,
         seeded && host ? el("button", { class: "btn btn--small btn--ghost", text: "Retirer la graine", onclick: () => Kit.socket.emit("room:settings", { settings: { seed: "" } }) }) : null,
       ]),
+      host ? el("div", { class: "row", style: { marginTop: "0.4rem" } }, [el("button", { class: "btn btn--small btn--accent", text: "✏️ Dessiner mon circuit", onclick: openEditor })]) : null,
     ]);
     box.appendChild(el("div", { class: "lobby-prev" }, [el("h3", { text: "Aperçu du circuit" }), el("div", { style: { display: "flex", gap: "0.8rem", flexWrap: "wrap", marginTop: "0.4rem" } }, [cv, info])]));
     drawMap(cv, t, { lw: 6, pad: 14 });
@@ -656,14 +802,14 @@
   function attach() {
     const so = Kit.socket; if (!so || G.attached) return; G.attached = true;
     so.on("z:round", onRound); so.on("z:author", (m) => { G.author = m.time; G.lastGar = 0; }); so.on("z:state", onState); so.on("z:turn", onTurn); so.on("z:record", onRecord); so.on("z:go", onGo); so.on("z:snap", onSnap);
-    so.on("z:turnEnd", onTurnEnd); so.on("z:result", onResult); so.on("z:botTurn", onBotTurn); so.on("z:roundEnd", onRoundEnd); so.on("z:over", (m) => { G.overSound = false; onOver(m); }); so.on("z:replayData", onReplayData);
+    so.on("z:turnEnd", onTurnEnd); so.on("z:result", onResult); so.on("z:botTurn", onBotTurn); so.on("z:roundEnd", onRoundEnd); so.on("z:over", (m) => { G.overSound = false; onOver(m); }); so.on("z:replayData", onReplayData); so.on("z:elim", onElim);
   }
   // envoi régulier de la position pendant un essai
   const sendPos = () => { const r = G.run; if (!r || r.done || !Kit.socket || r.countdown > 0 || !canDrive()) return; const a = r.r; const fx = Math.sin(a.hd), fz = Math.cos(a.hd); Kit.socket.emit("z:pos", { c: Date.now(), x: +a.x.toFixed(2), y: +a.y.toFixed(2), z: +a.z.toFixed(2), vx: +a.vx.toFixed(2), vz: +a.vz.toFixed(2), h: +a.hd.toFixed(3), p: +a.pitch.toFixed(3), a: a.rail ? 2 : a.air ? 1 : 0, i: +a.idx.toFixed(2), b: a.boostT > 0 ? 1 : 0 }); };
   setInterval(sendPos, 50);
   Kit.on("screen", (name) => { V.paused = name !== "game"; if (name === "game") setTimeout(() => { if (G.viewInit) V.resize(); }, 50); });
   Kit.on("reset", () => { G.st = null; G.track = null; G.run = null; closeSheet(); G.prev.key = ""; });
-  Kit.on("room", (r) => { if (r.status === "lobby") { G.st = null; G.run = null; closeSheet(); G.lastState = ""; } });
+  Kit.on("room", (r) => { if (r.status === "lobby") { G.st = null; G.run = null; closeSheet(); G.lastState = ""; G.podiumShown = false; clearTimeout(G.podT); ["z-podtitle", "z-podbtn"].forEach((id) => { const o = $("#" + id); if (o) o.remove(); }); if (V.podiumOff) V.podiumOff(); } });
   window.ZoomGame = G;
   // temps de course de la voiture suivie, pour animer les routes qui bougent exactement comme la physique
   V.moverClock = () => {
