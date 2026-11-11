@@ -114,3 +114,47 @@ reg({ id: "confidences", grp: "amitie", ic: "🤫", l: "Partager un secret", mod
   no: { ta: "$B préfère ne rien savoir.", bond: { aff: -1 } },
   yes: [{ w: 1, tag: "confident", a: { bonheur: 5 }, b: { bonheur: 4 }, ta: "$B écoute sans juger. Quelque chose de lourd s'envole.", tb: "$A te confie un secret. Tu mesures la confiance qu'on te fait.", bond: { aff: 16 } }] });
 }
+// ---------- 60_nouveautes ----------
+{
+// Nouvelles interactions entre joueurs. Tables de jeu, paris communs et défis publics.
+const { reg } = require("../socialkit");
+
+const cash2 = (n) => (g, A, B) => Math.min(A.cash, B.cash) >= n;
+
+reg({ id: "table_blackjack", grp: "jeu", ic: "🂡", l: "Proposer une partie de blackjack", d: "Une table, un paquet de cartes et une mise qui dépend de vos fortunes. Le croupier, c'est le hasard.",
+  ages: [18, 110], w: 15, cool: 1, coolPair: 1, ok: cash2(300),
+  yes: [{ w: 1, a: {}, b: {}, ta: "Tu t'assois à la table avec $B, les jetons alignés et le sourire en coin.", tb: "$A te propose une partie de blackjack. Tu t'assois sans trop réfléchir.", bond: { aff: 3 }, special: "mini_blackjack" }],
+  no: { ta: "$B préfère garder ses jetons pour une autre fois.", bond: { aff: -1 } } });
+
+reg({ id: "tournoi_poker", grp: "jeu", ic: "🃏", l: "Lancer une partie de poker", d: "Bluff, regard glacé et grosse mise. Le plus malin ou le plus culotté repart avec le pot.",
+  ages: [18, 110], w: 10, cool: 1, coolPair: 2, ok: cash2(500),
+  yes: [{ w: 1, a: {}, b: {}, ta: "Tu bats les cartes devant $B. La partie de poker commence.", tb: "$A abat sa première carte avec un air de défi. Tu relèves.", bond: { aff: 2, riv: 1 }, special: "poker_table" }],
+  no: { ta: "$B refuse de jouer, au grand regret de ton paquet de cartes.", bond: { aff: -1 } } });
+
+reg({ id: "coinvest_duo", grp: "argent", ic: "📊", l: "Investir à deux dans une opportunité", d: "Vous mettez la même somme et vous partagez le résultat. Plus vous êtes lucides tous les deux, plus ça rapporte.",
+  ages: [21, 100], w: 7, cool: 2, coolPair: 3, ok: cash2(5000), fit: (g, A, B, b) => (b.aff >= 20 ? 1.4 : 0.8),
+  yes: [{ w: 1, a: {}, b: {}, ta: "Toi et $B misez ensemble sur une belle occasion, la main sur le cœur et l'autre sur le portefeuille.", tb: "$A t'embarque dans un investissement à deux. Vous signez sans trop relire.", bond: { aff: 3 }, special: "coinvest" }],
+  no: { ta: "$B trouve ton plan trop risqué et décline poliment.", bond: { aff: -1 } } });
+
+reg({ id: "debat_public", grp: "jeu", ic: "🎤", l: "Débattre en public", d: "Un sujet qui fâche, une salle pleine et un seul vainqueur. L'éloquence compte plus que l'argent.",
+  ages: [18, 110], w: 7, cool: 2, coolPair: 2,
+  yes: [{ w: 1, a: {}, b: {}, ta: "Toi et $B montez sur scène pour un débat qui promet des étincelles.", tb: "$A te défie dans un débat public. La salle est déjà installée.", bond: { riv: 2 }, special: "debat_public", news: "🎤 $A et $B s'affrontent dans un débat public." }],
+  no: { ta: "$B se dérobe, la salle repart déçue.", bond: { aff: -1 } } });
+
+reg({ id: "soiree_cuisine", grp: "social", ic: "🍲", l: "Cuisiner ensemble pour des amis", d: "Un menu ambitieux, une cuisine minuscule et des invités affamés.",
+  ages: [16, 110], w: 6, cool: 2, coolPair: 2, cost: 120, split: true,
+  yes: [
+    { w: 0.6, a: { bonheur: 5, creatif: 2 }, b: { bonheur: 5, creatif: 2 }, ta: "Le repas est un succès, la cuisine un champ de bataille. Toi et $B riez jusqu'à minuit.", tb: "Avec $A, le dîner est délicieux et la vaisselle interminable.", bond: { aff: 8 } },
+    { w: 0.4, a: { bonheur: 2, creatif: 1 }, b: { bonheur: 2 }, ta: "Le gratin brûle, mais la soirée est sauvée par une commande de pizzas.", tb: "Le gratin de $A finit au four trop longtemps. La pizza sauve la soirée.", bond: { aff: 4 } },
+  ],
+  no: { ta: "$B a déjà prévu de dîner ailleurs.", bond: { aff: -1 } } });
+
+reg({ id: "service_rendu", grp: "social", ic: "🔧", l: "Rendre un service concret", d: "Un déménagement, un dossier à relire ou une voiture en panne. Ça se rend, un jour ou l'autre.",
+  ages: [16, 110], w: 6, cool: 2, coolPair: 2,
+  yes: [
+    { w: 0.7, a: { bonheur: 3, bonte: 2 }, b: { bonheur: 5 }, ta: "Tu consacres ton week-end à aider $B. Rien de glorieux, mais $B s'en souviendra longtemps.", tb: "$A t'aide à tout régler sans rien demander. Tu lui dois une fière chandelle.", bond: { aff: 12 }, tag: "service" },
+    { w: 0.3, a: { bonheur: 1, bonte: 1 }, b: { bonheur: 3 }, ta: "Tu donnes un coup de main à $B, avec plus de bonne volonté que d'efficacité.", tb: "$A fait de son mieux, et c'est déjà bien.", bond: { aff: 6 } },
+  ],
+  no: { ta: "$B se débrouille sans toi.", bond: { aff: -1 } } });
+
+}

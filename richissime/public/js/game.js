@@ -351,8 +351,8 @@
       h("button" + (ui.atab === k ? ".sel" : ""), { type: "button", on: { click: () => { RD.play("click"); ui.atab = k; RD.render(); } } }, l)));
     return h("div.card",
       h("div.kicker", "Année " + (st.round + 1) + " · " + m.age + " ans"),
-      h("h2", five() ? "Quel cap prends-tu pour les cinq prochaines années ?" : "Que fais-tu de cette année ?"),
-      five() ? h("p.small.muted", "Ton choix guide cette année et les quatre suivantes. Ensuite, seules les décisions clés te seront demandées.") : null,
+      h("h2", five() ? "Quel cap prends-tu pour les trois prochaines années ?" : "Que fais-tu de cette année ?"),
+      five() ? h("p.small.muted", "Ton choix guide cette année et les deux suivantes. Ensuite, seules les décisions clés te seront demandées.") : null,
       warn,
       h("p.small.muted", "Voici " + (A.projects.length - 1) + " idées pour ton année. Elles changent chaque année et collent à ta vie (âge, travail, couple, argent, goûts). Le mot « étape » repère une suite logique de ton parcours. Si tu ne choisis rien, ce sera une année tranquille." + (A.pro && A.pro.options.length ? " Tout ce qui fait avancer ta carrière ou rapporte de l'argent se trouve dans l'onglet Professionnel, et tu peux y faire un choix en plus de celui-ci." : "")),
       st.deadline ? RD.timerBar(st.deadline, 45000) : null,

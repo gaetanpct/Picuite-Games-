@@ -25,6 +25,8 @@ const DUELS = {
   blackjack: { l: "Blackjack", ic: "🂡", ages: [18, 120], score: (p) => (p.stats.intel + p.traits.courage) / 2 },
   echecs: { l: "Parties d'échecs", ic: "♟️", ages: [8, 120], score: (p) => p.stats.intel * 0.8 + p.traits.prudent * 0.2 },
   petanque: { l: "Pétanque", ic: "🎯", ages: [45, 120], score: (p) => p.stats.sport * 0.4 + p.stats.charme * 0.3 + p.stats.intel * 0.3 },
+  poker: { l: "Poker", ic: "🃏", ages: [18, 120], score: (p) => p.stats.intel * 0.45 + p.stats.charme * 0.3 + p.traits.courage * 0.25 },
+  debat: { l: "Débat public", ic: "🎤", ages: [18, 120], score: (p) => p.stats.intel * 0.5 + (p.traits.sociable || 50) * 0.3 + p.stats.charme * 0.2 },
   cartes: { l: "Belote de comptoir", ic: "🂡", ages: [30, 120], score: (p) => (p.stats.intel + p.stats.charme) / 2 },
 };
 function duelsFor(A, B) { return Object.keys(DUELS).filter((k) => [A, B].every((p) => p.age >= DUELS[k].ages[0] && p.age <= DUELS[k].ages[1])); }
@@ -211,6 +213,25 @@ function special(g, name, A, B, out, lines) {
       lines.a.push("⚖️ Le tribunal te donne raison" + (back + dam > 0 ? ". Tu récupères " + C.fmt(back + dam) + "." : "."));
       lines.b.push("⚖️ Le tribunal te condamne" + (back + dam > 0 ? ", tu dois " + C.fmt(back + dam) + "." : "."));
       if (g.settings.mature && gr && (gr.kind === "steal" || gr.kind === "arnaque" || gr.kind === "chantage") && g.rng() < 0.3) { FXLIB.applyFx(g, B, { prison: C.rint(g.rng, 1, 3) }, null); lines.b.push("⛓️ Tu es condamné(e) à de la prison ferme."); }
+      return;
+    }
+    case "poker_table": {
+      const low = Math.min(A.cash, B.cash); const stake = Math.max(50, Math.round(Math.min(low * (0.04 + g.rng() * 0.1), 1500000) / 50) * 50);
+      doDuel(g, A, B, { game: "poker", amount: stake }); return;
+    }
+    case "debat_public": { doDuel(g, A, B, { game: "debat", amount: 0 }); return; }
+    case "coinvest": {
+      const low = Math.min(A.cash, B.cash); const put = Math.max(500, Math.round(Math.min(low * (0.08 + g.rng() * 0.12), 800000) / 100) * 100);
+      if (A.cash < put || B.cash < put) return;
+      const skill = (A.stats.intel + B.stats.intel + A.traits.prudent + B.traits.prudent) / 4;
+      const r = g.rng(); const good = 0.5 + (skill - 50) / 220;
+      A.cash -= put; B.cash -= put;
+      let mult; if (r < good * 0.12) mult = 2.6 + g.rng() * 1.2; else if (r < good) mult = 1.1 + g.rng() * 0.6; else if (r < good + (1 - good) * 0.6) mult = 0.5 + g.rng() * 0.4; else mult = 0.05 + g.rng() * 0.3;
+      const back = Math.round(put * mult * 2 / 2); A.cash += back; B.cash += back;
+      const d = back - put;
+      const w = d >= 0 ? "Votre pari rapporte " + C.fmt(d) + " à chacun." : "Votre pari coûte " + C.fmt(-d) + " à chacun.";
+      lines.a.push((d >= 0 ? "📈 " : "📉 ") + w); lines.b.push((d >= 0 ? "📈 " : "📉 ") + w);
+      if (d < 0) SK.touch(g, A.seat, B.seat, { aff: -3 }); else SK.touch(g, A.seat, B.seat, { aff: 4 });
       return;
     }
     case "mini_blackjack": {
@@ -517,8 +538,13 @@ function botRespond(g, o) {
   const r = g.rng();
   const bd = SK.bond(g, o.from, o.to);
   let yes;
-  if (a.kind === "duel" && a.game === "blackjack") yes = true; else if (a.kind === "ask") yes = r < 0.4; else if (a.kind === "duel") yes = r < 0.6; else if (a.kind === "marry" || a.kind === "couple") yes = r < 0.55;
-  else if (a.kind === "faire_la_paix" || a.kind === "derniere_reconciliation") yes = r < 0.7;
+  if ((a.kind === "duel" && a.game === "blackjack") || a.kind === "table_blackjack" || a.kind === "tournoi_poker") yes = r < 0.9; else if (a.kind === "coinvest_duo") yes = r < 0.6; else if (a.kind === "ask") yes = r < 0.4; else if (a.kind === "duel") yes = r < 0.6; else if (a.kind === "marry" || a.kind === "couple") yes = r < 0.55;
+  else if (a.kind === "faire_la_paix" || a.kind === "derniere_reconciliation") {
+    // la rancune s'use, chaque refus rend l'acceptation suivante plus probable, et un caractère sage pardonne plus volontiers
+    const kind = (t.traits.bonte || 50) / 400 + (t.traits.honnete || 50) / 600;
+    const p = Math.max(0.5, Math.min(0.95, 0.88 - bd.riv / 260 + bd.aff / 400 + (bd.peaceNo || 0) * 0.1 + kind - (g.settings.aiStyle === "enfer" ? 0.12 : 0)));
+    yes = r < p; bd.peaceNo = yes ? 0 : (bd.peaceNo || 0) + 1;
+  }
   else yes = r < 0.55 + bd.aff / 250 - bd.riv / 150;
   applyOffer(g, o, yes, yes && a.kind === "ask" && g.rng() < 0.4 ? "half" : yes ? "yes" : "no");
 }
@@ -587,7 +613,7 @@ function yearEnd(g) {
   Object.keys(g.bonds || {}).forEach((k) => {
     const bd = g.bonds[k];
     if (bd.aff > 12) bd.aff = Math.max(10, bd.aff - 1.5);
-    if (bd.riv > 0) bd.riv = Math.max(0, bd.riv - 2);
+    if (bd.riv > 0) bd.riv = Math.max(0, bd.riv - 3);
   });
   // couples de joueurs
   const seen = new Set();

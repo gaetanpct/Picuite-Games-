@@ -415,3 +415,87 @@ onlyFor("rc_sport_camp", ["foot", "rugby", "tennis", "boxe", "natation", "ski", 
 onlyFor("rc_sport_truque", ["foot", "rugby", "tennis", "boxe", "cyclisme", "sportpro", "esport"]);
 
 }
+// ---------- nouveautes ----------
+{
+// Nouveautés. Les dons de naissance ouvrent des choix à eux, les rêves de gloire se heurtent aux vraies statistiques, et l'argent se gère aussi de façon active.
+// Tous les textes évitent les deux-points.
+const { reg, out, tier, net } = require("../lifekit");
+const C = require("../core");
+
+const adult = { ages: [18, 90], nostudy: true, noprison: true };
+const gift = (g, k) => (p) => (p.gift === k ? 3 : 0);
+// poids d'une issue selon une statistique, plus la stat est forte plus l'issue est probable
+const hi = (get, lo, top) => (p) => Math.max(0.02, Math.min(1, (get(p) - lo) / (top - lo)));
+const lo = (get, lo2, top) => (p) => Math.max(0.02, 1 - Math.min(1, (get(p) - lo2) / (top - lo2)));
+const S = (k) => (p) => p.stats[k];
+const T = (k) => (p) => p.traits[k] || 50;
+
+// ---------------- dons de naissance ----------------
+reg({ id: "d_brevet", grp: "argent", l: "Déposer un brevet", ic: "💡", d: "Une idée qui traînait dans ton cahier. Un génie sait la reconnaître.", need: adult, cost: 2500, cool: 5, w: 6, fit: gift(null, "cerveau"),
+  outs: [out(hi(S("intel"), 40, 90), "Ton brevet est accepté, et une entreprise te rachète la licence. Ton cerveau a enfin un prix.", { argent: 24000, repute: 4, bonheur: 5, intel: 1 }, true), out(0.35, "Le brevet est validé, mais personne n'en veut vraiment. Tu l'encadres dans l'entrée.", { bonheur: 2, creatif: 1 }), out(0.2, "Un concurrent avait eu la même idée trois mois avant toi. Tu retiens la leçon.", { bonheur: -2, prudent: 1 })] });
+reg({ id: "d_enigme", grp: "loisir", l: "Résoudre l'énigme que personne ne résout", ic: "🧩", d: "Un problème célèbre, des nuits blanches et un tableau plein de ratures.", need: { ages: [14, 90], noprison: true }, cool: 5, w: 5, fit: gift(null, "cerveau"),
+  outs: [out(hi(S("intel"), 50, 95), "Tu trouves la solution un matin, en mangeant des céréales. Les journaux te citent, ta mère aussi.", { repute: 7, bonheur: 6, intel: 2 }, true), out(0.5, "Tu avances beaucoup, mais il manque la dernière ligne. Tu t'endors en souriant.", { intel: 2, bonheur: 2 })] });
+reg({ id: "d_couverture", grp: "social", l: "Poser pour une couverture de magazine", ic: "📸", d: "Un photographe te repère. Ton charme parle pour toi.", need: { ages: [16, 55], noprison: true }, cost: 0, cool: 5, w: 6, fit: gift(null, "charme"),
+  outs: [out(hi(S("charme"), 45, 90), "La photo fait le tour du pays. Les propositions arrivent, certaines sérieuses, d'autres moins.", { repute: 8, argent: 6000, bonheur: 5 }, true), out(0.3, "La photo est belle, mais personne ne retient ton nom. Tu gardes le tirage.", { repute: 2, bonheur: 2 })] });
+reg({ id: "d_mecene", grp: "social", l: "Séduire un mécène", ic: "🥂", d: "Un dîner, un sourire, un chèque. Le charme ouvre des portes que l'argent ne trouve pas.", need: { ages: [20, 70], noprison: true }, cool: 4, w: 5, fit: gift(null, "charme"),
+  outs: [out(hi(S("charme"), 50, 90), "Le mécène sort son carnet de chèques avant le dessert. Tu repars avec de quoi lancer ton projet.", { argent: 15000, repute: 3, bonheur: 4 }, true), out(0.4, "Le mécène t'écoute avec politesse et finance quelqu'un d'autre.", { bonheur: -1 })] });
+reg({ id: "d_ultratrail", grp: "loisir", l: "Courir un ultra-trail", ic: "🏔️", d: "Cent soixante kilomètres, une nuit en montagne et un corps qui ne se plaint presque pas.", need: { ages: [18, 55], noprison: true }, cool: 4, w: 5, fit: gift(null, "sante"),
+  outs: [out(hi(S("sport"), 45, 90), "Tu franchis la ligne d'arrivée avec les jambes en feu et le cœur léger. Tes proches pleurent, toi aussi.", { sante: 3, sport: 3, bonheur: 6, repute: 3 }, true), out(0.3, "Tu abandonnes au quatre-vingtième kilomètre, mais tu es fier d'être venu.", { sport: 1, bonheur: 2 })] });
+reg({ id: "d_heureuse", grp: "argent", l: "Se trouver au bon endroit au bon moment", ic: "🍀", d: "Les anges gardiens ne dorment jamais. Un petit détour peut tout changer.", need: { ages: [16, 90], noprison: true }, cool: 5, w: 5, fit: gift(null, "chance"),
+  outs: [out(0.18, "Tu rattrapes au vol un porte-monnaie, un contrat et un type très reconnaissant. Une bonne journée, rien de plus.", { argent: 18000, bonheur: 5, repute: 2 }, true), out(0.5, "Tu manques un bus, tu croises un vieil ami et tu gagnes une soirée pleine de rires.", { bonheur: 4, sociable: 1 }), out(0.32, "Rien de spécial. Mais tu rentres sain et sauf, comme toujours.", { bonheur: 1 })] });
+reg({ id: "d_retrouvailles", grp: "social", l: "Réunir toute la famille", ic: "🏡", d: "Un grand repas, trente chaises et des vieux dossiers que l'on retrouve au grenier.", need: { ages: [25, 95], noprison: true }, cost: 800, cool: 5, w: 5, fit: gift(null, "famille"),
+  outs: [out(0.6, "La famille se retrouve, le grenier livre un vieux bijou et un oncle jure qu'il a toujours su pour la tarte.", { bonheur: 6, argent: 3500, bonte: 1 }, true), out(0.4, "Une dispute éclate au dessert et un cousin quitte la table. Tu reçois quand même une belle ambiance.", { bonheur: 2, repute: -1 })] });
+reg({ id: "d_negociation", grp: "argent", l: "Négocier un contrat à la force du bagout", ic: "🗣️", d: "Un sourire, trois formules et un client qui signe avant d'avoir compris.", need: adult, cool: 4, w: 6, fit: gift(null, "bagout"),
+  outs: [out(hi((p) => (p.stats.charme + (p.traits.sociable || 50)) / 2, 45, 85), "Le client signe avec un grand sourire. Ton talent de grande gueule t'a rapporté une belle commission.", { argent: 11000, repute: 3, bonheur: 4, sociable: 1 }, true), out(0.3, "Tu parles trop, le client se ravise. Tu repars avec une carte de visite et un peu de honte.", { bonheur: -2, repute: -1 })] });
+
+// ---------------- les rêves se heurtent à la réalité ----------------
+// Tant qu'une statistique n'est pas à la hauteur, le jeu le dit clairement.
+const cruel = (txt, fx) => out((p) => 0, txt, fx);
+reg({ id: "r_casting", grp: "carriere", l: "Passer un casting pour devenir star", ic: "🎬", d: "Un casting ouvert, une file de deux mille personnes et ton plus beau sourire.", need: { ages: [16, 38], noprison: true, nostudy: true }, cool: 3, w: 6, fit: (p) => (p.stats.charme >= 40 ? 1 : 0.6),
+  outs: [
+    out((p) => (p.stats.charme >= 70 && p.stats.repute >= 30 ? 0.7 : 0), "Le directeur de casting te rappelle le soir même. Tu as ce qu'il faut, et tout le monde le voit.", { repute: 9, bonheur: 8, argent: 4000, flag: "casting_reussi" }, true),
+    out((p) => (p.stats.charme >= 55 && p.stats.charme < 70 ? 0.6 : 0), "On te dit que tu as une bonne bouille, mais qu'il manque un petit quelque chose. Tu peux revenir dans quelques années.", { bonheur: -1, repute: 1 }),
+    out((p) => (p.stats.charme < 55 ? 1 : 0), "Le directeur de casting est franc. Tu n'as pas le physique pour ce métier, et personne ne te le cachera. Ça pique, mais c'est clair.", { bonheur: -5, repute: -1 }),
+    out((p) => (p.stats.charme >= 70 && p.stats.repute < 30 ? 0.6 : 0), "Ton physique plaît, mais personne ne te connaît encore. Il faudra te faire un nom avant de percer.", { bonheur: 1 })] });
+reg({ id: "r_mannequin", grp: "carriere", l: "Défiler comme mannequin", ic: "👠", d: "Un défilé, des talons et un jury sans pitié.", need: { ages: [16, 34], noprison: true, nostudy: true }, cool: 3, w: 5, fit: (p) => (p.stats.charme >= 40 ? 1 : 0.5),
+  outs: [
+    out((p) => (p.stats.charme >= 78 ? 0.75 : 0), "Une agence te signe sur le champ. Ton visage va bientôt s'afficher sur des panneaux de dix mètres.", { repute: 9, argent: 7000, bonheur: 7, flag: "mannequin" }, true),
+    out((p) => (p.stats.charme >= 60 && p.stats.charme < 78 ? 0.6 : 0), "L'agence te propose quelques petits défilés, sans promesse. C'est un début, tu refuses de rêver trop vite.", { argent: 1500, bonheur: 2 }),
+    out((p) => (p.stats.charme < 60 ? 1 : 0), "Le jury est net. Tu n'es pas assez beau ou belle pour ce métier. Tu retiens tes larmes jusqu'à la sortie.", { bonheur: -6, repute: -1 })] });
+reg({ id: "r_sportpro", grp: "carriere", l: "Passer les tests d'un club professionnel", ic: "🏟️", d: "Des plots, un chronomètre et un entraîneur qui ne dit jamais bravo.", need: { ages: [15, 30], noprison: true, nostudy: true }, cool: 3, w: 5, fit: (p) => (p.stats.sport >= 45 ? 1 : 0.5),
+  outs: [
+    out((p) => (p.stats.sport >= 75 ? 0.7 : 0), "L'entraîneur grogne, puis dit qu'il te garde. C'est ton plus beau compliment.", { repute: 6, bonheur: 7, argent: 3000, sport: 2, flag: "sport_pro_tente" }, true),
+    out((p) => (p.stats.sport < 75 ? 1 : 0), "L'entraîneur te dit sans détour que tu n'es pas assez fort ni assez rapide pour ce niveau. La porte reste fermée.", { bonheur: -4, sport: 1 })] });
+reg({ id: "r_grandeecole", grp: "carriere", l: "Tenter le concours d'une grande école", ic: "🎓", d: "Des semaines de révisions, une salle glaciale et un sujet impossible.", need: { ages: [17, 26], noprison: true }, cool: 4, w: 5, fit: (p) => (p.stats.intel >= 50 ? 1 : 0.5),
+  outs: [
+    out((p) => (p.stats.intel >= 72 ? 0.7 : 0), "Tu es reçu(e). Le nom de l'école changera la couleur de ton avenir.", { intel: 2, repute: 5, bonheur: 6, flag: "grande_ecole" }, true),
+    out((p) => (p.stats.intel < 72 ? 1 : 0), "Le jury juge ton niveau trop juste. Pas assez brillant pour cette école, mais la vie ne s'arrête pas là.", { bonheur: -4, intel: 1 })] });
+reg({ id: "r_elections", grp: "carriere", l: "Se présenter à une élection locale", ic: "🗳️", d: "Des affiches, un mégaphone et un adversaire que tout le monde adore.", need: { ages: [25, 80], noprison: true }, cool: 4, w: 5, fit: (p) => (p.stats.repute >= 40 ? 1.2 : 0.5),
+  outs: [
+    out((p) => (p.stats.repute >= 60 && (p.traits.sociable || 50) >= 50 ? 0.7 : 0), "Tu es élu(e), à une courte tête. Les mains que tu serres ont déjà des demandes.", { repute: 8, bonheur: 5, ambition: 2, flag: "elu_local" }, true),
+    out((p) => (p.stats.repute < 60 || (p.traits.sociable || 50) < 50 ? 1 : 0), "Les électeurs ne te connaissent pas assez, ou pas assez bien. Tu perds largement, mais tu as appris ce qu'il faut faire.", { repute: 1, bonheur: -3, ambition: 1 })] });
+reg({ id: "r_standup", grp: "carriere", l: "Monter sur scène pour du stand-up", ic: "🎤", d: "Cinq minutes, un micro et une salle qui ne rit pas par politesse.", need: { ages: [16, 60], noprison: true }, cool: 3, w: 5, fit: (p) => ((p.traits.sociable || 50) >= 45 ? 1 : 0.5),
+  outs: [
+    out((p) => (p.stats.charme >= 55 && (p.traits.creatif || 50) >= 50 ? 0.65 : 0), "La salle rit vraiment, y compris ceux qui boudaient. Un patron de club te propose une résidence.", { repute: 6, bonheur: 7, argent: 1500, flag: "standup" }, true),
+    out((p) => (p.stats.charme < 55 || (p.traits.creatif || 50) < 50 ? 1 : 0), "Le silence est total. Tu n'es pas assez drôle pour ce métier, et le micro s'en souvient longtemps.", { bonheur: -4, repute: -1, courage: 1 })] });
+
+// ---------------- l'argent, côté actif ----------------
+reg({ id: "m_renovation", grp: "argent", l: "Acheter, rénover et revendre un logement", ic: "🔨", d: "Un appartement abîmé, quelques murs à casser et un acheteur à convaincre. Ton talent compte plus que la chance.", need: { ages: [22, 75], nostudy: true, noprison: true, money: [30000, null] }, cost: 22000, cool: 3, w: 6, fit: (p) => (tier(p) >= 2 ? 1.2 : 0.7),
+  outs: [
+    out(hi((p) => (p.stats.intel + (p.traits.prudent || 50) + p.stats.sport) / 3, 40, 80), "Les travaux sont propres, les délais tenus, l'acheteur surenchérit. Tu empoches une belle plus-value.", { argent: 24000, bonheur: 4, prudent: 1, flag: { renovateur: 8 } }, true),
+    out(0.3, "Les travaux dérapent un peu, mais la revente couvre juste les frais. Tu y as gagné de l'expérience.", { argent: 3000, prudent: 1 }),
+    out(lo((p) => (p.stats.intel + (p.traits.prudent || 50) + p.stats.sport) / 3, 40, 80), "Une canalisation éclate, l'artisan disparaît et le prix de vente baisse. Tu as mal calculé ton coup.", { argent: -9000, bonheur: -4 })] });
+reg({ id: "m_ange", grp: "argent", l: "Devenir investisseur chez un jeune entrepreneur", ic: "👼", d: "Tu finances une idée et tu choisis qui soutenir. Ton flair vaut plus que ton chèque.", need: { ages: [25, 85], nostudy: true, noprison: true, money: [25000, null] }, cost: 15000, cool: 3, w: 6, fit: (p) => (tier(p) >= 2 ? 1.2 : 0.6),
+  outs: [
+    out(hi((p) => (p.stats.intel + (p.traits.prudent || 50) + (p.traits.sociable || 50)) / 3, 40, 80), "Ton protégé a tapé juste. Son entreprise décolle et ta part est multipliée par trois.", { argent: 45000, repute: 3, bonheur: 5, flag: { flair: 10 } }, true),
+    out(0.3, "L'idée est correcte, mais le marché la boude. Tu récupères une partie de ta mise et une bonne histoire.", { argent: 6000, bonheur: 1 }),
+    out(lo((p) => (p.stats.intel + (p.traits.prudent || 50) + (p.traits.sociable || 50)) / 3, 40, 80), "Le jeune entrepreneur dépense ton argent en vitrines et en voyages. Il ne te rembourse jamais.", { argent: -4000, bonheur: -3, prudent: 1 })] });
+reg({ id: "m_ligne", grp: "argent", l: "Tenir une boutique en ligne", ic: "📦", d: "Des colis, des avis clients et une petite rente à la clé si tu t'y mets sérieusement.", need: { ages: [18, 80], nostudy: true, noprison: true }, cost: 1200, cool: 2, w: 6, fit: (p) => (tier(p) <= 2 ? 1.3 : 0.7),
+  outs: [
+    out((p) => (p.flags.boutique_ligne ? 0.75 : 0.35) * (0.7 + (p.traits.ambition || 50) / 200), "Ta boutique prend son rythme. Les commandes arrivent, et tes emballages sont désormais très soignés.", { argent: 5200, bonheur: 3, ambition: 1, flag: "boutique_ligne" }, true),
+    out(0.4, "Tu vends peu, mais tu apprends vite ce qui marche. Le garage est plein de cartons.", { argent: 300, bonheur: 1 }),
+    out(0.2, "Un fournisseur te laisse en plan avec un stock inutile.", { argent: -1500, bonheur: -3 })] });
+reg({ id: "m_bourse_etude", grp: "argent", l: "Apprendre vraiment à lire les marchés", ic: "📚", d: "Des livres, des cours du soir et des graphiques. Tu travailles pour avoir moins besoin de chance.", need: { ages: [18, 85], noprison: true }, cost: 900, cool: 4, w: 5, fit: (p) => (p.flags.analyste ? 0.2 : 1),
+  outs: [out(1, "Tu comprends enfin ce que tu achètes. Tes décisions seront moins hasardeuses, et ton banquier t'écoute avec un petit respect.", { intel: 2, prudent: 2, flag: "analyste", bonheur: 2 }, true)] });
+
+}

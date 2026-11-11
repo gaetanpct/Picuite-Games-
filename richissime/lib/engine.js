@@ -118,7 +118,7 @@ class Game {
     this.chat = [];
     this.history = [];
     this.startAge = 8;
-    this.step = this.settings.pace === "quinquennal" ? 5 : 1;
+    this.step = this.settings.pace === "quinquennal" ? 3 : 1;
     this.keyCount = Number(this.settings.keyCount) || 3;
     this.age = this.startAge;
     this.endedReason = null;
@@ -977,7 +977,7 @@ class Game {
         // les décisions clés attendent la prochaine année de choix
         const keep = p.forced.filter((f) => f.id.indexOf("sys:") === 0 || (kit.byId[f.id] && KS.isKey(kit.byId[f.id], 1)));
         p.forced = p.forced.filter((f) => !keep.includes(f));
-        p.eventsLeft = 1 + (this.rng() < 0.3 ? 1 : 0);
+        p.eventsLeft = 2 + (this.rng() < 0.5 ? 1 : 0);
         p.scene = null; p.eventsDone = false;
         this._runScenes(p);
         const seen = {}; p.forced = keep.concat(p.forced).filter((f) => (seen[f.id] ? false : (seen[f.id] = true)));
@@ -990,7 +990,7 @@ class Game {
     this.players.forEach((p) => {
       if (!p.report) return;
       const r = p.report;
-      (p.cycleLog = p.cycleLog || []).push({ age: r.age, lines: r.lines.slice(0, 6), net: r.netAfter, d: r.netAfter - r.netBefore, dead: !p.alive });
+      (p.cycleLog = p.cycleLog || []).push({ age: r.age, lines: r.lines.slice(0, 9), net: r.netAfter, d: r.netAfter - r.netBefore, dead: !p.alive });
     });
     if (!this.alivePlayers().length) { this._finishGame("allDead"); return "end"; }
     const died = this.players.some((p) => !p.alive && p.death && p.death.round === this.round);
@@ -1029,6 +1029,7 @@ class Game {
     if (ppr) this._runProject(p, ppr, rep, true);
     p.projectPro = null;
     require("./pro").tick(this, p, rep);
+    require("./experience").echo.tick(this, p, rep);
     require("./lieux").sync(this, p, rep);
     // école
     this._schoolTick(p, rep);
@@ -1250,11 +1251,11 @@ class Game {
       const pn = p.pension - Math.round(incomeTax(p.pension) * 0.5);
       p.cash += pn; rep.income += pn; p.lastNetSalary = pn;
     } else if (C.studying(p) && !p.prison) {
-      const bourse = 2600; p.cash += bourse; rep.income += bourse;
+      const bourse = 2600; p.cash += bourse; rep.income += bourse; p.lastNetSalary = Math.round((p.lastNetSalary || 0) * 0.5);
     } else if (p.age >= 18 && !p.job && !p.prison) {
-      // aides minimales
-      const aide = 4500; p.cash += aide; rep.income += aide;
-    }
+      // aides minimales. Le niveau de vie suit le dernier salaire, il redescend quand on ne travaille plus
+      const aide = 4500; p.cash += aide; rep.income += aide; p.lastNetSalary = Math.round((p.lastNetSalary || 0) * 0.55);
+    } else if (p.prison) p.lastNetSalary = Math.round((p.lastNetSalary || 0) * 0.5);
     // la mafia paie bien, jusqu'au jour de la chute
     if (!p.prison && (C.hasFlag(p, "mafia") || C.hasFlag(p, "parrain"))) {
       const boss = C.hasFlag(p, "parrain");
@@ -1287,8 +1288,10 @@ class Game {
     p.assets.forEach((a) => {
       if (a.partnerCompany) return;
       const K = R.ASSET_KINDS[a.kind];
-      let rate = K.g + K.v * gauss(rng);
-      if (a.rate !== undefined) rate = a.rate + K.v * gauss(rng);
+      // qui a appris à lire les marchés subit un peu moins les secousses et gagne un peu mieux sa vie
+      const vv = p.flags.analyste && (K.risk || 0) >= 2 && (K.risk || 0) <= 4 ? K.v * 0.8 : K.v; const gg = p.flags.analyste && (K.risk || 0) >= 2 && (K.risk || 0) <= 4 ? K.g + 0.006 : K.g;
+      let rate = gg + vv * gauss(rng);
+      if (a.rate !== undefined) rate = a.rate + vv * gauss(rng);
       if (this.market && MARKET_BETA[a.kind]) rate += this.market * MARKET_BETA[a.kind];
       if (this.bigCrash && GRAND_BETA[a.kind] !== undefined) rate += this.market * GRAND_BETA[a.kind];
       if (a.kind === "crypto") rate += this.cryptoShift;
@@ -1359,7 +1362,7 @@ class Game {
     if (nw > 150000) {
       // charges d'une fortune, qui s'allègent chez les très grandes fortunes (elles s'organisent)
       const seg = (lo, hi, r) => Math.max(0, Math.min(nw, hi) - lo) * r;
-      const wt = Math.round(seg(150000, 1e6, 0.012) + seg(1e6, 4e6, 0.032) + seg(4e6, 3e7, 0.052) + seg(3e7, 3e8, 0.02) + seg(3e8, 1e12, 0.008));
+      const wt = Math.round(seg(150000, 1e6, 0.01) + seg(1e6, 4e6, 0.025) + seg(4e6, 3e7, 0.042) + seg(3e7, 3e8, 0.017) + seg(3e8, 1e12, 0.007));
       p.cash -= wt; rep.expenses += wt;
       if (wt >= 5000) rep.lines.push("🏛️ Impôts et charges liés à ta fortune, " + C.fmt(wt) + " cette année.");
     }

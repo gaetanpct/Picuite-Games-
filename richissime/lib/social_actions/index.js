@@ -54,5 +54,11 @@ const ASK = {
   echange_vies: "$A te propose d'échanger vos vies pendant une journée.",
   secte_tarte: "$A te propose de fonder la secte de la tarte.",
   concours_moustache: "$A te défie à un concours de moustache.",
+  table_blackjack: "$A te propose une partie de blackjack.",
+  tournoi_poker: "$A te lance dans une partie de poker.",
+  coinvest_duo: "$A te propose d'investir à deux dans une opportunité.",
+  debat_public: "$A te défie dans un débat public.",
+  soiree_cuisine: "$A te propose de cuisiner ensemble pour des amis.",
+  service_rendu: "$A te propose de te rendre un service.",
 };
 Object.keys(ASK).forEach((k) => { if (!byId[k]) throw new Error("phrase pour une action inconnue " + k); byId[k].ask = ASK[k]; });

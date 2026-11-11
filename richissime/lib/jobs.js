@@ -56,6 +56,9 @@ function affinity(g, p, k, T, ctx) {
   if (T.minStat && s < T.minStat[1]) a *= 0.2;
   if (T.danger && p.stats.sante < 40) a *= 0.2;
   if (T.lunar) a *= [0, 0.45, 1, 1.9][lou] || 1;
+  // un métier sans aucun lien avec ta formation, tes centres d'intérêt ou ton passé n'est proposé que s'il y a nécessité
+  { const known2 = exp > 0 || p.jobHistory.some((j) => j.track === k); const orbit = known2 || require("./filieres").affinityMul(p, k) > 1.2 || IN.trackFactor(p, k) >= 2 || (p.flags["vocation_" + k]);
+    if (!orbit && p.age >= 20 && p.cash > 4000) a *= 0.4; }
   if (T.passion && C.netWorth(p) >= 150000) a *= 1.4;
   if (T.minNet) a *= 2.2;
   // le métier doit pouvoir nourrir la vie qu'on mène

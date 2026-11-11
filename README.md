@@ -2,7 +2,7 @@
 
 Le site qui réunit tous les jeux, avec une page d'accueil pour choisir.
 
-Jeux inclus pour l'instant, Gaeboub-up (plateau à la Monopoly), Goliathicus (stratégie et bluff), Richissime Destiny (simulation de vie entre amis), Golfouille (golf en 3D sur des terrains générés) Zoomalou (courses de voitures sur des circuits générés) Mauvaises Langues (jeu de soirée de classements déplacés, pour adultes) et Pagaille Party (party game de mini-jeux).
+Jeux inclus pour l'instant, Gaeboub-up (jeu de plateau), Goliathicus (stratégie et bluff), Richissime Destiny (simulation de vie entre amis), Golfouille (golf en 3D sur des terrains générés) Zoomalou (courses de voitures sur des circuits générés) Mauvaises Langues (jeu de soirée de classements déplacés, pour adultes) et Pagaille Party (party game de mini-jeux).
 
 ## Lancer en local
 
@@ -164,9 +164,9 @@ Deux jeux arrivent sur l'accueil, Golfouille et Zoomalou. Ils partagent un petit
 
 ### Zoomalou
 
-- Courses de voitures sur des circuits générés à l'infini, inspirées de Trackmania Turbo, avec des graphismes volontairement simples.
+- Courses de voitures sur des circuits générés à l'infini, avec des graphismes volontairement simples.
 - Sept biomes (côte, désert, neige, forêt, volcan, bonbons, néon), des sols différents (bitume, terre, glace, sol collant), des tapis turbo, des bosses à sauter et des points de contrôle.
-- Cinq voitures, Bolide, Rallye-Pote, Pétard, Toupie et Bouboule, chacune avec ses forces. Le premier joueur, l'hôte, choisit la voiture de tout le monde au garage avant chaque course, pour que la course reste équitable.
+- Plusieurs voitures, chacune avec ses forces. Le premier joueur, l'hôte, choisit la voiture de tout le monde au garage avant chaque course, pour que la course reste équitable.
 - Mode essence. Chaque pilote pose d'abord un temps. Ensuite le dernier du classement joue avec toute son essence pour battre l'avant-dernier. Tant qu'il reste dernier c'est encore à lui, et sans essence il est éliminé. Dès qu'il passe devant, le nouveau dernier joue à son tour. La manche s'arrête quand il ne reste que le meilleur temps, qui gagne, ou quand un pilote abandonne si le réglage le demande.
 - Réservoir. Il se règle de deux façons, en multiple du meilleur temps posé ou en secondes fixes. Chaque pilote a son propre réservoir pour toute la manche et il ne se remplit pas. Un essai abandonné coûte l'essence déjà brûlée.
 - Deux modes chrono. Dans le chrono fantôme tout le monde part en même temps depuis la même ligne, les voitures des autres sont transparentes, et le meilleur temps de chacun compte. Dans le chrono contact les voitures sont solides et se gênent.
@@ -456,7 +456,7 @@ Les vies de Richissime partaient trop souvent vers la scène ou le stade. Sur 15
 
 ## Vingt-sixième mise à jour, Pagaille Party en vraie 3D
 
-Pagaille Party est un party game en ligne de deux à huit joueurs, dans l'esprit de Mario Party. Il vit dans le dossier pagaille et se branche sur le site comme les autres jeux, avec le même système de salons, de code, de couleurs, de tchat et de reconnexion. Cette mise à jour le transforme en vrai jeu en trois dimensions, avec treize mini-jeux complets.
+Pagaille Party est un party game en ligne de deux à huit joueurs, pour les soirées entre amis. Il vit dans le dossier pagaille et se branche sur le site comme les autres jeux, avec le même système de salons, de code, de couleurs, de tchat et de reconnexion. Cette mise à jour le transforme en vrai jeu en trois dimensions, avec treize mini-jeux complets.
 
 ### Comment se déroule une partie
 
@@ -688,13 +688,13 @@ Cette mise à jour ne touche que Zoomalou. Les réglages, les salons et les part
 
 Quatre jeux complets arrivent d'un coup, avec leurs salons privés à code de quatre lettres, leurs réglages d'hôte expliqués, leurs robots à plusieurs niveaux, la reconnexion et le son désactivable. Ils portent les numéros 8 à 11 sur l'accueil. Les sept jeux précédents ne sont pas modifiés.
 
-### Sucré ou Salé, jeu télé de déduction
+### Cristal Tordu, jeu télé de déduction
 - Un Extralucide connaît un mot caché dans une grille et répond à des dilemmes absurdes. Les autres éliminent les mots qui ne collent pas, sans jamais retirer le bon.
 - 243 mots en 8 catégories et 175 dilemmes, chacun relié aux mots par des mots clés. Le serveur n'envoie le mot secret qu'à l'Extralucide, puis à la révélation.
 - Modes classique, express, expert, chaos, équipes, tournoi et personnalisé. Quatre événements qui brouillent les pistes, dilemme inversé, bonus, sablier et mot qui revient.
 - Les robots Naïf, Futé et Génie raisonnent vraiment, ils comparent les mots avec les dilemmes déjà vus.
 
-### Orapa Mine, déduction avec des lasers
+### Mine de Rien, déduction avec des lasers
 - Un Directeur cache des pierres dans une mine et les explorateurs tirent des rayons colorés depuis les bords. Filtres, miroirs, obsidienne, prismes, séparateurs et opales dévient, colorent ou absorbent la lumière.
 - Chaque mine est vérifiée par le générateur. Toutes les pierres comptent et aucune variante plus simple ne donne les mêmes résultats.
 - Modes classique, course, mines croisées, coopération, équipes, énigmes et campagne de douze mines. Trois niveaux d'affichage des trajets, mystère, partiel et complet.
@@ -719,7 +719,7 @@ Quatre jeux complets arrivent d'un coup, avec leurs salons privés à code de qu
 - Dans Fart Together, les déblocages, les records et le défi du jour sont gardés sur l'appareil. Ils ne sont pas vérifiés par le serveur, donc un joueur peut les modifier.
 - Dans Fart Together, la visée et la physique sont réglées par simulation. Le ressenti en vrai jeu reste à ajuster.
 - Dans Hands Over, les épreuves de réflexe et de précision comptent le temps de réception sur le serveur. Une mauvaise connexion peut donc fausser quelques centièmes.
-- Sucré ou Salé compte 175 dilemmes et pas des centaines. Orapa Mine joue en 2D, sa vue 3D ne sert pas à interagir.
+- Cristal Tordu compte 175 dilemmes et pas des centaines. Mine de Rien joue en 2D, sa vue 3D ne sert pas à interagir.
 - Les images 3D n'ont pas été vérifiées sur Safari ni sur de vieux téléphones. Le mode compatibilité existant s'applique.
 
 
@@ -727,12 +727,6 @@ Quatre jeux complets arrivent d'un coup, avec leurs salons privés à code de qu
 
 Les quatre derniers jeux changent de nom, d'allure et de règles. Seuls les noms visibles changent. Les identifiants techniques, les adresses, les dossiers, les salons privés et les codes restent les mêmes, donc rien ne casse pour les joueurs qui ont déjà des liens.
 
-| Ancien nom | Nouveau nom |
-| --- | --- |
-| Sucré ou Salé | Cristal Tordu |
-| Orapa Mine | Mine de Rien |
-| Fart Together | Pétard Mouillé |
-| Hands Over | Main Morte |
 
 ### Cristal Tordu
 - Un décor de boule de cristal et de post-it, avec les noms des joueurs affichés dans la grille.
@@ -806,7 +800,7 @@ Principe de la refonte, garder l'esprit coloré et joueur de Picuite Games et re
 - Une seule échelle de rayons, d'ombres, d'espaces et de tailles de texte, définie au début de common/public/kit.css pour les jeux et de public/style.css pour l'accueil.
 - Les boutons sont des aplats avec un bord bas, plus de dégradés brillants. Cinq variantes, principal, vert, danger, secondaire et discret, plus un bouton rond pour les icônes. Tous les états existent, survol, appui, désactivé, chargement et focus au clavier.
 - Les cartes n'ont plus de contour épais, la séparation se fait par l'espace et par une seule ombre. Les notifications, les fenêtres et le tchat partagent la même famille de surfaces.
-- Le classement, le tableau des scores et le podium sont désormais définis une seule fois dans le noyau commun. Les copies qui existaient dans Golfouille, Zoomalou et Mauvaises Langues sont supprimées. Sucré ou Salé, Orapa Mine, Fart Together et Hands Over n'avaient aucun style pour leur podium et leur tableau final, ils en ont maintenant un.
+- Le classement, le tableau des scores et le podium sont désormais définis une seule fois dans le noyau commun. Les copies qui existaient dans Golfouille, Zoomalou et Mauvaises Langues sont supprimées. Cristal Tordu, Mine de Rien, Fart Together et Hands Over n'avaient aucun style pour leur podium et leur tableau final, ils en ont maintenant un.
 - Accessibilité, contour visible au clavier partout, mouvement réduit respecté pour les animations, des notifications annoncées aux lecteurs d'écran, la touche Échap ferme les fenêtres.
 
 ### Accueil du site
@@ -1005,3 +999,39 @@ Cette archive contient tout le gameplay de la trente-sixième mise à jour plus 
 ### Limites connues
 - Je n'ai pas pu tester avec de vrais joueurs humains à plusieurs. Les essais ont été faits avec des robots et des clients simulés.
 - Si un joueur humain s'absente sans se déconnecter, les autres attendent, l'hôte doit alors forcer la suite.
+
+
+## Trente-neuvième mise à jour, Zoomalou affiné, Cristal Tordu et grande refonte de Richissime Destiny
+
+Pour installer cette version, glisse les dossiers zoomalou, sucre-ou-sale, richissime, gaeboub-up, goliathicus, pagaille, le fichier README.md et rien d'autre. Aucun fichier n'est à supprimer dans le dépôt.
+
+### Zoomalou
+- La course à étapes et la survie sont retirées de l'écran des réglages. Le réglage du temps pour se lancer est supprimé lui aussi, le temps s'adapte toujours au circuit.
+- Les voitures Rallye-Pote et Bouboule sont retirées. Il reste huit voitures.
+- À chaque course, les pilotes partent d'une place différente de la grille, tirée au hasard. Le premier arrivé dans le salon n'est plus toujours à gauche.
+- Nouveau réglage, départ au feu vert, pour les modes chrono et contact. Il faut appuyer sur l'accélérateur juste après le vert et pas avant. Dans les dix premiers centièmes de seconde, on gagne un gros turbo. Un peu plus tard, un petit turbo. Si on tient la touche avant le vert, le moteur cale un instant. Les pilotes automatiques ont un départ plus ou moins bon selon leur niveau, et le serveur vérifie ce départ comme le reste de la course.
+- Les bas-côtés de sable, d'herbe et de neige freinent moins fort. On perd encore de la vitesse en y entrant, mais on en ressort beaucoup plus vite.
+- Les pilotes automatiques en mode contact réagissent maintenant à la course. Ils bloquent la trajectoire d'un adversaire qui les suit de près, évitent de percuter celui qui les précède, et quand ils sont touchés ils perdent le contrôle un instant, se décalent et reprennent moins bien leur trajectoire. Un choc coûte donc aussi du temps au pilote automatique. En test avec six pilotes automatiques, les chocs ont baissé d'environ un sixième et les temps ont augmenté d'environ cinq pour cent.
+
+### Cristal Tordu
+- Les dilemmes trop proches ont été retirés, par exemple deux boissons presque identiques ou deux objets quasi interchangeables. Une quarantaine de nouveaux dilemmes ont été ajoutés, avec de vraies oppositions, comme être riche et seul contre être pauvre et entouré, ou une vie courte et intense contre une vie longue et tranquille.
+- Les cases barrées sont bien plus visibles. Fond sombre, bordure rouge, grande croix rouge et texte barré. Les cases barrées au dilemme précédent clignotent en rouge.
+
+### Sur tout le site
+- Les mentions de jeux existants ont été retirées des textes, des descriptions et du README. Les noms de dossiers techniques restent identiques pour ne pas casser les adresses.
+
+### Richissime Destiny
+- Bug des impôts et du train de vie corrigé. Le niveau de vie suivait le dernier salaire touché pour toute la vie, même sans travail. Il redescend maintenant quand on ne travaille plus, quand on étudie ou quand on est en prison. Les charges sur la fortune sont aussi un peu allégées.
+- Le mode cinq ans par cinq ans devient trois ans par trois ans. Une année de choix, deux années qui se jouent seules avec plus de scènes, un bilan plus détaillé, et toujours les décisions clés demandées au joueur.
+- Les dons de naissance ont chacun leurs propres choix de vie, par exemple déposer un brevet pour le petit génie, une couverture de magazine pour le beau gosse, un ultra-trail pour la santé de fer, se trouver au bon endroit au bon moment pour l'ange gardien, réunir la famille pour le fonds fiduciaire et négocier un contrat pour la grande gueule.
+- Les rêves de gloire dépendent de tes vraies statistiques. Casting de star, mannequinat, tests de sport pro, concours de grande école, élection locale et stand-up sont proposés à tous, mais le jeu te dit clairement quand tu n'as pas le physique, le niveau ou le talent, et récompense vraiment ceux qui l'ont.
+- Les métiers proposés sont plus cohérents. Un métier sans aucun lien avec ta formation, tes centres d'intérêt ou ton passé est proposé beaucoup moins souvent, sauf besoin d'argent. Six nouveaux métiers apparaissent, chasseur de têtes, négociateur de crise, restaurateur d'œuvres d'art, secours en montagne, coach de vie et dresseur d'animaux de cinéma.
+- Les échos du passé. Des années plus tard, ton ancien métier, un ami d'enfance, un vieux rival, ton casier, une fortune perdue, une ruine surmontée ou un enfant devenu adulte reviennent dans ta vie, avec une vraie conséquence. Ils n'arrivent que tous les sept ans environ, pour rester des surprises.
+- L'argent se gère aussi de façon active. Acheter, rénover et revendre un logement, devenir investisseur chez un jeune entrepreneur, tenir une boutique en ligne, ou apprendre vraiment à lire les marchés, ce qui réduit un peu les secousses de tes placements. Le résultat dépend de ton intelligence, de ta prudence et de ton expérience plus que de la chance.
+- Nouvelles interactions entre joueurs. Partie de blackjack proposée bien plus souvent, partie de poker, investissement à deux, débat public, soirée cuisine et service rendu. Le blackjack apparaît dans environ une année sur trois dans les propositions.
+- Les joueurs automatiques acceptent la paix plus volontiers. La rancune s'use et chaque refus rend l'acceptation suivante plus probable, un caractère bon ou honnête pardonne plus vite. La rivalité retombe aussi un peu plus vite d'une année à l'autre.
+
+### Limites connues
+- Le mode trois ans par trois ans a été testé en simulation avec des joueurs automatiques uniquement, pas en partie à plusieurs humains.
+- Les nouvelles interactions entre joueurs ont été testées par simulation, la partie de blackjack avec de vrais humains n'a pas été rejouée à l'écran.
+- L'équilibre de la fortune a changé avec la correction du train de vie. Si les parties te semblent trop faciles, dis-le moi et j'ajusterai.

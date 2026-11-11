@@ -124,3 +124,96 @@ function variance(g, p, pr, rep) {
 const S_ = (p, k) => p.stats[k] || 50;
 
 module.exports = { tilt, record, tone, variance };
+
+// ---------- échos du passé ----------
+const ECHO = (function () {
+
+
+function memo(p) { if (!p.memo) p.memo = { peak: 0, ruin: 0, rich: 0, record: 0, last: -99, done: {} }; return p.memo; }
+
+// met à jour les repères de vie. Appelé chaque année, même sans écho
+function track(g, p) {
+  const m = memo(p); const nw = C.netWorth(p);
+  if (nw > m.peak) m.peak = nw;
+  if (!m.rich && nw >= 1000000) m.rich = p.age;
+  if (!m.ruin && m.peak >= 150000 && nw < -20000) m.ruin = p.age;
+  if (p.record > m.record) { m.record = p.record; m.prison = p.age; }
+}
+
+const nm = (n) => n.name;
+const first = (a) => a[Math.floor(Math.random() * a.length)];
+
+// Chaque écho renvoie null s'il ne s'applique pas, sinon { id, line, fx, bond }
+function candidates(g, p) {
+  const m = memo(p); const rng = g.rng; const out = [];
+  const add = (id, w, run) => { if (!m.done[id] || g.round - m.done[id] >= 8) out.push({ id, w, run }); };
+
+  // ancien métier, une ancienne connaissance se rappelle à toi
+  const old = (p.jobHistory || []).filter((j) => j.to <= p.age - 5 && j.why !== "licencié");
+  if (old.length) add("ancien_job", 6, () => {
+    const j = old[Math.floor(rng() * old.length)]; const t = j.title.toLowerCase();
+    if (rng() < 0.6) return { line: "🕰️ Une ancienne collègue de ton époque comme " + t + " parle de toi à un contact. Ta réputation de l'époque te suit encore.", fx: { repute: 2, bonheur: 2, flag: { piston: 3 } } };
+    return { line: "🕰️ Un ancien chef de ton temps comme " + t + " te rappelle pour une mission rémunérée. Tu n'avais pas oublié ses blagues.", fx: { argent: 1200 + Math.round(rng() * 4000), bonheur: 2 } };
+  });
+
+  // ami d'enfance
+  const friends = p.npcs.filter((n) => (n.kind === "bestfriend" || n.kind === "friend") && n.alive && n.age >= 25);
+  if (p.age >= 30 && friends.length) add("ami_enfance", 7, () => {
+    const f = friends[Math.floor(rng() * friends.length)];
+    if (f.close < 40) { f.close = Math.min(100, f.close + 18); return { line: "🕰️ " + nm(f) + ", un ami que tu avais perdu de vue, t'invite à dîner. Vous parlez de la cabane, des bêtises et de tout ce qui a changé.", fx: { bonheur: 5, sociable: 1 } }; }
+    f.close = Math.min(100, f.close + 6);
+    if (p.cash > 5000 && rng() < 0.4) { const s = Math.min(Math.round(p.cash * 0.05), 3000); return { line: "🕰️ " + nm(f) + " traverse une mauvaise passe et vient te voir. Tu lui prêtes " + C.fmt(s) + ". Il n'a rien oublié de ce que vous avez vécu.", fx: { argent: -s, bonte: 2, bonheur: 3 } }; }
+    return { line: "🕰️ " + nm(f) + " débarque sans prévenir avec un gâteau raté. Vous rigolez comme à quinze ans.", fx: { bonheur: 5 } };
+  });
+
+  // rival d'autrefois
+  const rivals = p.npcs.filter((n) => n.kind === "rival" && n.alive);
+  if (p.age >= 28 && rivals.length) add("rival_passe", 4, () => {
+    const r = rivals[Math.floor(rng() * rivals.length)];
+    if (rng() < 0.5) return { line: "🕰️ " + nm(r) + ", ton vieux rival, te croise en ville et te complimente enfin. Tu ne sais pas si c'est sincère.", fx: { bonheur: 2, bonte: 1 } };
+    return { line: "🕰️ " + nm(r) + " répand une vieille histoire à ton sujet. Elle est fausse, mais elle circule encore.", fx: { repute: -3, bonheur: -2 } };
+  });
+
+  // casier
+  if (m.prison && p.age - m.prison >= 6) add("casier", 6, () => {
+    if (p.traits.honnete >= 50 && rng() < 0.5) return { line: "🕰️ Un voisin te laisse une chance, malgré ton passé en prison. Tu essaies de ne pas le décevoir.", fx: { repute: 3, bonheur: 3, honnete: 1 } };
+    return { line: "🕰️ Ton passage en prison ressurgit lors d'une vérification. Une porte se ferme poliment, une autre ne s'ouvrira pas.", fx: { repute: -4, bonheur: -3, argent: -Math.min(Math.max(0, p.cash), 1500) } };
+  });
+
+  // richesse passée puis perdue
+  if (m.rich && C.netWorth(p) < m.peak * 0.3 && p.age - m.rich >= 6) add("fastes", 4, () => ({ line: "🕰️ Tu retrouves une photo de l'époque où tu étais riche. Les amis de ce temps-là ont disparu avec le champagne.", fx: { bonheur: -3, prudent: 2, sociable: 1 } }));
+
+  // ruine passée puis rebond
+  if (m.ruin && C.netWorth(p) > 150000 && p.age - m.ruin >= 6) add("rebond", 5, () => ({ line: "🕰️ Tu repenses à l'époque où tu n'avais plus rien. Cela te rend prudent, et fier de ce chemin parcouru.", fx: { bonheur: 5, prudent: 2, ambition: 1 } }));
+
+  // enfant devenu adulte
+  const kids = p.npcs.filter((n) => n.kind === "child" && n.alive && n.age >= 22);
+  if (kids.length) add("enfant_adulte", 6, () => {
+    const k = kids[Math.floor(rng() * kids.length)]; k.close = Math.min(100, k.close + 5);
+    if (k.close < 35) return { line: "🕰️ " + nm(k) + " t'envoie un message maladroit après des années de silence. Tu réponds longuement.", fx: { bonheur: 4 } };
+    if (p.cash > 8000 && rng() < 0.35) { const s = Math.min(Math.round(p.cash * 0.04), 4000); return { line: "🕰️ " + nm(k) + " a besoin d'un coup de pouce pour son premier logement. Tu aides, avec une petite larme.", fx: { argent: -s, bonheur: 4, bonte: 2 } }; }
+    return { line: "🕰️ " + nm(k) + " t'invite à fêter une bonne nouvelle. Tu mesures le temps qui a passé.", fx: { bonheur: 5 } };
+  });
+  return out;
+}
+
+function tick(g, p, rep) {
+  track(g, p);
+  const m = memo(p);
+  if (p.age < 28 || p.prison || p.dying || g.round - m.last < 7) return;
+  const cs = candidates(g, p); if (!cs.length) return;
+  if (g.rng() > 0.25) return;
+  const tot = cs.reduce((a, c) => a + c.w, 0); let r = g.rng() * tot, pick = cs[cs.length - 1];
+  for (const c of cs) { r -= c.w; if (r <= 0) { pick = c; break; } }
+  const res = pick.run(); if (!res) return;
+  m.last = g.round; m.done[pick.id] = g.round;
+  require("./fx").applyFx(g, p, res.fx, null);
+  rep.lines.push(res.line);
+  p.journal.push({ age: p.age, text: res.line.replace("🕰️ ", ""), ic: "🕰️", tag: "souvenir" });
+}
+
+
+
+  return { tick, track, memo };
+})();
+module.exports.echo = ECHO;
