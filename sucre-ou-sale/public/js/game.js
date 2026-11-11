@@ -208,9 +208,12 @@
     const prev = G.prevElim; const cur = new Set(set);
     const grid = el("div", { class: "sos-grid sos-grid--" + cols });
     const locked = !!s.myLocked;
+    const gKey = s.words.map((w) => w.id).join(","); if (!G.goneAt || G.goneKey !== gKey) { G.goneAt = {}; G.goneKey = gKey; }
+    s.words.forEach((w) => { if (set.has(w.id) && G.goneAt[w.id] == null) G.goneAt[w.id] = s.round; });
+    const freshR = Math.max(-1, ...Object.values(G.goneAt));
     s.words.forEach((w) => {
       const gone = set.has(w.id); const who = marks[w.id] || []; const myMark = who.includes(myId());
-      const classes = ["sos-word"]; if (gone) classes.push("sos-word--gone"); if (!gone && part[w.id]) classes.push("sos-word--part");
+      const classes = ["sos-word"]; if (gone) classes.push("sos-word--gone"); if (gone && G.goneAt[w.id] === freshR && Object.keys(G.goneAt).some((k) => G.goneAt[k] !== freshR)) classes.push("sos-word--fresh"); if (!gone && part[w.id]) classes.push("sos-word--part");
       if (iAmEx && w.id === s.secretId) classes.push("sos-word--secret"); if (myMark) classes.push("sos-word--mine"); if (who.length && !myMark) classes.push("sos-word--mark");
       if (pins.has(w.id) && !gone) classes.push("sos-word--pin");
       if (gone && prev && prev.round === s.round && !prev.set.has(w.id)) classes.push("sos-word--just");

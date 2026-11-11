@@ -1,4 +1,4 @@
-// Pont de verre. Façon Squid Game mais en liberté. Chaque rangée a deux dalles identiques, une seule est fragile.
+// Pont de verre. Une traversée en liberté. Chaque rangée a deux dalles identiques, une seule est fragile.
 // On marche, on saute, on se pousse. Un mur laser avance derrière tout le monde et force à avancer, sinon tout le monde tombe.
 // Les dalles sur lesquelles on a marché sans casser deviennent sûres pour tous. Le premier arrivé gagne.
 const U = require("../pg-util.js");

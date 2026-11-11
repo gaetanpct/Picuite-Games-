@@ -787,7 +787,7 @@ io.on("connection", (socket) => {
   });
 
   // ---- Gestion des propriétés (Phase 6) : jouable à tout moment, pas
-  // seulement pendant son propre tour, comme dans un vrai Monopoly. ----
+  // seulement pendant son propre tour, comme dans un vrai jeu de plateau. ----
 
   socket.on("game:build", (payload) => {
     const room = getRoom(socket);

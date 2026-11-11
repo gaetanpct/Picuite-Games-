@@ -807,12 +807,12 @@
       if (!t || t.type !== "property") return;
       requestedGroupCounts[keyOf(t)] = (requestedGroupCounts[keyOf(t)] || 0) + 1;
     });
-    const wouldCompleteMonopolyForProposer = Object.entries(requestedGroupCounts).some(([group, count]) => {
+    const wouldCompleteSetForProposer = Object.entries(requestedGroupCounts).some(([group, count]) => {
       const currentlyOwned = groupOwnershipCount(state, trade.fromId, group);
       const groupSize = tilesOfGroup(state, group).length;
       return groupSize > 0 && currentlyOwned + count >= groupSize;
     });
-    if (wouldCompleteMonopolyForProposer && relativeGain < 0.15) accept = false;
+    if (wouldCompleteSetForProposer && relativeGain < 0.15) accept = false;
 
     if (chance(profile.mistakeChance)) accept = !accept;
 

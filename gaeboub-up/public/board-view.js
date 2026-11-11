@@ -6,7 +6,7 @@
 //            statique pour le salon d'attente.
 //
 // Ce fichier ne connaît AUCUNE règle du jeu. Il sait seulement dessiner
-// un plateau carré (disposition classique façon Monopoly, coins compris)
+// un plateau carré (disposition classique de plateau, coins compris)
 // et y déplacer des pions selon l'état reçu du serveur.
 //
 // Fonctions exposées (window.ReachUpBoardView) :
@@ -58,7 +58,7 @@
   // colonnes du milieu — c'est ce qui permet aux cases de ces côtés
   // d'afficher leur contenu horizontalement, sur une seule ligne bien
   // lisible, au lieu d'être coincées dans une case carrée trop étroite
-  // (comme sur les plateaux façon richup.io).
+  // (comme sur les plateaux en ligne).
   const SIDE_COLUMN_FR = 2;
   const MIDDLE_COLUMN_FR = 1;
 

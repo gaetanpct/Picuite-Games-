@@ -1,5 +1,5 @@
 // ============================================================
-// SUCRÉ OU SALÉ — Dilemmes de la seconde vague, plus drôles, plus tordus, plus personnels.
+// CRISTAL TORDU — Dilemmes de la seconde vague, plus drôles, plus tordus, plus personnels.
 // Même format que dilemmas.js. Catégorie P pour Personnalité, à utiliser surtout quand un prénom est caché dans la grille.
 // ============================================================
 module.exports = `
@@ -103,4 +103,46 @@ L3|L'élégance|La puissance|luxe,calme,mode,romantique,rare|fort,danger,lourd,a
 L3|Un mensonge poli|Une vérité brutale|doux,mignon,famille,secret,calme|agressif,serieux,fort,sombre,courage
 L2|Un vieux sage|Un enfant curieux|ancien,sage,calme,serieux,lecture|enfantin,curieux,energie,jeune,drole
 L3|La patience d'un pêcheur|Le sprint d'un guépard|lent,calme,eau,silence,sage|rapide,animal,danger,energie,savane
+L2|Être riche et seul|Être pauvre et entouré|luxe,argent,rare,silence,froid|famille,fete,foule,chaud,joyeux
+L2|Une vie courte et intense|Une vie longue et tranquille|energie,danger,aventure,rapide,courage|calme,lent,maison,securite,sage
+L2|Être craint de tous|Être aimé de quelques-uns|fort,agressif,danger,sombre,roi|doux,famille,mignon,romantique,chaud
+L2|Tout savoir sans rien pouvoir faire|Tout pouvoir sans rien savoir|intelligent,lecture,culture,calme,serieux|fort,danger,energie,magique,heros
+L3|Gagner en trichant|Perdre en restant honnête|secret,rapide,sombre,jeu,danger|sage,courage,calme,serieux,securite
+L2|Une grande liberté sans aucune sécurité|Une sécurité totale sans aucune liberté|aventure,voyage,danger,exterieur,courage|securite,maison,calme,ennuyeux,ville
+L2|Perdre la vue|Perdre l'ouïe|nuit,sombre,silence,triste,musique|silence,calme,culture,lecture,colore
+L3|Un grand amour qui brûle|Une amitié qui dure|romantique,feu,energie,stress,rare|famille,calme,fidele,chaud,joyeux
+L3|Se réveiller chaque jour sans mémoire de la veille|Revivre chaque jour exactement la même journée|mysterieux,secret,aventure,stress,nuit|repete,banal,ennuyeux,calme,maison
+L2|Une île déserte avec tout le confort|Une grande ville sans un sou|desert,plage,luxe,silence,vacances|ville,foule,gene,stress,travail
+L2|Un trésor maudit|Une pauvreté bénie|luxe,argent,danger,sombre,rare|simple,doux,joyeux,famille,calme
+L3|Hurler la vérité sur la place du village|Murmurer un secret à une seule oreille|bruyant,foule,courage,agressif,exterieur|secret,intime,silence,doux,calme
+L2|Mourir en héros|Vivre en lâche|heros,courage,mort,fort,danger|peur,paresseux,securite,calme,triste
+L2|Un chef qui crie mais protège|Un chef gentil qui abandonne|bruyant,agressif,fort,securite,roi|doux,calme,peur,triste,paresseux
+L2|Une prison dorée|Une cabane en pleine liberté|luxe,brillant,securite,ennuyeux,rare|bois,nature,aventure,exterieur,simple
+L3|Un ennemi honnête|Un ami hypocrite|courage,serieux,agressif,sage,danger|doux,secret,sombre,mysterieux,famille
+L2|Une brillante carrière|Une famille nombreuse|travail,serieux,argent,ville,moderne|famille,maison,bruyant,chaud,joyeux
+L3|L'immortalité en solitaire|Une courte vie avec ceux qu'on aime|ancien,silence,froid,triste,secret|famille,fete,chaud,romantique,joyeux
+L2|Vivre dans le passé|Vivre dans le futur|ancien,souvenir,calme,culture,papier|futur,moderne,electrique,espace,rapide
+L2|Un dictateur bienveillant|Une démocratie chaotique|serieux,securite,calme,fort,adulte|foule,bruyant,gene,stress,drole
+A2|Un lion en pyjama|Un agneau en armure|animal,danger,paresseux,drole,chambre|animal,mignon,metal,courage,doux
+A2|Un banquet de géants|Un festin de fourmis|grand,fete,nourriture,lourd,bruyant|petit,leger,animal,silence,nature
+A2|Un dragon qui pleure|Une souris qui rugit|magique,triste,fiction,grand,pleurs|petit,animal,bruyant,drole,mignon
+A1|Une tempête de neige|Une tempête de sable|hiver,froid,neige,blanc,montagne|desert,chaud,sable,ete,jaune
+A1|Un désert glacé|Une jungle brûlante|froid,glace,silence,blanc,hiver|chaud,nature,vert,animal,danger
+A2|Un chevalier peureux|Un pirate poli|peur,metal,ancien,serieux,fiction|pirate,mer,doux,serieux,fiction
+A2|Un fantôme timide|Un vampire bavard|effrayant,doux,silence,mysterieux,fiction|effrayant,bruyant,nuit,sombre,drole
+A2|Une ville flottante|Une ville sous la terre|ciel,leger,vole,futur,vacances|sombre,profond,pierre,secret,froid
+A2|Un bal de squelettes|Un pique-nique de loups-garous|fete,mort,musique,effrayant,drole|nature,nourriture,nuit,animal,effrayant
+A3|Un sorcier maladroit|Un robot sensible|magique,drole,mysterieux,ancien,fiction|electrique,moderne,triste,metal,futur
+A2|Un volcan en colère|Un glacier endormi|feu,chaud,bruyant,danger,montagne|glace,froid,silence,calme,montagne
+I2|Une soirée sans fin|Une nuit sans bruit|fete,musique,bruyant,foule,energie|silence,calme,nuit,chambre,doux
+I2|Une planète où l'on ne rit jamais|Une planète où l'on ne dort jamais|serieux,triste,sombre,ennuyeux,espace|energie,stress,nuit,fete,espace
+I3|Un trône sans royaume|Un royaume sans trône|roi,luxe,seul,silence,rare|roi,foule,grand,pouvoir,travail
+P2|Un fêtard qui ne dort jamais|Un ermite qui ne sort jamais|fete,bruyant,foule,energie,nuit|silence,calme,maison,seul,secret
+P2|Un bavard qui dit tout|Un taiseux qui cache tout|bruyant,drole,foule,gene,famille|silence,secret,mysterieux,calme,sombre
+P2|Un généreux fauché|Un avare fortuné|doux,famille,joyeux,cadeau,fete|luxe,argent,froid,rare,serieux
+P3|Un optimiste inconscient|Un pessimiste prévoyant|joyeux,danger,aventure,energie,drole|securite,sombre,triste,serieux,calme
+P2|Un compétiteur qui déteste perdre|Un rêveur qui oublie de jouer|sport,agressif,fort,rapide,energie|calme,paresseux,magique,doux,fiction
+P3|Un héros qui fonce sans réfléchir|Un stratège qui ne bouge jamais|heros,courage,rapide,danger,energie|intelligent,calme,lent,serieux,securite
+P2|Quelqu'un qui ment pour faire rire|Quelqu'un qui dit vrai pour aider|drole,fete,secret,bruyant,jeune|sage,serieux,courage,calme,adulte
+P2|Un voyageur sans bagages|Un casanier avec une valise de souvenirs|voyage,aventure,leger,exterieur,energie|maison,souvenir,calme,ancien,famille
 `;

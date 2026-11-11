@@ -396,7 +396,7 @@
     //    attribuant les paliers de prix dans l'ordre des côtés (0 → 3) et,
     //    à l'intérieur d'un côté, dans l'ordre où les groupes y ont été
     //    placés — ce qui donne une progression de prix croissante du
-    //    Départ jusqu'à la fin du plateau, comme dans le vrai Monopoly.
+    //    Départ jusqu'à la fin du plateau, comme dans un jeu de plateau classique.
     const groupBlocksBySide = [[], [], [], []];
     const tiers = buildTiers(groupSizesPerSide.reduce((n, sizes) => n + sizes.length, 0));
     let tierIndex = 0;
