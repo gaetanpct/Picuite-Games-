@@ -18,7 +18,7 @@
   const SURF_NAMES = ["Bitume", "Terre", "Glace", "Turbo", "Collant", "Super turbo", "Bas-côté"];
   // en vol, la pesanteur est plus forte que sur la route. Les sauts restent courts et lisibles
   const AIRK = 1.9;
-  // la voiture la plus lente (Bouboule) sert de référence pour dimensionner les sauts
+  // une voiture lente de référence sert de référence pour dimensionner les sauts
   const WEAK = { vmax: 45, acc: 18 };
   const VTOP = 96; // vitesse maximale possible en vol, turbo compris
   const OBS = { cone: { r: 0.75, h: 1.4 }, barrel: { r: 1.15, h: 1.7 }, crate: { r: 1.4, h: 2.2 }, pillar: { r: 0.95, h: 5 }, tires: { r: 1.05, h: 1.2 }, rock: { r: 1.5, h: 2.1 }, bale: { r: 1.3, h: 1.6 }, ice: { r: 1.2, h: 1.8 }, crystal: { r: 0.95, h: 2.6 }, nose: { r: 1.2, h: 1.4 } };

@@ -6,7 +6,7 @@
   else root.ZoomRules = factory(root.ZoomTrack, root.ZoomCar);
 })(typeof window !== "undefined" ? window : globalThis, function (Track, Car) {
   // réglages supprimés de l'écran, ils gardent une valeur fixe
-  const FIXED = { refTries: 1, giveUp: "elimine", garage: 10, biomeOrder: "hasard", ghost: true, others: true, verify: "replay" };
+  const FIXED = { format: "libre", stages: 4, survie: false, roundTime: 0, refTries: 1, giveUp: "elimine", garage: 10, biomeOrder: "hasard", ghost: true, others: true, verify: "replay" };
   const BIOME_OPTIONS = Track.BIOME_IDS.map((id) => ({ value: id, label: Track.BIOMES[id].name, icon: Track.BIOMES[id].icon }));
   const FEATURE_OPTIONS = [
     { value: "boosts", label: "Tapis turbo", icon: "⏩", desc: "Des tapis orange qui donnent un coup d'accélérateur, et parfois des super turbos violets, plus courts et bien plus forts." },
@@ -30,18 +30,12 @@
   const fmtMult = (v) => v + " fois";
   const SCHEMA = [
     { category: "🏁 La partie", rules: [
-      { id: "format", label: "Format", type: "cards", default: "libre", options: [
-        { value: "libre", label: "Partie classique", icon: "🏁", desc: "Une série de courses indépendantes, chacune sur un nouveau circuit." },
-        { value: "etapes", label: "Course à étapes", icon: "🚴", desc: "De trois à cinq étapes au profil différent, plaine, montagne, étape folle et une étape reine pour finir. Une étape sur deux la voiture est imposée à tout le monde, sinon chacun choisit la sienne. Le classement général additionne les temps et son premier porte le maillot jaune." },
-      ], showIf: { mode: ["chrono", "contact"] }, info: "La course à étapes se joue en chrono fantôme ou en chrono contact." },
-      { id: "stages", label: "Nombre d'étapes", type: "chips", default: 4, options: [{ value: 3, label: "3 étapes" }, { value: 4, label: "4 étapes" }, { value: 5, label: "5 étapes" }], showIf: { format: "etapes", mode: ["chrono", "contact"] } },
-      { id: "survie", label: "Survie", type: "bool", default: false, showIf: { format: "libre", mode: ["chrono", "contact"] }, info: "À chaque point de contrôle, le dernier à le franchir est éliminé. Quand il reste peu de points de contrôle, plusieurs pilotes peuvent sortir d'un coup, et la ligne d'arrivée élimine tous ceux qui ne sont pas premiers. Les circuits sont au moins longs pour laisser le temps de remonter. Le classement suit l'ordre d'élimination." },
       { id: "rounds", label: "Nombre de courses", type: "range", min: 1, max: 12, step: 1, default: 5, info: "Chaque course se joue sur un nouveau circuit généré pour toi. À chaque course, chaque place rapporte un nombre de points différent. Le dernier en marque un, le premier en marque le plus, et un pilote sans temps ne marque rien." },
       { id: "winRule", label: "Qui gagne la compétition", type: "cards", default: "points", options: [
         { value: "points", label: "Classement et points", icon: "🏅", desc: "Chaque course rapporte des points selon la place. Le plus de points au total gagne." },
         { value: "temps", label: "Cumul des temps", icon: "⏱️", desc: "On additionne le meilleur temps de chaque pilote sur toutes les courses. Le plus petit total gagne. Un pilote sans temps reçoit celui du dernier de la course plus cinq secondes." },
         { value: "mixte", label: "Mixte", icon: "⚖️", desc: "On additionne la place au classement des points et la place au classement des temps cumulés. Le plus petit total gagne, et à égalité le meilleur temps cumulé l'emporte." },
-      ], showIf: { mode: ["chrono", "contact"], format: "libre", survie: false }, info: "Ne concerne que les modes chrono. En mode essence, le classement se fait toujours aux points. En survie aussi." },
+      ], showIf: { mode: ["chrono", "contact"] }, info: "Ne concerne que les modes chrono. En mode essence, le classement se fait toujours aux points." },
       { id: "mode", label: "Mode de jeu", type: "cards", default: "essence", options: [
         { value: "essence", label: "Essence", icon: "⛽", desc: "Chaque pilote a un réservoir proportionnel à la durée du circuit, et chaque essai en consomme, y compris le premier. Chacun pose un temps, puis le dernier du classement joue avec l'essence qui lui reste pour battre l'avant-dernier. Tant qu'il reste dernier c'est encore à lui. Sans essence, il garde un tout dernier essai pour reprendre la place, et s'il le rate il est éliminé. Les duels peuvent donc se répéter longtemps. Le dernier pilote en course gagne." },
         { value: "chrono", label: "Chrono fantôme", icon: "👻", desc: "Tout le monde part en même temps depuis la même ligne, n'a droit qu'à un seul essai sans recommencer, et le meilleur temps gagne. Les voitures sont des fantômes, elles ne se touchent jamais." },
@@ -51,7 +45,6 @@
         { value: "tour", label: "À tour de rôle", icon: "🔁", desc: "Le pilote qui ouvre la course change à chaque manche, dans l'ordre des places." },
         { value: "retard", label: "Le dernier d'abord", icon: "🐢", desc: "Le dernier du classement général pose son temps en premier." },
       ], showIf: { mode: "essence" } },
-      { id: "roundTime", label: "Temps pour se lancer en chrono et en contact", type: "chips", default: 0, options: [{ value: 0, label: "Adapté au circuit" }, { value: 60, label: "1 min" }, { value: 90, label: "1 min 30" }, { value: 120, label: "2 min" }, { value: 180, label: "3 min" }, { value: 240, label: "4 min" }], showIf: { mode: ["chrono", "contact"] }, info: "Après le départ commun, chacun n'a qu'un seul essai par course. Ce temps est la limite pour partir. Sur Adapté au circuit, la durée suit la longueur du tracé, donc une course courte ne laisse pas traîner. Quoi qu'il arrive, un pilote déjà parti garde le temps de finir son essai, qui ne peut donc jamais être gâché par la fin du chrono. La course s'arrête plus tôt si tout le monde a fini ou abandonné." },
       { id: "carMode", label: "Choix des voitures", type: "chips", default: "winner", options: [{ value: "winner", label: "Le dernier vainqueur choisit" }, { value: "own", label: "Chacun la sienne" }, { value: "random", label: "Tirée au sort à chaque course" }], info: "Le dernier vainqueur choisit, celui qui a gagné la course précédente choisit la voiture de tout le monde (l'hôte pour la première course). Chacun la sienne, chaque pilote choisit sa voiture au garage. Tirée au sort, une voiture au hasard pour tous à chaque course." },
     ] },
     { category: "🛣️ Le circuit", rules: [
@@ -71,6 +64,7 @@
     ] },
     { category: "🚗 La conduite", rules: [
       { id: "botPace", label: "Vitesse des tours des pilotes automatiques", type: "chips", default: 2, options: [{ value: 1, label: "Normale" }, { value: 2, label: "Deux fois plus vite" }, { value: 4, label: "Quatre fois plus vite" }], showIf: { mode: "essence" }, info: "Les pilotes automatiques roulent en direct, essai après essai, avec leur essence qui baisse. Accélérer évite d'attendre quand ils ont un grand réservoir." },
+      { id: "launch", label: "Départ au feu vert", type: "bool", default: false, showIf: { mode: ["chrono", "contact"] }, info: "Comme dans les jeux de course sur console, il ne faut pas tenir l'accélérateur pendant le décompte. Appuie juste après le feu vert. Plus tu es précis, plus le turbo de départ est fort. Si tu tiens la touche avant le vert, le moteur cale un instant." },
       { id: "leave", label: "Sortie de piste", type: "chips", default: "mur", options: [{ value: "mur", label: "Murs infranchissables" }, { value: "cp", label: "Sortie permise, retour au point de contrôle" }, { value: "zero", label: "Sortie permise, retour au départ" }], info: "Sur Murs infranchissables, les bords du circuit arrêtent toujours la voiture, c'est le mode assisté. Sur les deux autres, un saut trop haut ou trop long peut passer par dessus la barrière. La voiture sort alors du circuit et retombe, puis elle repart soit du dernier point de contrôle, soit de la ligne de départ. Le chrono continue de tourner pendant ce temps." },
       { id: "crashRnd", label: "Dégâts des chocs aléatoires", type: "bool", default: false, info: "Si c'est activé, les dégâts des chocs sont tirés au sort à chaque course, doux, normaux ou brutaux, sans jamais répéter la valeur de la course précédente. Cette option est indépendante des circuits aléatoires." },
       { id: "crash", label: "Dégâts des chocs", showIf: { crashRnd: false }, type: "chips", default: "normal", options: [{ value: "doux", label: "Doux" }, { value: "normal", label: "Normaux" }, { value: "brutal", label: "Brutaux" }], info: "Règle ce que coûte un choc contre un mur, un obstacle ou un atterrissage raté. Avec des chocs brutaux, un frottement de mur te fait perdre beaucoup de vitesse, comme en course de compétition. En doux, les erreurs se pardonnent plus facilement." },
@@ -91,7 +85,7 @@
     });
     if (!out.biomes.length) out.biomes = [Track.BIOME_IDS[0]];
     out.trace = cleanTrace(input && input.trace);
-    if (out.mode === "essence") { out.format = "libre"; out.survie = false; }
+    if (out.mode === "essence") { out.format = "libre"; out.survie = false; out.launch = false; }
     if (out.format === "etapes") { out.survie = false; out.winRule = "temps"; out.rounds = out.stages; }
     if (out.survie) out.winRule = "points";
     Object.assign(out, FIXED);

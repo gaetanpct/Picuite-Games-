@@ -102,7 +102,7 @@ function startRound(room) {
     if (s.order === "retard") { const st = standings(room); const byRank = st.slice().reverse().map((r) => r.id); g.order = byRank.length === seats.length ? byRank : seats; }
     else { const k = g.roundIdx % seats.length; g.order = seats.slice(k).concat(seats.slice(0, k)); }
   } else g.order = seats.slice();
-  const nSeat = room.players.length; g.slots = {}; room.players.forEach((p, i) => { g.slots[p.id] = isChrono(s) ? +Car.gridSlot(g.track, i, nSeat).toFixed(2) : 0; });
+  const nSeat = room.players.length; g.slots = {}; const perm = room.players.map((_, i) => i); for (let i = perm.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = perm[i]; perm[i] = perm[j]; perm[j] = t; } room.players.forEach((p, i) => { g.slots[p.id] = isChrono(s) ? +Car.gridSlot(g.track, perm[i], nSeat).toFixed(2) : 0; });
   g.goAt = 0; g.phase = "garage"; g.phaseUntil = Date.now() + s.garage * 1000 * TS;
   g.api.emitAll(room, "z:round", roundMsg(room));
   prepareBots(room); emitState(room);
@@ -136,6 +136,13 @@ function botRefFrames(room, selfId) {
   room.players.forEach((d) => { if (d.id === selfId) return; const P = g.players[d.id]; if (P.best == null || !P.bestFrames) return; if (!best || P.best < best.t) best = { t: P.best, frames: P.bestFrames, pid: d.id }; });
   return best;
 }
+function launchOf(room, id) {
+  const s = room.settings; if (!s.launch) return {}; const g = room.g; const d = (room.players || []).find((p) => p.id === id);
+  if (!d || !isAuto(room, d)) return { launch: true };
+  const r = Track.mulberry32(Track.hashSeed(g.baseSeed + "ln" + g.roundIdx + id))(); const lvl = botLevelOf(d); const sk = lvl === "expert" || lvl === "difficile" ? 0.5 : lvl === "facile" ? 0.12 : 0.3;
+  const t = r < sk ? 3 + Math.floor(r / sk * 6) : r < sk + 0.4 ? 10 + Math.floor((r - sk) / 0.4 * 12) : 30 + Math.floor((r - sk - 0.4) / Math.max(0.05, 1 - sk - 0.4) * 30);
+  return { launch: true, launchFix: t };
+}
 function planBotAttempt(room, def) {
   const g = room.g, P = g.players[def.id]; P.planning = true; const lvl = botLevelOf(def); const track = g.track; const rf = botRefFrames(room, def.id);
   const use = rf && (P.best == null || rf.t < P.best) ? rf : null; const tag = use ? use.pid + ":" + use.t.toFixed(2) : ""; const k = P.botN || 0; const slot = g.slots[def.id] || 0;
@@ -144,13 +151,13 @@ function planBotAttempt(room, def) {
     const seedStr = g.baseSeed + def.id + g.roundIdx + "k" + k; P.botN = k + 1;
     // en mode contact le pilote roule vraiment sur le serveur, pour qu'on puisse le pousser, le faire tourner et qu'il se rattrape
     if (room.settings.mode === "contact") {
-      const lv = Bot.createLive(track, P.car, lvl, seedStr, { slot, ref: use && use.frames, refTag: tag, push: k, maxSeconds: Math.min(240, capOf(track)), persona: g.baseSeed + def.id + g.roundIdx });
+      const lv = Bot.createLive(track, P.car, lvl, seedStr, Object.assign({ slot, ref: use && use.frames, refTag: tag, push: k, maxSeconds: Math.min(240, capOf(track)), persona: g.baseSeed + def.id + g.roundIdx }, launchOf(room, def.id)));
       P.live = { lv, at: Math.max(g.goAt, Date.now() + 50), n: 0, frames: [], done: false }; P.tryCount = (P.tryCount || 0) + 1; P.botDone = true; return;
     }
-    const r = Bot.simulateRun(track, P.car, lvl, seedStr, capOf(track), { slot, ref: use && use.frames, refTag: tag, push: k, persona: g.baseSeed + def.id + g.roundIdx });
+    const r = Bot.simulateRun(track, P.car, lvl, seedStr, capOf(track), Object.assign({ slot, ref: use && use.frames, refTag: tag, push: k, persona: g.baseSeed + def.id + g.roundIdx }, launchOf(room, def.id)));
     const now = Date.now(); const at = Math.max(g.goAt, P.nextAt || 0, now + 50);
     if (!r.finished) { P.botDone = true; P.done = true; if (r.stuck) g.api.sysChat(room, def.name + " est bloqué et abandonne, pénalité."); return; }
-    const rp = Car.replay(track, P.car, r.bytes, null, { slot });
+    const rp = Car.replay(track, P.car, r.bytes, null, Object.assign({ slot }, launchOf(room, def.id)));
     P.plan = { at, dur: r.time * 1000 * TS, time: r.time, frames: rp.frames, bytes: r.bytes, car: P.car, slot, done: false }; P.tryCount = (P.tryCount || 0) + 1; P.botDone = true;
   });
 }
@@ -161,7 +168,7 @@ function stepLive(room, def, P, now) {
   if (now >= L.at) {
     const want = Math.floor((now - L.at) / (Car.DT * 1000 * TS)); let guard = 0;
     while (L.n < want && !r.finished && L.n < L.lv.maxTicks && !r.stuck && guard++ < 40) {
-      if (room.settings.mode === "contact") r.draftT = Car.draftTarget(r, othersOf(room, def.id, now));
+      if (room.settings.mode === "contact") { r.draftT = Car.draftTarget(r, othersOf(room, def.id, now)); L.lv.neighbours(nearOf(room, def.id, now, r)); }
       L.lv.step(); L.n++; if ((L.n - 1) % 6 === 0) L.frames.push(r.x, r.y, r.z, r.hd, r.pitch, r.rail ? 2 : r.air ? 1 : 0, r.boostT > 0 ? 1 : 0, r.idx);
       botContacts(room, def, P, r, now);
     }
@@ -177,6 +184,15 @@ function othersOf(room, selfId, now) {
   room.players.forEach((od) => { if (od.id === selfId) return; const Q = g.players[od.id]; if (!Q) return; if (Q.live && !Q.live.done && Q.live.n > 0) { const q = Q.live.lv.r; out.push({ x: q.x, z: q.z, y: q.y }); } else if (Q.pos && Q.att && !Q.done && now - Q.pos.t < 400) out.push({ x: Q.pos.x, z: Q.pos.z, y: Q.pos.y }); });
   return out;
 }
+// voisins proches avec leur vitesse, pour que le pilote automatique réagisse à la course
+function nearOf(room, selfId, now, r) {
+  const g = room.g; const out = [];
+  room.players.forEach((od) => { if (od.id === selfId) return; const Q = g.players[od.id]; if (!Q) return; let o = null;
+    if (Q.live && !Q.live.done && Q.live.n > 0) { const q = Q.live.lv.r; o = { x: q.x, z: q.z, vx: q.vx, vz: q.vz }; }
+    else if (Q.pos && Q.att && !Q.done && now - Q.pos.t < 400) { const age = Math.min(0.2, (now - Q.pos.t) / 1000); o = { x: Q.pos.x + Q.pos.vx * age, z: Q.pos.z + Q.pos.vz * age, vx: Q.pos.vx, vz: Q.pos.vz }; }
+    if (o && Math.abs(o.x - r.x) < 16 && Math.abs(o.z - r.z) < 16) out.push(o); });
+  return out;
+}
 // chocs d'un pilote automatique contre les humains en piste et contre les autres automates
 function botContacts(room, def, P, r, now) {
   const g = room.g; if (r.tick < 2 || r.rail) return;
@@ -186,7 +202,7 @@ function botContacts(room, def, P, r, now) {
     else if (Q.pos && Q.att && !Q.done && now - Q.pos.t < 400) { const age = Math.min(0.2, (now - Q.pos.t) / 1000); o = { x: Q.pos.x + Q.pos.vx * age, z: Q.pos.z + Q.pos.vz * age, h: Q.pos.h, y: Q.pos.y, vx: Q.pos.vx, vz: Q.pos.vz, car: Q.car }; }
     if (!o) return;
     const hit = Car.contactVs(r, o, CAR_SHARE, (r.bumpCd | 0) <= r.tick); if (!hit) return;
-    if (hit.bump) r.bumpCd = r.tick + 5; Car.nudge(r, hit.dx, hit.dz, hit.dvx, hit.dvz, hit.ds);
+    if (hit.bump) r.bumpCd = r.tick + 5; Car.nudge(r, hit.dx, hit.dz, hit.dvx, hit.dvz, hit.ds); if (hit.bump && P.live && P.live.lv && P.live.lv.bumped) P.live.lv.bumped(Math.hypot(hit.dvx, hit.dvz));
   });
 }
 function tickBots(room, now) {
@@ -438,7 +454,7 @@ function endRound(room) {
   g.history.push({ track: g.track.name, biome: g.track.biome, drawn: g.track.drawn || [], stage: g.track.stage ? g.track.stage.icon + " " + g.track.stage.name : null, rows: rows.map((r) => ({ id: r.id, best: r.best, pts: r.pts, counted: r.counted, pen: r.pen })) });
   // replay de la course, le meilleur passage de chaque pilote, consultable à la fin de la partie
   try {
-    const cars = []; ps.forEach((P) => { if (P.best == null) return; let fr = P.bestFrames; if (!fr && P.bestBytes) fr = Car.replay(g.track, P.bestCar || P.car, P.bestBytes, null, { leave: s.leave, slot: g.slots[P.id] || 0 }).frames; if (!fr || fr.length < 16) return; cars.push({ id: P.id, car: P.bestCar || P.car, time: P.best, frames: Array.from(fr, (v) => Math.round(v * 100) / 100) }); });
+    const cars = []; ps.forEach((P) => { if (P.best == null) return; let fr = P.bestFrames; if (!fr && P.bestBytes) fr = Car.replay(g.track, P.bestCar || P.car, P.bestBytes, null, Object.assign({ leave: s.leave, slot: g.slots[P.id] || 0 }, launchOf(room, P.id))).frames; if (!fr || fr.length < 16) return; cars.push({ id: P.id, car: P.bestCar || P.car, time: P.best, frames: Array.from(fr, (v) => Math.round(v * 100) / 100) }); });
     g.replays[g.roundIdx] = { i: g.roundIdx, name: g.track.name, biome: g.track.biome, winner, cars };
   } catch (e) { console.error("replay zoom", e); }
   g.api.emitAll(room, "z:roundEnd", { index: g.roundIdx, track: g.track.name, author: g.author, rows, winner, last: g.roundIdx + 1 >= g.total, until: g.phaseUntil, now: Date.now(), mode: s.mode, rule: ruleOf(s), cumRank: cumRanks(room), survie: !!s.survie, gates: g.track.cps.length + 1, stage: g.track.stage || null, leader: leaderOf(room), drawn: g.track.drawn || [], recordTime: winner && g.players[winner].best != null ? g.players[winner].best : null });
@@ -654,7 +670,7 @@ function parseDraft(raw) {
 function verify(room, P, att, d, toast, fuelTicks) {
   const g = room.g, s = room.settings; const elapsed = Math.max(0, (Date.now() - att.goAt) / 1000);
   const bytes = b64(d.bytes); if (!bytes || bytes.length < 60 || bytes.length > 60 * 900) { toast("Course non reçue, retente."); return null; }
-  const ropts = { slot: att.slot || 0, leave: s.leave, events: s.mode === "contact" ? parseEvents(d.ev) : [], draft: s.mode === "contact" ? parseDraft(d.dr) : [] }; if (ropts.events === null || ropts.draft === null) { toast("Course refusée, retente."); return null; }
+  const ropts = { slot: att.slot || 0, launch: !!s.launch, leave: s.leave, events: s.mode === "contact" ? parseEvents(d.ev) : [], draft: s.mode === "contact" ? parseDraft(d.dr) : [] }; if (ropts.events === null || ropts.draft === null) { toast("Course refusée, retente."); return null; }
   if (s.verify === "trust") {
     const time = Number(d.time); if (!isFinite(time) || time < g.track.length / 85 || time > elapsed + 2) { toast("Temps refusé, retente."); return null; }
     const rp = Car.replay(g.track, att.car, bytes, fuelTicks, ropts); return { time, bytes, frames: rp.frames };

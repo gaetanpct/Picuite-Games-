@@ -14,10 +14,8 @@
   // wall et hill règlent la casse au choc et la gêne en côte, boostK la puissance des turbos, drift la récompense du dérapage
   const CARS = {
     bolide: { id: "bolide", name: "Bolide", icon: "🏎️", color: "#e8453c", vmax: 52, acc: 21, brake: 38, turn: 2.2, grip: 6.8, dirt: 0.7, ice: 0.18, drift: 0.7, bounce: 0, wall: 1, hill: 1, cv: 0.68, boostK: 1, mass: 1, trait: "La référence, sans point faible ni point fort", desc: "La voiture équilibrée. Rapide, stable, elle pardonne un peu les erreurs de trajectoire." },
-    rallye: { id: "rallye", name: "Rallye-Pote", icon: "🚙", color: "#3aa653", vmax: 47, acc: 20, brake: 36, turn: 2.1, grip: 5.2, dirt: 1.5, ice: 1.0, drift: 0.65, bounce: 0, wall: 0.8, hill: 0.75, cv: 0.7, boostK: 1, mass: 1.15, verge: 1.6, trait: "Colle à la terre, à la glace et aux bas-côtés", desc: "Reine de la terre, de la glace et des bas-côtés où elle perd bien moins de vitesse que les autres. Sur le bitume elle glisse et perd du temps." },
     petard: { id: "petard", name: "Pétard", icon: "🚀", color: "#f08a24", vmax: 70, acc: 31, brake: 28, turn: 1.5, grip: 5.3, dirt: 0.42, ice: 0.07, drift: 0.32, bounce: 0, wall: 1.6, hill: 1.5, cv: 0.47, boostK: 1.15, mass: 0.9, trait: "La plus rapide en ligne droite, la pire en virage", desc: "Une fusée sur roues, la plus rapide en ligne droite. Il freine mal, tourne mal et chaque mur fait très mal." },
     toupie: { id: "toupie", name: "Toupie", icon: "🌀", color: "#8a55c8", vmax: 49, acc: 19.5, brake: 33, turn: 3.1, grip: 3.3, dirt: 0.8, ice: 0.3, drift: 1.15, bounce: 0, wall: 1.1, hill: 1.1, cv: 0.9, boostK: 0.9, mass: 0.8, trait: "Glisse tout le temps, énorme turbo de dérapage", desc: "Elle glisse tout le temps. Très vive dans les virages, et un long dérapage lui donne un énorme turbo à la sortie." },
-    bouboule: { id: "bouboule", name: "Bouboule", icon: "🫧", color: "#25b9b0", vmax: 47, acc: 18, brake: 34, turn: 2.4, grip: 7.0, dirt: 0.85, ice: 0.35, drift: 0.5, bounce: 0.45, wall: 0.25, hill: 0.65, cv: 0.75, boostK: 1, mass: 0.7, trait: "Rebondit sur les murs sans presque rien perdre", desc: "Ronde et rebondissante. Les murs et les obstacles la ralentissent à peine, mais elle manque de vitesse de pointe." },
   };
   // poids lourd et poids plume
   CARS.mastodonte = { id: "mastodonte", name: "Mastodonte", icon: "🚜", color: "#7a6a4a", vmax: 50, acc: 17.5, brake: 40, turn: 1.7, grip: 7.9, dirt: 0.9, ice: 0.42, drift: 0.35, bounce: 0, wall: 0.25, hill: 0.3, cv: 0.75, boostK: 0.9, mass: 2.2, trait: "Rien ne l'arrête, il pousse tout le monde", desc: "Un poids lourd. Il démarre lentement mais rien ne l'arrête, les montées ne lui font rien, les murs à peine et il envoie valser les autres voitures. Il tourne large." };
@@ -29,7 +27,7 @@
   CARS.sauterelle = { id: "sauterelle", name: "Sauterelle", icon: "🦗", color: "#7ac943", vmax: 48, acc: 19, brake: 34, turn: 2.35, grip: 6.2, dirt: 0.75, ice: 0.22, drift: 0.6, bounce: 0, wall: 1.1, hill: 0.95, cv: 0.7, boostK: 1, mass: 0.85, airCtl: 1, airSteer: 0.5, glide: 0.88, soft: 0.2, trait: "Se pilote en l'air, plane et se pose en douceur", desc: "Reine des airs. En plein saut elle tourne comme au sol et corrige sa trajectoire, elle plane un peu plus loin que les autres et ses réceptions ne lui coûtent presque rien. Au sol elle reste moyenne." };
   // Comète, ses turbos s'additionnent au lieu de se remplacer, mais elle tourne mal pendant un turbo
   CARS.comete = { id: "comete", name: "Comète", icon: "☄️", color: "#ff5ab4", vmax: 50, acc: 18.5, brake: 35, turn: 2.2, grip: 6.4, dirt: 0.65, ice: 0.18, drift: 0.8, bounce: 0, wall: 1.1, hill: 1.05, cv: 0.68, boostK: 1.12, mass: 0.95, stack: 1, boostTurn: 0.62, trait: "Ses turbos s'additionnent, mais elle tourne mal pendant un turbo", desc: "Chaque turbo s'ajoute au précédent. Tapis, dérapages et anneaux enchaînés lui donnent des pointes folles, à condition de savoir tenir la route, car elle braque beaucoup moins pendant un turbo." };
-  const CAR_ORDER = ["bolide", "rallye", "petard", "toupie", "bouboule", "mastodonte", "libellule", "volt", "sauterelle", "comete"];
+  const CAR_ORDER = ["bolide", "petard", "toupie", "mastodonte", "libellule", "volt", "sauterelle", "comete"];
   // paliers du turbo de dérapage, en pas de 1/60 s de dérapage tenu, et durée du turbo donné à la sortie
   const DRIFT_TIERS = [{ at: 30, boost: 48 }, { at: 72, boost: 92 }, { at: 125, boost: 140 }];
   const driftTier = (t) => (t >= DRIFT_TIERS[2].at ? 3 : t >= DRIFT_TIERS[1].at ? 2 : t >= DRIFT_TIERS[0].at ? 1 : 0);
@@ -231,6 +229,16 @@
     if (r.finished) return;
     const tr = r.tr, car = r.car, g = tr.gravity, gAir = airGOf(tr) * (car.glide || 1);
     r.tick++;
+    // départ au feu vert. Il faut appuyer sur l'accélérateur au bon moment, pas avant. Appuyer dans les 9 premiers ticks donne un gros turbo, dans les 24 premiers un petit
+    if (r.opts && r.opts.launch && r.lt !== 9) {
+      const t = r.tick - 1, fix = r.opts.launchFix; const give = (at) => { r.lt = 9; if (at <= 9) { giveBoost(r, 80, 1.5); r.launchRes = 2; } else if (at <= 24) { giveBoost(r, 45, 1.2); r.launchRes = 1; } else r.launchRes = 0; r.launchEvt = r.tick; };
+      if (fix != null && fix !== undefined) { if (t < fix) inp = { steer: inp.steer, thr: 0, brk: inp.brk, rst: inp.rst }; else give(fix); }
+      else {
+        if (t === 0) r.lt = inp.thr ? 2 : 0;
+        if (r.lt === 2) { if (t < 50) inp = { steer: inp.steer, thr: 0, brk: inp.brk, rst: inp.rst }; else { r.lt = 9; r.launchRes = -1; r.launchEvt = r.tick; } }
+        else if (r.lt === 0) { if (inp.thr) give(t); else inp = { steer: inp.steer, thr: 0, brk: inp.brk, rst: inp.rst }; }
+      }
+    }
     // blocage. Même point de contrôle raté plusieurs fois de suite, ou plus aucun terrain gagné depuis très longtemps. N'agit pas sur la physique
     if (r.idx > r.bestIdx + 2) { r.bestIdx = r.idx; r.lastGain = r.tick; }
     r.stuck = r.cpFails >= STUCK_FAILS || r.tick - r.lastGain > STUCK_TICKS;
@@ -255,7 +263,7 @@
     if (surf === S.DIRT) { gripMul = car.dirt; vmax *= 0.93; drag = 0.35; }
     else if (surf === S.ICE) { gripMul = car.ice; drag = 0.05; }
     else if (surf === S.SLOW) { gripMul = 0.9; vmax *= 0.62; accMul = 0.75; drag = 1.1; }
-    else if (surf === S.VERGE) { const vk = car.verge || 1; gripMul = Math.min(1, car.dirt * 0.55 * vk); vmax *= Math.min(0.92, 0.56 * vk); accMul *= 0.7; drag = 1.5 / vk; }
+    else if (surf === S.VERGE) { gripMul = Math.min(1, car.dirt * 0.75); vmax *= 0.8; accMul *= 0.88; drag = 0.6; }
     // virage relevé. La route penchée tient la voiture, on tourne plus fort et on glisse moins
     const bk0 = !r.air && tr.bank ? Math.abs(Track.bankAt(tr, r.idx)) : 0; if (bk0 > 0.01) gripMul *= 1 + 1.5 * bk0;
     // aspiration, derrière une autre voiture en mode contact

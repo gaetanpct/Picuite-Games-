@@ -175,9 +175,9 @@
   function arm() { if (G.armedAt && Date.now() - G.armedAt < 1200) return; G.armedAt = Date.now(); G.waiting = true; Kit.socket.emit("z:attempt"); }
   function onGo(m) {
     clock(m.now); G.waiting = false; if (isChrono(G.mode)) G.wantArm = false; const car = m.car || G.carId || "bolide";
-    G.slotMe = m.slot || 0; G.run = { r: CA.newRun(G.track, car, { slot: G.slotMe, leave: S().leave }), bytes: [], events: [], goAt: m.goAt, fuelTicks: 1e12, fuel0: m.fuelLeft || 0, challenger: m.role === "duel" && m.fuelLeft > 0, frames: [], done: false, car, cpShown: 0, out: false, finishSent: false, gptr: 0, lastGo: 0 };
+    G.slotMe = m.slot || 0; G.run = { r: CA.newRun(G.track, car, { slot: G.slotMe, leave: S().leave, launch: !!S().launch && isChrono(G.mode) }), bytes: [], events: [], goAt: m.goAt, fuelTicks: 1e12, fuel0: m.fuelLeft || 0, challenger: m.role === "duel" && m.fuelLeft > 0, frames: [], done: false, car, cpShown: 0, out: false, finishSent: false, gptr: 0, lastGo: 0 };
     G.ghostPtr = 0; V.resetGates(); V.resetFollow(); G.armedAt = 0; G.cpBanner = 0;
-    G.ghostT0 = m.goAt;
+    G.ghostT0 = m.goAt; if (S().launch && isChrono(G.mode)) setBanner("Départ au feu vert", "Appuie sur accélérer au vert, pas avant", 2600);
     const cm = me(); V.ensureCar("me", car, hexOf(cm ? cm.color : 0), false, null); engineStart();
     G.run.draft = []; G.run.lastDraft = 0; G.specId = null; if (m.goAt - m.now > 1800) V.intro(1);
   }
@@ -237,6 +237,7 @@
           if (r.wallHit > 5) { V.shake(Math.min(0.6, r.wallHit * 0.03)); if (!engineImpact(r.wallHit)) Kit.sound.noise(0.12, 0.08, 0, 900);
             { const sp = CA.sampleAt(tr, r.idx); const u = (r.x - sp.x) * -Math.cos(sp.h) + (r.z - sp.z) * Math.sin(sp.h); const sd = u >= 0 ? 1 : -1; const rx = -Math.cos(r.hd), rz = Math.sin(r.hd); if (V.sparks) V.sparks(r.x + rx * sd * 1.05, r.y + 0.45, r.z + rz * sd * 1.05, -Math.sin(r.hd), -Math.cos(r.hd), Math.min(22, 6 + Math.round(r.wallHit))); } }
           if (r.landed > 3 && r.tick - (run.lastLand || 0) > 10) { run.lastLand = r.tick; V.puff(r.x, r.y + 0.3, r.z, "#dddddd", 6, 3, 1, 1.2); r.landed = 0; }
+          if (r.launchEvt === r.tick) { const lr = r.launchRes; if (lr === 2) setBanner("Départ parfait", "Gros turbo", 1400); else if (lr === 1) setBanner("Bon départ", "Petit turbo", 1200); else if (lr === -1) setBanner("Moteur calé", "Ne tiens pas la touche avant le vert", 1400); else setBanner("Départ tardif", "Appuie plus tôt", 1000); }
           if (r.boostEvt === r.tick) { Kit.sound.tone(380, 0.3, "sawtooth", 0.07, 0, 900); V.shake(0.15); }
           if (r.lastResetTick === r.tick) { V.resetFollow(); setBanner("Retour au point de contrôle", null, 900); }
         }
@@ -833,9 +834,9 @@
       { title: "Piloter", text: "Les quatre flèches pilotent, haut pour accélérer, bas pour freiner et reculer, côtés pour tourner. Entrée recommence l'essai à zéro en mode essence et sert à abandonner en chrono, Maj ramène au dernier point de contrôle sans arrêter le chrono, Espace fait regarder derrière soi. Les tapis orange donnent un coup de turbo, les violets un super turbo, et traverser un anneau doré aussi." },
       { title: "Le turbo de dérapage", text: "Tenir un dérapage charge un turbo en trois paliers, étincelles bleues, puis orange, puis violettes. Plus le dérapage dure, plus le turbo de sortie est long. La Toupie et la Libellule en tirent les plus gros." },
       { title: "L'aspiration", text: "En chrono contact, rouler juste derrière une autre voiture donne un peu plus de vitesse, de quoi la rattraper puis la dépasser. Des traînées de vent et le mot Aspiration apparaissent quand ça marche." },
-      { title: "Embranchements et bas-côtés", text: "Quand la route se sépare, choisis ta voie avant le butoir jaune et noir. La voie courte cache toujours un piège. Sur les bas-côtés sans barrière, sortir de la route freine fort et fait glisser, sauf avec la Rallye-Pote qui y est à l'aise." },
+      { title: "Embranchements et bas-côtés", text: "Quand la route se sépare, choisis ta voie avant le butoir jaune et noir. La voie courte cache toujours un piège. Sur les bas-côtés sans barrière, sortir de la route freine fort et fait glisser." },
       { title: "Suivre les autres et revoir les courses", text: "En chrono, une fois ta course finie, les flèches gauche et droite changent le pilote suivi par la caméra. À la fin de la partie, chaque course peut être revue en replay, avec la caméra poursuite ou une caméra télé." },
-      { title: "Les sols", text: "Le bitume accroche, la terre un peu moins, la glace très peu, et le sol collant ralentit. Les bas-côtés de sable, d'herbe ou de neige freinent fort. Chaque voiture réagit différemment, la Rallye-Pote adore la terre, la glace et les bas-côtés." },
+      { title: "Les sols", text: "Le bitume accroche, la terre un peu moins, la glace très peu, et le sol collant ralentit. Les bas-côtés de sable, d'herbe ou de neige freinent fort. Chaque voiture réagit différemment." },
       { title: "Les biomes", text: "Côte est la référence. Neige glisse partout. Néon a une gravité faible et des anneaux turbo. Mégapole retourne la voiture dans des tubes. Jungle multiplie la terre et les embranchements. Usine fait bouger la route. Fête foraine croise ses routes et plonge. Dunes n'a presque pas de murs." },
       { title: "Les points", text: "En essence, la voiture qui détient le record à la fin gagne 3 points, et celle qui l'a détenu juste avant 1 point. En chrono, les points dépendent du classement des meilleurs temps." },
     ],

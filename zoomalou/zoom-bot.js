@@ -200,6 +200,17 @@ function drive(r, L, th, lv, rnd, mem) {
   if (L.ck && tr.cuts) for (let q = 0; q < tr.cuts.length; q++) { const c = tr.cuts[q]; if (L.ck.charAt(q) !== "1" || idx < c.lip - 32 || idx > c.lip + 0.6) continue;
     const cfx = Math.sin(c.h), cfz = Math.cos(c.h), crx = -Math.cos(c.h), crz = Math.sin(c.h); const mid = (c.u0 + c.u1) / 2; const along = (r.x - c.ax) * cfx + (r.z - c.az) * cfz; const a2 = along + Math.max(6, Ld);
     T = [c.ax + crx * mid + cfx * a2, c.az + crz * mid + cfz * a2]; }
+  // pilotes voisins. Le pilote bloque celui qui le suit, évite de percuter celui qui le précède et sort de sa trajectoire s'il vient d'être touché
+  let nbCap = 99, nbShift = 0;
+  if (mem.nb && mem.nb.length && !r.rail && !r.air && r.cut < 0 && mem.react > 0) {
+    const cx = Math.cos(r.hd), cz = -Math.sin(r.hd); const hw = Math.max(0, (tr.w[Math.min(n - 1, idx)] || 6) - 3.2);
+    for (let q = 0; q < mem.nb.length; q++) {
+      const o = mem.nb[q]; const rx = o.x - r.x, rz = o.z - r.z; const f = rx * fx + rz * fz, l = rx * cx + rz * cz; const al = Math.abs(l); const sg = l >= 0 ? 1 : -1; const ovf = o.vx * fx + o.vz * fz;
+      if (f < -2 && f > -15 && al < 3.6 && ovf > vf - 4) nbShift += sg * Math.min(1.6, 3.8 - al) * mem.react * (mem.block || 0.6);
+      else if (f > 1.5 && f < 11 && al < 2.8) { nbShift -= sg * Math.min(1.5, 3 - al) * mem.react; if (vf > ovf + 1 && f < 7) nbCap = Math.min(nbCap, ovf + 3 + f * 0.5); }
+    }
+    nbShift = clamp(nbShift, -hw, hw) * Math.min(1, hw / 1.4); if (Math.abs(nbShift) > 0.05) { const ux = cx, uz = cz; T = [T[0] + ux * nbShift, T[1] + uz * nbShift]; }
+  }
   const dx = T[0] - r.x, dz = T[1] - r.z; const dist = Math.max(2, Math.hypot(dx, dz)); const ang = Math.atan2(dx, dz);
   const hA = wrap(ang - r.hd); const vA = spd > 6 && vf > 0 ? wrap(ang - Math.atan2(r.vx, r.vz)) : hA; const alpha = hA * (1 - th.slipMix) + vA * th.slipMix;
   let steer;
@@ -210,6 +221,8 @@ function drive(r, L, th, lv, rnd, mem) {
   mem.noise = mem.noise * 0.96 + (rnd() - 0.5) * lv.noise * 0.5; steer = clamp(steer + mem.noise, -1, 1);
   const ia = Math.min(n - 2, idx + Math.max(0, vf) * 0.12 / STEP); const prof = r.boostT > 0 ? L.profB : L.profA; const k0 = Math.floor(ia); const vt0 = prof[k0] + (prof[k0 + 1] - prof[k0]) * (ia - k0);
   let vt = vt0 * mem.pace; if (mem.sat) vt *= 0.93; if (L.gapMin[k0] > vt) vt = L.gapMin[k0];
+  if (nbCap < vt) vt = Math.max(nbCap, vt * 0.7);
+  if (mem.stun > 0) { mem.stun--; vt *= 0.8 + 0.2 * (1 - mem.stun / (mem.stunLen || 1)); steer = clamp(steer * (0.6 + 0.4 * (1 - mem.stun / (mem.stunLen || 1))), -1, 1); }
   let thr = 0, brk = 0;
   if (mem.lapse > 0) { mem.lapse--; thr = 0; } else if (lv.lapse && rnd() < lv.lapse) mem.lapse = 12 + Math.floor(rnd() * 30);
   else { if (vf < vt - 0.25) thr = 1; else if (vf > vt + th.dvHi) brk = 1; }
@@ -231,7 +244,7 @@ const gauss = (rnd) => { let s = 0; for (let i = 0; i < 4; i++) s += rnd(); retu
 // simule une course avec les paramètres donnés. renvoie la course et les commandes
 function run(tr, carId, th, lv, seed, opts) {
   opts = opts || {}; const car = Car.CARS[carId] || Car.CARS.bolide; const rnd = Track.mulberry32(Track.hashSeed("bot" + seed));
-  const L = opts.plan || buildPlan(tr, car, th, opts.ref); const r = Car.newRun(tr, carId, { slot: opts.slot || 0 });
+  const L = opts.plan || buildPlan(tr, car, th, opts.ref); const r = Car.newRun(tr, carId, { slot: opts.slot || 0, launch: opts.launch, launchFix: opts.launchFix });
   const mem = { noise: 0, stuck: 0, lapse: 0, sat: false, rev: 0, revSteer: 0, tries: 0, pace: opts.pace == null ? 1 : opts.pace, gaffe: gaffeOf(tr, opts.form) }; const maxT = Math.floor((opts.maxSeconds || 240) * 60); const bytes = opts.noBytes ? null : [];
   while (!r.finished && !r.stuck && r.tick < maxT) { const inp = Car.quant(drive(r, L, th, lv, rnd, mem)); if (bytes) bytes.push(Car.packInput(inp)); Car.step(r, inp); }
   return { r, bytes };
@@ -326,8 +339,8 @@ function createLive(tr, carId, levelId, seed, opts) {
   if (th.ck && (levelId === "debutant" || levelId === "moyen")) th.ck = th.ck.split("").map((c) => (c === "1" && rnd() < (levelId === "debutant" ? 0.45 : 0.2) ? "0" : c)).join("");
   if (th.fk && (levelId === "debutant" || levelId === "moyen")) th.fk = th.fk.split("").map((c) => (rnd() < (levelId === "debutant" ? 0.5 : 0.25) ? (c === "1" ? "0" : "1") : c)).join("");
   const pace = clamp(lv.pace * (1 + (rnd() - 0.5) * lv.paceJit * 2), 0.5, 1.05);
-  const car = Car.CARS[carId] || Car.CARS.bolide; const L = buildPlan(tr, car, th, ref); const r = Car.newRun(tr, carId, { slot: opts.slot || 0 });
-  const mem = { noise: 0, stuck: 0, lapse: 0, sat: false, rev: 0, revSteer: 0, tries: 0, pace, gaffe: gaffeOf(tr, form) };
-  return { r, form: form ? form.k : "", maxTicks: Math.floor((opts.maxSeconds || 240) * 60), step() { Car.step(r, Car.quant(drive(r, L, th, lv, rnd, mem))); } };
+  const car = Car.CARS[carId] || Car.CARS.bolide; const L = buildPlan(tr, car, th, ref); const r = Car.newRun(tr, carId, { slot: opts.slot || 0, launch: opts.launch, launchFix: opts.launchFix });
+  const mem = { noise: 0, stuck: 0, lapse: 0, sat: false, rev: 0, revSteer: 0, tries: 0, pace, gaffe: gaffeOf(tr, form), react: levelId === "debutant" ? 0.35 : levelId === "moyen" ? 0.7 : 1, block: levelId === "expert" ? 0.9 : levelId === "difficile" ? 0.75 : 0.55, stun: 0, stunLen: 1, nb: null };
+  return { r, form: form ? form.k : "", mem, maxTicks: Math.floor((opts.maxSeconds || 240) * 60), neighbours(l) { mem.nb = l; }, bumped(sev) { const n = Math.min(70, Math.round(14 + sev * 7)); if (n > mem.stun) { mem.stun = n; mem.stunLen = n; } }, step() { Car.step(r, Car.quant(drive(r, L, th, lv, rnd, mem))); } };
 }
 module.exports = { personaOf, ARCH, LEVELS, simulateRun, createLive, prepare, prepareSync, refFromFrames, formOf, forkGuess };
