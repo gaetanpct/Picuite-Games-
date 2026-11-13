@@ -1118,7 +1118,7 @@ Chaque jeu a été regardé seul, accueil, salon et partie. Le but n'était pas 
 - L'accueil, qui était nu, reçoit son image de quartier.
 
 ### Richissime Destiny
-- L'image remplace la rangée d'emojis de l'accueil. Le titre ne se superpose plus sur téléphone, son ombre est réduite sur les petits écrans.
+- L'image remplace la rangée d'emojis de l'accueil. Elle est intégrée directement dans la feuille de style, sans fichier à part, pour que le dossier richissime reste à 99 fichiers. Elle est rendue à partir de formes modélisées par le code, rien d'emprunté. Le titre ne se superpose plus sur téléphone, son ombre est réduite sur les petits écrans.
 
 ### Ce qui n'a pas été touché, et pourquoi
 - Dans la partie de Golfouille, Zoomalou, Cristal Tordu, Main Morte et Mauvaises Langues. Leur direction artistique tient déjà, elle est cohérente avec le jeu et lisible. Ajouter des éléments les aurait alourdis.
