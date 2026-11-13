@@ -270,7 +270,7 @@
   Kit.on("room", (r) => { if (r.status === "lobby") { G.st = null; G.sig = ""; G.topSig = ""; G.phaseKey = ""; G.over = null; } else if (G.st) { G.topSig = ""; renderTop(); } });
 
   Kit.init({
-    id: "mauvaises-langues", title: "Mauvaises Langues", emoji: "👅", ribbon: "Le jeu des classements qui fâchent", tagline: "Classe tes amis sans pitié, puis devine ce qu'on t'a demandé.",
+    id: "mauvaises-langues", hero: true, title: "Mauvaises Langues", emoji: "👅", ribbon: "Le jeu des classements qui fâchent", tagline: "Classe tes amis sans pitié, puis devine ce qu'on t'a demandé.",
     createLabel: "Créer un salon", soloLabel: "", startLabel: "Lancer la partie", helpTitle: "Comment jouer", noBots: true,
     floaters: [{ e: "👅", x: 6 }, { e: "🌶️", x: 20 }, { e: "😈", x: 36 }, { e: "💀", x: 50 }, { e: "🍑", x: 64 }, { e: "🤫", x: 78 }, { e: "🔥", x: 92 }],
     colors: COLORS, botLevels: [{ id: "none", label: "Aucun" }, { id: "none2", label: "Aucun" }], maxPlayers: 8, minPlayers: 3, schema: R.SCHEMA,
