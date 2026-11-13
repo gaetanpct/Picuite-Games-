@@ -40,7 +40,7 @@
     root.appendChild(h("div.screen",
       h("div.wrap",
         h("div.hero",
-          h("div.coins", "💰 🎩 💎"),
+          h("div.coins", h("img.hero-img", { src: "/richissime/assets/hero.webp", alt: "", width: "866", height: "542", on: { error: (e) => { const d = e.target.parentNode; d.textContent = "💰 🎩 💎"; } } })),
           h("div.ribbon", "1 à 6 joueurs en ligne, ou tout seul"),
           h("h1", "Richissime ", h("span", "Destiny")),
           h("p.tag", "Vis une vie entière, une année à la fois, du CP jusqu'à la tombe. Les choix, les rencontres, les catastrophes, les coups de chance. À la fin, tout le monde note la vie de chacun, et la meilleure moyenne gagne.")),

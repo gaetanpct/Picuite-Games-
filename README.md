@@ -1096,3 +1096,52 @@ Deux nouveaux dossiers à la racine, bouskaille et vertigogo, chacun avec son ga
 - Les objets viennent des bibliothèques gratuites KayKit et Kenney accessibles depuis le serveur de travail. Les formes de collision sont des boîtes ajustées à la main, elles suivent les objets de près mais pas au millimètre, surtout sur les objets ronds comme les citrouilles et les nuages.
 - Environ un parcours sur quatre est refusé par le pilote automatique à la première tentative, le serveur en génère alors un autre sans que tu le voies. Le pilote ne saute pas aussi bien qu'un humain, un passage jugé trop dur pour lui peut rester faisable à la main.
 - La vue à la première personne de Bouskaille n'a pas de vue arrière.
+
+## Quarante-deuxième mise à jour, audit visuel de tous les jeux
+
+### La méthode
+Chaque jeu a été regardé seul, accueil, salon et partie. Le but n'était pas de mettre de la 3D partout. Là où le jeu est déjà bien dessiné en 2D ou en 3D, rien n'a été touché dans la partie. Là où l'identité manquait, un travail ciblé a été fait.
+
+### Un visuel d'accueil pour douze jeux
+- Chaque jeu a maintenant une image d'accueil rendue en 3D, avec un décor propre à son univers. Une arène de bagarre pour Bouskaille, une pile d'objets géants avec un grimpeur pour Vertigogo, une voiture de course sur sa grille pour Zoomalou, un green avec drapeau pour Golfouille, des gemmes et une lanterne pour Mine de Rien, une boule de cristal pour Cristal Tordu, un gant et des cartes pour Main Morte, un podium et des bulles pour Mauvaises Langues, une bouée sur l'eau pour Pétard Mouillé, des pions à chapeaux et des confettis pour Pagaille Party, un petit quartier avec dés et pièces pour Gaeboub-up, un haut-de-forme et des pièces pour Richissime Destiny.
+- Ce sont des images fixes légères, de 13 à 40 Ko chacune, rendues à partir des modèles libres déjà présents dans le projet. Elles ne coûtent rien en performance pendant la partie. Elles flottent doucement, sauf si l'appareil demande de réduire les animations.
+- Sur ordinateur l'image est grande à côté du formulaire. Sur téléphone elle devient une bande compacte, le formulaire reste visible sans faire défiler.
+- Pour les jeux du kit commun, l'image se déclare avec une seule ligne dans la configuration du jeu. Si le fichier manque, l'accueil retombe sur l'ancien emblème.
+
+### Mine de Rien
+- Plateau refait en 2D, sans 3D, pour garder une lecture parfaite. Cadre en pierre avec un grain de roche, cases en ardoise avec un léger relief, lanternes aux deux coins du haut, grappes de cristaux aux deux coins du bas, stalactites en haut de l'écran et lueur chaude en bas.
+- Les pierres ont une facette plus claire pour mieux briller. La diagonale blanche, qui sert de miroir, reste exactement aussi visible qu'avant.
+
+### Gaeboub-up
+- Les noms de cases ne se coupent plus au milieu des mots (Latina Chargée, Voltaire, Aéroport, Haussmann). Les cases du haut et du bas ont une écriture un peu plus petite et la césure se fait proprement.
+- Les pions ont un reflet pour paraître en relief. Le centre du plateau reste volontairement sobre.
+- L'accueil, qui était nu, reçoit son image de quartier.
+
+### Richissime Destiny
+- L'image remplace la rangée d'emojis de l'accueil. Le titre ne se superpose plus sur téléphone, son ombre est réduite sur les petits écrans.
+
+### Ce qui n'a pas été touché, et pourquoi
+- Dans la partie de Golfouille, Zoomalou, Cristal Tordu, Main Morte et Mauvaises Langues. Leur direction artistique tient déjà, elle est cohérente avec le jeu et lisible. Ajouter des éléments les aurait alourdis.
+- Goliathicus. Son accueil est déjà une vraie scène illustrée avec un château, et son plateau fonctionne. Seul son visuel n'a pas été ajouté, il aurait fait doublon.
+- Les mini-jeux de Pagaille Party gardent leurs personnages ronds avec chapeaux, c'est leur identité.
+
+### Vertigogo, caméra qui suit ta direction
+- La caméra ne reste plus figée vers le nord. Elle tourne doucement vers la direction où tu veux aller. Si tu pars un tout petit peu vers la gauche, la caméra glisse un peu vers la gauche, et plus tu t'écartes de l'axe, plus elle tourne vite. Avancer tout droit ne la bouge pas, et reculer ne la retourne pas.
+- Dès que tu touches toi-même à la caméra, avec la souris, le doigt ou les touches G et H, elle te laisse la main pendant une courte seconde avant de reprendre son suivi.
+- C'est activé par défaut. Une case dans le menu, La caméra suit ma direction, permet de la couper et de retrouver la caméra libre d'avant.
+
+### Pagaille Party
+- Les arbres, les pins et les rochers des mini-jeux (Course des fous, Bombe en voiture, La ruée) sont maintenant de vrais petits modèles 3D du Nature Kit de Kenney, en licence CC0. Leurs couleurs sont celles de la palette de Pagaille Party, donc ils s'accordent aux formes rondes du reste. Six fichiers légers de 5 à 14 Ko, dans le dossier assets/deco.
+- Si les modèles ne chargent pas, ou en mode compatibilité, les anciennes formes simples restent affichées.
+
+### Bouskaille, première personne en réglage du salon
+- La vue à la première personne n'est plus un choix de chaque joueur. C'est un réglage du salon, Vue à la première personne pour tous, que l'hôte active dans la rubrique La partie. S'il est activé, tout le monde joue à hauteur de yeux. La touche V et les cases du menu et du salon ont disparu.
+- La caméra suit la direction où tu vas, comme dans Vertigogo. Avancer tout droit ne la bouge pas, aller sur le côté la fait tourner vers ce côté, reculer ne la retourne pas. Dès que tu tournes toi-même avec la souris, le doigt ou les flèches, elle te laisse la main une courte seconde.
+- Le bloc de personnalisation du salon (personnage, accessoire, effet) ne déborde plus de sa carte quand l'écran est étroit.
+
+### Ce qu'il faut déposer sur GitHub
+- Les dossiers bouskaille, fart-together, vertigogo, zoomalou, golfouille, orapa-mine, sucre-ou-sale, hands-over, mauvaises-langues, pagaille, gaeboub-up, richissime et common, et le fichier README.md. Rien à supprimer. Si GitHub propose de remplacer des fichiers, accepte.
+
+### Limites connues
+- Tout a été testé avec un Chromium sans carte graphique, pas sur de vrais appareils.
+- Les visuels d'accueil sont des images fixes, pas des scènes 3D vivantes. C'est un choix pour ne rien coûter en fluidité.
