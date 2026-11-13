@@ -304,7 +304,7 @@
   function attach() { const so = Kit.socket; if (!so || G.attached) return; G.attached = true; so.on("sos:state", onState); so.on("sos:over", onOver); }
 
   Kit.init({
-    id: "sucre-ou-sale", title: "Cristal Tordu", emoji: "🔮", ribbon: "Le jeu télé des mots cachés", tagline: "Un mot secret, des dilemmes absurdes, une grille qui se vide.",
+    id: "sucre-ou-sale", hero: true, title: "Cristal Tordu", emoji: "🔮", ribbon: "Le jeu télé des mots cachés", tagline: "Un mot secret, des dilemmes absurdes, une grille qui se vide.",
     createLabel: "Créer un plateau", soloLabel: "Jouer contre un robot", startLabel: "Lancer l'émission", helpTitle: "Comment jouer",
     floaters: [{ e: "🔮", x: 6 }, { e: "🍬", x: 20 }, { e: "🧂", x: 34 }, { e: "🦷", x: 50 }, { e: "🎩", x: 64 }, { e: "🍕", x: 78 }, { e: "🪥", x: 92 }],
     colors: COLORS, botLevels: [{ id: "naif", label: "Naïf" }, { id: "fute", label: "Futé" }, { id: "genie", label: "Génie" }], maxPlayers: 8, minPlayers: 2, schema: R.SCHEMA,

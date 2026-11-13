@@ -375,7 +375,7 @@
   function attach() { const so = Kit.socket; if (!so || G.attached) return; G.attached = true; so.on("ho:state", onState); so.on("ho:over", onOver); so.on("ho:go", () => { G.ui = {}; }); }
 
   Kit.init({
-    id: "hands-over", title: "Main Morte", emoji: "🖐️", ribbon: "Le jeu télé où l'on perd des mains", tagline: "Lis les règles, scelle des pactes, trahis si tu l'oses.",
+    id: "hands-over", hero: true, title: "Main Morte", emoji: "🖐️", ribbon: "Le jeu télé où l'on perd des mains", tagline: "Lis les règles, scelle des pactes, trahis si tu l'oses.",
     createLabel: "Ouvrir le plateau", soloLabel: "Jouer contre des robots", startLabel: "Lancer l'émission", helpTitle: "Comment jouer",
     floaters: [{ e: "🖐️", x: 6 }, { e: "🐊", x: 20 }, { e: "🎬", x: 36 }, { e: "👻", x: 50 }, { e: "🃏", x: 64 }, { e: "🩸", x: 78 }, { e: "🎭", x: 92 }],
     colors: COLORS, botLevels: [{ id: "figurant", label: "Figurant" }, { id: "candidat", label: "Candidat" }, { id: "veteran", label: "Vétéran" }], maxPlayers: 8, minPlayers: 2, schema: R.SCHEMA,

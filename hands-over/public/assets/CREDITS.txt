@@ -1,0 +1,8 @@
+Credits du visuel d'accueil (hero.webp)
+
+Image rendue hors ligne a partir de modeles 3D libres de droits.
+KayKit Adventurers, KayKit Medieval Hexagon, KayKit City Builder Bits et Prototype Bits par Kay Lousberg, licence CC0.
+Kenney Car Kit, Racing Kit, Nature Kit et Platformer Kit par Kenney, licence CC0.
+kaylousberg.com/game-assets et kenney.nl/assets
+
+Les gemmes, la boule de cristal, le gant, les pions, les pieces et le chapeau sont modelises par le code puis rendus dans l'image.

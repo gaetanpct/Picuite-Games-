@@ -2307,3 +2307,19 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
 /* accessibilité commune, ajoutée par la refonte v49 */
 button:focus-visible, a:focus-visible, select:focus-visible, [role="button"]:focus-visible, summary:focus-visible { outline: 3px solid #ffd23f; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+
+/* v56 : noms de cases sans coupure au milieu des mots, pions plus en relief */
+.board-tile__name { word-break: normal; overflow-wrap: break-word; hyphens: auto; -webkit-hyphens: auto; }
+.board-tile:not(.board-tile--side):not(.board-tile--corner) .board-tile__name { font-size: 1.4cqw; letter-spacing: -0.02em; }
+.board-tile--side .board-tile__name { font-size: 1.55cqw; }
+.token {
+  background:
+    radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.55) 0 14%, transparent 15%),
+    radial-gradient(circle, var(--token-color, var(--gold)) 56%, transparent 57%),
+    repeating-conic-gradient(var(--token-color, var(--gold)) 0deg 16deg, #f0e6cf 16deg 32deg);
+  box-shadow: 0 3px 4px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.25) inset, inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+.board-center { background: radial-gradient(ellipse at 50% 28%, rgba(255, 217, 102, 0.07), transparent 55%), radial-gradient(ellipse at 50% 30%, var(--bg-panel-alt), var(--bg-deep) 75%); }
+.board-center__title { text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45), 0 0 22px rgba(255, 217, 102, 0.18); }
+
+#screen-home .home-hero { display: block; width: min(92%, 22rem); height: auto; margin: 0 auto 0.6rem; filter: drop-shadow(0 10px 12px rgba(0, 0, 0, 0.4)); pointer-events: none; user-select: none; }
