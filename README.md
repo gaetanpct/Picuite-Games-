@@ -1048,7 +1048,7 @@ Deux nouveaux dossiers à la racine, bouskaille et vertigogo, chacun avec son ga
 - Réglages de qualité, volume et sensibilité. Sons et ambiances générés dans le navigateur.
 
 ### Vertigogo, 2 à 8 joueurs
-- Une tour à escalader faite de huit mondes empilés. Le chantier, les toits, l'usine suspendue, le jardin géant, la fête foraine, les nuages, les mécanismes et le monde à l'envers. Court, moyen ou long, soit quatre, six ou huit mondes.
+- Une tour à escalader faite de mondes empilés. Voir la quarante et unième mise à jour pour les huit mondes actuels. Court, moyen ou long, soit quatre, six ou huit mondes.
 - Saut à hauteur variable (plus on reste appuyé, plus on saute haut), contrôle en l'air, accroche aux rebords, hissage, glissade latérale en restant accroché. Personne ne peut pousser personne.
 - Plateformes mobiles, dalles qui s'effritent, ressorts, glace et barres balayeuses. Un anneau au sol montre où l'on va atterrir.
 - Les parcours viennent d'une graine. Le serveur vérifie qu'un pilote automatique, qui joue avec la vraie physique, peut les finir, sinon il en génère un autre. Les chutes sont donc toujours justes.
@@ -1067,3 +1067,32 @@ Deux nouveaux dossiers à la racine, bouskaille et vertigogo, chacun avec son ga
 - Seules les bibliothèques d'objets accessibles depuis le serveur de travail ont pu être utilisées (KayKit et Kenney). Les autres sites de modèles 3D étaient inaccessibles, d'où des décors de Vertigogo dessinés par le code.
 - Bouskaille utilise une prédiction douce côté joueur, un léger décalage est possible avec une mauvaise connexion. Le choix du vainqueur en chacun pour soi peut être serré.
 - Dans Vertigogo, les dalles qui s'effritent sont calculées chez chaque joueur. Il n'y a pas d'échelles. Le classement du jour est gardé en mémoire et repart à zéro quand le serveur redémarre. L'animation d'accroche est une pose simple.
+
+## Quarante et unième mise à jour, Vertigogo refait, Pétard Mouillé en 3D, Bouskaille en vue subjective
+
+### Vertigogo
+- Le parcours ne tourne plus autour de blocs. On grimpe sur des objets du quotidien devenus immenses, avec une forme de collision propre à chacun. Un arbre a un tronc très fin et des branches plus larges, une voiture a un capot, un toit et un coffre, un canapé a un dossier et des accoudoirs, une casserole a un rebord. Il faut viser la bonne partie, donc les zones d'atterrissage et la taille des sauts changent tout le temps.
+- Huit mondes. Le jardin (pins, arbres, rochers, champignons, bûches), la rue (taxis, voitures de police, bancs, bornes, poteaux, bennes), le chantier (palettes, caisses, tonneaux, poutres), la maison géante (chaises, tables, canapés, lit, commode, armoire), la cuisine géante (fourneau, frigo, casserole, bocaux, assiettes, tapis roulant), les toits (immeubles de hauteurs croissantes, château d'eau), le cimetière (arbres morts, citrouilles, tombes, cercueil, sanctuaire) et les nuages. Une partie courte, moyenne ou longue en utilise quatre, six ou huit.
+- Plus de mécaniques. Des trampolines qui projettent sur un plateau en hauteur, un lit dont une moitié rebondit, des champignons rouges et des nuages rebondissants, des tapis roulants dans la cuisine, des perches très fines à viser avec précision, en plus des plateformes mobiles, des dalles qui s'effritent, de la glace et des barres balayeuses. Le même type de passage ne revient jamais deux fois de suite.
+- Textures entièrement refaites, dessinées par le code. Herbe fleurie, bitume avec marquages, contreplaqué, parquet, carrelage, tuiles, pierre moussue et nuages, avec un bord plus clair pour bien voir le rebord. Chaque monde a son ciel, sa lumière et des îlots flottants en décor avec de vrais objets 3D.
+- Caméra. Les touches G et H la font tourner à gauche et à droite, R la monte et F la descend. D reste le déplacement vers la droite, c'est pour cela que la rotation à gauche et à droite est sur G et H. Ces touches sont rappelées en bas à gauche au début de la partie. Le retour au dernier drapeau passe de R à T.
+- Les parcours restent générés à partir d'une graine et vérifiés par le pilote automatique, qui essaie jusqu'à douze variantes avant d'en accepter une.
+
+### Pétard Mouillé
+- Les décors étaient trop pauvres pour que le jeu soit agréable. Chaque biome a maintenant de vrais modèles 3D (arbres, rochers, maisons, tentes, ponts, citrouilles, lanternes, bâtiments de ville) répartis le long des rives, de la verdure sur les berges, une eau plus lisible et des couleurs plus riches. L'équipage des bateaux est composé de vrais personnages animés qui pagaient et réagissent aux chocs.
+- La caméra ne passe plus sous l'eau dans les descentes de cascade.
+- Si les modèles ne chargent pas, le jeu retombe sur les formes simples d'avant.
+
+### Bouskaille
+- Un saut avec la touche Maj ou E. Une vue à la première personne avec la touche V, ou avec la case dans le salon.
+- Les flèches de choix du personnage dans le salon sont plus grandes et plus visibles, dans Bouskaille comme dans Vertigogo.
+- Les accessoires comme le haut-de-forme se posent maintenant correctement sur les personnages qui ont une capuche.
+
+### Ce qu'il faut déposer sur GitHub
+- Les dossiers bouskaille, vertigogo et fart-together, et le fichier README.md. Chaque dossier reste sous les 100 fichiers (31, 23 et 22). Il n'y a rien à supprimer, mais si GitHub te propose de remplacer des fichiers, accepte.
+
+### Limites connues
+- Tout a été testé avec un Chromium sans carte graphique, des bots et des échanges réseau simulés, pas sur de vrais appareils. La fluidité réelle de Vertigogo, qui affiche maintenant plusieurs centaines d'objets, reste à confirmer sur ton ordinateur et surtout sur téléphone. Si c'est lent, passe la qualité sur moyenne ou basse dans les réglages.
+- Les objets viennent des bibliothèques gratuites KayKit et Kenney accessibles depuis le serveur de travail. Les formes de collision sont des boîtes ajustées à la main, elles suivent les objets de près mais pas au millimètre, surtout sur les objets ronds comme les citrouilles et les nuages.
+- Environ un parcours sur quatre est refusé par le pilote automatique à la première tentative, le serveur en génère alors un autre sans que tu le voies. Le pilote ne saute pas aussi bien qu'un humain, un passage jugé trop dur pour lui peut rester faisable à la main.
+- La vue à la première personne de Bouskaille n'a pas de vue arrière.

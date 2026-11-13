@@ -64,7 +64,10 @@ body.touch .bk-help { display: none; }
 .bk-pick { display: flex; align-items: center; gap: 6px; margin: 3px 0; font-size: 0.95rem; }
 .bk-pick span.l { width: 82px; opacity: 0.8; font-size: 0.85rem; }
 .bk-pick b { flex: 1; text-align: center; font-weight: 600; }
-.bk-pick button { width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, 0.18); color: #fff; font-size: 1rem; cursor: pointer; }
+.bk-pick button { width: 38px; height: 38px; flex: none; border-radius: 50%; border: 3px solid #fff; background: #ff8a3d; color: #fff; font-size: 1.5rem; font-weight: 700; line-height: 1; padding: 0 0 3px; cursor: pointer; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.28); transition: transform 0.1s; }
+.bk-pick button:hover { transform: scale(1.1); background: #ff9d5c; }
+.bk-pick button:active { transform: translateY(2px); box-shadow: none; }
+.bk-pick .l { color: #5a4a70; } .bk-pick b { color: #2a1a4a; background: #fff3d6; border-radius: 10px; padding: 6px 4px; }
 .bk-arenas { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; margin-top: 10px; }
 .bk-arenas div { border-radius: 10px; padding: 6px 8px; font-size: 0.85rem; background: rgba(255, 255, 255, 0.08); }
 .bk-arenas b { display: block; }
@@ -73,3 +76,14 @@ body.touch .bk-help { display: none; }
 .bk-ov.podium { align-items: flex-end; padding-bottom: 14px; background: transparent; }
 .bk-ov.podium .bk-card { padding: 12px 18px; }
 .bk-ov.podium .bk-card h2 { font-size: 1.5rem; }
+
+.bk-jump { position: absolute; right: 150px; bottom: 44px; width: 78px; height: 78px; border-radius: 50%; background: rgba(61, 166, 255, 0.55); border: 3px solid rgba(255, 255, 255, 0.55); display: none; pointer-events: auto; color: #fff; font-family: "Lilita One", sans-serif; font-size: 1rem; align-items: center; justify-content: center; touch-action: none; }
+.bk-jump.on { background: rgba(40, 110, 255, 0.85); }
+body.touch .bk-jump { display: flex; }
+.bk-xh { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5); display: none; opacity: 0.85; }
+.bk-keys { position: absolute; left: 12px; bottom: 14px; display: flex; gap: 8px; font-size: 0.78rem; }
+.bk-keys span { background: var(--hud, rgba(26, 14, 40, 0.74)); border-radius: 10px; padding: 4px 9px; }
+.bk-keys kbd { background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 6px; padding: 0 6px; font-family: inherit; font-weight: 700; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35); }
+body.touch .bk-keys { display: none; }
+.bk-fpopt { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; font-weight: 600; color: #2a1a4a; cursor: pointer; }
+.bk-fpopt input { width: 20px; height: 20px; accent-color: #ff8a3d; }

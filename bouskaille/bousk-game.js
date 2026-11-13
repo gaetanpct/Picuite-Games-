@@ -64,7 +64,7 @@ function bind(socket, h, api) {
   let nIn = 0, tIn = 0;
   socket.on("b:in", safe((d) => {
     if (!inGame() || !d) return; const now = Date.now(); if (now - tIn > 1000) { tIn = now; nIn = 0; } if (++nIn > 90) return;
-    const p = me(); if (!p) return; ctx.room.g.m.setInput(p.id, { mx: d.mx, mz: d.mz, h: d.h, seq: d.seq });
+    const p = me(); if (!p) return; ctx.room.g.m.setInput(p.id, { mx: d.mx, mz: d.mz, h: d.h, j: !!d.j, seq: d.seq });
     if (ctx.room.g.m.autoIds.has(p.id)) ctx.room.g.m.setAuto(p.id, false);
   }));
   socket.on("b:cos", safe((d) => {

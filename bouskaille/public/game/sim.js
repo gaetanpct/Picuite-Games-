@@ -17,7 +17,7 @@
     E: 0.42, BONUS0: 2.2, BONUS1: 6.5, VCAP: 18, VCAP_BAR: 13,
     GRAV: 30, SPRING_V: 12.5, FALL_OUT: -13, EDGE: 0.18, AIRCTL: 0.35, STUN_K: 0.012,
     BRACE: 0.8, RECV: 1.5, INV_SELF: 1.6, HIT_MEMORY: 4,
-    RAMP: 4,
+    RAMP: 4, JUMP_V: 8.6, JUMP_CD: 0.95,
   };
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const len = (x, z) => Math.sqrt(x * x + z * z);
@@ -28,7 +28,7 @@
   function newPlayer(id, team, x, z, face) {
     return { id, team: team || 0, x, z, y: 0, vx: 0, vz: 0, vy: 0, fx: Math.cos(face || 0), fz: Math.sin(face || 0),
       alive: true, fall: false, air: false, holding: false, chT: 0, ch: 0, dash: 0, dx: 0, dz: 0, ds: 0, dpow: 0, dhit: false,
-      rec: 0, cd: 0, stun: 0, slide: 0, inv: 0, springCd: 0, lastHit: null, hits: 0, ground: true, slip: false, st: "ok" };
+      rec: 0, cd: 0, jcd: 0, jHeld: false, stun: 0, slide: 0, inv: 0, springCd: 0, lastHit: null, hits: 0, ground: true, slip: false, st: "ok" };
   }
 
   // ---------- éléments de l'arène à l'instant t ----------
@@ -140,7 +140,8 @@
   function stepPlayer(W, P, inp) {
     if (!P.alive) return;
     const dt = DT; inp = inp || {};
-    P.cd = Math.max(0, P.cd - dt); P.rec = Math.max(0, P.rec - dt); P.stun = Math.max(0, P.stun - dt); P.slide = Math.max(0, P.slide - dt); P.inv = Math.max(0, P.inv - dt); P.springCd = Math.max(0, P.springCd - dt);
+    P.cd = Math.max(0, P.cd - dt); P.rec = Math.max(0, P.rec - dt); P.stun = Math.max(0, P.stun - dt); P.slide = Math.max(0, P.slide - dt); P.inv = Math.max(0, P.inv - dt); P.springCd = Math.max(0, P.springCd - dt); P.jcd = Math.max(0, (P.jcd || 0) - dt);
+    const jEdge = !!inp.j && !P.jHeld; P.jHeld = !!inp.j;
     let mx = +inp.mx || 0, mz = +inp.mz || 0; const ml = len(mx, mz); if (ml > 1) { mx /= ml; mz /= ml; }
     // chute
     if (P.fall) {
@@ -164,6 +165,8 @@
     P.slip = sf.slip; P.ground = true;
     if (sf.crumble) { const T = W.tiles[sf.i]; if (T.touch < 0) { T.touch = W.t; T.down = W.t + W.arena.surfaces[sf.i].delay; ev(W, { e: "crumble", i: sf.i }); } }
     const stunned = P.stun > 0, recov = P.rec > 0;
+    // saut, un petit bond qui permet d'enjamber barres et adversaires, au prix d'un temps de recharge
+    if (jEdge && P.jcd <= 0 && !stunned && !(P.dash > 0)) { P.air = true; P.vy = K.JUMP_V; P.y = 0.01; P.jcd = K.JUMP_CD; if (P.holding) { P.holding = false; P.chT = 0; P.ch = 0; P.cd = Math.max(P.cd, 0.25); } ev(W, { e: "jump", id: P.id, x: P.x, z: P.z }); P.st = "air"; return; }
     // visée et commandes
     if (ml > 0.12 && !P.dash) { const tx = mx / ml, tz = mz / ml; const a0 = Math.atan2(P.fz, P.fx), a1 = Math.atan2(tz, tx); let d = a1 - a0; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; const turn = clamp(d, -16 * dt, 16 * dt); const na = a0 + turn; P.fx = Math.cos(na); P.fz = Math.sin(na); }
     const hold = !!inp.h;

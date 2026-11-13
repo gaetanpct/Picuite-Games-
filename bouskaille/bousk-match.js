@@ -39,7 +39,7 @@ class Match {
     this.input = {}; Object.values(this.brains).forEach((b) => { b.h = false; b.mx = 0; b.mz = 0; b.mode = "roam"; b.next = 0; });
   }
   roundMsg() { return { i: this.round, total: this.total, arena: this.A.id, seed: this.seed, hazards: this.s.hazards, mode: this.s.mode, shrink: !!(this.s.shrink && !Rules.isTimed(this.s.mode)), dur: this.s.roundTime, double: !!(this.s.finalDouble && this.round === this.total - 1 && this.total > 1), players: this.defs.map((d) => ({ id: d.id, name: d.name, color: d.color, team: d.team, bot: !!d.isBot })) }; }
-  setInput(id, inp) { this.input[id] = { mx: +inp.mx || 0, mz: +inp.mz || 0, h: !!inp.h, seq: inp.seq | 0 }; }
+  setInput(id, inp) { this.input[id] = { mx: +inp.mx || 0, mz: +inp.mz || 0, h: !!inp.h, seq: inp.seq | 0 }; const jq = this.jq || (this.jq = {}), jp = this.jprev || (this.jprev = {}); if (inp.j && !jp[id]) jq[id] = true; jp[id] = !!inp.j; }
   setAuto(id, on) { if (on) this.autoIds.add(id); else this.autoIds.delete(id); if (on && !this.brains[id]) { const d = this.defs.find((x) => x.id === id); this.brains[id] = Bot.newBrain("moyen", this.rnd); } }
 
   aliveList() { return this.W.players.filter((p) => p.alive); }
@@ -55,7 +55,7 @@ class Match {
     for (const p of W.players) {
       const d = this.def(p.id);
       if ((d.isBot || this.autoIds.has(p.id)) && this.brains[p.id]) inputs[p.id] = Bot.decide(W, p, this.brains[p.id], W.t);
-      else inputs[p.id] = this.input[p.id] || null;
+      else { const ip = this.input[p.id] || null; const jq = this.jq || (this.jq = {}); if (ip && jq[p.id]) { inputs[p.id] = Object.assign({}, ip, { j: true }); jq[p.id] = false; } else inputs[p.id] = ip; }
     }
     Sim.stepWorld(W, inputs);
     for (const e of Sim.drain(W)) { this.out.push(e); if (e.e === "hit") this.stats.hits++; else if (e.e === "dash") this.stats.dashes++; else if (e.e === "pulse") this.stats.pulses++; else if (e.e === "miss") this.stats.misses++; }

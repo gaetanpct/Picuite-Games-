@@ -77,7 +77,9 @@
         });
         this.mixer = new T.AnimationMixer(m);
         g.animations.forEach((c) => { const a = this.mixer.clipAction(c); this.act[c.name] = a; });
-        if (head && this.opts.hat > 0) { const ho = hat(this.opts.hat); if (ho) { m.updateMatrixWorld(true); const ws = new T.Vector3(); head.getWorldScale(ws); ho.scale.setScalar(1 / (ws.x * 1.0)); ho.position.y = 0.42 / ws.y * 0.5; head.add(ho); this.hatObj = ho; } }
+        if (head && this.opts.hat > 0) { const ho = hat(this.opts.hat); if (ho) { m.updateMatrixWorld(true); const ws = new T.Vector3(); head.getWorldScale(ws); ho.scale.setScalar(1 / (ws.x * 1.0)); let hm = null; m.traverse((o) => { if (o.isMesh && /_Head/.test(o.name)) hm = o; });
+          if (hm) { const hb = new T.Box3().setFromObject(hm); const topW = new T.Vector3((hb.min.x + hb.max.x) / 2, hb.max.y, (hb.min.z + hb.max.z) / 2); const loc = head.worldToLocal(topW.clone()); ho.position.set(loc.x, loc.y - 0.035 / ws.y, loc.z); const wide = (hb.max.x - hb.min.x); const k = Math.max(0.9, Math.min(1.25, wide / 0.52)); ho.scale.multiplyScalar(k); this.hatTop = hb.max.y; } else ho.position.y = 0.42 / ws.y * 0.5;
+          head.add(ho); this.hatObj = ho; } }
         this.ready = true; this.play("idle", 0);
       }, () => {});
     }

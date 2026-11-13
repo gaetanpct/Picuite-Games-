@@ -64,8 +64,8 @@
     if (jpress) P.buf = K.BUF; else P.buf = Math.max(0, P.buf - dt);
     P.grabLock = Math.max(0, P.grabLock - dt);
 
-    // porté par une plateforme mobile
-    if (P.on >= 0) { const b = W.boxes[P.on]; if (b && b.mv) { P.x += b.ox - b.px; P.y += b.oy - b.py; P.z += b.oz - b.pz; } }
+    // porté par une plateforme mobile ou un tapis roulant
+    if (P.on >= 0) { const b = W.boxes[P.on]; if (b && b.mv) { P.x += b.ox - b.px; P.y += b.oy - b.py; P.z += b.oz - b.pz; } else if (b && b.cv && P.st === "ground") { P.x += b.cv[0] * dt; P.z += b.cv[1] * dt; } }
 
     // ---- escalade ----
     if (P.st === "climb") {
@@ -137,7 +137,7 @@
     if (stand && P.vy <= 0.01) {
       const impact = -P.vy; const was = P.st; P.y = stand.Y1; P.vy = 0; P.st = "ground"; P.on = stand.i; P.jumped = false;
       if (was === "air" && impact > 3) ev.push({ e: "land", v: impact, x: P.x, y: P.y, z: P.z, k: stand.k });
-      if (stand.k === "spring") { P.vy = K.SPRING_V; P.st = "air"; P.on = -1; P.jumped = false; P.coy = 0; P.buf = 0; ev.push({ e: "spring", x: P.x, y: P.y, z: P.z, i: stand.i }); }
+      if (stand.k === "spring") { P.vy = stand.sv || K.SPRING_V; P.st = "air"; P.on = -1; P.spr = stand.i; P.jumped = false; P.coy = 0; P.buf = 0; ev.push({ e: "spring", x: P.x, y: P.y, z: P.z, i: stand.i }); }
       else if (stand.k === "crumble" && !W.cr[stand.i]) { W.cr[stand.i] = { t0: W.t }; ev.push({ e: "crumble", i: stand.i }); }
     } else if (P.st === "ground") { P.st = "air"; P.on = -1; }
     if (P.st === "air") P.on = -1;

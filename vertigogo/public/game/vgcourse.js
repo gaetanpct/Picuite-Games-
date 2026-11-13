@@ -3,19 +3,19 @@
 // Le parcours monte en spirale carrée autour d'un noyau central. Chaque module est calibré
 // sur les vrais sauts du contrôleur, puis le serveur vérifie tout avec un pilote automatique.
 // ============================================================
-(function (root, factory) { if (typeof module === "object" && module.exports) module.exports = factory(require("./vgsim.js")); else root.VgCourse = factory(root.VgSim); })(typeof self !== "undefined" ? self : this, function (S) {
-  const THEMES = ["chantier", "toits", "usine", "jardin", "foraine", "nuages", "meca", "surreal"];
-  const NAMES = ["Le chantier", "Les toits", "L'usine suspendue", "Le jardin géant", "La fête foraine", "Les nuages", "Les mécanismes", "Le monde à l'envers"];
-  const BLURBS = ["Poutrelles, échafaudages et grues.", "Des cheminées, des antennes et du vide entre les immeubles.", "Passerelles, ascenseurs et barres qui tournent.", "Des feuilles qui cèdent et des champignons rebondissants.", "Auto-tamponneuses, trampolines et manèges en l'air.", "Des plateformes de brume qui s'effritent.", "Des engrenages, des coulisses et des horloges.", "Rien n'est à sa place, même la glace."];
+(function (root, factory) { if (typeof module === "object" && module.exports) module.exports = factory(require("./vgsim.js"), require("./vgprops.js")); else root.VgCourse = factory(root.VgSim, root.VgProps); })(typeof self !== "undefined" ? self : this, function (S, PR) {
+  const THEMES = ["jardin", "rue", "chantier", "maison", "cuisine", "toits", "cimetiere", "nuages"];
+  const NAMES = ["Le jardin", "La rue", "Le chantier", "La maison géante", "La cuisine géante", "Les toits", "Le cimetière", "Les nuages"];
+  const BLURBS = ["Des pins, des rochers et des champignons qui font rebondir.", "Des voitures, des bennes et des poteaux tout fins.", "Des caisses, des poutres et des palettes empilées.", "Des chaises, des tables, un canapé et un lit trampoline.", "Un fourneau, un frigo, des marmites et un tapis roulant.", "Des immeubles de hauteurs différentes et des trampolines.", "Des arbres morts, des citrouilles et des tombes qui s'effritent.", "Des nuages moelleux et des bonds géants vers le sommet."];
   const WEIGHTS = [
-    { steps: 4, narrow: 3, wall: 3, lift: 2, gaps: 2, mover: 1 },
-    { gaps: 4, wall: 3, steps: 3, narrow: 2, spring: 1 },
-    { mover: 3, lift: 3, sweeper: 2, narrow: 2, steps: 2, gaps: 1 },
-    { crumble: 3, spring: 3, steps: 3, wall: 1, gaps: 1 },
-    { sweeper: 3, spring: 3, mover: 2, steps: 2, crumble: 1 },
-    { crumble: 3, spring: 3, gaps: 2, steps: 2, lift: 1 },
-    { mover: 3, lift: 2, sweeper: 3, narrow: 2, steps: 1 },
-    { ice: 3, mover: 2, spring: 2, crumble: 2, wall: 2, narrow: 2, sweeper: 1, gaps: 1 },
+    { prop: 8, steps: 2, gaps: 2, narrow: 1, crumble: 1, tramp: 2 },
+    { prop: 8, gaps: 2, steps: 1, wall: 1, mover: 2, lift: 1, tramp: 2 },
+    { prop: 7, narrow: 2, lift: 2, sweeper: 2, gaps: 1, mover: 1, wall: 1, tramp: 2 },
+    { prop: 8, steps: 2, wall: 2, spring: 1, tramp: 2, narrow: 1 },
+    { prop: 7, mover: 2, ice: 2, sweeper: 1, gaps: 1, steps: 1, tramp: 2 },
+    { prop: 7, gaps: 3, wall: 2, narrow: 1, tramp: 3, mover: 1 },
+    { prop: 7, crumble: 3, narrow: 1, sweeper: 1, steps: 1, spring: 1, tramp: 1 },
+    { prop: 6, crumble: 3, spring: 2, tramp: 3, gaps: 1, lift: 1, mover: 1, ice: 1 },
   ];
   const DIFF = {
     facile: { gap: 0.58, wall: 2.1, narrow: 1.6, crumble: 0.85, per: 6.2, zoneBonus: 0.06 },
@@ -51,7 +51,7 @@
     let pool = Array.from(new Set((opts.pool && opts.pool.length ? opts.pool : [0, 1, 2, 3, 4, 5, 6, 7]).map(Number).filter((v) => v >= 0 && v <= 7))).sort((a, b) => a - b); if (!pool.length) pool = [0, 1, 2, 3, 4, 5, 6, 7];
     let ids; if (pool.length <= nzReq) ids = pool.slice(); else { const keep = new Set([pool[0], pool[pool.length - 1]]); while (keep.size < nzReq) keep.add(pool[ri(1, pool.length - 2)]); ids = pool.filter((v) => keep.has(v)); }
     const nz = ids.length;
-    const C = { boxes: [], sweeps: [], nodes: [], zones: [], seed, opts: { seed, salt, diff: diffName, zones: nzReq, pool: opts.pool || null } }; const boxes = C.boxes;
+    const C = { boxes: [], sweeps: [], nodes: [], zones: [], objs: [], seed, opts: { seed, salt, diff: diffName, zones: nzReq, pool: opts.pool || null } }; const boxes = C.boxes;
     const HZ = nz <= 3 ? 42 : nz === 4 ? 38 : nz <= 6 ? 31 : 26; const Hs = 12 + ri(0, 2) * 1.5; // demi-côté de la spirale
     // état du curseur
     let dir = 0, lx = -Hs, lz = -Hs, ltop = 0, lw = 8, ld = 8, lastBox = null; let zoneIdx = 0, zStartY = 0, zNodeStart = 0, side = 0, halfPlaced = false, nextCp = 0;
@@ -63,12 +63,12 @@
     function reach(b) { // boîte englobante sur toute la course du mobile
       let o = { x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1, z0: b.z0, z1: b.z1 }; if (b.mv) { const a = b.mv.amp; if (b.mv.ax === "x") { o.x0 -= a; o.x1 += a; } else if (b.mv.ax === "y") { o.y0 -= a; o.y1 += a; } else { o.z0 -= a; o.z1 += a; } } return o;
     }
-    function conflict(b, ignoreLast) { const r = reach(b); const n = boxes.length; for (let i = 0; i < n - (ignoreLast || 0); i++) { const e = reach(boxes[i]); if (r.x1 + 0.5 > e.x0 && r.x0 - 0.5 < e.x1 && r.z1 + 0.5 > e.z0 && r.z0 - 0.5 < e.z1 && r.y1 + 3.0 > e.y0 && r.y0 - 4.4 < e.y1) return true; } return false; }
+    function conflict(b, ignoreLast) { const r = reach(b); const n = boxes.length; const lb = ignoreLast && n ? boxes[n - 1] : null; for (let i = 0; i < n - (ignoreLast || 0); i++) { if (lb && lb.obj != null && boxes[i].obj === lb.obj) continue; const e = reach(boxes[i]); if (r.x1 + 0.5 > e.x0 && r.x0 - 0.5 < e.x1 && r.z1 + 0.5 > e.z0 && r.z0 - 0.5 < e.z1 && r.y1 + 3.0 > e.y0 && r.y0 - 4.4 < e.y1) return true; } return false; }
     function commit(b, isNode) { b.i = boxes.length; boxes.push(b); if (isNode !== false) C.nodes.push(b.i); return b; }
     function front(box) { const f = DIRS[dir]; return f[0] ? (f[0] > 0 ? box.x1 : box.x0) : (f[1] > 0 ? box.z1 : box.z0); }
     // place une plateforme à "gap" de la précédente (bord à bord), lat = décalage latéral
     function place(gap, dy, w, d, lat, k, extra, th) {
-      const f = DIRS[dir], n = [-f[1], f[0]]; const farX = lx + f[0] * ld / 2, farZ = lz + f[1] * ld / 2; const c = [farX + f[0] * (gap + d / 2) + n[0] * lat, farZ + f[1] * (gap + d / 2) + n[1] * lat];
+      const runF = Math.min(1, 0.52 + ld / 5); gap *= runF; const f = DIRS[dir], n = [-f[1], f[0]]; const farX = lx + f[0] * ld / 2, farZ = lz + f[1] * ld / 2; const c = [farX + f[0] * (gap + d / 2) + n[0] * lat, farZ + f[1] * (gap + d / 2) + n[1] * lat];
       return mkBox(c[0], c[1], d, w, ltop + dy, th || pick(0.9, 1.2), k, extra);
     }
     function adopt(b) { lx = (b.x0 + b.x1) / 2; lz = (b.z0 + b.z1) / 2; ltop = b.y1; lastBox = b; const f = DIRS[dir]; ld = f[0] ? b.x1 - b.x0 : b.z1 - b.z0; lw = f[0] ? b.z1 - b.z0 : b.x1 - b.x0; }
@@ -115,9 +115,34 @@
         const dy2 = pick(0, 0.6), e = place(sg(dy2, gapF(z) * 0.7), dy2, pick(3, 4), 3.2, 0, "solid"); if (conflict(e, 2)) { C.sweeps.pop(); boxes.pop(); C.nodes.pop(); return false; } commit(e); adopt(e); return true;
       },
     };
-    function weightedPick(z) { const w = WEIGHTS[ids[z]]; let tot = 0; for (const k in w) tot += w[k]; let r = R() * tot; for (const k in w) { r -= w[k]; if (r <= 0) return k; } return "steps"; }
-    function snapshotState() { return { dir, lx, lz, ltop, lw, ld, lastBox, nb: boxes.length, nn: C.nodes.length, ns: C.sweeps.length }; }
-    function restore(s) { dir = s.dir; lx = s.lx; lz = s.lz; ltop = s.ltop; lw = s.lw; ld = s.ld; lastBox = s.lastBox; boxes.length = s.nb; C.nodes.length = s.nn; C.sweeps.length = s.ns; }
+    // ---- objets du quotidien : chaque objet a ses propres boîtes de collision ----
+    let recent = [];
+    function placeTpl(T, z, o) {
+      o = o || {}; const f = pick(0.92, 1.1); const L = PR.layout(T, f); const E = L.boxes[L.route[0]]; const fv = DIRS[dir], nv = [-fv[1], fv[0]];
+      const dy = o.dy != null ? o.dy : pick(-0.3, 0.9); const g = (o.gap != null ? o.gap : Math.max(0.5, sg(dy, gapF(z)) * pick(0.55, 0.92))) * Math.min(1, 0.52 + ld / 5); const lat = pick(-0.7, 0.7);
+      const farF = (lx + fv[0] * ld / 2) * fv[0] + (lz + fv[1] * ld / 2) * fv[1]; const cN = lx * nv[0] + lz * nv[1];
+      const pf = farF + g - E.u0, pn = cN + lat - (E.v0 + E.v1) / 2, py = ltop + dy - E.y1;
+      const wb = L.boxes.map((b) => {
+        const xs = [], zs = []; [[b.u0, b.v0], [b.u1, b.v0], [b.u0, b.v1], [b.u1, b.v1]].forEach((q) => { xs.push(fv[0] * (pf + q[0]) + nv[0] * (pn + q[1])); zs.push(fv[1] * (pf + q[0]) + nv[1] * (pn + q[1])); });
+        const w = { x0: Math.min.apply(null, xs), x1: Math.max.apply(null, xs), z0: Math.min.apply(null, zs), z1: Math.max.apply(null, zs), y0: py + b.y0, y1: py + b.y1, k: b.k || "solid", zone: zoneIdx, w: Math.abs(b.v1 - b.v0), d: Math.abs(b.u1 - b.u0) };
+        if (b.sv) w.sv = b.sv; if (b.cv) { const sgn = R() < 0.5 ? -1 : 1; w.cv = [fv[0] * 2.3 * sgn, fv[1] * 2.3 * sgn]; w.cvs = sgn; } if (b.node === false) w.nonode = 1; return w;
+      });
+      for (let i = 0; i < wb.length; i++) if (conflict(wb[i], 1)) return false;
+      const id = C.objs.length; const base = boxes.length; wb.forEach((w) => { w.obj = id; commit(w, false); });
+      L.route.forEach((ri) => C.nodes.push(base + ri));
+      const ang = Math.atan2(-fv[1], fv[0]); C.objs.push({ t: T.id, proc: T.proc || null, style: T.style || null, b0: base, nb: wb.length, px: fv[0] * pf + nv[0] * pn, py, pz: fv[1] * pf + nv[1] * pn, ang, f, zone: zoneIdx, parts: L.parts });
+      adopt(boxes[base + L.route[L.route.length - 1]]); return true;
+    }
+    function pickTpl(z) {
+      const zid = ids[z]; const c = PR.TPL.filter((t) => t.w > 0 && t.zones.indexOf(zid) >= 0); if (!c.length) return null;
+      let tot = 0; const ws = c.map((t) => { const w = t.w * (recent.indexOf(t.id) >= 0 ? 0.12 : 1); tot += w; return w; }); let r = R() * tot; for (let i = 0; i < c.length; i++) { r -= ws[i]; if (r <= 0) { recent.push(c[i].id); if (recent.length > 4) recent.shift(); return c[i]; } } return c[c.length - 1];
+    }
+    MODS.prop = function (z) { const T = pickTpl(z); return T ? placeTpl(T, z) : false; };
+    MODS.tramp = function (z) { return placeTpl(PR.byId("trampoline"), z, { dy: pick(0, 0.6), gap: pick(0.9, 1.8) }); };
+    let lastMod = "";
+    function weightedPick(z) { const w = WEIGHTS[ids[z]]; let tot = 0; const eff = {}; for (const k in w) { eff[k] = w[k] * ((k === "tramp" || k === "spring") && (lastMod === "tramp" || lastMod === "spring" || lastMod === "mover") ? 0 : k === lastMod && k !== "prop" ? 0.35 : 1); tot += eff[k]; } let r = R() * tot; for (const k in eff) { r -= eff[k]; if (r <= 0) return k; } return "steps"; }
+    function snapshotState() { return { dir, lx, lz, ltop, lw, ld, lastBox, nb: boxes.length, nn: C.nodes.length, ns: C.sweeps.length, no: C.objs.length }; }
+    function restore(s) { dir = s.dir; lx = s.lx; lz = s.lz; ltop = s.ltop; lw = s.lw; ld = s.ld; lastBox = s.lastBox; boxes.length = s.nb; C.nodes.length = s.nn; C.sweeps.length = s.ns; C.objs.length = s.no; }
     function corner(big, rest) { // plateforme d'angle, ou de repos, puis virage à droite
       const f = DIRS[dir], n = [-f[1], f[0]]; const t = cornerTarget(); const size = big ? 7.4 : 4.6;
       // on vise le coin idéal, en bornant la distance de saut
@@ -139,7 +164,7 @@
         if (rem < 9) { const b = corner(false, false); if (!conflict(b, 1)) { commit(b); adopt(b); dir = (dir + 1) % 4; side++; continue; } }
         // pas de module trop long près d'un angle : on se contente de marches
         const st0 = snapshotState(); let ok = false; let tries = 0;
-        while (!ok && tries++ < 8) { const name = rem < 16 ? "steps" : weightedPick(z); ok = MODS[name](z); if (!ok) restore(st0); else if (!cpDone && climbed > HZ * 0.45 && lastBox.w >= 3 && lastBox.k === "solid") { cpDone = true; lastBox.cp = true; zc.cps.push(lastBox.i); } }
+        while (!ok && tries++ < 8) { const name = rem < 16 ? "steps" : weightedPick(z); ok = MODS[name](z); if (ok) lastMod = name; if (!ok) restore(st0); else if (!cpDone && climbed > HZ * 0.45 && lastBox.w >= 3 && lastBox.k === "solid") { cpDone = true; lastBox.cp = true; zc.cps.push(lastBox.i); } }
         if (!ok) { // dernier recours, marches simples vers le haut
           const b = place(sg(1.0, 0.5), 1.0, 3.4, 3.2, 0, "solid"); commit(b); adopt(b); }
       }

@@ -42,6 +42,7 @@
       <div class="vg-prompt" id="vg-prompt"></div><div class="vg-fall" id="vg-fall"></div>
       <div class="vg-banner" id="vg-banner"></div><div class="vg-fade" id="vg-fade"></div>
       <div class="vg-help" id="vg-help"></div>
+      <div class="vg-ck" id="vg-ck"><span>Caméra</span><kbd id="ck-g" title="Tourner à gauche">G</kbd><kbd id="ck-h" title="Tourner à droite">H</kbd><kbd id="ck-r" title="Monter la caméra">R</kbd><kbd id="ck-f" title="Descendre la caméra">F</kbd></div>
       <div class="vg-joy" id="vg-joy"><i></i></div><div class="vg-act" id="vg-act">SAUT</div><div class="vg-btn2" id="vg-b2">LÂCHER</div>
       <div class="vg-ov" id="vg-end"></div><div class="vg-ov" id="vg-over"></div><div class="vg-ov" id="vg-pause"></div>`;
     sc.appendChild(hudEl);
@@ -66,6 +67,7 @@
   // ---------- parcours ----------
   function disposeCourse() { Object.values(G.actors).forEach((a) => a.dispose()); G.actors = {}; if (G.view) { G.view.dispose(); G.view = null; } if (G.marker) { R.scene.remove(G.marker); G.marker = null; } FX.clear(); SND.stopAmb(); }
   function startCourse(msg, keepPhase) {
+    if (window.VgProps3D && VgProps3D.state < 2) { VgProps3D.load(() => startCourse(msg, keepPhase)); return; }
     if (!initRender()) return toast("Ton navigateur ne peut pas afficher la 3D.", "error");
     disposeCourse(); G.msg = msg; G.cos = msg.cos || G.cos; G.C = Cr.generate(msg.opts); G.W = S.makeWorld(G.C); G.ids = msg.players.map((p) => p.id); G.idx = {}; G.ids.forEach((id, i) => { G.idx[id] = i; }); G.mine = myPid(); G.snaps = []; G.cpSeen = {}; G.fin = null; G.over = null; G.falls = 0; G.pen = 0;
     const me = G.idx[G.mine] || 0; const s0 = slot(G.C, me); G.P = S.newPlayer(s0.x, 0, s0.z, G.C.start.ry); G.P.on = G.C.startBox; G.good = { x: s0.x, y: 0, z: s0.z };
@@ -77,7 +79,7 @@
     document.body.dataset.vg = "course"; $("#vg-end").classList.remove("show"); $("#vg-over").classList.remove("show");
     const md = Rules.MODES[msg.mode] || ""; $("#vg-mode").innerHTML = `<span>${esc(md)}</span><span style="opacity:.75">${msg.mode === "jour" ? esc(msg.day) : "Graine " + esc(msg.seed)}</span>`;
     renderRail(); renderBoard();
-    const h = $("#vg-help"); if (h) { h.style.opacity = 1; h.innerHTML = isTouch ? "Joystick pour avancer, glisse à droite pour tourner la caméra, bouton Saut pour sauter." : "<kbd>ZQSD</kbd> pour bouger, <kbd>Espace</kbd> pour sauter (appuie plus longtemps pour sauter plus haut), la souris tourne la caméra. Saute vers un rebord pour t'y accrocher."; }
+    const h = $("#vg-help"); if (h) { h.style.opacity = 1; h.innerHTML = isTouch ? "Joystick pour avancer, glisse à droite pour tourner la caméra, bouton Saut pour sauter." : "<kbd>ZQSD</kbd> pour bouger, <kbd>Espace</kbd> pour sauter (appuie plus longtemps pour sauter plus haut), la souris ou les touches G, H, R et F orientent la caméra. Saute vers un rebord pour t'y accrocher."; }
     if (!keepPhase) { G.phase = "load"; }
   }
   function renderRail() {
@@ -129,9 +131,9 @@
   function bindInput() {
     window.addEventListener("keydown", (e) => {
       if (document.body.dataset.screen !== "game") return; const t = e.target && e.target.tagName; if (t === "INPUT" || t === "TEXTAREA" || t === "SELECT") return; const k = e.key.toLowerCase();
-      if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "z", "q", "s", "d", "w", "a", "shift"].includes(k)) e.preventDefault();
+      if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "z", "q", "s", "d", "w", "a", "shift", "g", "h", "r", "f"].includes(k)) e.preventDefault();
       G.keys[k] = true; SND.unlock(); if (k === "escape") { if ($("#vg-pause").classList.contains("show")) closePause(); else openPause(); }
-      if (k === "r" && !e.repeat) resetToFlag(); if (k === "c") { G.cam.yaw = Math.atan2(G.P.fx, G.P.fz) + Math.PI; }
+      if (k === "t" && !e.repeat) resetToFlag(); if (k === "c") { G.cam.yaw = Math.atan2(G.P.fx, G.P.fz) + Math.PI; }
     });
     window.addEventListener("keyup", (e) => { G.keys[e.key.toLowerCase()] = false; }); window.addEventListener("blur", () => { G.keys = {}; G.jump = false; });
     // souris, verrouillage du pointeur
@@ -171,6 +173,7 @@
     G.frame++; G.fps.push(dt); if (G.fps.length > 90) { const avg = G.fps.reduce((a, b) => a + b, 0) / G.fps.length; G.fps = []; adapt(avg); }
     const P = G.P, W = G.W; const playing = G.phase === "play" && !$("#vg-pause").classList.contains("show"); const ev = [];
     if (G.phase === "play") { const ls = G.snaps[G.snaps.length - 1]; G.tPlay = ls && ls.t != null ? ls.t + (now - ls.arr) / 1000 : (now - G.playAt) / 1000; }
+    { const k = G.keys, c = G.cam, sp = 1.9 * G.sens; if (k["g"]) c.yaw += sp * dt; if (k["h"]) c.yaw -= sp * dt; if (k["r"]) c.pitch = clamp(c.pitch + sp * 0.7 * dt * (G.inv ? -1 : 1), -0.15, 1.25); if (k["f"]) c.pitch = clamp(c.pitch - sp * 0.7 * dt * (G.inv ? -1 : 1), -0.15, 1.25); ["g", "h", "r", "f"].forEach((x) => { const e = document.getElementById("ck-" + x); if (e) e.classList.toggle("on", !!k[x]); }); }
     // simulation locale à pas fixe
     if (G.phase === "play") {
       G.acc += dt; let n = 0; const inp = G.auto ? G.auto() : readInput(); if (G.lock > 0) { G.lock -= dt; inp.mx = inp.mz = 0; inp.jump = false; } if (!playing) { inp.mx = inp.mz = 0; inp.jump = false; }
@@ -229,6 +232,7 @@
   }
   function camera(dt, P) {
     const c = G.cam, cam = R.cam; const asp = cam.aspect;
+    if (G.dbgCam) { cam.position.set(G.dbgCam.p[0], G.dbgCam.p[1], G.dbgCam.p[2]); cam.lookAt(G.dbgCam.l[0], G.dbgCam.l[1], G.dbgCam.l[2]); return; }
     if (G.phase === "count") { // plongée d'introduction du sommet vers le départ
       const k = clamp(1 - (G.countAt - performance.now()) / 4000, 0, 1), e = k * k * (3 - 2 * k); const top = G.C.summitTop; const sb = G.C.boxes[G.C.startBox]; const cx = (sb.x0 + sb.x1) / 2, cz = (sb.z0 + sb.z1) / 2;
       const a0 = { x: 40, y: top * 0.9, z: 40, ly: top * 0.55 }, a1 = { x: cx - Math.sin(c.yaw) * 7, y: 4.8, z: cz - Math.cos(c.yaw) * 7, ly: 1.4 };
@@ -301,22 +305,24 @@
   function renderPreview(box, room) { makePreview(); if (prevNode.parentNode !== box) box.appendChild(prevNode); refreshPreview(); drawPickers(); }
 
   function onInit() {
-    if (/[?&]debug/.test(location.search)) window.VgDebug = { G, S };
+    if (window.VgProps3D) VgProps3D.load();
+    if (/[?&]debug/.test(location.search)) window.VgDebug = { G, S, get R() { return R; } };
     buildGame(); attach(); Kit.on("connect", () => { attach(); sendCos(); }); Kit.on("room", () => { if (Kit.room && Kit.room.status === "lobby") sendCos(); });
     Kit.on("screen", (n) => { if (n === "game") { setTimeout(() => { if (initRender()) resize(); }, 30); } if (n !== "game") { SND.stopAmb(); if (document.pointerLockElement) document.exitPointerLock(); } });
     Kit.on("reset", () => leaveGame()); document.addEventListener("pointerdown", () => SND.unlock(), { once: true });
   }
   Kit.init({
-    id: "vertigogo", title: "Vertigogo", emoji: "🏔️", ribbon: "Grimpe, saute, ne regarde pas en bas", tagline: "Une tour de huit mondes à escalader, seul ou entre amis.",
+    id: "vertigogo", title: "Vertigogo", emoji: "🏔️", ribbon: "Grimpe, saute, ne regarde pas en bas", tagline: "Une tour d'objets géants à escalader, seul ou entre amis.",
     createLabel: "Créer un salon", soloLabel: "Jouer contre des bots", startLabel: "Lancer la course", helpTitle: "Comment jouer",
-    floaters: [{ e: "🏔️", x: 6 }, { e: "☁️", x: 20 }, { e: "🎡", x: 34 }, { e: "🍄", x: 48 }, { e: "🏗️", x: 62 }, { e: "⚙️", x: 76 }, { e: "⭐", x: 90 }],
+    floaters: [{ e: "🏔️", x: 6 }, { e: "☁️", x: 20 }, { e: "🚕", x: 34 }, { e: "🍄", x: 48 }, { e: "🛋️", x: 62 }, { e: "🎃", x: 76 }, { e: "🌳", x: 90 }],
     colors: COLORS, botLevels: LEVELS, maxPlayers: 8, minPlayers: 2, schema: Rules.SCHEMA,
     help: [
       { title: "Le but", text: "Arriver au sommet d'une tour faite de plusieurs mondes empilés. Personne ne peut te pousser, seuls la gravité et les pièges te gênent. Le classement se fait à l'arrivée, et en direct pendant la montée selon la hauteur atteinte." },
-      { title: "Se déplacer et sauter", text: "ZQSD, WASD ou les flèches pour avancer, la souris pour tourner la caméra. Espace pour sauter, et plus tu restes appuyé, plus tu sautes haut. Un appui court donne un petit saut." },
+      { title: "Se déplacer et sauter", text: "ZQSD, WASD ou les flèches pour avancer, la souris pour tourner la caméra, ou les touches G et H pour tourner à gauche et à droite, R et F pour monter et descendre la caméra. Espace pour sauter, et plus tu restes appuyé, plus tu sautes haut. Un appui court donne un petit saut." },
       { title: "S'accrocher et grimper", text: "Quand tu sautes vers un rebord un peu plus haut que toi, ton personnage s'y accroche. Avance ou appuie sur Espace pour te hisser dessus, ou appuie sur Maj pour lâcher. Tu peux aussi glisser sur le côté en restant accroché." },
-      { title: "Les pièges", text: "Les plateformes mobiles vont et viennent, les dalles qui s'effritent tombent un instant après ton passage puis reviennent, les plots rouges te propulsent, la glace fait glisser et les barres rayées te balayent sans te blesser." },
-      { title: "Les chutes", text: "En mode Classique tu retombes vraiment, et seul un filet au début de chaque zone te rattrape. Dans les autres modes, tu reprends au dernier drapeau atteint. Touche R pour y retourner à la main." },
+      { title: "Les objets géants", text: "Tu grimpes sur des objets du quotidien devenus immenses, arbres, voitures, canapés, casseroles, citrouilles ou nuages. Chaque objet a sa propre forme, un arbre a un tronc très fin et des branches plus larges, une voiture a un toit et un capot. Il faut viser la bonne partie avant de sauter." },
+      { title: "Les pièges", text: "Les plateformes mobiles vont et viennent, les dalles qui s'effritent tombent un instant après ton passage puis reviennent, les plots rouges, les trampolines, les lits et les champignons rouges te propulsent, les tapis roulants t'entraînent, la glace fait glisser et les barres rayées te balayent sans te blesser." },
+      { title: "Les chutes", text: "En mode Classique tu retombes vraiment, et seul un filet au début de chaque zone te rattrape. Dans les autres modes, tu reprends au dernier drapeau atteint. Touche T pour y retourner à la main." },
       { title: "Les modes", text: "Classique, Points de passage, Contre la montre où chaque chute ajoute 5 secondes, et Parcours du jour, le même pour tout le monde aujourd'hui. Tous les parcours sont générés à partir d'une graine et vérifiés pour être faisables." },
       { title: "Le chat et les bots", text: "Tu peux jouer seul contre des bots de quatre niveaux. Dans le salon, choisis ton personnage, ton accessoire et ton effet. Ça ne change rien au jeu." },
     ],

@@ -63,7 +63,10 @@ body.touch .vg-help { display: none; }
 .vg-pick { display: flex; align-items: center; gap: 6px; margin: 3px 0; font-size: 0.95rem; }
 .vg-pick span.l { width: 82px; opacity: 0.8; font-size: 0.85rem; }
 .vg-pick b { flex: 1; text-align: center; font-weight: 600; }
-.vg-pick button { width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, 0.18); color: #fff; font-size: 1rem; cursor: pointer; }
+.vg-pick button { width: 38px; height: 38px; flex: none; border-radius: 50%; border: 3px solid #fff; background: #ff8a3d; color: #fff; font-size: 1.5rem; font-weight: 700; line-height: 1; padding: 0 0 3px; cursor: pointer; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.28); transition: transform 0.1s; }
+.vg-pick button:hover { transform: scale(1.1); background: #ff9d5c; }
+.vg-pick button:active { transform: translateY(2px); box-shadow: none; }
+.vg-pick .l { color: #5a4a70; } .vg-pick b { color: #2a1a4a; background: #fff3d6; border-radius: 10px; padding: 6px 4px; }
 @media (max-width: 700px) { .vg-board { width: 150px; } .vg-row { font-size: 0.8rem; padding: 2px 8px 2px 6px; } .vg-custom { grid-template-columns: 1fr; } .vg-custom canvas { margin: 0 auto; } }
 
 
@@ -93,3 +96,10 @@ body.touch .vg-btn2 { display: flex; }
 
 @media (max-width: 700px) { .vg-board { top: 46px; } .vg-top { top: 8px; } .vg-pill { padding: 4px 12px; font-size: 0.85rem; } #vg-mode { display: none; } .vg-feed { top: 50px; } .vg-prompt { font-size: 0.85rem; } }
 @media (max-height: 480px) { .vg-help { display: none; } .vg-banner { top: 14%; } .vg-alt b { font-size: 1.3rem; } .vg-card { padding: 10px 14px; max-height: 94vh; overflow: auto; } .vg-board { width: 140px; } }
+
+.vg-ck { position: absolute; left: 12px; bottom: 14px; display: flex; align-items: center; gap: 5px; background: var(--hud); border-radius: 12px; padding: 5px 9px; font-size: 0.78rem; opacity: 0.9; }
+.vg-ck span { opacity: 0.8; margin-right: 2px; } .vg-ck i { display: none; }
+.vg-ck kbd { min-width: 22px; text-align: center; background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 6px; padding: 1px 6px; font-family: inherit; font-weight: 700; font-size: 0.85rem; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35); }
+.vg-ck kbd.on { background: #ffd23d; color: #2a1a4a; transform: translateY(2px); box-shadow: none; }
+body.touch .vg-ck { display: none; }
+@media (max-height: 480px) { .vg-ck { bottom: 6px; } }

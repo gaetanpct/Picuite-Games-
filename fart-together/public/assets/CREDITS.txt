@@ -1,0 +1,12 @@
+Credits des ressources de Petard Mouille
+
+Personnages animes
+KayKit Adventurers par Kay Lousberg, licence CC0 (domaine public).
+kaylousberg.com/game-assets
+
+Decor 3D (arbres, rochers, batiments, citrouilles, accessoires)
+KayKit Medieval Hexagon, City Builder, Halloween, Restaurant et Prototype Bits par Kay Lousberg, licence CC0.
+kaylousberg.com/game-assets
+
+Les modeles ont ete regroupes, allegees et quantifies avec glTF Transform.
+Les sons sont generes dans le navigateur, les textures de l eau et de l herbe sont dessinees par le code.

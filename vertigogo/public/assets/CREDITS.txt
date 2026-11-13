@@ -4,5 +4,10 @@ Personnages animes
 KayKit Adventurers par Kay Lousberg, licence CC0 (domaine public).
 kaylousberg.com/game-assets
 
-Les modeles ont ete allegees (suppression des textures inutiles) avec glTF Transform.
-Les decors, les textures, les effets et les sons sont crees par le code, dans le navigateur. Aucune autre ressource externe n'est utilisee.
+Objets du parcours et decor (meubles, cuisine, rue, batiments, cimetiere, arbres, rochers, nuages)
+KayKit Furniture Bits, Restaurant Bits, City Builder Bits, Halloween Bits, Medieval Hexagon et Prototype Bits par Kay Lousberg, licence CC0.
+Kenney Platformer Kit et Kenney Prototype Kit par Kenney, licence CC0.
+kaylousberg.com/game-assets et kenney.nl/assets
+
+Les modeles ont ete regroupes, allegees et quantifies avec glTF Transform dans un seul fichier, props.glb.
+Les arbres, champignons, trampolines et tapis roulants, les textures, les effets et les sons sont crees par le code, dans le navigateur.

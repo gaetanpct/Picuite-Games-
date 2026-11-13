@@ -18,7 +18,7 @@
   if (isTouch) document.documentElement.classList.add("touch");
 
   const G = {
-    round: null, A: null, view: null, actors: {}, ids: [], idx: {}, snaps: [], clockOff: null, off: [], hud: null, phase: "none", L: null, LW: null, input: { mx: 0, mz: 0, h: false }, seq: 0,
+    round: null, A: null, view: null, actors: {}, ids: [], idx: {}, snaps: [], clockOff: null, off: [], hud: null, phase: "none", L: null, LW: null, input: { mx: 0, mz: 0, h: false }, seq: 0, fp: store.get("bousk.fp", "0") === "1", fpYaw: 0, fpPitch: 0, fpInit: false, jumpBtn: false, sens: +store.get("bousk.sens", "1"),
     keys: {}, joy: { x: 0, z: 0, on: false }, act: false, lastSend: 0, lastSent: "", acc: 0, last: 0, cam: { x: 0, y: 30, z: 20, tx: 0, tz: 0, shake: 0 }, shown: false,
     quality: store.get("bousk.quality", isTouch ? "medium" : "high"), end: null, over: null, cos: {}, mine: null, mismatch: 0, helped: 0, fps: [], pr: 1, feedN: 0, lastGust: 0,
     prevSt: {}, lastEv: 0, podium: null, hitSnd: 0, tilt: 0, frame: 0,
@@ -44,12 +44,13 @@
       <div class="bk-me" id="bk-charge"><i></i></div>
       <div class="bk-help" id="bk-help"></div>
       <div class="bk-crown" id="bk-crown" style="display:none">👑</div>
-      <div class="bk-joy" id="bk-joy"><i></i></div><div class="bk-act" id="bk-act">POUSSE</div>
+      <div class="bk-joy" id="bk-joy"><i></i></div><div class="bk-act" id="bk-act">POUSSE</div><div class="bk-jump" id="bk-jump">SAUT</div><div class="bk-xh" id="bk-xh"></div><div class="bk-keys" id="bk-keys"></div>
       <div class="bk-ov" id="bk-end"></div><div class="bk-ov" id="bk-over"></div><div class="bk-ov" id="bk-pause"></div>`;
     sc.appendChild(hudEl);
     $("#bk-snd").onclick = () => { SND.setMute(!SND.muted); $("#bk-snd").textContent = SND.muted ? "🔇" : "🔊"; if (!SND.muted) SND.click(); };
     $("#bk-snd").textContent = SND.muted ? "🔇" : "🔊";
-    $("#bk-menu").onclick = openPause;
+    $("#bk-menu").onclick = openPause; $("#bk-keys").innerHTML = "<span><kbd>Maj</kbd> ou <kbd>E</kbd> saut</span><span><kbd>V</kbd> vue première personne</span>"; $("#bk-xh").style.display = G.fp ? "block" : "none";
+    document.addEventListener("pointerlockchange", () => { if (document.pointerLockElement !== canvas) G.act = false; });
     bindInput();
   }
 
@@ -92,7 +93,7 @@
     $("#bk-end").classList.remove("show"); $("#bk-over").classList.remove("show");
     banner(G.A.name, G.A.blurb + " " + (G.A.info || ""), 0);
     G.phase = "intro"; G.introAt = performance.now(); G.cam.fit = null;
-    const h = $("#bk-help"); if (h) { h.style.opacity = 1; h.innerHTML = isTouch ? "Joystick pour te déplacer, bouton pour pousser. Maintiens pour charger." : "<kbd>ZQSD</kbd> ou <kbd>flèches</kbd> pour bouger. <kbd>Espace</kbd> pour pousser, maintiens pour charger et relâche pour foncer."; }
+    const h = $("#bk-help"); if (h) { h.style.opacity = 1; h.innerHTML = isTouch ? "Joystick pour te déplacer, bouton pour pousser, bouton Saut pour sauter. Maintiens pour charger." : "<kbd>ZQSD</kbd> ou <kbd>flèches</kbd> pour bouger. <kbd>Espace</kbd> pour pousser, maintiens pour charger et relâche pour foncer. <kbd>Maj</kbd> ou <kbd>E</kbd> pour sauter. <kbd>V</kbd> pour la vue à la première personne."; }
   }
   function banner(big, sub, ms) { const b = $("#bk-banner"); if (!b) return; b.innerHTML = ""; if (big) b.appendChild(el("div", { class: "big", text: big })); if (sub) b.appendChild(el("div", { class: "sub", text: sub })); b.style.display = big || sub ? "block" : "none"; clearTimeout(banner.t); if (ms) banner.t = setTimeout(() => { b.style.display = "none"; }, ms); }
   function feed(html) { const f = $("#bk-feed"); if (!f) return; const d = el("div", { html }); f.appendChild(d); while (f.children.length > 5) f.removeChild(f.firstChild); setTimeout(() => d.remove(), 4600); }
@@ -167,6 +168,7 @@
       case "bar": { SND.bar(); FX.impact(e.x, e.z, e.p * 0.5, 0, 0); shake(0.35); break; }
       case "bump": { SND.bump(); const pg = v && v.pegs[e.i]; if (pg) { pg.g.scale.set(1.25, 0.8, 1.25); setTimeout(() => pg.g.scale.set(1, 1, 1), 110); } FX.ring(e.x, e.z, 0xffe14d, 1.6, 0.3); break; }
       case "spring": { SND.spring(); FX.spring(e.x, e.z); if (v) { const i = v.nearestSpring(e.x, e.z); if (i >= 0) v.squash(i); } break; }
+      case "jump": { if (e.id === me) SND.jump(); FX.dust(e.x, e.z, 0, 0, 4); break; }
       case "land": { if (e.id === me) SND.land(); FX.dust(e.x, e.z, 0, 0, 6); break; }
       case "edge": { if (e.id === me) SND.fall(); break; }
       case "save": { FX.ring(e.x, e.z, 0x7fe07f, 1.4, 0.3); break; }
@@ -184,11 +186,18 @@
     const map = (e) => { const k = e.key.toLowerCase(); return k; };
     window.addEventListener("keydown", (e) => {
       if (document.body.dataset.screen !== "game") return; const t = e.target && e.target.tagName; if (t === "INPUT" || t === "TEXTAREA") return;
-      const k = map(e); if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "z", "q", "s", "d", "w", "a"].includes(k)) e.preventDefault();
+      const k = map(e); if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "z", "q", "s", "d", "w", "a", "e", "shift"].includes(k)) e.preventDefault();
+      if (k === "v" && !e.repeat) { setFp(!G.fp); return; }
       G.keys[k] = true; SND.unlock(); if (k === "escape") { if ($("#bk-pause").classList.contains("show")) closePause(); else openPause(); }
     });
     window.addEventListener("keyup", (e) => { G.keys[map(e)] = false; });
     window.addEventListener("blur", () => { G.keys = {}; G.act = false; });
+    const jb = $("#bk-jump"); jb.addEventListener("pointerdown", (e) => { G.jumpBtn = true; jb.classList.add("on"); jb.setPointerCapture(e.pointerId); SND.unlock(); }); const endJ = () => { G.jumpBtn = false; jb.classList.remove("on"); }; jb.addEventListener("pointerup", endJ); jb.addEventListener("pointercancel", endJ);
+    document.addEventListener("mousemove", (e) => { if (document.body.dataset.screen !== "game" || !G.fp || document.pointerLockElement !== canvas) return; G.fpYaw -= e.movementX * 0.0024 * G.sens; G.fpPitch = clamp(G.fpPitch - e.movementY * 0.0024 * G.sens, -1.2, 1.2); });
+    canvas.addEventListener("mousedown", (e) => { SND.unlock(); if (!G.fp || isTouch) return; if (document.pointerLockElement !== canvas) { try { canvas.requestPointerLock(); } catch (x) { /* rien */ } } else if (e.button === 0) G.act = true; });
+    window.addEventListener("mouseup", (e) => { if (e.button === 0 && G.fp && document.pointerLockElement === canvas) G.act = false; });
+    let tid = null, tx = 0, ty = 0; canvas.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch" && G.fp && e.clientX > innerWidth * 0.35 && e.clientY < innerHeight * 0.7) { tid = e.pointerId; tx = e.clientX; ty = e.clientY; } });
+    canvas.addEventListener("pointermove", (e) => { if (e.pointerId === tid) { G.fpYaw -= (e.clientX - tx) * 0.005 * G.sens; G.fpPitch = clamp(G.fpPitch - (e.clientY - ty) * 0.004 * G.sens, -1.2, 1.2); tx = e.clientX; ty = e.clientY; } }); const endT = (e) => { if (e.pointerId === tid) tid = null; }; canvas.addEventListener("pointerup", endT); canvas.addEventListener("pointercancel", endT);
     const joy = $("#bk-joy"), act = $("#bk-act");
     let jid = null; const jc = { x: 0, y: 0 };
     joy.addEventListener("pointerdown", (e) => { jid = e.pointerId; joy.setPointerCapture(jid); const r = joy.getBoundingClientRect(); jc.x = r.left + r.width / 2; jc.y = r.top + r.height / 2; moveJoy(e); SND.unlock(); });
@@ -203,8 +212,19 @@
     const k = G.keys; let mx = 0, mz = 0;
     if (k["arrowleft"] || k["q"] || k["a"]) mx -= 1; if (k["arrowright"] || k["d"]) mx += 1; if (k["arrowup"] || k["z"] || k["w"]) mz -= 1; if (k["arrowdown"] || k["s"]) mz += 1;
     if (G.joy.on) { mx = G.joy.x; mz = G.joy.z; }
+    const j = !!(k["shift"] || k["e"] || G.jumpBtn);
+    if (G.fp) {
+      let a = 0, b = 0; if (k["q"] || k["a"]) a -= 1; if (k["d"]) a += 1; if (k["z"] || k["w"]) b += 1; if (k["s"]) b -= 1;
+      if (G.joy.on) { a = G.joy.x; b = -G.joy.z; }
+      const turn = (k["arrowleft"] ? 1 : 0) - (k["arrowright"] ? 1 : 0); if (turn) G.fpYaw += turn * 0.045 * G.sens; if (k["arrowup"]) G.fpPitch = clamp(G.fpPitch + 0.03, -1.2, 1.2); if (k["arrowdown"]) G.fpPitch = clamp(G.fpPitch - 0.03, -1.2, 1.2);
+      const ll = Math.hypot(a, b); if (ll > 1) { a /= ll; b /= ll; }
+      const fxv = -Math.sin(G.fpYaw), fzv = -Math.cos(G.fpYaw), rxv = Math.cos(G.fpYaw), rzv = -Math.sin(G.fpYaw);
+      mx = fxv * b + rxv * a; mz = fzv * b + rzv * a; const hh = !!(k[" "] || k["space"] || G.act);
+      if (hh && Math.hypot(mx, mz) < 0.12) { mx = fxv * 0.16; mz = fzv * 0.16; }
+      return { mx, mz, h: hh, j };
+    }
     const l = Math.hypot(mx, mz); if (l > 1) { mx /= l; mz /= l; }
-    return { mx, mz, h: !!(k[" "] || k["space"] || G.act) };
+    return { mx, mz, h: !!(k[" "] || k["space"] || G.act), j };
   }
   const serverNow = () => { const sn = G.snaps[G.snaps.length - 1]; if (!sn || G.clockOff == null) return 0; const sms = performance.now() - G.clockOff; return sn.t + (sms - sn.now) / 1000; };
 
@@ -234,8 +254,8 @@
       if (G.acc > 0.2) G.acc = 0;
     } else G.acc = 0;
     // envoi des commandes
-    if (playing) { const key = inp.mx.toFixed(2) + "," + inp.mz.toFixed(2) + inp.h; if ((key !== G.lastSent && now - G.lastSend > 28) || now - G.lastSend > 120) { G.lastSend = now; G.lastSent = key; Kit.socket.emit("b:in", { mx: +inp.mx.toFixed(3), mz: +inp.mz.toFixed(3), h: inp.h, seq: ++G.seq }); } }
-    else if (G.lastSent !== "0.00,0.00false" && Kit.socket) { G.lastSent = "0.00,0.00false"; Kit.socket.emit("b:in", { mx: 0, mz: 0, h: false, seq: ++G.seq }); }
+    if (playing) { const key = inp.mx.toFixed(2) + "," + inp.mz.toFixed(2) + inp.h + inp.j; if ((key !== G.lastSent && now - G.lastSend > 28) || now - G.lastSend > 120) { G.lastSend = now; G.lastSent = key; Kit.socket.emit("b:in", { mx: +inp.mx.toFixed(3), mz: +inp.mz.toFixed(3), h: inp.h, j: inp.j, seq: ++G.seq }); } }
+    else if (G.lastSent !== "0.00,0.00false" && Kit.socket) { G.lastSent = "0.00,0.00false"; Kit.socket.emit("b:in", { mx: 0, mz: 0, h: false, j: false, seq: ++G.seq }); }
     // charge locale, sons
     const L = G.L; if (L && playing) { if (L.holding && !G.wasHold) SND.chargeStart(); if (!L.holding && G.wasHold) SND.chargeStop(); if (L.holding) SND.chargeSet(L.ch); G.wasHold = L.holding; }
     // acteurs
@@ -248,7 +268,7 @@
       if (!s) { const pre = G.pre && G.pre[i]; if (pre) s = { x: pre.x, z: pre.z, y: 0, vx: 0, vz: 0, a: pre.a, st: "ok", ch: 0, alive: true, inv: false }; else return; }
       if (G.phase === "intro" || G.phase === "count") s.st = "ok";
       if (G.phase === "roundEnd" || G.phase === "over") { const win = G.end && G.end.end && G.end.end.winners.includes(p.id); if (win) s.cheer = true; }
-      a.show(s, dt);
+      a.show(s, dt); if (i === meIdx) a.group.visible = !(G.fp && playing && s.alive && G.phase === "play");
       const co = G.cos[p.id]; if (co && co.trail && playing && s.alive && (s.st === "dash" || Math.hypot(s.vx, s.vz) > 3)) FX.trail(co.trail, s.x, 0, s.z, s.vx, s.vz);
       if (s.st === "dash" && s.alive) FX.dashTrail(s.x, s.z, s.vx / (Math.hypot(s.vx, s.vz) || 1), s.vz / (Math.hypot(s.vx, s.vz) || 1), colorOf(p.id));
       else if (s.alive && s.y <= 0.01 && Math.hypot(s.vx, s.vz) > 5.5 && G.frame % 5 === 0) FX.dust(s.x, s.z, s.vx * 0.1, s.vz * 0.1, 1);
@@ -271,7 +291,22 @@
   function adapt(avg) { const fps = 1 / avg; if (G.phase !== "play") return; if (fps < 38 && G.pr > 0.65) { G.pr = Math.max(0.65, G.pr - 0.15); resize(); } else if (fps > 56 && G.pr < 1) { G.pr = Math.min(1, G.pr + 0.1); resize(); } }
 
   // ---------- caméra ----------
+  function setFp(on) {
+    G.fp = !!on; store.set("bousk.fp", G.fp ? "1" : "0"); G.fpInit = false; const xh = $("#bk-xh"); if (xh) xh.style.display = G.fp ? "block" : "none";
+    if (!G.fp && document.pointerLockElement) document.exitPointerLock();
+    if (G.fp && G.phase === "play") toast("Vue à la première personne, clique pour capturer la souris, V pour revenir", "info");
+    const cb = document.getElementById("bk-fp-box"); if (cb) cb.checked = G.fp; const cb2 = document.getElementById("bk-fp-lobby"); if (cb2) cb2.checked = G.fp;
+    if (!G.fp) { R.cam.fov = 38; R.cam.near = 0.5; R.cam.updateProjectionMatrix(); }
+  }
+  function fpCamera(dt, mine) {
+    const cam = R.cam; if (cam.fov !== 80) { cam.fov = 80; cam.near = 0.15; cam.updateProjectionMatrix(); }
+    if (!G.fpInit) { G.fpInit = true; if (mine) G.fpYaw = Math.atan2(-Math.cos(mine.a || 0), -Math.sin(mine.a || 0)) + 0; else G.fpYaw = 0; G.fpPitch = 0; }
+    const x = mine ? mine.x : 0, z = mine ? mine.z : 0, y = mine ? Math.max(mine.y, mine.st === "fall" ? mine.y : 0) : 0; const c = G.cam; c.shake *= Math.max(0, 1 - dt * 7); const sh = c.shake * 0.12;
+    cam.rotation.order = "YXZ"; cam.position.set(x + (Math.random() - 0.5) * sh, y + 1.45 + (Math.random() - 0.5) * sh, z + (Math.random() - 0.5) * sh); cam.rotation.set(G.fpPitch, G.fpYaw, 0);
+  }
   function camera(dt, cen, mine) {
+    if (G.fp && !G.podium && G.phase === "play" && mine && mine.alive !== false) { fpCamera(dt, mine); return; }
+    if (R.cam.fov !== 38) { R.cam.fov = 38; R.cam.near = 0.5; R.cam.updateProjectionMatrix(); R.cam.rotation.order = "XYZ"; }
     if (G.podium) { R.cam.position.set(0, 14.6, 14.5); R.cam.lookAt(0, 11.9, 0); return; }
     const A = G.A, cam = R.cam, c = G.cam; const asp = cam.aspect; const fov = cam.fov * Math.PI / 180;
     const Rv = A.R * 0.78 + 3.2; const pitch = 0.98; // 56 degrés
@@ -352,9 +387,11 @@
   function openPause() {
     const ov = $("#bk-pause"); ov.innerHTML = `<div class="bk-card"><h2>Menu</h2><div class="bk-set">
       <label>Volume<input type="range" id="bk-vol" min="0" max="100" value="${Math.round(SND.vol * 100)}"></label>
+      <label>Vue à la première personne<input type="checkbox" id="bk-fp-box" ${G.fp ? "checked" : ""}></label>
+      <label>Sensibilité de la souris<input type="range" id="bk-sens" min="40" max="220" value="${Math.round(G.sens * 100)}"></label>
       <label>Qualité de l'image<select id="bk-q"><option value="low">Légère</option><option value="medium">Équilibrée</option><option value="high">Belle</option></select></label></div>
       <div class="bk-btnrow"><button class="bk-b" id="bk-resume">Reprendre</button><button class="bk-b g" id="bk-leave">Quitter la partie</button></div></div>`;
-    ov.classList.add("show"); $("#bk-q").value = G.quality; $("#bk-vol").oninput = (e) => SND.setVol(e.target.value / 100); $("#bk-q").onchange = (e) => setQuality(e.target.value);
+    ov.classList.add("show"); $("#bk-q").value = G.quality; $("#bk-vol").oninput = (e) => SND.setVol(e.target.value / 100); $("#bk-q").onchange = (e) => setQuality(e.target.value); $("#bk-fp-box").onchange = (e) => setFp(e.target.checked); $("#bk-sens").oninput = (e) => { G.sens = e.target.value / 100; store.set("bousk.sens", String(G.sens)); };
     $("#bk-resume").onclick = closePause; $("#bk-leave").onclick = () => Kit.confirm("Quitter la partie en cours ?", () => { closePause(); Kit.leave(); });
   }
   function closePause() { $("#bk-pause").classList.remove("show"); }
@@ -367,6 +404,7 @@
     if (prevNode) return; prevNode = el("div", { class: "bk-custom" });
     const cv = el("canvas", { width: 300, height: 380 }); prevNode.appendChild(cv);
     const box = el("div"); [["char", "Personnage"], ["hat", "Accessoire"], ["trail", "Effet"]].forEach(([k, l]) => box.appendChild(el("div", { class: "bk-pick", "data-k": k }, [el("span", { class: "l", text: l }), el("button", { text: "‹", title: "Précédent", onclick: () => setCos(k, -1) }), el("b"), el("button", { text: "›", title: "Suivant", onclick: () => setCos(k, 1) })])));
+    box.appendChild(el("label", { class: "bk-fpopt" }, [(() => { const i = el("input", { type: "checkbox", id: "bk-fp-lobby", onchange: (e) => setFp(e.target.checked) }); i.checked = G.fp; return i; })(), el("span", { text: "Jouer à la première personne (touche V en jeu)" })]));
     box.appendChild(el("p", { class: "muted small", text: "Les accessoires et les effets ne changent rien au jeu, ils servent à te reconnaître." }));
     prevNode.appendChild(box); drawPickers();
     try { const r = new T.WebGLRenderer({ canvas: cv, antialias: true, alpha: true }); r.setClearColor(0x000000, 0); const sc = new T.Scene(); const cam = new T.PerspectiveCamera(30, 300 / 380, 0.1, 50); cam.position.set(0, 1.5, 5.4); cam.lookAt(0, 1.0, 0); sc.add(new T.HemisphereLight(0xffffff, 0x8899bb, 1.1)); const dl = new T.DirectionalLight(0xffffff, 0.9); dl.position.set(3, 6, 5); sc.add(dl); prev = { r, sc, cam, actor: null, key: "" }; } catch (e) { prev = null; }
