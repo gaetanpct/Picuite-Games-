@@ -340,7 +340,7 @@
 
   G.prog = loadProg();
   Kit.init({
-    id: "fart-together", title: "Pétard Mouillé", emoji: "💨", ribbon: "Une bouée, un équipage, zéro autonomie", tagline: "Chacun sa zone, une seule bouée, aucune chance d'y arriver sans s'accorder.",
+    id: "fart-together", hero: true, title: "Pétard Mouillé", emoji: "💨", ribbon: "Une bouée, un équipage, zéro autonomie", tagline: "Chacun sa zone, une seule bouée, aucune chance d'y arriver sans s'accorder.",
     createLabel: "Créer un équipage", soloLabel: "Descendre avec des robots", startLabel: "À l'eau", helpTitle: "Comment jouer",
     floaters: [{ e: "💨", x: 6 }, { e: "🛟", x: 20 }, { e: "🦆", x: 36 }, { e: "🌊", x: 50 }, { e: "🪙", x: 64 }, { e: "🧀", x: 78 }, { e: "🐸", x: 92 }],
     colors: COLORS, botLevels: [{ id: "stagiaire", label: "Stagiaire" }, { id: "matelot", label: "Matelot" }, { id: "capitaine", label: "Capitaine" }], maxPlayers: 8, minPlayers: 1, schema: R.SCHEMA,

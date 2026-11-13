@@ -10,3 +10,7 @@ kaylousberg.com/game-assets
 
 Les modeles ont ete regroupes, allegees et quantifies avec glTF Transform.
 Les sons sont generes dans le navigateur, les textures de l eau et de l herbe sont dessinees par le code.
+
+
+Visuel d'accueil (hero.webp)
+Image rendue hors ligne a partir des modeles ci dessus, licence CC0.

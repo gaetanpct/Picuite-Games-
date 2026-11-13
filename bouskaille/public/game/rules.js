@@ -16,6 +16,7 @@
       ] },
       { id: "rounds", label: "Nombre de manches", type: "range", min: 1, max: 9, step: 1, default: 5, info: "Chaque manche se joue sur une arène générée pour toi. Les points s'additionnent, donc quelqu'un d'éliminé tôt peut toujours revenir." },
       { id: "roundTime", label: "Durée d'une manche chronométrée", type: "range", min: 45, max: 150, step: 15, default: 90, unit: " s", showIf: { mode: ["points", "couronne"] } },
+      { id: "firstPerson", label: "Vue à la première personne pour tous", type: "bool", default: false, info: "Si c'est activé, tout le monde joue avec la caméra à hauteur de yeux, qui tourne toute seule vers la direction où l'on va. Le choix vaut pour tous les joueurs de la partie." },
       { id: "finalDouble", label: "Dernière manche à points doubles", type: "bool", default: true, info: "Pour que tout se joue jusqu'au bout." },
     ] },
     { category: "🏟️ Les arènes", rules: [

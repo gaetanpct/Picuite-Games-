@@ -11,3 +11,7 @@ kaylousberg.com/game-assets et kenney.nl/assets
 
 Les modeles ont ete regroupes, allegees et quantifies avec glTF Transform dans un seul fichier, props.glb.
 Les arbres, champignons, trampolines et tapis roulants, les textures, les effets et les sons sont crees par le code, dans le navigateur.
+
+
+Visuel d'accueil (hero.webp)
+Image rendue hors ligne a partir des modeles ci dessus, licence CC0.

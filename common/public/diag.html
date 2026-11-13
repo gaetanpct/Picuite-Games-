@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Diagnostic de l'affichage 3D</title>
+<style>body{font:16px/1.5 -apple-system,Segoe UI,sans-serif;margin:0;padding:20px;background:#fff;color:#111;max-width:760px;margin:auto}h1{font-size:1.4rem}.ok{color:#0a7a2a;font-weight:700}.ko{color:#c0201a;font-weight:700}pre{background:#f3f3f3;padding:10px;border-radius:8px;white-space:pre-wrap}canvas{border:1px solid #999;margin:4px;width:160px;height:100px}</style></head>
+<body>
+<h1>Diagnostic de l'affichage 3D</h1>
+<p>Cette page teste ce que ton navigateur sait dessiner. Fais une capture d'écran de toute la page et envoie-la. Chaque ligne dit si le test a réussi.</p>
+<div id="out"></div>
+<div id="cv"></div>
+<script src="vendor/three.min.js"></script>
+<script>
+(function(){
+  var out=document.getElementById("out"), cv=document.getElementById("cv"), rep=[];
+  function line(txt, ok){ var d=document.createElement("div"); d.innerHTML=(ok===true?'<span class="ok">Réussi</span> ':ok===false?'<span class="ko">Échec</span> ':'')+txt; out.appendChild(d); rep.push((ok===true?"OK ":ok===false?"KO ":"")+txt.replace(/<[^>]+>/g,"")); }
+  line("Navigateur "+navigator.userAgent);
+  line("Écran "+screen.width+" sur "+screen.height+" · densité "+(window.devicePixelRatio||1));
+  var c=document.createElement("canvas"), g2=null, g1=null;
+  try{ g2=c.getContext("webgl2"); }catch(e){}
+  line("WebGL2 disponible", !!g2);
+  var c1=document.createElement("canvas"); try{ g1=c1.getContext("webgl")||c1.getContext("experimental-webgl"); }catch(e){}
+  line("WebGL1 disponible", !!g1);
+  var gl=g2||g1;
+  if(gl){
+    try{ var ext=gl.getExtension("WEBGL_debug_renderer_info"); line("Carte graphique "+(ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER))); }catch(e){}
+    line("Taille maximale de texture "+gl.getParameter(gl.MAX_TEXTURE_SIZE)+" · précision haute "+(gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER,gl.HIGH_FLOAT).precision>0));
+  }
+  function test(name, matFn, shadows, ctxOpts){
+    try{
+      var cn=document.createElement("canvas"); cn.width=320; cn.height=200; cv.appendChild(cn);
+      var r=new THREE.WebGLRenderer(Object.assign({canvas:cn},ctxOpts||{})); var errs=0; r.debug.onShaderError=function(){errs++;};
+      r.setSize(320,200,false); r.setClearColor(0x2255aa,1);
+      if(shadows){ r.shadowMap.enabled=true; r.shadowMap.type=THREE.PCFSoftShadowMap; }
+      var s=new THREE.Scene(), cam=new THREE.PerspectiveCamera(50,1.6,0.1,50); cam.position.set(2,2,4); cam.lookAt(0,0,0);
+      var l=new THREE.DirectionalLight(0xffffff,1); l.position.set(3,5,2); if(shadows){ l.castShadow=true; } s.add(l); s.add(new THREE.HemisphereLight(0xffffff,0x444444,0.6));
+      var m=new THREE.Mesh(new THREE.BoxGeometry(1.5,1.5,1.5), matFn()); m.castShadow=true; s.add(m);
+      var fl=new THREE.Mesh(new THREE.PlaneGeometry(10,10), matFn()); fl.rotation.x=-Math.PI/2; fl.position.y=-0.8; fl.receiveShadow=true; s.add(fl);
+      r.render(s,cam);
+      var gx=r.getContext(), px=new Uint8Array(4), seen={};
+      for(var i=1;i<8;i++)for(var j=1;j<6;j++){ gx.readPixels(Math.floor(gx.drawingBufferWidth*i/8),Math.floor(gx.drawingBufferHeight*j/6),1,1,gx.RGBA,gx.UNSIGNED_BYTE,px); seen[px[0]+","+px[1]+","+px[2]]=1; }
+      var n=Object.keys(seen).length; line(name+" · "+n+" couleurs lues"+(errs?" · erreurs de compilation "+errs:""), n>=2&&!errs);
+    }catch(e){ line(name+" · "+e.message, false); }
+  }
+  test("Matière simple sans lumière", function(){return new THREE.MeshBasicMaterial({color:0xff8844});}, false);
+  test("Matière lumière douce", function(){return new THREE.MeshLambertMaterial({color:0xff8844});}, false);
+  test("Matière réaliste", function(){return new THREE.MeshStandardMaterial({color:0xff8844,flatShading:true});}, false);
+  test("Matière réaliste avec ombres", function(){return new THREE.MeshStandardMaterial({color:0xff8844,flatShading:true});}, true);
+  test("Matière réaliste, sans lissage ni transparence", function(){return new THREE.MeshStandardMaterial({color:0xff8844});}, false, {antialias:false,alpha:false});
+  var info=document.createElement("pre"); info.textContent=rep.join("\n"); out.appendChild(document.createElement("hr")); out.appendChild(info);
+})();
+</script></body></html>

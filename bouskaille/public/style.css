@@ -59,7 +59,7 @@ body.touch .bk-help { display: none; }
 @keyframes bk-in { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes bk-out { to { opacity: 0; } }
 /* personnalisation dans le salon */
-.bk-custom { margin-top: 12px; display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: center; background: rgba(255, 255, 255, 0.07); border-radius: 16px; padding: 10px; }
+.bk-custom { margin-top: 12px; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; align-items: center; background: rgba(255, 255, 255, 0.07); border-radius: 16px; padding: 10px; }
 .bk-custom canvas { width: 150px; height: 190px; border-radius: 12px; background: linear-gradient(180deg, #ffd9c2, #7fc7ff); display: block; }
 .bk-pick { display: flex; align-items: center; gap: 6px; margin: 3px 0; font-size: 0.95rem; }
 .bk-pick span.l { width: 82px; opacity: 0.8; font-size: 0.85rem; }
@@ -87,3 +87,8 @@ body.touch .bk-jump { display: flex; }
 body.touch .bk-keys { display: none; }
 .bk-fpopt { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; font-weight: 600; color: #2a1a4a; cursor: pointer; }
 .bk-fpopt input { width: 20px; height: 20px; accent-color: #ff8a3d; }
+.bk-custom > div { min-width: 0; }
+.bk-pick b { min-width: 0; font-size: 0.9rem; }
+.bk-pick span.l { flex: none; width: 76px; }
+.bk-custom { grid-template-columns: minmax(0, 1fr); justify-items: stretch; }
+.bk-custom canvas { margin: 0 auto; }

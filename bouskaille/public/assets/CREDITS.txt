@@ -10,3 +10,7 @@ kenney.nl/assets
 
 Les modeles ont ete allegees (suppression des animations et textures inutiles) avec glTF Transform.
 Les sons sont generes dans le navigateur, les textures sont dessinees par le code.
+
+
+Visuel d'accueil (hero.webp)
+Image rendue hors ligne a partir des modeles ci dessus, licence CC0.

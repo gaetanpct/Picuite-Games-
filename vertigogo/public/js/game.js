@@ -19,7 +19,7 @@
 
   const G = {
     msg: null, C: null, W: null, P: null, view: null, actors: {}, ids: [], idx: {}, snaps: [], off: [], clockOff: null, rank: null, phase: "none", phaseAt: 0, input: {}, keys: {}, joy: { x: 0, z: 0, on: false }, jump: false, drop: false,
-    cam: { yaw: 0, pitch: 0.42, dist: 7, fx: 0, fy: 0, fz: 0, init: false, shake: 0 }, last: 0, acc: 0, tPlay: 0, lastSend: 0, lock: 0, quality: store.get("vg.quality", isTouch ? "medium" : "high"), sens: +store.get("vg.sens", "1"), inv: store.get("vg.inv", "0") === "1",
+    cam: { yaw: 0, pitch: 0.42, dist: 7, fx: 0, fy: 0, fz: 0, init: false, shake: 0 }, last: 0, acc: 0, tPlay: 0, lastSend: 0, lock: 0, quality: store.get("vg.quality", isTouch ? "medium" : "high"), sens: +store.get("vg.sens", "1"), inv: store.get("vg.inv", "0") === "1", auto: store.get("vg.auto", "1") !== "0", camManual: 0,
     pr: 1, fps: [], frame: 0, cos: {}, mine: null, cpSeen: {}, falls: 0, pen: 0, fixAt: 0, good: null, stepT: 0, hudAt: 0, fin: null, wasAir: false, marker: null, over: null, countN: 0, hangPrompt: 0, lastFixWhy: "",
   };
   const myPid = () => { const p = Kit.me(); return p ? p.id : null; };
@@ -150,7 +150,8 @@
     let cid = null, cx = 0, cy = 0; canvas.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch" && e.clientX > innerWidth * 0.35) { cid = e.pointerId; cx = e.clientX; cy = e.clientY; } });
     canvas.addEventListener("pointermove", (e) => { if (e.pointerId === cid) { rot((e.clientX - cx) * 1.6, (e.clientY - cy) * 1.6); cx = e.clientX; cy = e.clientY; } }); const endC = (e) => { if (e.pointerId === cid) cid = null; }; canvas.addEventListener("pointerup", endC); canvas.addEventListener("pointercancel", endC);
   }
-  function rot(dx, dy) { const k = 0.0024 * G.sens; G.cam.yaw -= dx * k; G.cam.pitch = clamp(G.cam.pitch + dy * k * (G.inv ? -1 : 1), -0.15, 1.25); }
+  function rot(dx, dy) { G.camManual = performance.now(); const k = 0.0024 * G.sens; G.cam.yaw -= dx * k; G.cam.pitch = clamp(G.cam.pitch + dy * k * (G.inv ? -1 : 1), -0.15, 1.25); }
+  const k_any = (keys, list) => list.some((x) => keys[x]);
   function resetToFlag() { if (!G.msg || G.phase !== "play" || G.msg.mode === "classique" || G.fin) return; Kit.socket.emit("v:reset"); }
   function readInput() {
     const k = G.keys; let a = 0, b = 0; if (k["arrowleft"] || k["q"] || k["a"]) a -= 1; if (k["arrowright"] || k["d"]) a += 1; if (k["arrowup"] || k["z"] || k["w"]) b += 1; if (k["arrowdown"] || k["s"]) b -= 1;
@@ -174,6 +175,14 @@
     const P = G.P, W = G.W; const playing = G.phase === "play" && !$("#vg-pause").classList.contains("show"); const ev = [];
     if (G.phase === "play") { const ls = G.snaps[G.snaps.length - 1]; G.tPlay = ls && ls.t != null ? ls.t + (now - ls.arr) / 1000 : (now - G.playAt) / 1000; }
     { const k = G.keys, c = G.cam, sp = 1.9 * G.sens; if (k["g"]) c.yaw += sp * dt; if (k["h"]) c.yaw -= sp * dt; if (k["r"]) c.pitch = clamp(c.pitch + sp * 0.7 * dt * (G.inv ? -1 : 1), -0.15, 1.25); if (k["f"]) c.pitch = clamp(c.pitch - sp * 0.7 * dt * (G.inv ? -1 : 1), -0.15, 1.25); ["g", "h", "r", "f"].forEach((x) => { const e = document.getElementById("ck-" + x); if (e) e.classList.toggle("on", !!k[x]); }); }
+    // caméra automatique : elle tourne doucement vers la direction où le joueur veut aller
+    if (G.auto && playing && !G.fin) {
+      const c = G.cam; if (k_any(G.keys, ["g", "h"])) G.camManual = now;
+      if (now - G.camManual > 700) {
+        const ip = readInput(); const mag = Math.hypot(ip.mx, ip.mz);
+        if (mag > 0.25) { let d = Math.atan2(-ip.mx, -ip.mz) - c.yaw; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; if (Math.abs(d) < 2.35) c.yaw += clamp(d * 1.25, -1.5, 1.5) * dt; }
+      }
+    }
     // simulation locale à pas fixe
     if (G.phase === "play") {
       G.acc += dt; let n = 0; const inp = G.auto ? G.auto() : readInput(); if (G.lock > 0) { G.lock -= dt; inp.mx = inp.mz = 0; inp.jump = false; } if (!playing) { inp.mx = inp.mz = 0; inp.jump = false; }
@@ -280,9 +289,10 @@
       <label>Volume<input type="range" id="vg-vol" min="0" max="100" value="${Math.round(SND.vol * 100)}"></label>
       <label>Sensibilité de la caméra<input type="range" id="vg-sens" min="40" max="220" value="${Math.round(G.sens * 100)}"></label>
       <label>Inverser le haut et le bas<input type="checkbox" id="vg-inv" ${G.inv ? "checked" : ""}></label>
+      <label>La caméra suit ma direction<input type="checkbox" id="vg-auto" ${G.auto ? "checked" : ""}></label>
       <label>Qualité de l'image<select id="vg-q"><option value="low">Légère</option><option value="medium">Équilibrée</option><option value="high">Belle</option></select></label></div>
       <div class="vg-btnrow"><button class="vg-b" id="vg-resume">Reprendre</button><button class="vg-b g" id="vg-leave">Quitter la partie</button></div></div>`;
-    ov.classList.add("show"); $("#vg-q").value = G.quality; $("#vg-vol").oninput = (e) => SND.setVol(e.target.value / 100); $("#vg-sens").oninput = (e) => { G.sens = e.target.value / 100; store.set("vg.sens", String(G.sens)); }; $("#vg-inv").onchange = (e) => { G.inv = e.target.checked; store.set("vg.inv", G.inv ? "1" : "0"); }; $("#vg-q").onchange = (e) => setQuality(e.target.value);
+    ov.classList.add("show"); $("#vg-q").value = G.quality; $("#vg-vol").oninput = (e) => SND.setVol(e.target.value / 100); $("#vg-sens").oninput = (e) => { G.sens = e.target.value / 100; store.set("vg.sens", String(G.sens)); }; $("#vg-auto").onchange = (e) => { G.auto = e.target.checked; store.set("vg.auto", G.auto ? "1" : "0"); }; $("#vg-inv").onchange = (e) => { G.inv = e.target.checked; store.set("vg.inv", G.inv ? "1" : "0"); }; $("#vg-q").onchange = (e) => setQuality(e.target.value);
     $("#vg-resume").onclick = closePause; $("#vg-leave").onclick = () => Kit.confirm("Quitter la partie en cours ?", () => { closePause(); Kit.leave(); });
   }
   function closePause() { $("#vg-pause").classList.remove("show"); }
@@ -312,7 +322,7 @@
     Kit.on("reset", () => leaveGame()); document.addEventListener("pointerdown", () => SND.unlock(), { once: true });
   }
   Kit.init({
-    id: "vertigogo", title: "Vertigogo", emoji: "🏔️", ribbon: "Grimpe, saute, ne regarde pas en bas", tagline: "Une tour d'objets géants à escalader, seul ou entre amis.",
+    id: "vertigogo", hero: true, title: "Vertigogo", emoji: "🏔️", ribbon: "Grimpe, saute, ne regarde pas en bas", tagline: "Une tour d'objets géants à escalader, seul ou entre amis.",
     createLabel: "Créer un salon", soloLabel: "Jouer contre des bots", startLabel: "Lancer la course", helpTitle: "Comment jouer",
     floaters: [{ e: "🏔️", x: 6 }, { e: "☁️", x: 20 }, { e: "🚕", x: 34 }, { e: "🍄", x: 48 }, { e: "🛋️", x: 62 }, { e: "🎃", x: 76 }, { e: "🌳", x: 90 }],
     colors: COLORS, botLevels: LEVELS, maxPlayers: 8, minPlayers: 2, schema: Rules.SCHEMA,
