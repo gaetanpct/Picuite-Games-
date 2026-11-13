@@ -90,11 +90,12 @@
     const home = el("section", { id: "screen-home", class: "screen screen--active" }, [
       el("div", { class: "kit-sky" }, (cfg.floaters || []).map((f, i) => el("span", { class: "kit-floater", style: { "--x": f.x + "%", "--d": (i * 1.3) + "s", "--s": (1.6 + (i % 3) * 0.5) + "rem" }, text: f.e }))),
       el("div", { class: "home-wrap" }, [
-        el("header", { class: "kit-logo" }, [
+        el("header", { class: "kit-logo" + (cfg.hero ? " kit-logo--hero" : "") }, [
           el("div", { class: "kit-logo__emoji", text: cfg.emoji }),
           el("h1", { class: "kit-logo__big", text: cfg.title }),
           el("div", { class: "kit-logo__ribbon" }, [el("span", { text: cfg.ribbon })]),
           el("p", { class: "kit-logo__tag", text: cfg.tagline }),
+          cfg.hero ? el("img", { class: "kit-hero", src: "/" + cfg.id + "/assets/hero.webp", alt: "", width: "900", height: "675", decoding: "async", onerror: (e) => e.target.remove() }) : null,
         ]),
         el("main", { class: "card home-card" }, [
           el("label", { class: "field" }, [el("span", { class: "field__label", text: "Ton nom" }), el("input", { id: "input-name", type: "text", maxlength: "16", placeholder: "Ex. Pupuce", autocomplete: "off" })]),

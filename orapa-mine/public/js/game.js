@@ -111,6 +111,19 @@
   // opts : { gems (vrais), hyp (hypothèses), shots, asks, onCell, onSlot, selSlot, selCell, notes, reveal }
   const S = 44;
   const txt = (t) => document.createTextNode(t);
+  // petite texture de roche générée une fois, sans fichier
+  let GRAIN = "";
+  function grainUrl() {
+    if (GRAIN) return GRAIN;
+    try { const c = document.createElement("canvas"); c.width = c.height = 64; const x = c.getContext("2d"); const d = x.createImageData(64, 64); let k = 7; for (let i = 0; i < d.data.length; i += 4) { k = (k * 1103515245 + 12345) & 0x7fffffff; const v = (k >> 8) & 255; const lite = v > 150; d.data[i] = lite ? 255 : 0; d.data[i + 1] = lite ? 255 : 0; d.data[i + 2] = lite ? 255 : 20; d.data[i + 3] = lite ? (v - 150) / 6 : (150 - v) / 9; } x.putImageData(d, 0, 0); GRAIN = c.toDataURL("image/png"); } catch (e) { GRAIN = ""; }
+    return GRAIN;
+  }
+  function cornerDeco(root, W, H) {
+    const lamp = (cx, cy) => { root.appendChild(svg("circle", { cx, cy, r: 20, fill: "url(#omLamp)", "pointer-events": "none" })); root.appendChild(svg("rect", { x: cx - 5, y: cy - 7, width: 10, height: 14, rx: 3, fill: "#ffd27a", stroke: "#2a2230", "stroke-width": 2, "pointer-events": "none" })); root.appendChild(svg("path", { d: "M" + (cx - 7) + "," + (cy - 7) + " L" + cx + "," + (cy - 13) + " L" + (cx + 7) + "," + (cy - 7) + "Z", fill: "#2a2230", "pointer-events": "none" })); };
+    const cry = (cx, cy, a, b) => { [[-7, 4, 7, a], [0, 8, 10, b], [7, 4, 6, a]].forEach((q, i) => root.appendChild(svg("polygon", { points: (cx + q[0] - 4) + "," + (cy + 12) + " " + (cx + q[0]) + "," + (cy + 12 - q[2] * 1.7) + " " + (cx + q[0] + 4) + "," + (cy + 12), fill: q[3], stroke: "#fff", "stroke-width": 1, "stroke-opacity": 0.6, "pointer-events": "none" }))); };
+    const R = (W + 1) * S, B = (H + 1) * S;
+    lamp(S * 0.5, S * 0.5); lamp(R + S * 0.5, S * 0.5); cry(S * 0.5, B + S * 0.2, "#4ad1ff", "#b06bff"); cry(R + S * 0.5, B + S * 0.2, "#ffc933", "#2fd66b");
+  }
   function slotXY(sl, W, H) { return sl.s === "N" ? [(sl.i + 1.5) * S, 0.6 * S] : sl.s === "S" ? [(sl.i + 1.5) * S, (H + 1.4) * S] : sl.s === "W" ? [0.6 * S, (sl.i + 1.5) * S] : [(W + 1.4) * S, (sl.i + 1.5) * S]; }
   const P = (p) => ((p[0] + 1.5) * S) + "," + ((p[1] + 1.5) * S);
   function boardSvg(s, opts) {
@@ -118,17 +131,26 @@
     const root = svg("svg", { viewBox: "0 0 " + vw + " " + vh, class: "om-board", role: "img", "aria-label": "Plateau de la mine, " + W + " colonnes et " + H + " lignes" });
     const defs = svg("defs", {}, [
       svg("linearGradient", { id: "omFrame", x1: 0, y1: 0, x2: 1, y2: 1 }, [svg("stop", { offset: "0", "stop-color": "#3b4bb0" }), svg("stop", { offset: "1", "stop-color": "#1b2563" })]),
+      svg("linearGradient", { id: "omStone", x1: 0, y1: 0, x2: 0, y2: 1 }, [svg("stop", { offset: "0", "stop-color": "#8b7fb0" }), svg("stop", { offset: "0.5", "stop-color": "#554a78" }), svg("stop", { offset: "1", "stop-color": "#2f2850" })]),
+      svg("linearGradient", { id: "omCellA", x1: 0, y1: 0, x2: 0, y2: 1 }, [svg("stop", { offset: "0", "stop-color": "#222d63" }), svg("stop", { offset: "1", "stop-color": "#161f4a" })]),
+      svg("linearGradient", { id: "omCellB", x1: 0, y1: 0, x2: 0, y2: 1 }, [svg("stop", { offset: "0", "stop-color": "#1c2656" }), svg("stop", { offset: "1", "stop-color": "#121a3f" })]),
+      svg("radialGradient", { id: "omLamp" }, [svg("stop", { offset: "0", "stop-color": "#ffd27a", "stop-opacity": 0.9 }), svg("stop", { offset: "1", "stop-color": "#ffa630", "stop-opacity": 0 })]),
+      svg("pattern", { id: "omGrain", width: 64, height: 64, patternUnits: "userSpaceOnUse" }, [svg("image", { href: grainUrl(), width: 64, height: 64 })]),
       svg("filter", { id: "omGlow", x: "-50%", y: "-50%", width: "200%", height: "200%" }, [svg("feGaussianBlur", { stdDeviation: 2.2, result: "b" }), svg("feMerge", {}, [svg("feMergeNode", { in: "b" }), svg("feMergeNode", { in: "SourceGraphic" })])]),
     ]); root.appendChild(defs);
-    root.appendChild(svg("rect", { x: S * 0.95, y: S * 0.95, width: (W + 0.1) * S, height: (H + 0.1) * S, rx: 12, fill: "#0b1030", stroke: "url(#omFrame)", "stroke-width": 7 }));
+    root.appendChild(svg("rect", { x: S * 0.95, y: S * 0.95, width: (W + 0.1) * S, height: (H + 0.1) * S, rx: 12, fill: "#0b1030", stroke: "url(#omStone)", "stroke-width": 9, "pointer-events": "none" }));
+    root.appendChild(svg("rect", { x: S * 0.95 - 4.5, y: S * 0.95 - 4.5, width: (W + 0.1) * S + 9, height: (H + 0.1) * S + 9, rx: 16, fill: "none", stroke: "url(#omGrain)", "stroke-width": 9, "pointer-events": "none" }));
+    root.appendChild(svg("rect", { x: S * 0.95 + 4.5, y: S * 0.95 + 4.5, width: (W + 0.1) * S - 9, height: (H + 0.1) * S - 9, rx: 8, fill: "none", stroke: "#000", "stroke-opacity": 0.35, "stroke-width": 2, "pointer-events": "none" }));
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const sel = opts.selCell && opts.selCell[0] === x && opts.selCell[1] === y;
-      const c = svg("rect", { x: (x + 1) * S + 1.5, y: (y + 1) * S + 1.5, width: S - 3, height: S - 3, rx: 5, fill: (x + y) % 2 ? "#1c2656" : "#162049", class: "om-cell" + (sel ? " om-cell--sel" : "") });
+      const c = svg("rect", { x: (x + 1) * S + 1.5, y: (y + 1) * S + 1.5, width: S - 3, height: S - 3, rx: 5, fill: (x + y) % 2 ? "url(#omCellA)" : "url(#omCellB)", class: "om-cell" + (sel ? " om-cell--sel" : "") });
       if (opts.onCell) { c.style.cursor = "pointer"; c.addEventListener("click", () => opts.onCell(x, y)); }
       root.appendChild(c);
       if (y === 0) root.appendChild(svg("text", { x: (x + 1) * S + 6, y: (y + 1) * S + 14, class: "om-coord" }, [txt(COLS[x])]));
       if (x === 0) root.appendChild(svg("text", { x: (x + 1) * S + 6, y: (y + 1) * S + (y === 0 ? 28 : 14), class: "om-coord" }, [txt(String(y + 1))]));
     }
+    root.appendChild(svg("rect", { x: S, y: S, width: W * S, height: H * S, fill: "url(#omGrain)", opacity: 0.55, "pointer-events": "none" }));
+    cornerDeco(root, W, H);
     if (opts.notes) opts.notes.forEach((k) => { const [x, y] = k.split(",").map(Number); root.appendChild(svg("text", { x: (x + 1.5) * S, y: (y + 1.5) * S + 7, "text-anchor": "middle", "font-size": 22, fill: "#8d99d8", "pointer-events": "none" }, [txt("✕")])); });
     if (opts.gems) opts.gems.forEach((gm) => drawGem(root, gm, f, 1, false, opts.onCell));
     if (opts.hyp) opts.hyp.forEach((h, i) => { if (!h) return; const meta = s.inv[i]; const gm = { k: meta.k, m: meta.m, d: h.d, cells: cellsOf(meta.shape, h.rot), x: h.x, y: h.y, idx: i }; drawGem(root, gm, f, 0.88, G.sel === i && G.tool === "pose", (x, y) => { if (G.tool === "pose") { G.sel = i; render(); } else if (opts.onCell) opts.onCell(x, y); }, true); });
@@ -178,6 +200,8 @@
         const tri = gm.d ? [[x0, y0], [x1, y1], [x0, y1]] : [[x0, y1], [x1, y0], [x1, y1]];
         g.appendChild(svg("polygon", { points: tri.map((q) => q.join(",")).join(" "), fill: hex, opacity: gm.m === 0 ? 0.55 : 0.95, stroke: "#fff", "stroke-width": 2, "stroke-linejoin": "round" }));
         g.appendChild(svg("line", gm.d ? { x1: x0, y1: y0, x2: x1, y2: y1, stroke: "#fff", "stroke-width": 3.5, "stroke-linecap": "round" } : { x1: x0, y1: y1, x2: x1, y2: y0, stroke: "#fff", "stroke-width": 3.5, "stroke-linecap": "round" }));
+        const fa = gm.d ? [[x0 + w * 0.1, y1 - w * 0.12], [x0 + w * 0.1, y0 + w * 0.34], [x1 - w * 0.34, y1 - w * 0.12]] : [[x0 + w * 0.12, y1 - w * 0.1], [x1 - w * 0.1, y0 + w * 0.34], [x1 - w * 0.1, y1 - w * 0.1]];
+        g.appendChild(svg("polygon", { points: fa.map((q) => q.join(",")).join(" "), fill: "#fff", opacity: 0.22, "pointer-events": "none" }));
         g.appendChild(svg("circle", { cx: gm.d ? cxp - w * 0.16 : cxp + w * 0.16, cy: cyp + w * 0.18, r: 3, fill: "#fff", opacity: 0.8 }));
       }
       else if (gm.k === "filter") g.appendChild(svg("rect", { x: x0, y: y0, width: w, height: w, rx: 6, fill: HEX[gm.m], opacity: ghost ? 0.6 : 0.75, stroke: "#fff", "stroke-width": 2 }));
@@ -391,7 +415,7 @@
   function attach() { const so = Kit.socket; if (!so || G.attached) return; G.attached = true; so.on("om:state", onState); so.on("om:over", onOver); so.on("om:accuseResult", onAccuseResult); so.on("om:random", onRandom); }
 
   Kit.init({
-    id: "orapa-mine", title: "Mine de Rien", emoji: "💎", ribbon: "Le jeu de déduction à lasers", tagline: "Tire des rayons dans la mine et retrouve les pierres cachées.",
+    id: "orapa-mine", hero: true, title: "Mine de Rien", emoji: "💎", ribbon: "Le jeu de déduction à lasers", tagline: "Tire des rayons dans la mine et retrouve les pierres cachées.",
     createLabel: "Créer une expédition", soloLabel: "Jouer contre un robot", startLabel: "Descendre dans la mine", helpTitle: "Comment jouer",
     floaters: [{ e: "💎", x: 6 }, { e: "⛏️", x: 20 }, { e: "🔦", x: 36 }, { e: "🔴", x: 50 }, { e: "🔵", x: 64 }, { e: "🟡", x: 78 }, { e: "🪨", x: 92 }],
     colors: COLORS, botLevels: [{ id: "novice", label: "Novice" }, { id: "fute", label: "Futé" }, { id: "genie", label: "Génie" }], maxPlayers: 6, minPlayers: 2, schema: R.SCHEMA,

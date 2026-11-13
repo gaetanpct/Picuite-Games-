@@ -822,7 +822,7 @@
   };
 
   Kit.init({
-    id: "zoomalou", title: "Zoomalou", emoji: "🏎️", ribbon: "Vroum à l'infini", tagline: "Des circuits qui n'existent pas encore et un réservoir qui se vide.",
+    id: "zoomalou", hero: true, title: "Zoomalou", emoji: "🏎️", ribbon: "Vroum à l'infini", tagline: "Des circuits qui n'existent pas encore et un réservoir qui se vide.",
     createLabel: "Créer un salon", soloLabel: "Jouer contre des bots", startLabel: "Lancer la partie", helpTitle: "Comment jouer",
     floaters: [{ e: "🏎️", x: 6 }, { e: "🏁", x: 22 }, { e: "⛽", x: 38 }, { e: "🚀", x: 52 }, { e: "🌴", x: 66 }, { e: "⛄", x: 80 }, { e: "🍭", x: 92 }],
     colors: COLORS, botLevels: LEVELS, maxPlayers: 8, minPlayers: 1, schema: ZR.SCHEMA,

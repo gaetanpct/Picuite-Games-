@@ -14,3 +14,7 @@ Starter Kit Racing de Kenney (github.com/KenneyNL/Starter-Kit-Racing), licence M
 Copyright 2023 Kenney. La permission est accordée gratuitement d utiliser, copier, modifier et distribuer ces fichiers, à condition de garder cette mention de copyright et de licence.
 
 Merci à Kenney pour ces ressources libres.
+
+
+Visuel d'accueil (hero.webp)
+Image rendue hors ligne a partir des modeles ci dessus, licence CC0.
