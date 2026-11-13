@@ -1,0 +1,20 @@
+Credits des modèles 3D et des sons de Zoomalou
+
+Voitures et camions
+Car Kit de Kenney (www.kenney.nl), licence CC0 domaine public.
+
+Décor de circuit (tribunes, bannières, panneaux, lampadaires, drapeaux)
+Racing Kit de Kenney (www.kenney.nl), licence CC0 domaine public.
+
+Arbres, palmiers, cactus, rochers
+Nature Kit de Kenney (www.kenney.nl), licence CC0 domaine public.
+
+Sons de moteur, de dérapage et d impact
+Starter Kit Racing de Kenney (github.com/KenneyNL/Starter-Kit-Racing), licence MIT.
+Copyright 2023 Kenney. La permission est accordée gratuitement d utiliser, copier, modifier et distribuer ces fichiers, à condition de garder cette mention de copyright et de licence.
+
+Merci à Kenney pour ces ressources libres.
+
+
+Visuel d'accueil (hero.webp)
+Image rendue hors ligne a partir des modeles ci dessus, licence CC0.

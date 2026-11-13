@@ -1,0 +1,23 @@
+{
+ "name": "Zoomalou",
+ "order": 5,
+ "tagline": "Des courses à l'infini, et une jauge d'essence qui fond.",
+ "pitch": "Un jeu de course en 3D avec un mode essence. Chaque circuit est généré au hasard dans huit biomes qui changent vraiment la façon de piloter, de la Mégapole où l'on roule la tête à l'envers aux Dunes presque sans murs. Embranchements, routes qui se croisent sur deux niveaux, routes qui bougent, trous à sauter, loopings et anneaux turbo. En mode essence, chacun pose un temps puis le dernier joue avec toute son essence pour battre l'avant-dernier. Deux modes chrono permettent aussi de partir tous ensemble jusqu'à huit, en fantômes ou en se touchant, avec l'aspiration.",
+ "tags": [
+  "1 à 8 joueurs",
+  "10 à 25 minutes",
+  "Course et essence"
+ ],
+ "steps": [
+  "Choisis ta voiture au garage parmi dix bolides, dont trois à mécanique unique.",
+  "Chaque pilote pose un temps sur un circuit tout neuf.",
+  "Le dernier joue avec toute son essence pour battre l'avant-dernier, sinon il est éliminé."
+ ],
+ "for": "Pour celles et ceux qui aiment recommencer encore et encore jusqu'au temps parfait.",
+ "colors": [
+  "#e8453c",
+  "#6a1b17"
+ ],
+ "cta": "Jouer à Zoomalou",
+ "logo": "logos/zoomalou.svg"
+}

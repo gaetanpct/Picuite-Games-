@@ -1,0 +1,16 @@
+{
+ "name": "Golfouille",
+ "order": 4,
+ "tagline": "Le golf en folie, sur des terrains qui n'existent pas encore.",
+ "pitch": "Un golf en 3D où chaque trou est généré au hasard parmi huit biomes, de la prairie au cosmos. Choisis ton club, rate ou réussis ton coup, ramasse des orbes et embête tes adversaires avec des pouvoirs. Le premier dans le trou prend les points.",
+ "tags": ["1 à 6 joueurs", "10 à 30 minutes", "Course et pouvoirs"],
+ "steps": [
+  "Règle ton parcours en choisissant les biomes, le relief et les pièges.",
+  "Tape en même temps que les autres et file vers le trou.",
+  "Ramasse des orbes pour lancer des pouvoirs et gêner tes rivaux."
+ ],
+ "for": "Pour celles et ceux qui aiment la course, les petits coups bas et les terrains fous.",
+ "colors": ["#1f7a4d", "#0b3a2a"],
+ "cta": "Jouer à Golfouille",
+ "logo": "logos/golfouille.svg"
+}
