@@ -1,0 +1,8 @@
+Credits des ressources de Vertigogo
+
+Personnages animes
+KayKit Adventurers par Kay Lousberg, licence CC0 (domaine public).
+kaylousberg.com/game-assets
+
+Les modeles ont ete allegees (suppression des textures inutiles) avec glTF Transform.
+Les decors, les textures, les effets et les sons sont crees par le code, dans le navigateur. Aucune autre ressource externe n'est utilisee.

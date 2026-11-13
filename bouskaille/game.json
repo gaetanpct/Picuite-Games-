@@ -1,0 +1,16 @@
+{
+ "name": "Bouskaille",
+ "order": 6,
+ "tagline": "Pousse, esquive, et reste sur l'arène.",
+ "pitch": "Un jeu de bousculade en 3D pour deux à huit joueurs. Un seul bouton pour pousser, charger et prendre de l'élan, mais toute la physique est là, avec le poids, l'inertie et l'angle du choc. Sept arènes aux règles différentes, des tapis roulants, des pistons, des manèges, des trampolines et une marée qui monte, chacune générée en variantes. Quatre modes, des manches avec classement général pour que personne ne soit éliminé pour de bon, et des bots à quatre niveaux pour compléter la table.",
+ "tags": ["2 à 8 joueurs", "10 à 20 minutes", "Physique et bousculade"],
+ "steps": [
+  "Déplace-toi avec ZQSD ou les flèches et reste sur l'arène.",
+  "Appuie sur Espace pour pousser, maintiens pour charger et relâche pour foncer.",
+  "Un choc de plein fouet envoie l'adversaire dans le vide, une charge ratée te laisse sans défense."
+ ],
+ "for": "Pour celles et ceux qui adorent pousser leurs amis dans le vide.",
+ "colors": ["#ff8a3d", "#7a2a12"],
+ "cta": "Jouer à Bouskaille",
+ "logo": "logos/bouskaille.svg"
+}

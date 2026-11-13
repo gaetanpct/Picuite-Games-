@@ -1,0 +1,75 @@
+/* BOUSKAILLE — interface de jeu */
+:root { --bk-a: #ff8a3d; --bk-b: #7a2a12; --hud: rgba(26, 14, 40, 0.74); --bk-ink: #fff; }
+#screen-game { position: fixed; inset: 0; background: #0d0a1c; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+#bk-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.bk-hud { position: absolute; inset: 0; pointer-events: none; font-family: "Fredoka", system-ui, sans-serif; color: var(--bk-ink); }
+.bk-top { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: stretch; }
+.bk-pill { background: var(--hud); border-radius: 999px; padding: 6px 16px; font-weight: 600; font-size: 1.05rem; backdrop-filter: blur(4px); display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); }
+.bk-pill b { font-family: "Lilita One", "Fredoka", sans-serif; font-weight: 400; font-size: 1.25rem; letter-spacing: 0.02em; }
+.bk-team { display: inline-flex; gap: 6px; align-items: center; }
+.bk-team i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.bk-board { position: absolute; top: 10px; left: 10px; width: 210px; display: flex; flex-direction: column; gap: 4px; }
+.bk-row { background: var(--hud); border-radius: 12px; padding: 4px 10px 4px 8px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; font-weight: 500; transition: opacity 0.3s, transform 0.3s; }
+.bk-row.dead { opacity: 0.5; }
+.bk-row.me { outline: 2px solid #ffd23d; }
+.bk-row .dot { width: 14px; height: 14px; border-radius: 50%; flex: none; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5); }
+.bk-row .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk-row .sc { font-family: "Lilita One", sans-serif; font-size: 1.05rem; }
+.bk-row .sk { font-size: 0.85rem; opacity: 0.85; }
+.bk-feed { position: absolute; top: 56px; right: 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; max-width: 46vw; }
+.bk-feed div { background: var(--hud); border-radius: 10px; padding: 4px 10px; font-size: 0.95rem; animation: bk-in 0.25s ease-out, bk-out 0.5s 4s forwards; }
+.bk-btns { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; pointer-events: auto; }
+.bk-btn { width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--hud); color: #fff; font-size: 1.1rem; cursor: pointer; }
+.bk-banner { position: absolute; left: 0; right: 0; top: 26%; text-align: center; font-family: "Lilita One", "Fredoka", sans-serif; text-shadow: 0 4px 0 rgba(0, 0, 0, 0.35), 0 0 30px rgba(0, 0, 0, 0.35); }
+.bk-banner .big { font-size: clamp(2.6rem, 9vw, 6rem); line-height: 1; animation: bk-pop 0.5s cubic-bezier(.2, 1.6, .4, 1); }
+.bk-banner .sub { font-family: "Fredoka", sans-serif; font-weight: 500; font-size: clamp(1rem, 2.6vw, 1.5rem); margin-top: 8px; opacity: 0.95; max-width: 720px; margin-left: auto; margin-right: auto; padding: 0 16px; }
+.bk-help { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); background: var(--hud); border-radius: 14px; padding: 8px 16px; font-size: 0.95rem; text-align: center; max-width: 92vw; transition: opacity 0.6s; }
+.bk-help kbd { background: rgba(255, 255, 255, 0.18); border-radius: 6px; padding: 1px 7px; font-family: inherit; font-weight: 600; }
+.bk-me { position: absolute; left: 50%; bottom: 62px; transform: translateX(-50%); width: min(320px, 70vw); height: 12px; background: rgba(0, 0, 0, 0.45); border-radius: 999px; overflow: hidden; opacity: 0; transition: opacity 0.15s; }
+.bk-me i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffd23d, #ff5a3d); }
+.bk-me.on { opacity: 1; }
+.bk-cd { position: absolute; left: 50%; bottom: 50px; transform: translateX(-50%); width: 120px; height: 5px; background: rgba(0, 0, 0, 0.35); border-radius: 99px; overflow: hidden; }
+.bk-cd i { display: block; height: 100%; width: 0; background: #7fd3ff; }
+.bk-crown { position: absolute; transform: translate(-50%, -50%); font-size: 1.8rem; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); }
+.bk-ov { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(12, 8, 28, 0.55); pointer-events: auto; padding: 14px; overflow: auto; }
+.bk-ov.show { display: flex; }
+.bk-card { background: linear-gradient(180deg, #2a1a4a, #1a1030); border-radius: 22px; padding: 18px 22px; width: min(620px, 96vw); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); max-height: 92vh; overflow: auto; }
+.bk-card h2 { margin: 0 0 4px; font-family: "Lilita One", sans-serif; font-weight: 400; font-size: 1.9rem; text-align: center; }
+.bk-card .sm { text-align: center; opacity: 0.8; margin-bottom: 10px; font-size: 0.95rem; }
+.bk-tab { width: 100%; border-collapse: collapse; font-size: 1rem; }
+.bk-tab td, .bk-tab th { padding: 5px 8px; text-align: left; }
+.bk-tab th { opacity: 0.7; font-weight: 500; font-size: 0.85rem; }
+.bk-tab td.n, .bk-tab th.n { text-align: right; font-variant-numeric: tabular-nums; }
+.bk-tab tr.me td { background: rgba(255, 210, 61, 0.18); }
+.bk-tab tr.win td { font-weight: 700; }
+.bk-tab .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; vertical-align: -1px; }
+.bk-btnrow { display: flex; gap: 10px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+.bk-b { border: 0; border-radius: 14px; padding: 10px 20px; font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 1.05rem; cursor: pointer; background: #ffd23d; color: #3a2400; }
+.bk-b.g { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.bk-set { display: grid; gap: 10px; margin-top: 8px; }
+.bk-set label { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.bk-set select, .bk-set input[type=range] { accent-color: #ffd23d; }
+.bk-joy { position: absolute; left: 22px; bottom: 26px; width: 130px; height: 130px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); border: 2px solid rgba(255, 255, 255, 0.3); display: none; pointer-events: auto; touch-action: none; }
+.bk-joy i { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: rgba(255, 255, 255, 0.45); }
+.bk-act { position: absolute; right: 26px; bottom: 30px; width: 112px; height: 112px; border-radius: 50%; background: rgba(255, 138, 61, 0.55); border: 3px solid rgba(255, 255, 255, 0.55); display: none; pointer-events: auto; color: #fff; font-family: "Lilita One", sans-serif; font-size: 1.3rem; align-items: center; justify-content: center; touch-action: none; }
+.bk-act.on { background: rgba(255, 70, 40, 0.8); }
+body.touch .bk-joy, body.touch .bk-act { display: flex; }
+body.touch .bk-help { display: none; }
+@keyframes bk-pop { 0% { transform: scale(0.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes bk-in { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes bk-out { to { opacity: 0; } }
+/* personnalisation dans le salon */
+.bk-custom { margin-top: 12px; display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: center; background: rgba(255, 255, 255, 0.07); border-radius: 16px; padding: 10px; }
+.bk-custom canvas { width: 150px; height: 190px; border-radius: 12px; background: linear-gradient(180deg, #ffd9c2, #7fc7ff); display: block; }
+.bk-pick { display: flex; align-items: center; gap: 6px; margin: 3px 0; font-size: 0.95rem; }
+.bk-pick span.l { width: 82px; opacity: 0.8; font-size: 0.85rem; }
+.bk-pick b { flex: 1; text-align: center; font-weight: 600; }
+.bk-pick button { width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, 0.18); color: #fff; font-size: 1rem; cursor: pointer; }
+.bk-arenas { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; margin-top: 10px; }
+.bk-arenas div { border-radius: 10px; padding: 6px 8px; font-size: 0.85rem; background: rgba(255, 255, 255, 0.08); }
+.bk-arenas b { display: block; }
+@media (max-width: 700px) { .bk-board { width: 150px; } .bk-row { font-size: 0.8rem; padding: 2px 8px 2px 6px; } .bk-custom { grid-template-columns: 1fr; } .bk-custom canvas { margin: 0 auto; } }
+
+.bk-ov.podium { align-items: flex-end; padding-bottom: 14px; background: transparent; }
+.bk-ov.podium .bk-card { padding: 12px 18px; }
+.bk-ov.podium .bk-card h2 { font-size: 1.5rem; }

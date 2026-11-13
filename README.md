@@ -2,7 +2,7 @@
 
 Le site qui réunit tous les jeux, avec une page d'accueil pour choisir.
 
-Jeux inclus pour l'instant, Gaeboub-up (jeu de plateau), Goliathicus (stratégie et bluff), Richissime Destiny (simulation de vie entre amis), Golfouille (golf en 3D sur des terrains générés) Zoomalou (courses de voitures sur des circuits générés) Mauvaises Langues (jeu de soirée de classements déplacés, pour adultes) et Pagaille Party (party game de mini-jeux).
+Jeux inclus pour l'instant, Gaeboub-up (jeu de plateau), Goliathicus (stratégie et bluff), Richissime Destiny (simulation de vie entre amis), Golfouille (golf en 3D sur des terrains générés) Zoomalou (courses de voitures sur des circuits générés) Mauvaises Langues (jeu de soirée de classements déplacés, pour adultes) Pagaille Party (party game de mini-jeux), Bouskaille (bagarre de bumpers en arène, 3D) et Vertigogo (ascension verticale en 3D).
 
 ## Lancer en local
 
@@ -25,7 +25,7 @@ Une seule adresse sert tout le site. Les jeux sont sur /gaeboub-up, /goliathicus
 
 - server.js, le serveur du site, il découvre et monte automatiquement chaque jeu.
 - public/, la page d'accueil (index.html, style.css, app.js), les logos dans public/logos et le petit bouton de retour pg-back.js.
-- gaeboub-up/, goliathicus/, richissime/, golfouille/, zoomalou/, mauvaises-langues/ et pagaille/, un dossier par jeu directement à la racine, sans dossier games. Chaque dossier contient son server.js, son dossier public, ses éventuels dossiers lib, et un fichier game.json qui sert à la présentation sur l'accueil. Tout dossier de la racine qui contient un server.js et un game.json est reconnu comme un jeu (sauf public et node_modules).
+- gaeboub-up/, goliathicus/, richissime/, golfouille/, zoomalou/, mauvaises-langues/, pagaille/, bouskaille/ et vertigogo/, un dossier par jeu directement à la racine, sans dossier games. Chaque dossier contient son server.js, son dossier public, ses éventuels dossiers lib, et un fichier game.json qui sert à la présentation sur l'accueil. Tout dossier de la racine qui contient un server.js et un game.json est reconnu comme un jeu (sauf public et node_modules).
 
 Pour envoyer le projet sur GitHub, il suffit de déposer chaque dossier séparément (gaeboub-up, goliathicus, richissime, public), puis les fichiers de la racine. Chaque envoi reste sous la limite de 100 fichiers.
 
@@ -1035,3 +1035,35 @@ Pour installer cette version, glisse les dossiers zoomalou, sucre-ou-sale, richi
 - Le mode trois ans par trois ans a été testé en simulation avec des joueurs automatiques uniquement, pas en partie à plusieurs humains.
 - Les nouvelles interactions entre joueurs ont été testées par simulation, la partie de blackjack avec de vrais humains n'a pas été rejouée à l'écran.
 - L'équilibre de la fortune a changé avec la correction du train de vie. Si les parties te semblent trop faciles, dis-le moi et j'ajusterai.
+
+## Quarantième mise à jour, deux nouveaux jeux 3D, Bouskaille et Vertigogo
+
+Deux nouveaux dossiers à la racine, bouskaille et vertigogo, chacun avec son game.json, son server.js et son dossier public. Ils sont indépendants l'un de l'autre et des autres jeux, et ils utilisent le salon commun (codes de salon, bots, réglages, reconnexion, revanche). Aucun fichier commun n'a été modifié. Seuls deux logos s'ajoutent dans public/logos.
+
+### Bouskaille, 2 à 8 joueurs
+- Un jeu de bousculade en arène. ZQSD ou WASD pour bouger, Espace pour une impulsion (un appui bref) ou une charge (appui prolongé). Les collisions et les éliminations sont calculées par le serveur, donc tout le monde voit la même chose.
+- Sept arènes avec des pièges annoncés avant d'agir. Plateau, Usine (tapis roulants), Manège, Sections, Île, Nuages et Flottante. Chaque arène peut être générée à partir d'une graine, et un vérificateur refuse toute arène injouable (testé sur 2100 générations).
+- Modes chacun pour soi, équipes, points et autres variantes, en plusieurs manches avec un classement général et un podium animé à la fin.
+- Personnages animés, accessoires et traînées au choix, sans aucun effet sur le jeu. Aperçu directement dans le salon.
+- Réglages de qualité, volume et sensibilité. Sons et ambiances générés dans le navigateur.
+
+### Vertigogo, 2 à 8 joueurs
+- Une tour à escalader faite de huit mondes empilés. Le chantier, les toits, l'usine suspendue, le jardin géant, la fête foraine, les nuages, les mécanismes et le monde à l'envers. Court, moyen ou long, soit quatre, six ou huit mondes.
+- Saut à hauteur variable (plus on reste appuyé, plus on saute haut), contrôle en l'air, accroche aux rebords, hissage, glissade latérale en restant accroché. Personne ne peut pousser personne.
+- Plateformes mobiles, dalles qui s'effritent, ressorts, glace et barres balayeuses. Un anneau au sol montre où l'on va atterrir.
+- Les parcours viennent d'une graine. Le serveur vérifie qu'un pilote automatique, qui joue avec la vraie physique, peut les finir, sinon il en génère un autre. Les chutes sont donc toujours justes.
+- Modes classique (pas de drapeaux, seuls des filets au début de chaque zone), points de passage, contre la montre (cinq secondes de pénalité par chute) et parcours du jour, identique pour tous les joueurs du même jour.
+- Classement en direct par hauteur, jauge d'altitude avec la position de chaque joueur, caméra à la troisième personne qui évite les murs, fin de course avec tableau, revanche.
+- Les bots ont quatre niveaux. Ils utilisent le même pilote automatique que la vérification des parcours.
+
+### Ressources et licences
+- Personnages animés de KayKit Adventurers, licence CC0, pour les deux jeux. Décor de Kenney, licence CC0, pour Bouskaille seulement. Les décors de Vertigogo, les textures, les effets et les sons sont créés par le code. Les détails sont dans bouskaille/public/assets/CREDITS.txt et vertigogo/public/assets/CREDITS.txt.
+
+### Ce qu'il faut déposer sur GitHub
+- Les dossiers bouskaille et vertigogo (chacun sous les 100 fichiers par dossier), les deux logos bouskaille.svg et vertigogo.svg dans public/logos, et le README.md. Il n'y a rien à supprimer.
+
+### Limites connues
+- Les tests ont été faits avec des bots, des échanges réseau simulés et un Chromium sans carte graphique, pas sur de vrais appareils ni avec des humains. La fluidité réelle sur ton ordinateur et ton téléphone reste à confirmer.
+- Seules les bibliothèques d'objets accessibles depuis le serveur de travail ont pu être utilisées (KayKit et Kenney). Les autres sites de modèles 3D étaient inaccessibles, d'où des décors de Vertigogo dessinés par le code.
+- Bouskaille utilise une prédiction douce côté joueur, un léger décalage est possible avec une mauvaise connexion. Le choix du vainqueur en chacun pour soi peut être serré.
+- Dans Vertigogo, les dalles qui s'effritent sont calculées chez chaque joueur. Il n'y a pas d'échelles. Le classement du jour est gardé en mémoire et repart à zéro quand le serveur redémarre. L'animation d'accroche est une pose simple.

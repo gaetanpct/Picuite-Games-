@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Logo Bouskaille">
+<circle cx="80" cy="80" r="70" fill="#5a2a8a" stroke="#1a0f33" stroke-width="6"/>
+<ellipse cx="80" cy="112" rx="56" ry="18" fill="#ffcf5a" stroke="#1a0f33" stroke-width="5"/>
+<ellipse cx="80" cy="106" rx="56" ry="18" fill="#ff8a3d" stroke="#1a0f33" stroke-width="5"/>
+<circle cx="58" cy="74" r="20" fill="#ffe3c2" stroke="#1a0f33" stroke-width="5"/>
+<circle cx="52" cy="72" r="3.5" fill="#1a0f33"/><circle cx="66" cy="72" r="3.5" fill="#1a0f33"/>
+<path d="M52 83 Q59 89 66 83" fill="none" stroke="#1a0f33" stroke-width="4" stroke-linecap="round"/>
+<circle cx="108" cy="70" r="20" fill="#9fe0b0" stroke="#1a0f33" stroke-width="5"/>
+<circle cx="102" cy="68" r="3.5" fill="#1a0f33"/><circle cx="116" cy="68" r="3.5" fill="#1a0f33"/>
+<ellipse cx="109" cy="80" rx="5" ry="4" fill="#1a0f33"/>
+<path d="M78 56 L90 40 L84 58 L98 52 L86 66 Z" fill="#fff" stroke="#1a0f33" stroke-width="4" stroke-linejoin="round"/>
+</svg>

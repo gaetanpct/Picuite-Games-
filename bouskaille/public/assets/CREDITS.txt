@@ -1,0 +1,12 @@
+Credits des ressources de Bouskaille
+
+Personnages animes
+KayKit Adventurers par Kay Lousberg, licence CC0 (domaine public).
+kaylousberg.com/game-assets
+
+Accessoires et decor 3D
+Kenney Platformer Kit et Kenney Prototype Kit par Kenney, licence CC0.
+kenney.nl/assets
+
+Les modeles ont ete allegees (suppression des animations et textures inutiles) avec glTF Transform.
+Les sons sont generes dans le navigateur, les textures sont dessinees par le code.

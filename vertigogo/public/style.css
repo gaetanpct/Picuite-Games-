@@ -1,0 +1,95 @@
+/* VERTIGOGO — interface de jeu */
+:root { --vg-a: #ff8a3d; --vg-b: #7a2a12; --hud: rgba(26, 14, 40, 0.74); --vg-ink: #fff; }
+#screen-game { position: fixed; inset: 0; background: #0d0a1c; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+#vg-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.vg-hud { position: absolute; inset: 0; pointer-events: none; font-family: "Fredoka", system-ui, sans-serif; color: var(--vg-ink); }
+.vg-top { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: stretch; }
+.vg-pill { white-space: nowrap; background: var(--hud); border-radius: 999px; padding: 6px 16px; font-weight: 600; font-size: 1.05rem; backdrop-filter: blur(4px); display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); }
+.vg-pill b { font-family: "Lilita One", "Fredoka", sans-serif; font-weight: 400; font-size: 1.25rem; letter-spacing: 0.02em; }
+.vg-team { display: inline-flex; gap: 6px; align-items: center; }
+.vg-team i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.vg-board { position: absolute; top: 10px; left: 10px; width: 210px; display: flex; flex-direction: column; gap: 4px; }
+.vg-row { background: var(--hud); border-radius: 12px; padding: 4px 10px 4px 8px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; font-weight: 500; transition: opacity 0.3s, transform 0.3s; }
+.vg-row.dead { opacity: 0.5; }
+.vg-row.me { outline: 2px solid #ffd23d; }
+.vg-row .dot { width: 14px; height: 14px; border-radius: 50%; flex: none; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5); }
+.vg-row .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vg-row .sc { font-family: "Lilita One", sans-serif; font-size: 1.05rem; }
+.vg-row .sk { font-size: 0.85rem; opacity: 0.85; }
+.vg-feed { position: absolute; top: 56px; right: 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; max-width: 46vw; }
+.vg-feed div { background: var(--hud); border-radius: 10px; padding: 4px 10px; font-size: 0.95rem; animation: vg-in 0.25s ease-out, vg-out 0.5s 4s forwards; }
+.vg-btns { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; pointer-events: auto; }
+.vg-btn { width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--hud); color: #fff; font-size: 1.1rem; cursor: pointer; }
+.vg-banner { position: absolute; left: 0; right: 0; top: 26%; text-align: center; font-family: "Lilita One", "Fredoka", sans-serif; text-shadow: 0 4px 0 rgba(0, 0, 0, 0.35), 0 0 30px rgba(0, 0, 0, 0.35); }
+.vg-banner .big { font-size: clamp(2.6rem, 9vw, 6rem); line-height: 1; animation: vg-pop 0.5s cubic-bezier(.2, 1.6, .4, 1); }
+.vg-banner .sub { font-family: "Fredoka", sans-serif; font-weight: 500; font-size: clamp(1rem, 2.6vw, 1.5rem); margin-top: 8px; opacity: 0.95; max-width: 720px; margin-left: auto; margin-right: auto; padding: 0 16px; }
+.vg-help { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); background: var(--hud); border-radius: 14px; padding: 8px 16px; font-size: 0.95rem; text-align: center; max-width: 92vw; transition: opacity 0.6s; }
+.vg-help kbd { background: rgba(255, 255, 255, 0.18); border-radius: 6px; padding: 1px 7px; font-family: inherit; font-weight: 600; }
+.vg-me { position: absolute; left: 50%; bottom: 62px; transform: translateX(-50%); width: min(320px, 70vw); height: 12px; background: rgba(0, 0, 0, 0.45); border-radius: 999px; overflow: hidden; opacity: 0; transition: opacity 0.15s; }
+.vg-me i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffd23d, #ff5a3d); }
+.vg-me.on { opacity: 1; }
+.vg-cd { position: absolute; left: 50%; bottom: 50px; transform: translateX(-50%); width: 120px; height: 5px; background: rgba(0, 0, 0, 0.35); border-radius: 99px; overflow: hidden; }
+.vg-cd i { display: block; height: 100%; width: 0; background: #7fd3ff; }
+.vg-ov { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(12, 8, 28, 0.55); pointer-events: auto; padding: 14px; overflow: auto; }
+.vg-ov.show { display: flex; }
+.vg-card { background: linear-gradient(180deg, #2a1a4a, #1a1030); border-radius: 22px; padding: 18px 22px; width: min(620px, 96vw); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); max-height: 92vh; overflow: auto; }
+.vg-card h2 { margin: 0 0 4px; font-family: "Lilita One", sans-serif; font-weight: 400; font-size: 1.9rem; text-align: center; }
+.vg-card .sm { text-align: center; opacity: 0.8; margin-bottom: 10px; font-size: 0.95rem; }
+.vg-tab { width: 100%; border-collapse: collapse; font-size: 1rem; }
+.vg-tab td, .vg-tab th { padding: 5px 8px; text-align: left; }
+.vg-tab th { opacity: 0.7; font-weight: 500; font-size: 0.85rem; }
+.vg-tab td.n, .vg-tab th.n { text-align: right; font-variant-numeric: tabular-nums; }
+.vg-tab tr.me td { background: rgba(255, 210, 61, 0.18); }
+.vg-tab tr.win td { font-weight: 700; }
+.vg-tab .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; vertical-align: -1px; }
+.vg-btnrow { display: flex; gap: 10px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+.vg-b { border: 0; border-radius: 14px; padding: 10px 20px; font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 1.05rem; cursor: pointer; background: #ffd23d; color: #3a2400; }
+.vg-b.g { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.vg-set { display: grid; gap: 10px; margin-top: 8px; }
+.vg-set label { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.vg-set select, .vg-set input[type=range] { accent-color: #ffd23d; }
+.vg-joy { position: absolute; left: 22px; bottom: 26px; width: 130px; height: 130px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); border: 2px solid rgba(255, 255, 255, 0.3); display: none; pointer-events: auto; touch-action: none; }
+.vg-joy i { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: rgba(255, 255, 255, 0.45); }
+.vg-act { position: absolute; right: 26px; bottom: 30px; width: 112px; height: 112px; border-radius: 50%; background: rgba(255, 138, 61, 0.55); border: 3px solid rgba(255, 255, 255, 0.55); display: none; pointer-events: auto; color: #fff; font-family: "Lilita One", sans-serif; font-size: 1.3rem; align-items: center; justify-content: center; touch-action: none; }
+.vg-act.on { background: rgba(255, 70, 40, 0.8); }
+body.touch .vg-joy, body.touch .vg-act { display: flex; }
+body.touch .vg-help { display: none; }
+@keyframes vg-pop { 0% { transform: scale(0.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes vg-in { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes vg-out { to { opacity: 0; } }
+/* personnalisation dans le salon */
+.vg-custom { margin-top: 12px; display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: center; background: rgba(255, 255, 255, 0.07); border-radius: 16px; padding: 10px; }
+.vg-custom canvas { width: 150px; height: 190px; border-radius: 12px; background: linear-gradient(180deg, #ffd9c2, #7fc7ff); display: block; }
+.vg-pick { display: flex; align-items: center; gap: 6px; margin: 3px 0; font-size: 0.95rem; }
+.vg-pick span.l { width: 82px; opacity: 0.8; font-size: 0.85rem; }
+.vg-pick b { flex: 1; text-align: center; font-weight: 600; }
+.vg-pick button { width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, 0.18); color: #fff; font-size: 1rem; cursor: pointer; }
+@media (max-width: 700px) { .vg-board { width: 150px; } .vg-row { font-size: 0.8rem; padding: 2px 8px 2px 6px; } .vg-custom { grid-template-columns: 1fr; } .vg-custom canvas { margin: 0 auto; } }
+
+
+/* ---------- Vertigogo ---------- */
+.vg-gauge { position: absolute; right: 14px; top: 64px; bottom: 90px; width: 34px; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.vg-gauge .rail { position: relative; flex: 1; width: 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.22); box-shadow: 0 0 0 2px rgba(20, 10, 40, 0.45); }
+.vg-gauge .zb { position: absolute; left: -3px; right: -3px; height: 2px; background: rgba(255, 255, 255, 0.55); }
+.vg-gauge .pin { position: absolute; left: 50%; width: 14px; height: 14px; margin: 0 0 -7px -7px; border-radius: 50%; border: 2px solid #fff; transition: bottom 0.4s linear; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); }
+.vg-gauge .pin.me { width: 20px; height: 20px; margin: 0 0 -10px -10px; border-width: 3px; z-index: 3; }
+.vg-gauge .top, .vg-gauge .bot { font-size: 0.78rem; font-weight: 600; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); margin: 4px 0; white-space: nowrap; }
+.vg-alt { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); text-align: center; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6); pointer-events: none; }
+.vg-alt b { font-family: "Lilita One", sans-serif; font-weight: 400; font-size: 2.4rem; letter-spacing: 0.02em; display: block; line-height: 1; }
+.vg-alt span { font-size: 0.95rem; opacity: 0.9; }
+.vg-prompt { position: absolute; bottom: 24%; left: 50%; transform: translateX(-50%); background: var(--hud); border-radius: 14px; padding: 6px 14px; font-weight: 600; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+.vg-prompt.on { opacity: 1; }
+.vg-fade { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+.vg-fade.on { opacity: 0.75; transition: opacity 0.05s; }
+.vg-fall { position: absolute; top: 30%; left: 50%; transform: translateX(-50%); font-family: "Lilita One", sans-serif; font-size: 1.8rem; text-shadow: 0 3px 8px rgba(0, 0, 0, 0.6); opacity: 0; pointer-events: none; text-align: center; }
+.vg-fall.on { animation: vg-pop 0.35s ease-out forwards; opacity: 1; }
+.vg-ov.podium { align-items: flex-end; padding-bottom: 14px; }
+.vg-cross { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: rgba(255, 255, 255, 0.8); display: none; pointer-events: none; }
+.vg-btn2 { position: absolute; right: 26px; bottom: 160px; width: 74px; height: 74px; border-radius: 50%; background: rgba(60, 160, 255, 0.5); border: 3px solid rgba(255, 255, 255, 0.55); display: none; pointer-events: auto; color: #fff; font-family: "Lilita One", sans-serif; font-size: 1rem; align-items: center; justify-content: center; touch-action: none; }
+body.touch .vg-btn2 { display: flex; }
+.vg-custom { margin-top: 12px; display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: center; background: rgba(255, 255, 255, 0.07); border-radius: 16px; padding: 10px; }
+.vg-custom canvas { width: 150px; height: 190px; border-radius: 12px; background: linear-gradient(180deg, #bfe4ff, #ffe3c2); display: block; }
+.vg-tl { font-variant-numeric: tabular-nums; }
+
+@media (max-width: 700px) { .vg-board { top: 46px; } .vg-top { top: 8px; } .vg-pill { padding: 4px 12px; font-size: 0.85rem; } #vg-mode { display: none; } .vg-feed { top: 50px; } .vg-prompt { font-size: 0.85rem; } }
+@media (max-height: 480px) { .vg-help { display: none; } .vg-banner { top: 14%; } .vg-alt b { font-size: 1.3rem; } .vg-card { padding: 10px 14px; max-height: 94vh; overflow: auto; } .vg-board { width: 140px; } }
