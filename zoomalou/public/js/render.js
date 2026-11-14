@@ -10,6 +10,7 @@
   const wrap = (a) => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
   const View = { ready: false, track: null, quality: "medium", cars: {}, paused: false };
   let renderer, scene, camera, sun, hemi, host, group = null, particles = [], gates = [], stars = null, camMode = 0, followId = null, shake = 0;
+  let boostKick = 0, spdCam = 0, speedLines = null;
   let decorMesh = null, trackside = null, showroom = false, camRoll = 0, showAng = 0, platform = null, podiumG = null, podT = 0;
   let camHd = 0, camPos = new T.Vector3(), camInit = false, fov = 62, orbit = null, time = 0, sky = null, cloudsG = null, amb = null, ambMode = null, movers = [], ringsM = [];
   View.onFrame = null;
@@ -465,7 +466,7 @@
   }
   View.ensureCar = function (id, carId, hex, ghost, name) {
     let c = View.cars[id]; if (c && (c.carId !== carId || c.hex !== hex || c.ghost !== ghost || c.name !== name)) { scene.remove(c.root); if (c.shadow) scene.remove(c.shadow); c = null; }
-    if (!c) { c = makeCar(carId, hex, ghost, name); c.hex = hex; c.name = name; scene.add(c.root); if (c.shadow) scene.add(c.shadow); View.cars[id] = c; c.root.visible = false; }
+    if (!c) { c = makeCar(carId, hex, ghost, name); c.hex = hex; c.name = name; try { const cd = window.ZoomCar && ZoomCar.CARS[carId]; c.vmax = cd ? cd.vmax : 52; } catch (e) { c.vmax = 52; } scene.add(c.root); if (c.shadow) scene.add(c.shadow); View.cars[id] = c; c.root.visible = false; }
     return c;
   };
   View.removeCar = function (id) { const c = View.cars[id]; if (c) { scene.remove(c.root); if (c.shadow) scene.remove(c.shadow); delete View.cars[id]; } };
@@ -622,7 +623,11 @@
     if (!camInit) { camHd = st.h; camInit = true; camPos.set(st.x - Math.sin(st.h) * 9, st.y + 4, st.z - Math.cos(st.h) * 9); }
     camHd += wrap(st.h - camHd) * Math.min(1, dt * (camMode === 2 ? 20 : 4.5));
     if (introK > 0) introK = Math.max(0, introK - dt * 0.42); const ik = introK * introK * (3 - 2 * introK);
-    let dist = camMode === 0 ? 8.2 : camMode === 1 ? 15 : 0.2; let hgt = camMode === 0 ? 3.3 : camMode === 1 ? 7.5 : 1.7; dist += (34 - dist) * ik; hgt += (16 - hgt) * ik;
+    let dist = camMode === 0 ? 8.2 : camMode === 1 ? 15 : 0.2; let hgt = camMode === 0 ? 3.3 : camMode === 1 ? 7.5 : 1.7;
+    // la caméra recule et s'abaisse un peu avec la vitesse, et prend un petit recul au déclenchement d'un turbo
+    if (c.boost && !c.boostWas) boostKick = 1; c.boostWas = !!c.boost; boostKick = Math.max(0, boostKick - dt * 1.6);
+    if (camMode !== 2) { const sk = clamp((spd - 18) / 42, 0, 1); spdCam += (sk - spdCam) * Math.min(1, dt * 2.5); dist += spdCam * (camMode === 0 ? 2.3 : 3) + boostKick * boostKick * 1.5; hgt -= spdCam * (camMode === 0 ? 0.4 : 0.8); }
+    dist += (34 - dist) * ik; hgt += (16 - hgt) * ik;
     if (lookBack) { // rétroviseur, la caméra se place devant la voiture et regarde derrière
       const bx = st.x - Math.sin(st.h) * 2.4, bz = st.z - Math.cos(st.h) * 2.4; camera.up.set(0, 1, 0); camera.position.set(bx, st.y + 2.1, bz); camera.lookAt(st.x - Math.sin(st.h) * 22, st.y + 1.0, st.z - Math.cos(st.h) * 22); if (Math.abs(camera.fov - 70) > 0.05) { camera.fov = 70; camera.updateProjectionMatrix(); } camPos.set(st.x - Math.sin(camHd) * dist, st.y + hgt, st.z - Math.cos(camHd) * dist); return;
     }
@@ -636,6 +641,21 @@
     // la caméra penche très légèrement dans les virages
     { const rollT = camMode === 1 ? 0 : (c.steer || 0) * 0.032 * clamp(spd / 35, 0, 1); camRoll += (rollT - camRoll) * Math.min(1, dt * 3); if (Math.abs(camRoll) > 1e-4) camera.rotateZ(camRoll); }
     const wantFov = 60 + clamp(spd / 60, 0, 1) * 22 + (c.boost ? 8 : 0); fov += (wantFov - fov) * Math.min(1, dt * 4); if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
+  }
+
+  // lignes de vitesse, de fines traînées blanches qui filent autour de l'écran au turbo et à très haute vitesse
+  function speedLinesUpdate(dt) {
+    const f = followId && View.cars[followId]; let want = 0;
+    if (f && !orbit && !showroom && !podiumG && !lookBack && camMode !== 2) { const vmax = (f.vmax || 52); const r = clamp(((f.speed || 0) / vmax - 0.82) / 0.3, 0, 1); want = Math.max(f.boost ? 0.55 : 0, r * 0.32); }
+    if (!speedLines) { if (want <= 0) return; const N = 34; const pos = new Float32Array(N * 6); const g = new T.BufferGeometry(); g.setAttribute("position", new T.BufferAttribute(pos, 3)); const m = new T.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, depthTest: false });
+      speedLines = new T.LineSegments(g, m); speedLines.frustumCulled = false; speedLines.renderOrder = 999; speedLines.userData = { N, z: [], x: [], y: [], a: 0 };
+      for (let i = 0; i < N; i++) { const a = Math.random() * Math.PI * 2, r = 1.15 + Math.random() * 1.6; speedLines.userData.x.push(Math.cos(a) * r * 1.6); speedLines.userData.y.push(Math.sin(a) * r); speedLines.userData.z.push(-2 - Math.random() * 14); } }
+    if (!speedLines.parent && scene) scene.add(speedLines);
+    const U = speedLines.userData; U.a += (want - U.a) * Math.min(1, dt * 5); speedLines.material.opacity = U.a; speedLines.visible = U.a > 0.01; if (!speedLines.visible) return;
+    const p = speedLines.geometry.attributes.position.array; const v = 30 + (f ? f.speed || 0 : 0) * 0.8;
+    for (let i = 0; i < U.N; i++) { U.z[i] += v * dt; if (U.z[i] > -1.2) { U.z[i] = -14 - Math.random() * 3; const a = Math.random() * Math.PI * 2, r = 1.15 + Math.random() * 1.6; U.x[i] = Math.cos(a) * r * 1.6; U.y[i] = Math.sin(a) * r; }
+      const L = 1.2 + U.a * 2.4; p[i * 6] = U.x[i]; p[i * 6 + 1] = U.y[i]; p[i * 6 + 2] = U.z[i]; p[i * 6 + 3] = U.x[i]; p[i * 6 + 4] = U.y[i]; p[i * 6 + 5] = U.z[i] - L; }
+    speedLines.geometry.attributes.position.needsUpdate = true; speedLines.position.copy(camera.position); speedLines.quaternion.copy(camera.quaternion);
   }
 
   // ---------- boucle ----------
@@ -655,6 +675,15 @@
       if (showroom && !podiumG && cid !== followId) { c.root.visible = false; if (c.shadow) c.shadow.visible = false; return; }
       if (showroom && cid === followId && !podiumG) { c.root.rotation.order = "YXZ"; c.root.rotation.set(0, s.h + showAng, 0); }
       else if (c.rail && railBasis(s.i, s.h)) c.root.quaternion.setFromRotationMatrix(_m); else { c.root.rotation.order = "YXZ"; c.root.rotation.y = s.h; c.root.rotation.x = -s.p * (c.air ? 0.4 : 1); c.root.rotation.z = -(c.steer || 0) * 0.06 * clamp((c.speed || 0) / 30, 0, 1) - (!c.air && View.track && View.track.bank ? Math.atan(Track.bankAt(View.track, s.i || 0)) : 0); }
+      if (!c.rail && !(showroom && !podiumG)) {
+        // la caisse se cabre à l'accélération, plonge au freinage, et s'écrase un instant à l'atterrissage
+        const sp = c.speed || 0; const acc = dt > 0 ? (sp - (c.psp == null ? sp : c.psp)) / dt : 0; c.psp = sp;
+        const pT = cid === followId && !c.air ? clamp(-acc * 0.0032, -0.055, 0.045) : 0; c.pitchFx = (c.pitchFx || 0) + (pT - (c.pitchFx || 0)) * Math.min(1, dt * 7);
+        if (c.wasAir && !c.air) c.landT = 1; c.wasAir = !!c.air; if (c.landT > 0) c.landT = Math.max(0, c.landT - dt * 3.4);
+        const comp = c.landT > 0 ? Math.sin(c.landT * Math.PI) * 0.17 : 0; if (comp) { c.root.position.y -= comp; }
+        if (c.pitchFx) c.root.rotation.x += c.pitchFx;
+        if (c.landT > 0.95 && cid === followId) { shake = Math.max(shake, 0.12); [-1, 1].forEach((o) => puff(s.x - Math.cos(s.h) * o * 1.2, s.y + 0.25, s.z + Math.sin(s.h) * o * 1.2, "#d8d2c4", 3, 2.4, 0.4, 0.9)); }
+      }
       if (c.label) { const d = camera.position.distanceTo(c.root.position); c.label.visible = d > 9 && d < 170; const sc = 2.6 + d * 0.02; c.label.scale.set(sc, sc * 0.25, 1); c.label.position.y = 3.1; }
       c.flame.visible = !!c.boost; if (c.boost) c.flame.scale.set(0.8 + Math.random() * 0.3, 0.8 + Math.random() * 0.5, 0.8 + Math.random() * 0.3);
       c.spin += (c.speed || 0) * dt / 0.5; c.spin = c.spin % (Math.PI * 2); c.wheels.forEach((w) => { w.holder.rotation.x = c.spin; w.holder.rotation.y = w.front ? -(c.steer || 0) * 0.45 : 0; });
@@ -676,6 +705,7 @@
     if (amb) { const A = amb.userData, a = amb.geometry.attributes.position; for (let i = 0; i < a.count; i++) { let y = a.getY(i) + A.vy * dt, x = a.getX(i) + (Math.sin(time * 0.4 + i) * A.drift) * dt + A.drift * 0.4 * dt, z = a.getZ(i); if (y < 0) y += 36; if (y > 36) y -= 36; if (x > 45) x -= 90; if (x < -45) x += 90; a.setXYZ(i, x, y, z); } a.needsUpdate = true; amb.position.set(camera.position.x, camera.position.y - 14, camera.position.z); }
     const f = followId && View.cars[followId]; if (f) { sun.target.position.set(f.st.x, f.st.y, f.st.z); sun.position.set(f.st.x + 50, f.st.y + 90, f.st.z - 30); }
     updateCamera(dt);
+    speedLinesUpdate(dt);
     PicuiteGL.frame(() => { if (composer && postOn) { const f2 = followId && View.cars[followId]; const kmh = f2 && !orbit && !showroom ? (f2.speed || 0) * 3.6 : 0; const amt = clamp((kmh - 150) / 140, 0, 1) * 0.9 + (f2 && f2.boost && kmh > 80 ? 0.22 : 0); blurPass.uniforms.amount.value += (amt - blurPass.uniforms.amount.value) * Math.min(1, dt * 5); blurPass.enabled = blurPass.uniforms.amount.value > 0.02 && camMode !== 1; composer.render(dt); } else renderer.render(scene, camera); PicuiteGL.verify(renderer); });
   }
   View.carState = (id) => (View.cars[id] ? View.cars[id].st : null);

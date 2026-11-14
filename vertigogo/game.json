@@ -5,7 +5,7 @@
  "pitch": "Une course à la verticale en 3D pour un à huit joueurs. Une tour géante faite de mondes empilés, du jardin aux nuages en passant par la rue, la maison, la cuisine, les toits et un cimetière. On grimpe sur des objets du quotidien devenus immenses, arbres, voitures, canapés, casseroles, citrouilles, et chacun a sa propre forme, il faut viser le bon endroit. Sauts à hauteur réglable, accroche de rebord, trampolines, lits et champignons rebondissants, tapis roulants, plateformes qui bougent ou s'effritent. Chaque parcours est généré à partir d'une graine puis vérifié par un pilote automatique, donc il est toujours faisable. Classement en direct, quatre modes dont un parcours du jour identique pour tout le monde, et des bots à quatre niveaux.",
  "tags": ["1 à 8 joueurs", "10 à 25 minutes", "Plateforme et course"],
  "steps": [
-  "Déplace-toi avec les flèches du clavier ou ZQSD, saute avec Espace (plus tu appuies longtemps, plus tu sautes haut) et oriente la caméra à la souris ou avec F, H, T et G.",
+  "Flèche haut pour avancer, flèche bas pour reculer, flèches gauche et droite pour tourner, Q et D pour un pas de côté. Saute avec Espace, plus tu appuies longtemps, plus tu sautes haut. F, H, T et G ou la souris pour regarder autour.",
   "Saute vers un rebord pour t'y accrocher, puis avance ou saute pour te hisser.",
   "Atteins le sommet avant les autres. Personne ne peut te pousser, seule la gravité est ton adversaire."
  ],

@@ -253,6 +253,25 @@
       const f = Math.min(1, (dt || 0.016) * 3); const c = this.cur; c.top.lerp(top, f); c.bot.lerp(bot, f); c.hem.lerp(hem, f); c.grd.lerp(grd, f); c.sun.lerp(sun, f); c.stars += (stars - c.stars) * f;
       this.sky.material.uniforms.top.value.copy(c.top); this.sky.material.uniforms.bot.value.copy(c.bot); this.scene.fog.color.copy(c.bot); this.hemi.color.copy(c.hem); this.hemi.groundColor.copy(c.grd); this.sun.color.copy(c.sun); this.stars.material.opacity = c.stars; this.zone = zi;
     }
+    // objets entre la caméra et le joueur, ils deviennent transparents pour ne jamais cacher le personnage
+    fade(cam, head, dt) {
+      this._fadeT = (this._fadeT || 0) + (dt || 0.016); if (this._fadeT < 0.08) return; this._fadeT = 0;
+      const dx = head.x - cam.x, dy = head.y - cam.y, dz = head.z - cam.z; const len = Math.hypot(dx, dy, dz); if (len < 0.5) return;
+      const ray = this._ray || (this._ray = new T.Ray()); ray.origin.set(cam.x, cam.y, cam.z); ray.direction.set(dx / len, dy / len, dz / len);
+      const hit = this._hit || (this._hit = new T.Vector3()); const mid = { x: (cam.x + head.x) / 2, y: (cam.y + head.y) / 2, z: (cam.z + head.z) / 2 };
+      for (const e of this.objs) {
+        if (!e.g.visible) { if (e.faded) this._setFade(e, false); continue; }
+        if (!e.bb) { e.bb = new T.Box3().setFromObject(e.g); e.bc = e.bb.getCenter(new T.Vector3()); e.br = e.bb.getSize(new T.Vector3()).length() / 2; }
+        const far = Math.hypot(e.bc.x - mid.x, e.bc.y - mid.y, e.bc.z - mid.z) > e.br + len / 2 + 0.5; let want = false;
+        if (!far && (ray.intersectBox(e.bb, hit) || e.bb.containsPoint(ray.origin))) { const rc = this._rc || (this._rc = new T.Raycaster()); rc.ray.copy(ray); rc.near = 0; rc.far = len - 0.7; want = rc.intersectObject(e.g, true).some((h) => h.object.isMesh && !h.object.userData.noFade); }
+        if (want !== !!e.faded) this._setFade(e, want);
+      }
+    }
+    _setFade(e, on) {
+      e.faded = on; const FM = this._fm || (this._fm = new Map());
+      const fadeOf = (m) => { let f = FM.get(m); if (!f) { f = m.clone(); f.transparent = true; f.opacity = 0.28; f.depthWrite = false; FM.set(m, f); } return f; };
+      e.g.traverse((o) => { if (!o.isMesh) return; if (on) { if (!o.userData.om) o.userData.om = o.material; o.material = Array.isArray(o.userData.om) ? o.userData.om.map(fadeOf) : fadeOf(o.userData.om); o.castShadow = false; } else if (o.userData.om) { o.material = o.userData.om; o.castShadow = this.q === "high"; } });
+    }
     flagDone(bi) { const f = this.dyn.flags[bi]; if (f) f.userData.cloth.material.color.set(0xffd23d); }
     squash(i) { const g = this.dyn.spr.find((s) => s.userData.b.i === i); if (g) g.userData.t = 0; this.dyn.osq.forEach((q) => { if (q.i === i) q.t = 0; }); }
     // follow : position du joueur pour la lumière et le ciel

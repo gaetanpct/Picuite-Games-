@@ -14,7 +14,7 @@ const LEVELS = {
   debutant: { id: "debutant", label: "Pilote du dimanche", evals: 0, ms: 0, noise: 0.28, pace: 0.5, paceJit: 0.08, corner: 0.55, clear: 1.5, lineK: 0.3, lapse: 0.006, useRef: 0, push: 0 },
   moyen: { id: "moyen", label: "Habitué", evals: 6, ms: 300, noise: 0.14, pace: 0.64, paceJit: 0.05, corner: 0.72, clear: 1.0, lineK: 0.6, lapse: 0.002, useRef: 0.3, push: 0.01 },
   champion: { id: "champion", label: "Champion", evals: 34, ms: 1500, noise: 0.03, pace: 0.82, paceJit: 0.018, corner: 0.94, clear: 0.7, lineK: 0.9, lapse: 0.0002, useRef: 1, push: 0.02 },
-  prodige: { id: "prodige", label: "Prodige", evals: 110, ms: 3200, noise: 0.004, pace: 1.0, paceJit: 0.003, corner: 1.0, clear: 0.6, lineK: 1.0, lapse: 0, useRef: 1, push: 0.03 },
+  prodige: { id: "prodige", label: "Prodige", evals: 280, ms: 14000, noise: 0.002, pace: 1.0, paceJit: 0.002, corner: 1.04, clear: 0.55, lineK: 1.0, lapse: 0, useRef: 1, push: 0.05, slide: true, steadyCap: 1.15, noGaffe: true },
 };
 
 // personnalités. Chaque pilote automatique a un caractère tiré d'après sa graine, pour que quatre champions ne roulent pas pareil
@@ -35,7 +35,8 @@ function personaOf(seed) {
 function applyPersona(th, lv, per) {
   if (!per) return lv;
   th.corner *= 1 + 0.07 * per.risk; th.brake *= 1 - 0.12 * per.risk; th.lat = per.lat;
-  return Object.assign({}, lv, { noise: lv.noise * per.steady, lapse: lv.lapse * per.lapseK, pace: lv.pace * (1 + 0.03 * per.risk) });
+  const st = lv.steadyCap ? Math.min(per.steady, lv.steadyCap) : per.steady;
+  return Object.assign({}, lv, { noise: lv.noise * st, lapse: lv.lapse * per.lapseK, pace: lv.pace * (1 + 0.03 * Math.max(lv.steadyCap ? 0 : -1, per.risk)) });
 }
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -217,7 +218,7 @@ function drive(r, L, th, lv, rnd, mem) {
   if (r.cut >= 0) { mem.cutK = r.cut; mem.cutRs = r.resets; const c = tr.cuts[r.cut]; return { steer: clamp(-wrap(c.h - r.hd) * 2.5, -1, 1), thr: 1, brk: 0, rst: 0 }; }
   if (r.rail) { const u = -r.ux; const psiT = clamp(0.12 * u, -0.3, 0.3); steer = clamp(-(psiT - r.hd) * 3, -1, 1); mem.sat = false; }
   else if (vf < 7) steer = clamp(-alpha * 2.2, -1, 1);
-  else { const omega = 2 * vf * Math.sin(alpha) / dist; const wmax = car.turn * fallOf(car, vf); steer = -th.sg * omega / Math.max(0.15, wmax); mem.sat = Math.abs(steer) > 1.08; steer = clamp(steer, -1, 1); }
+  else { const omega = 2 * vf * Math.sin(alpha) / dist; const wmax = car.turn * fallOf(car, vf); steer = -th.sg * omega / Math.max(0.15, wmax); mem.sat = Math.abs(steer) > 1.08; if (th.slideK > 0 && vf > 18 && Math.abs(steer) > th.slideOn && !r.air) { steer *= 1 + th.slideK; mem.sat = false; } steer = clamp(steer, -1, 1); }
   mem.noise = mem.noise * 0.96 + (rnd() - 0.5) * lv.noise * 0.5; steer = clamp(steer + mem.noise, -1, 1);
   const ia = Math.min(n - 2, idx + Math.max(0, vf) * 0.12 / STEP); const prof = r.boostT > 0 ? L.profB : L.profA; const k0 = Math.floor(ia); const vt0 = prof[k0] + (prof[k0 + 1] - prof[k0]) * (ia - k0);
   let vt = vt0 * mem.pace; if (mem.sat) vt *= 0.93; if (L.gapMin[k0] > vt) vt = L.gapMin[k0];
@@ -237,8 +238,8 @@ function drive(r, L, th, lv, rnd, mem) {
 }
 
 // ---------- réglage par essais ----------
-const TH0 = { corner: 1.0, clear: 0.7, lineK: 0.9, look0: 5, lookK: 0.22, sg: 1.1, brake: 0.85, dvHi: 1.5, slipMix: 0.4, iceK: 1, dirtK: 1, refBlend: 0, refSpeed: 0 };
-const RANGE = { corner: [0.7, 1.45], clear: [0.1, 2.4], lineK: [0.35, 1.0], look0: [2.5, 9], lookK: [0.06, 0.5], sg: [0.6, 2.2], brake: [0.4, 1.15], dvHi: [0.3, 4], slipMix: [0, 1], iceK: [0.4, 1.8], dirtK: [0.5, 1.5], refBlend: [0, 1], refSpeed: [0, 1.1] };
+const TH0 = { corner: 1.0, clear: 0.7, lineK: 0.9, look0: 5, lookK: 0.22, sg: 1.1, brake: 0.85, dvHi: 1.5, slipMix: 0.4, iceK: 1, dirtK: 1, refBlend: 0, refSpeed: 0, slideK: 0, slideOn: 0.6 };
+const RANGE = { corner: [0.7, 1.45], clear: [0.1, 2.4], lineK: [0.35, 1.0], look0: [2.5, 9], lookK: [0.06, 0.5], sg: [0.6, 2.2], brake: [0.4, 1.15], dvHi: [0.3, 4], slipMix: [0, 1], iceK: [0.4, 1.8], dirtK: [0.5, 1.5], refBlend: [0, 1], refSpeed: [0, 1.1], slideK: [0, 1.4], slideOn: [0.15, 0.95] };
 const gauss = (rnd) => { let s = 0; for (let i = 0; i < 4; i++) s += rnd(); return (s - 2) * 1.7; };
 
 // simule une course avec les paramètres donnés. renvoie la course et les commandes
@@ -263,7 +264,7 @@ function newSearch(tr, carId, lv, ref) {
   const th = startTheta(lv, tr, Car.CARS[carId]); const s = { tr, carId, lv, ref, best: th, bestCost: Infinity, it: 0, t0: Date.now(), done: false, rnd: Track.mulberry32(Track.hashSeed(tr.name + carId + lv.id + tr.n)), grid: [] };
   const evalTh = (t) => cost(run(tr, carId, t, Object.assign({}, lv, { noise: 0, lapse: 0 }), "ev", { ref, noBytes: true }), tr);
   s.evalTh = evalTh;
-  if (lv.evals > 0) { s.grid = [0.85, 1.0, 1.12, 1.25].map((c) => Object.assign({}, th, { corner: th.corner * c })); if (ref && lv.useRef) { s.grid.push(Object.assign({}, th, { refBlend: 1 }), Object.assign({}, th, { refBlend: 0.5 }), Object.assign({}, th, { refBlend: 1, refSpeed: 0.95 })); } }
+  if (lv.evals > 0) { s.grid = [0.85, 1.0, 1.12, 1.25].map((c) => Object.assign({}, th, { corner: th.corner * c })); if (lv.slide) [[0.35, 0.5], [0.7, 0.4], [1.0, 0.3]].forEach((q) => s.grid.push(Object.assign({}, th, { corner: th.corner * 1.08, slideK: q[0], slideOn: q[1] }))); if (ref && lv.useRef) { s.grid.push(Object.assign({}, th, { refBlend: 1 }), Object.assign({}, th, { refBlend: 0.5 }), Object.assign({}, th, { refBlend: 1, refSpeed: 0.95 })); } }
   s.bestCost = lv.evals > 0 ? Infinity : 0;
   return s;
 }
@@ -273,7 +274,7 @@ function stepSearch(s) {
   let cand;
   if (s.it < s.grid.length) cand = s.grid[s.it];
   else {
-    const prog = (s.it - s.grid.length) / Math.max(1, lv.evals - s.grid.length); const sigma = 0.3 * (1 - prog) + 0.05; cand = Object.assign({}, s.best); const keys = Object.keys(RANGE).filter((k) => ((k !== "refBlend" && k !== "refSpeed") || (s.ref && lv.useRef)));
+    const prog = (s.it - s.grid.length) / Math.max(1, lv.evals - s.grid.length); const sigma = 0.3 * (1 - prog) + 0.05; cand = Object.assign({}, s.best); const keys = Object.keys(RANGE).filter((k) => ((k !== "refBlend" && k !== "refSpeed") || (s.ref && lv.useRef)) && ((k !== "slideK" && k !== "slideOn") || lv.slide));
     const m = 1 + Math.floor(s.rnd() * 3); for (let q = 0; q < m; q++) { const k = keys[Math.floor(s.rnd() * keys.length)]; const [a, b] = RANGE[k]; cand[k] = clamp(cand[k] + gauss(s.rnd) * sigma * (b - a), a, b); }
     // de temps en temps on essaie l'autre voie d'un embranchement
     if (cand.ck && s.rnd() < 0.25) { const q = Math.floor(s.rnd() * cand.ck.length); cand.ck = cand.ck.slice(0, q) + (cand.ck.charAt(q) === "1" ? "0" : "1") + cand.ck.slice(q + 1); }
@@ -305,9 +306,11 @@ function thetaFor(tr, carId, levelId, frames, refTag) {
 }
 
 // forme du jour. Un bon pilote a parfois un jour sans (rythme plus lent, plus d'erreurs et une vraie faute de pilotage) et parfois un jour de grâce
-const FORM = { debutant: [0, 0], moyen: [0.1, 0.1], champion: [0.15, 0.1], prodige: [0.17, 0.08] };
+const FORM = { debutant: [0, 0], moyen: [0.1, 0.1], champion: [0.15, 0.1], prodige: [0.05, 0.12] };
 function formOf(levelId, seed) {
   const r = Track.mulberry32(Track.hashSeed("forme" + seed)); const f = FORM[levelId] || [0, 0]; const x = r();
+  // un prodige n'a que de petits jours sans, sans vraie faute de pilotage
+  if (x < f[0] && levelId === "prodige") return { k: "sans", pace: 0.985, noise: 2, lapse: 0, gaffe: 0 };
   if (x < f[0]) return { k: "sans", pace: 0.93 - r() * 0.03, noise: 5, lapse: 0.0015, gaffe: 0.25 + r() * 0.5, gDir: r() < 0.5 ? -1 : 1, gLen: 22 + Math.floor(r() * 18) };
   if (x < f[0] + f[1]) return { k: "grace", pace: 1.012, noise: 0.5, lapse: 0, gaffe: 0 };
   return null;

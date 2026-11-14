@@ -5,7 +5,7 @@
 (function (root, factory) { if (typeof module === "object" && module.exports) module.exports = factory(); else root.VgSim = factory(); })(typeof self !== "undefined" ? self : this, function () {
   const DT = 1 / 60;
   const K = {
-    R: 0.32, H: 1.7, RUN: 6.0, ACC: 46, DEC: 52, AIR_ACC: 17, AIR_MAX: 6.6, G: 27, JV: 9.6, CUT: 0.42, COY: 0.11, BUF: 0.13, VMAX: -34,
+    R: 0.32, H: 1.7, RUN: 6.0, ACC: 46, DEC: 52, AIR_ACC: 22, AIR_MAX: 6.8, G: 27, JV: 9.6, CUT: 0.42, COY: 0.11, BUF: 0.13, VMAX: -34,
     ICE_ACC: 6, ICE_DEC: 1.3, SPRING_V: 17.5, STEP: 0.3, REACH_LO: 0.95, REACH_HI: 1.8, HANG_DY: 1.55, CLIMB_T: 0.52, REGRAB: 0.35, TURN: 16,
   };
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);

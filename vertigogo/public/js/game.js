@@ -19,7 +19,7 @@
 
   const G = {
     msg: null, C: null, W: null, P: null, view: null, actors: {}, ids: [], idx: {}, snaps: [], off: [], clockOff: null, rank: null, phase: "none", phaseAt: 0, input: {}, keys: {}, joy: { x: 0, z: 0, on: false }, jump: false, drop: false,
-    cam: { yaw: 0, pitch: 0.42, dist: 7, fx: 0, fy: 0, fz: 0, init: false, shake: 0 }, last: 0, acc: 0, tPlay: 0, lastSend: 0, lock: 0, quality: store.get("vg.quality", isTouch ? "medium" : "high"), sens: +store.get("vg.sens", "1"), inv: store.get("vg.inv", "0") === "1", autoCam: store.get("vg.auto", "1") !== "0", camManual: 0,
+    cam: { yaw: 0, pitch: 0.42, dist: 7, fx: 0, fy: 0, fz: 0, init: false, shake: 0 }, last: 0, acc: 0, tPlay: 0, lastSend: 0, lock: 0, quality: store.get("vg.quality", isTouch ? "medium" : "high"), sens: +store.get("vg.sens", "1"), inv: store.get("vg.inv", "0") === "1", camManual: 0,
     pr: 1, fps: [], frame: 0, cos: {}, mine: null, cpSeen: {}, falls: 0, pen: 0, fixAt: 0, good: null, stepT: 0, hudAt: 0, fin: null, wasAir: false, marker: null, over: null, countN: 0, hangPrompt: 0, lastFixWhy: "",
   };
   const myPid = () => { const p = Kit.me(); return p ? p.id : null; };
@@ -75,11 +75,13 @@
     msg.players.forEach((p, i) => { const co = G.cos[p.id] || { char: 0, hat: 0, trail: 0 }; const a = new CH.Actor(R.scene, { name: p.name, color: colorOf(p.id), char: co.char, hat: co.hat, me: p.id === G.mine }); const s = slot(G.C, i); a.group.position.set(s.x, 0, s.z); a.fy = G.C.start.ry; G.actors[p.id] = a; });
     // marqueur d'atterrissage
     const mk = new T.Group(); const ring = new T.Mesh(new T.RingGeometry(0.34, 0.5, 28), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false, depthTest: false })); ring.rotation.x = -Math.PI / 2; const dot = new T.Mesh(new T.CircleGeometry(0.3, 20), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false, depthTest: false })); dot.rotation.x = -Math.PI / 2; mk.add(ring, dot); mk.renderOrder = 9; ring.renderOrder = 9; dot.renderOrder = 9; R.scene.add(mk); G.marker = mk;
+    // ombre ronde toujours posée sous le personnage, pour juger chaque atterrissage
+    const blob = new T.Mesh(new T.CircleGeometry(0.42, 24), new T.MeshBasicMaterial({ color: 0x0a0c18, transparent: true, opacity: 0.4, depthWrite: false })); blob.rotation.x = -Math.PI / 2; blob.renderOrder = 8; R.scene.add(blob); G.blob = blob;
     G.cam.yaw = G.C.start.ry + Math.PI; G.cam.pitch = 0.42; G.cam.init = false;
     document.body.dataset.vg = "course"; $("#vg-end").classList.remove("show"); $("#vg-over").classList.remove("show");
     const md = Rules.MODES[msg.mode] || ""; $("#vg-mode").innerHTML = `<span>${esc(md)}</span><span style="opacity:.75">${msg.mode === "jour" ? esc(msg.day) : "Graine " + esc(msg.seed)}</span>`;
     renderRail(); renderBoard();
-    const h = $("#vg-help"); if (h) { h.style.opacity = 1; h.innerHTML = isTouch ? "Joystick pour avancer, glisse à droite pour tourner la caméra, bouton Saut pour sauter." : "Les <kbd>flèches</kbd> ou <kbd>ZQSD</kbd> pour bouger, <kbd>Espace</kbd> pour sauter (appuie plus longtemps pour sauter plus haut), la souris ou les touches <kbd>F</kbd> <kbd>H</kbd> <kbd>T</kbd> <kbd>G</kbd> orientent la caméra. Saute vers un rebord pour t'y accrocher."; }
+    const h = $("#vg-help"); if (h) { h.style.opacity = 1; h.innerHTML = isTouch ? "Joystick pour avancer, glisse à droite pour tourner la caméra, bouton Saut pour sauter." : "<kbd>↑</kbd> <kbd>↓</kbd> pour avancer et reculer, <kbd>←</kbd> <kbd>→</kbd> pour tourner, <kbd>Q</kbd> <kbd>D</kbd> pour un pas de côté, <kbd>Espace</kbd> pour sauter (appuie plus longtemps pour sauter plus haut), la souris ou les touches <kbd>F</kbd> <kbd>H</kbd> <kbd>T</kbd> <kbd>G</kbd> orientent la caméra. Saute vers un rebord pour t'y accrocher."; }
     if (!keepPhase) { G.phase = "load"; }
   }
   function renderRail() {
@@ -154,7 +156,7 @@
   const k_any = (keys, list) => list.some((x) => keys[x]);
   function resetToFlag() { if (!G.msg || G.phase !== "play" || G.msg.mode === "classique" || G.fin) return; Kit.socket.emit("v:reset"); }
   function readInput() {
-    const k = G.keys; let a = 0, b = 0; if (k["arrowleft"] || k["q"] || k["a"]) a -= 1; if (k["arrowright"] || k["d"]) a += 1; if (k["arrowup"] || k["z"] || k["w"]) b += 1; if (k["arrowdown"] || k["s"]) b -= 1;
+    const k = G.keys; let a = 0, b = 0; if (k["q"] || k["a"]) a -= 1; if (k["d"]) a += 1; if (k["arrowup"] || k["z"] || k["w"]) b += 1; if (k["arrowdown"] || k["s"]) b -= 1;
     if (G.joy.on) { a = G.joy.x; b = -G.joy.z; } const l = Math.hypot(a, b); if (l > 1) { a /= l; b /= l; }
     const yaw = G.cam.yaw; const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = -fz, rz = fx;
     return { mx: fx * b + rx * a, mz: fz * b + rz * a, jump: !!(k[" "] || k["space"] || G.jump), drop: !!(k["shift"] || G.drop) };
@@ -174,15 +176,7 @@
     G.frame++; G.fps.push(dt); if (G.fps.length > 90) { const avg = G.fps.reduce((a, b) => a + b, 0) / G.fps.length; G.fps = []; adapt(avg); }
     const P = G.P, W = G.W; const playing = G.phase === "play" && !$("#vg-pause").classList.contains("show"); const ev = [];
     if (G.phase === "play") { const ls = G.snaps[G.snaps.length - 1]; G.tPlay = ls && ls.t != null ? ls.t + (now - ls.arr) / 1000 : (now - G.playAt) / 1000; }
-    { const k = G.keys, c = G.cam, sp = 1.9 * G.sens; if (k["f"]) c.yaw += sp * dt; if (k["h"]) c.yaw -= sp * dt; if (k["t"]) c.pitch = clamp(c.pitch + sp * 0.7 * dt * (G.inv ? -1 : 1), -0.15, 1.25); if (k["g"]) c.pitch = clamp(c.pitch - sp * 0.7 * dt * (G.inv ? -1 : 1), -0.15, 1.25); ["f", "h", "t", "g"].forEach((x) => { const e = document.getElementById("ck-" + x); if (e) e.classList.toggle("on", !!k[x]); }); }
-    // caméra automatique : elle tourne doucement vers la direction où le joueur veut aller
-    if (G.autoCam && playing && !G.fin) {
-      const c = G.cam; if (k_any(G.keys, ["f", "h", "t", "g"])) G.camManual = now;
-      if (now - G.camManual > 700) {
-        const ip = readInput(); const mag = Math.hypot(ip.mx, ip.mz);
-        if (mag > 0.25) { let d = Math.atan2(-ip.mx, -ip.mz) - c.yaw; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; if (Math.abs(d) < 2.35) c.yaw += clamp(d * 1.25, -1.5, 1.5) * dt; }
-      }
-    }
+    { const k = G.keys, c = G.cam, sp = 1.9 * G.sens; if (k["f"]) c.yaw += sp * dt; if (k["h"]) c.yaw -= sp * dt; if (G.phase === "play" || G.phase === "count") { const tr = 2.5 * Math.min(1.4, G.sens); if (k["arrowleft"]) c.yaw += tr * dt; if (k["arrowright"]) c.yaw -= tr * dt; } if (k["t"]) c.pitch = clamp(c.pitch + sp * 0.7 * dt * (G.inv ? -1 : 1), -0.15, 1.25); if (k["g"]) c.pitch = clamp(c.pitch - sp * 0.7 * dt * (G.inv ? -1 : 1), -0.15, 1.25); ["f", "h", "t", "g"].forEach((x) => { const e = document.getElementById("ck-" + x); if (e) e.classList.toggle("on", !!k[x]); }); }
     // simulation locale à pas fixe
     if (G.phase === "play") {
       G.acc += dt; let n = 0; const inp = G.auto ? G.auto() : readInput(); if (G.lock > 0) { G.lock -= dt; inp.mx = inp.mz = 0; inp.jump = false; } if (!playing) { inp.mx = inp.mz = 0; inp.jump = false; }
@@ -216,7 +210,7 @@
   function handleEvents(ev, dt) {
     const P = G.P; for (const e of ev) {
       if (e.e === "jump") { SND.jump(); FX.dust(e.x, e.y, e.z, 0, 0, 4); }
-      else if (e.e === "land") { SND.land(e.v); FX.land(e.x, e.y, e.z, e.v); if (e.v > 18) shake(0.3); }
+      else if (e.e === "land") { SND.land(e.v); FX.land(e.x, e.y, e.z, e.v); if (e.v > 18) shake(0.3); const me = G.actors[G.mine]; if (me && me.land) me.land(e.v); }
       else if (e.e === "grab") { SND.grab(); FX.grab(e.x, e.y, e.z); }
       else if (e.e === "mantle") { SND.mantle(); FX.dust(e.x, e.y, e.z, 0, 0, 5); }
       else if (e.e === "spring") { SND.spring(); FX.spring(e.x, e.y, e.z); G.view.squash(e.i); shake(0.2); }
@@ -229,9 +223,12 @@
 
   // ---------- marqueur d'atterrissage ----------
   function updateMarker(P) {
-    const m = G.marker; if (!m) return; if (G.phase !== "play" || P.st === "ground" || P.st === "hang" || P.st === "climb") { m.visible = false; return; }
+    const m = G.marker; if (!m) return;
+    { const bl = G.blob; if (bl) { let bb = null; const R1 = 0.2; for (const b of G.W.boxes) { if (b.k === "crumble" && G.W.cr[b.i] && G.W.t > G.W.cr[b.i].t0 + b.cr.delay) continue; if (P.x + R1 > b.X0 && P.x - R1 < b.X1 && P.z + R1 > b.Z0 && P.z - R1 < b.Z1 && b.Y1 <= P.y + 0.15) { if (!bb || b.Y1 > bb.Y1) bb = b; } }
+      if (!bb || P.st === "hang" || P.st === "climb") bl.visible = false; else { const h = Math.max(0, P.y - bb.Y1); bl.visible = h < 40; bl.position.set(P.x, bb.Y1 + 0.03, P.z); const s = 1 + Math.min(1.2, h / 10); bl.scale.set(s, s, 1); bl.material.opacity = Math.max(0.12, 0.42 - h / 40); } } }
+    if (G.phase !== "play" || P.st === "ground" || P.st === "hang" || P.st === "climb") { m.visible = false; return; }
     let best = null; const R0 = 0.35; for (const b of G.W.boxes) { if (b.k === "crumble" && G.W.cr[b.i] && G.W.t > G.W.cr[b.i].t0 + b.cr.delay) continue; if (P.x + R0 > b.X0 && P.x - R0 < b.X1 && P.z + R0 > b.Z0 && P.z - R0 < b.Z1 && b.Y1 <= P.y + 0.3) { if (!best || b.Y1 > best.Y1) best = b; } }
-    if (!best) { m.visible = false; return; } m.visible = true; m.position.set(P.x, best.Y1 + 0.04, P.z); const h = P.y - best.Y1; const s = 1 + clamp(h / 8, 0, 1.2); m.scale.set(s, 1, s); m.children[0].material.opacity = clamp(1.1 - h / 30, 0.35, 0.95);
+    if (!best) { m.visible = false; return; } m.visible = true; m.position.set(P.x, best.Y1 + 0.04, P.z); const h = P.y - best.Y1; const s = 1 + clamp(h / 8, 0, 1.2); m.scale.set(s, 1, s); m.children[0].material.opacity = clamp(1.1 - h / 30, 0.55, 0.95);
   }
 
   // ---------- caméra ----------
@@ -259,6 +256,7 @@
     cam.position.set(c.fx + dx * c.dist + (Math.random() - 0.5) * sh, c.fy + dy * c.dist + (Math.random() - 0.5) * sh, c.fz + dz * c.dist + (Math.random() - 0.5) * sh); cam.lookAt(c.fx, c.fy + 0.1, c.fz);
     // sous le sol, on remonte un peu
     if (cam.position.y < c.fy - c.dist * 0.95) cam.position.y = c.fy - c.dist * 0.95;
+    if (G.view && G.view.fade) G.view.fade(cam.position, { x: P.x, y: P.y + 1.15, z: P.z }, dt);
   }
 
   // ---------- interface pendant la course ----------
@@ -289,10 +287,9 @@
       <label>Volume<input type="range" id="vg-vol" min="0" max="100" value="${Math.round(SND.vol * 100)}"></label>
       <label>Sensibilité de la caméra<input type="range" id="vg-sens" min="40" max="220" value="${Math.round(G.sens * 100)}"></label>
       <label>Inverser le haut et le bas<input type="checkbox" id="vg-inv" ${G.inv ? "checked" : ""}></label>
-      <label>La caméra suit ma direction<input type="checkbox" id="vg-auto" ${G.autoCam ? "checked" : ""}></label>
       <label>Qualité de l'image<select id="vg-q"><option value="low">Légère</option><option value="medium">Équilibrée</option><option value="high">Belle</option></select></label></div>
       <div class="vg-btnrow"><button class="vg-b" id="vg-resume">Reprendre</button><button class="vg-b g" id="vg-leave">Quitter la partie</button></div></div>`;
-    ov.classList.add("show"); $("#vg-q").value = G.quality; $("#vg-vol").oninput = (e) => SND.setVol(e.target.value / 100); $("#vg-sens").oninput = (e) => { G.sens = e.target.value / 100; store.set("vg.sens", String(G.sens)); }; $("#vg-auto").onchange = (e) => { G.autoCam = e.target.checked; store.set("vg.auto", G.autoCam ? "1" : "0"); }; $("#vg-inv").onchange = (e) => { G.inv = e.target.checked; store.set("vg.inv", G.inv ? "1" : "0"); }; $("#vg-q").onchange = (e) => setQuality(e.target.value);
+    ov.classList.add("show"); $("#vg-q").value = G.quality; $("#vg-vol").oninput = (e) => SND.setVol(e.target.value / 100); $("#vg-sens").oninput = (e) => { G.sens = e.target.value / 100; store.set("vg.sens", String(G.sens)); }; $("#vg-inv").onchange = (e) => { G.inv = e.target.checked; store.set("vg.inv", G.inv ? "1" : "0"); }; $("#vg-q").onchange = (e) => setQuality(e.target.value);
     $("#vg-resume").onclick = closePause; $("#vg-leave").onclick = () => Kit.confirm("Quitter la partie en cours ?", () => { closePause(); Kit.leave(); });
   }
   function closePause() { $("#vg-pause").classList.remove("show"); }
@@ -328,7 +325,7 @@
     colors: COLORS, botLevels: LEVELS, maxPlayers: 8, minPlayers: 2, schema: Rules.SCHEMA,
     help: [
       { title: "Le but", text: "Arriver au sommet d'une tour faite de plusieurs mondes empilés. Personne ne peut te pousser, seuls la gravité et les pièges te gênent. Le classement se fait à l'arrivée, et en direct pendant la montée selon la hauteur atteinte." },
-      { title: "Se déplacer et sauter", text: "Les flèches du clavier, ZQSD ou WASD pour avancer, la souris pour tourner la caméra, ou les touches F et H pour regarder à gauche et à droite, T et G pour regarder vers le haut et vers le bas. Espace pour sauter, et plus tu restes appuyé, plus tu sautes haut. Un appui court donne un petit saut." },
+      { title: "Se déplacer et sauter", text: "Flèche haut pour avancer et flèche bas pour reculer, toujours dans la direction de la caméra. Les flèches gauche et droite font tourner la caméra et le personnage ensemble. Q et D (ou A et D) font un pas de côté. F et H regardent à gauche et à droite, T et G vers le haut et vers le bas, et la souris tourne aussi la caméra. Espace pour sauter, et plus tu restes appuyé, plus tu sautes haut. Un appui court donne un petit saut." },
       { title: "S'accrocher et grimper", text: "Quand tu sautes vers un rebord un peu plus haut que toi, ton personnage s'y accroche. Avance ou appuie sur Espace pour te hisser dessus, ou appuie sur Maj pour lâcher. Tu peux aussi glisser sur le côté en restant accroché." },
       { title: "Les objets géants", text: "Tu grimpes sur des objets du quotidien devenus immenses, arbres, voitures, canapés, casseroles, citrouilles ou nuages. Chaque objet a sa propre forme, un arbre a un tronc très fin et des branches plus larges, une voiture a un toit et un capot. Il faut viser la bonne partie avant de sauter." },
       { title: "Les pièges", text: "Les plateformes mobiles vont et viennent, les dalles qui s'effritent tombent un instant après ton passage puis reviennent, les plots rouges, les trampolines, les lits et les champignons rouges te propulsent, les tapis roulants t'entraînent, la glace fait glisser et les barres rayées te balayent sans te blesser." },

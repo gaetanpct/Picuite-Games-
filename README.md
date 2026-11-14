@@ -1161,3 +1161,34 @@ Chaque jeu a été regardé seul, accueil, salon et partie. Le but n'était pas 
 
 ### Ce qu'il faut déposer sur GitHub
 - Les dossiers vertigogo, bouskaille et common, et le fichier README.md. Rien à supprimer.
+
+## Quarante-quatrième mise à jour, lot 1 de la grande refonte
+
+### Pétard Mouillé retiré
+- Le jeu est supprimé du site. Son idée de bouée partagée reviendra plus tard sous forme de mini-jeu court dans Pagaille Party.
+
+### Zoomalou, sensations de pilotage
+- La caméra recule et s'abaisse un peu quand la vitesse monte, et prend un petit recul au déclenchement d'un turbo.
+- La carrosserie se cabre à l'accélération et plonge au freinage. À l'atterrissage d'un saut, la voiture s'écrase un instant sur ses suspensions avec un nuage de poussière et une petite secousse.
+- Au turbo et à très haute vitesse, de fines lignes blanches filent autour de l'écran.
+- Le flou de vitesse, les traces de pneus, la fumée, les étincelles et les sons de moteur, de dérapage et de choc existaient déjà, ils sont gardés.
+
+### Zoomalou, pilotes Prodige plus forts
+- Le Prodige cherche beaucoup plus longtemps son réglage avant chaque course, il sait maintenant tenir des dérapages pour gagner des turbos, il prend un peu plus de risques en virage et il ne commet plus de grosse faute de pilotage. Ses jours sans existent encore mais sont rares et légers.
+- Sur trente-deux circuits de test avec quatre voitures, il est en moyenne environ 5 % plus rapide qu'avant. Les autres niveaux ne changent pas.
+
+### Vertigogo, commandes
+- Flèche haut pour avancer et flèche bas pour reculer, toujours dans la direction de la caméra. Les flèches gauche et droite font tourner la caméra et le personnage ensemble.
+- Q et D (ou A et D) font un pas de côté. F, H, T et G regardent autour sans tourner le personnage, la souris aussi.
+- La caméra automatique est retirée, elle n'a plus de sens avec ce schéma.
+
+### Vertigogo, collisions, caméra et saut
+- Les sapins sont refaits en étages de feuillage à dessus plat, chacun exactement à la taille de sa zone d'atterrissage. Plus de pied qui disparaît dans le feuillage ni de blocage contre une branche invisible.
+- Les grands arbres ne laissent plus pendre de feuillage dans la tête du joueur posé sur une branche plus basse, et leur couronne est remontée.
+- Tout objet qui passe entre la caméra et le personnage devient transparent, le personnage reste toujours visible.
+- Une ombre ronde est toujours posée sous le personnage pour juger l'atterrissage, et le marqueur de chute est plus net.
+- Un peu plus de contrôle en l'air. Le personnage s'écrase brièvement à l'atterrissage. La marge de saut au bord d'un rebord et le saut mémorisé existaient déjà.
+
+### Ce qu'il faut faire sur GitHub
+- Supprimer le dossier fart-together.
+- Déposer les dossiers vertigogo et zoomalou, et le fichier README.md.

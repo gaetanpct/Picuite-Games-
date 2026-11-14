@@ -102,7 +102,10 @@
       if (this.tag) { this.tag.position.y = 2.2 + (this.hatObj ? 0.35 : 0); this.tag.visible = s.tag !== false; }
       this.ring.material.opacity = s.ring ? 0.85 : 0;
       this.pose.visible = s.vis !== false;
+      // écrasement bref à l'atterrissage
+      if (this.squash > 0) { this.squash = Math.max(0, this.squash - dt * 5); const k = Math.sin(this.squash * Math.PI) * this.sqAmp; this.pose.scale.set(1 + k * 0.6, 1 - k, 1 + k * 0.6); } else if (this.pose.scale.y !== 1) this.pose.scale.set(1, 1, 1);
     }
+    land(v) { this.squash = 1; this.sqAmp = Math.min(0.22, 0.06 + (v || 6) * 0.008); }
     dispose() { this.dead = true; this.scene.remove(this.group); this.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); if (this.mixer) this.mixer.stopAllAction(); }
   }
   api.Actor = Actor; api.softTex = soft;

@@ -88,14 +88,32 @@
       // petites brindilles sous la branche
       const mx = (b.x0 + b.x1) / 2, mz = (b.z0 + b.z1) / 2;
       for (let k = 0; k < 3; k++) { const tw = mesh(new T.ConeGeometry(0.12, 1.1 + rnd() * 0.7, 5), trunk.material, mx + (alongX ? (rnd() - 0.5) * w * 0.7 : (rnd() - 0.5) * 0.5), b.y0 - 0.35, mz + (alongX ? (rnd() - 0.5) * 0.5 : (rnd() - 0.5) * d * 0.7)); tw.rotation.set(rnd() * 0.8 + 2.6, 0, rnd() * 0.8 - 0.4); g.add(tw); }
-      if (!dead) { // feuillage sous et autour de la branche
+      if (!dead && i === 0) { // feuillage sous la branche la plus basse seulement, pour ne jamais pendre dans la tête de quelqu'un posé plus bas
         const cols = [0x3f9a47, 0x58b457, 0x2f8a45, 0x7ccc5a];
         for (let k = 0; k < 3; k++) { const c = leafClump(0.75 + rnd() * 0.6, cols[(i + k) % 4]); const t = (k + 0.5) / 3; c.position.set(alongX ? from[0] + (to[0] - from[0]) * (0.35 + t * 0.65) : mx + (rnd() - 0.5) * 0.7, b.y0 - 0.25 - rnd() * 0.5, alongX ? mz + (rnd() - 0.5) * 0.7 : from[1] + (to[1] - from[1]) * (0.35 + t * 0.65)); g.add(c); }
       } else if (i === 2) { const tw = mesh(new T.ConeGeometry(0.16, 2.2, 5), trunk.material, to[0] + (alongX ? tipDir * 0.4 : 0), b.y1 + 1.0, to[1] + (alongX ? 0 : tipDir * 0.4)); tw.rotation.z = 0.5; g.add(tw); }
     });
     // couronne
-    if (!dead) { const cols = [0x3f9a47, 0x58b457, 0x2f8a45, 0x7ccc5a, 0x4aa84e]; const yc = tb.y1 + 0.2; [[0, 1.2, 0, 2.5], [1.5, 0.6, 0.5, 1.9], [-1.4, 0.7, -0.6, 1.9], [0.3, 0.5, 1.6, 1.8], [-0.2, 2.5, -0.3, 1.6]].forEach((q, i) => { const c = leafClump(q[3], cols[i % 5]); c.position.set(cx + q[0], yc + q[1] + 0.9, cz + q[2]); g.add(c); }); }
+    if (!dead) { const cols = [0x3f9a47, 0x58b457, 0x2f8a45, 0x7ccc5a, 0x4aa84e]; const yc = tb.y1 + 1.3; [[0, 1.2, 0, 2.5], [1.5, 0.6, 0.5, 1.9], [-1.4, 0.7, -0.6, 1.9], [0.3, 0.5, 1.6, 1.8], [-0.2, 2.5, -0.3, 1.6]].forEach((q, i) => { const c = leafClump(q[3], cols[i % 5]); c.position.set(cx + q[0], yc + q[1] + 0.9, cz + q[2]); g.add(c); }); }
     else { for (let k = 0; k < 3; k++) { const tw = mesh(new T.ConeGeometry(0.18, 2.6, 5), trunk.material, cx + (k - 1) * 0.5, tb.y1 + 1.0, cz + (k % 2 ? 0.4 : -0.4)); tw.rotation.z = (k - 1) * 0.5; g.add(tw); } }
+    shade(g, ctx.sh); return g;
+  }
+
+  // ---------- sapin ----------
+  // Chaque étage de feuillage est un plateau à dessus plat, exactement à la taille de sa boîte de collision.
+  // On voit donc toujours où l'on peut se poser, et rien ne dépasse au-dessus du dessus d'un étage.
+  function buildSapin(obj, C, ctx) {
+    const bs = C.boxes.slice(obj.b0, obj.b0 + obj.nb); if (!bs.length) return null; const g = new T.Group();
+    const cols = [[0x2f8a52, 0x4fb46a], [0x2a7d4b, 0x47a862], [0x2f8a52, 0x58bd70]];
+    const b0 = bs[0]; const cx = (b0.x0 + b0.x1) / 2, cz = (b0.z0 + b0.z1) / 2; const ground = obj.py;
+    if (b0.y0 > ground + 0.05) { const h = b0.y0 - ground + 0.3; const tr = mesh(new T.CylinderGeometry(0.35, 0.55, h, 8), mat("bark0", () => lam(0xffffff, { map: bark(false) })), cx, ground + h / 2, cz); g.add(tr); }
+    bs.forEach((b, i) => {
+      const w = b.x1 - b.x0, d = b.z1 - b.z0, h = Math.max(0.3, b.y1 - b.y0); const c = cols[i % 3];
+      const body = new T.Mesh(geo("tier", () => { const q = new T.CylinderGeometry(0.5, 0.62, 1, 8, 1); q.rotateY(Math.PI / 8); return q; }), mat("tier" + i, () => lam(c[0], { flatShading: true })));
+      body.scale.set(w / Math.cos(Math.PI / 8), h, d / Math.cos(Math.PI / 8)); body.position.set((b.x0 + b.x1) / 2, b.y0 + h / 2, (b.z0 + b.z1) / 2); g.add(body);
+      const top = new T.Mesh(geo("tierTop", () => { const q = new T.CylinderGeometry(0.5, 0.5, 0.08, 8, 1); q.rotateY(Math.PI / 8); return q; }), mat("tierTop" + i, () => lam(c[1], { flatShading: true })));
+      top.scale.set((w - 0.1) / Math.cos(Math.PI / 8), 1, (d - 0.1) / Math.cos(Math.PI / 8)); top.position.set((b.x0 + b.x1) / 2, b.y1 - 0.03, (b.z0 + b.z1) / 2); g.add(top);
+    });
     shade(g, ctx.sh); return g;
   }
 
@@ -146,7 +164,7 @@
     g.add(grp); ctx.belts.push({ map: tm.map, rep: L / 1.9 }); shade(g, ctx.sh); return g;
   }
 
-  const BUILD = { arbre: buildTree, champi: buildMush, trampoline: buildTramp, tapis: buildBelt };
+  const BUILD = { sapin: buildSapin, arbre: buildTree, champi: buildMush, trampoline: buildTramp, tapis: buildBelt };
 
   // retourne le groupe, ou null si l'objet doit rester en plateformes simples
   P3.build = function (obj, C, ctx) {
