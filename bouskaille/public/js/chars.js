@@ -48,7 +48,7 @@
     const t = new T.CanvasTexture(c); const m = new T.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false }); const s = new T.Sprite(m); s.scale.set(2.4, 0.675, 1); s.renderOrder = 20; return s;
   }
 
-  const ANIMS = { idle: "Idle", run: "Running_A", walk: "Walking_A", charge: "Spellcast_Raise", dash: "Dodge_Forward", rec: "Block_Hit", stun: "Hit_B", air: "Jump_Idle", fall: "Jump_Idle", land: "Jump_Land", kick: "Unarmed_Melee_Attack_Kick", hit: "Hit_A", cheer: "Cheer", lose: "Lie_Idle", spin: "2H_Melee_Attack_Spin" };
+  const ANIMS = { idle: "Idle", run: "Running_A", walk: "Walking_A", charge: "Spellcast_Raise", dash: "Dodge_Forward", rec: "Block_Hit", stun: "Hit_B", air: "Jump_Idle", fall: "Jump_Idle", land: "Jump_Land", kick: "Unarmed_Melee_Attack_Kick", hit: "Hit_A", cheer: "Cheer", ledge: "Spellcast_Raise", lose: "Lie_Idle", spin: "2H_Melee_Attack_Spin" };
 
   class Actor {
     constructor(scene, opts) {
@@ -99,12 +99,13 @@
       const target = Math.PI / 2 - s.a; let d = target - this.fx; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; this.fx += d * Math.min(1, dt * 14); this.pose.rotation.y = this.fx;
       const speed = Math.hypot(s.vx, s.vz); const st = s.st; let an = "idle", sp = 1;
       const busy = this.over && performance.now() < this.over.until;
-      if (st === "charge") { an = "charge"; } else if (st === "dash") { an = "dash"; sp = 1.5; } else if (st === "rec") { an = "rec"; } else if (st === "stun") { an = "stun"; } else if (st === "fall" || st === "air") { an = "fall"; } else if (speed > 3.2) { an = "run"; sp = Math.max(0.7, Math.min(1.5, speed / 6)); } else if (speed > 0.7) { an = "walk"; sp = Math.max(0.6, speed / 2.6); } else an = "idle";
+      if (st === "charge") { an = "charge"; } else if (st === "dash") { an = "dash"; sp = 1.5; } else if (st === "rec") { an = "rec"; } else if (st === "stun") { an = "stun"; } else if (st === "ledge") { an = "ledge"; } else if (st === "fall" || st === "air") { an = "fall"; } else if (speed > 3.2) { an = "run"; sp = Math.max(0.7, Math.min(1.5, speed / 6)); } else if (speed > 0.7) { an = "walk"; sp = Math.max(0.6, speed / 2.6); } else an = "idle";
       if (s.cheer) an = "cheer"; if (s.lose) an = "lose";
-      if (!busy) { this.over = null; if (an === "charge") { this.play("charge", 0.08, true, 0); const a = this.act[ANIMS.charge]; if (a) { a.paused = false; a.timeScale = 0; a.time = Math.min(a.getClip().duration * 0.97, (0.15 + s.ch * 0.85) * a.getClip().duration * 0.6); } } else this.play(an, 0.14, false, sp); }
+      if (!busy) { this.over = null; if (an === "ledge") { this.play("ledge", 0.08, true, 0); const a = this.act[ANIMS.ledge]; if (a) { a.paused = false; a.timeScale = 0; a.time = a.getClip().duration * 0.55; } } else if (an === "charge") { this.play("charge", 0.08, true, 0); const a = this.act[ANIMS.charge]; if (a) { a.paused = false; a.timeScale = 0; a.time = Math.min(a.getClip().duration * 0.97, (0.15 + s.ch * 0.85) * a.getClip().duration * 0.6); } } else this.play(an, 0.14, false, sp); }
       if (this.mixer) this.mixer.update(dt);
       // inclinaisons
-      const tl = st === "dash" ? 0.35 : st === "fall" ? 0.5 : st === "rec" ? 0.2 : 0; this.tilt += (tl - this.tilt) * Math.min(1, dt * 12); this.pose.rotation.x = 0; if (this.model) { this.model.rotation.x = this.tilt; }
+      if (st === "ledge") g.position.x += Math.sin(performance.now() / 45) * 0.03;
+      const tl = st === "dash" ? 0.35 : st === "ledge" ? -0.25 : st === "fall" ? 0.5 : st === "rec" ? 0.2 : 0; this.tilt += (tl - this.tilt) * Math.min(1, dt * 12); this.pose.rotation.x = 0; if (this.model) { this.model.rotation.x = this.tilt; }
       const sq = st === "charge" ? 1 - 0.12 * s.ch : 1; this.pose.scale.set(1 + (1 - sq) * 0.6, sq, 1 + (1 - sq) * 0.6);
       // anneau et jauge de charge
       this.chg.material.opacity = st === "charge" ? 0.35 + 0.65 * s.ch : 0; if (st === "charge") { const k = 0.8 + s.ch * 0.7; this.chg.scale.set(k, k, 1); this.chg.material.color.setHSL(0.14 - s.ch * 0.14, 1, 0.55); }

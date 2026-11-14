@@ -55,6 +55,11 @@
   FX.confetti = (x, y, z, n) => { for (let i = 0; i < lim(n || 40); i++) spawn(x + R(-2, 2), y + R(0, 2), z + R(-2, 2), R(-3, 3), R(2, 8), R(-3, 3), R(0.25, 0.5), [0xff5a6a, 0xffd23d, 0x2fa8ff, 0x7be07b, 0xff7ab8][i % 5], 1, R(1.5, 3), { grav: 6, drag: 0.8 }); };
   FX.fall = (x, y, z) => { for (let i = 0; i < lim(6); i++) spawn(x + R(-0.3, 0.3), y, z + R(-0.3, 0.3), R(-0.5, 0.5), R(1, 3), R(-0.5, 0.5), R(0.4, 0.8), 0xffffff, 0, R(0.5, 0.9), { a: 0.6, grow: 1 }); };
   FX.dashTrail = (x, z, dx, dz, hex) => { for (let i = 0; i < 2; i++) spawn(x - dx * R(0.2, 0.7), R(0.3, 1.2), z - dz * R(0.2, 0.7), -dx * 1.5, 0, -dz * 1.5, R(0.5, 0.9), hex || 0xffffff, 0, R(0.2, 0.35), { a: 0.6, grow: 1.5, drag: 4 }); };
+  // étoiles qui tournent au-dessus d'une tête après un gros choc
+  FX.stars = (x, y, z, n) => { for (let i = 0; i < lim(n || 7); i++) { const a = (i / (n || 7)) * TAU; spawn(x + Math.cos(a) * 0.5, y, z + Math.sin(a) * 0.5, -Math.sin(a) * 1.8, R(0.6, 1.4), Math.cos(a) * 1.8, R(0.35, 0.55), i % 2 ? 0xffe14d : 0xffffff, 1, R(0.6, 0.9), { grav: 1.5, drag: 0.6 }); } };
+  // éclair, colonne de lumière et gerbe d'étincelles
+  FX.bolt = (x, z, r) => { for (let k = 0; k < lim(16); k++) spawn(x + R(-0.15, 0.15), R(0.5, 9), z + R(-0.15, 0.15), 0, 0, 0, R(0.7, 1.3), 0xcfe8ff, 0, R(0.15, 0.3), { a: 0.95 }); for (let i = 0; i < lim(20); i++) { const a = R(0, TAU), s = R(3, 9); spawn(x, 0.4, z, Math.cos(a) * s, R(2, 6), Math.sin(a) * s, R(0.3, 0.55), i % 2 ? 0xfff6a8 : 0x9fd8ff, 1, R(0.3, 0.6), { grav: 8, drag: 1.5 }); } FX.ring(x, z, 0xffffff, (r || 2) * 2.2, 0.45); };
+  FX.splash = (x, z, hex) => { for (let i = 0; i < lim(14); i++) { const a = R(0, TAU), s = R(0.6, 2.4); spawn(x, 0, z, Math.cos(a) * s, R(3, 6), Math.sin(a) * s, R(0.35, 0.6), hex || 0xbfe8ff, 0, R(0.5, 0.9), { grav: 10, drag: 0.8 }); } };
   // traînées cosmétiques
   FX.trail = (kind, x, y, z, vx, vz) => {
     if (!kind) return; const sp = Math.hypot(vx, vz); if (sp < 1.2) return; if (Math.random() > (quality === "low" ? 0.25 : 0.6)) return;
@@ -113,9 +118,16 @@
       win() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.28, "triangle", 0.1, i * 0.13)); tone(1047, 0.6, "triangle", 0.1, 0.55); },
       lose() { tone(300, 0.4, "triangle", 0.08, 0, 150); },
       crown() { tone(784, 0.15, "triangle", 0.08); tone(988, 0.25, "triangle", 0.08, 0.1); },
+      thunder() { noise(1.4, 0.32, 0, 380); tone(60, 0.9, "sawtooth", 0.08, 0, 30); noise(0.12, 0.25, 0, 5000, true); },
+      boom(p) { tone(70, 0.35 + p * 0.2, "sine", 0.25 + p * 0.15, 0, 34); },
+      grab() { tone(260, 0.08, "square", 0.05); tone(200, 0.12, "triangle", 0.06, 0.05); },
+      climb() { tone(330, 0.1, "triangle", 0.07, 0, 660); tone(660, 0.12, "sine", 0.05, 0.07); },
+      alarm() { tone(880, 0.12, "square", 0.06); tone(660, 0.12, "square", 0.06, 0.15); tone(880, 0.12, "square", 0.06, 0.3); },
+      splash() { noise(0.45, 0.16, 0, 1600); tone(240, 0.25, "sine", 0.06, 0, 90); },
+      slowmo() { tone(220, 1.2, "sine", 0.1, 0, 60); noise(1.2, 0.06, 0, 400); },
       gust() { noise(1.6, 0.06, 0, 500, true, 1800); },
       ambience(theme) {
-        const c = ac(); if (!c) return; this.stopAmb(); const notes = { cloud: [261.6, 329.6, 392, 523.3], factory: [110, 146.8, 164.8, 220], carousel: [349.2, 440, 523.3, 659.3], island: [293.7, 370, 440, 587.3], sections: [246.9, 311.1, 370, 493.9], fair: [392, 493.9, 587.3, 784], float: [196, 233, 293.7, 392] }[theme] || [261.6, 329.6, 392, 523.3];
+        const c = ac(); if (!c) return; this.stopAmb(); const notes = { cloud: [261.6, 329.6, 392, 523.3], factory: [110, 146.8, 164.8, 220], carousel: [349.2, 440, 523.3, 659.3], island: [293.7, 370, 440, 587.3], sections: [246.9, 311.1, 370, 493.9], fair: [392, 493.9, 587.3, 784], float: [196, 233, 293.7, 392], raft: [293.7, 349.2, 440, 523.3], ice: [329.6, 392, 493.9, 659.3], ring: [220, 277.2, 329.6, 440], storm: [130.8, 155.6, 196, 261.6], pool: [261.6, 311.1, 392, 466.2], volcano: [110, 130.8, 164.8, 196] }[theme] || [261.6, 329.6, 392, 523.3];
         const g = c.createGain(); g.gain.value = 0.0001; g.gain.linearRampToValueAtTime(0.045, c.currentTime + 2); g.connect(out()); const f = c.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 1400; f.connect(g);
         const oscs = notes.map((n, i) => { const o = c.createOscillator(); o.type = i % 2 ? "triangle" : "sine"; o.frequency.value = n * (i === 0 ? 0.5 : 1); const og = c.createGain(); og.gain.value = 0.25; const lfo = c.createOscillator(); lfo.frequency.value = 0.07 + i * 0.03; const lg = c.createGain(); lg.gain.value = 0.2; lfo.connect(lg); lg.connect(og.gain); o.connect(og); og.connect(f); o.start(); lfo.start(); return [o, lfo]; });
         // petit arpège doux

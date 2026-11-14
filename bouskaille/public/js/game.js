@@ -11,7 +11,8 @@
   ];
   const TEAM = { 1: { name: "Rouge", hex: "#ff5a4d" }, 2: { name: "Bleu", hex: "#3d8bff" } };
   const LEVELS = [{ id: "debutant", label: "Apprenti" }, { id: "moyen", label: "Habitué" }, { id: "champion", label: "Champion" }, { id: "prodige", label: "Prodige" }];
-  const STN = ["ok", "charge", "dash", "rec", "stun", "fall", "air", "out"];
+  const STN = ["ok", "charge", "dash", "rec", "stun", "fall", "air", "out", "ledge"];
+  const EVDESC = { bascule: "Tout le monde glisse d'un côté pendant quelques secondes", bumper: "Un bumper géant sort au centre et renvoie tout le monde", lune: "Les sauts et les chutes deviennent lents", glace: "Le sol devient glissant pendant quelques secondes" };
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const TAU = Math.PI * 2;
   const isTouch = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0 && /Mobi|Android|iPhone|iPad/.test(navigator.userAgent));
@@ -78,7 +79,7 @@
   }
   function startRound(msg, rebuild) {
     if (!initRender()) return toast("Ton navigateur ne peut pas afficher la 3D.", "error");
-    disposeRound(); G.round = msg; G.cos = msg.cos || G.cos; G.A = Ar.make(msg.arena, msg.seed, { hazards: msg.hazards }); G.ids = msg.players.map((p) => p.id); G.idx = {}; G.ids.forEach((id, i) => { G.idx[id] = i; });
+    disposeRound(); G.round = msg; G.cos = msg.cos || G.cos; G.A = Ar.make(msg.arena, msg.seed, { hazards: msg.hazards, events: msg.events }); G.ann = {}; G.annGo = {}; G.lag = 0; G.slowUntil = 0; G.stopUntil = 0; G.focus = null; G.tw = null; G.climbAt = 0; G.ids = msg.players.map((p) => p.id); G.idx = {}; G.ids.forEach((id, i) => { G.idx[id] = i; });
     G.view = new SC.ArenaView(R.scene, G.A, G.quality); FX.dispose(); FX.init(R.scene, R.cam, G.quality); resize();
     G.mine = myPid(); G.snaps = []; G.L = null; G.LW = Sim.makeWorld(G.A, { noShrink: true }); G.LW.players = []; G.prevSt = {}; G.feedN = 0;
     G.view.update(0, null, 0, 0);
@@ -94,7 +95,7 @@
     $("#bk-end").classList.remove("show"); $("#bk-over").classList.remove("show");
     banner(G.A.name, G.A.blurb + " " + (G.A.info || "") + (msg.gabMode && msg.gabMode !== "egal" && G.gabs[G.mine] ? " Tu joues " + gabLine(G.mine) + "." : ""), 0);
     G.phase = "intro"; G.introAt = performance.now(); G.cam.fit = null;
-    const h = $("#bk-help"); if (h) { h.style.opacity = 1; h.innerHTML = isTouch ? "Joystick pour te déplacer, bouton pour pousser, bouton Saut pour sauter. Maintiens pour charger." : "<kbd>ZQSD</kbd> ou <kbd>flèches</kbd> pour bouger. <kbd>Espace</kbd> pour pousser, maintiens pour charger et relâche pour foncer. <kbd>Maj</kbd> ou <kbd>E</kbd> pour sauter."; }
+    const h = $("#bk-help"); if (h) { h.style.opacity = 1; h.innerHTML = isTouch ? "Joystick pour te déplacer, bouton pour pousser, bouton Saut pour sauter. Maintiens pour charger. Accroché au bord, touche Saut pour remonter." : "<kbd>ZQSD</kbd> ou <kbd>flèches</kbd> pour bouger. <kbd>Espace</kbd> pour pousser, maintiens pour charger et relâche pour foncer. <kbd>Maj</kbd> ou <kbd>E</kbd> pour sauter. Si tu tombes du bord sans être projeté trop fort, tu t'y accroches une seconde, appuie sur saut pour remonter."; }
   }
   function banner(big, sub, ms) { const b = $("#bk-banner"); if (!b) return; b.innerHTML = ""; if (big) b.appendChild(el("div", { class: "big", text: big })); if (sub) b.appendChild(el("div", { class: "sub", text: sub })); b.style.display = big || sub ? "block" : "none"; clearTimeout(banner.t); if (ms) banner.t = setTimeout(() => { b.style.display = "none"; }, ms); }
   function feed(html) { const f = $("#bk-feed"); if (!f) return; const d = el("div", { html }); f.appendChild(d); while (f.children.length > 5) f.removeChild(f.firstChild); setTimeout(() => d.remove(), 4600); }
@@ -123,7 +124,7 @@
     s.on("b:phase", (d) => onPhase(d.p));
     s.on("b:snap", onSnap);
     s.on("b:hud", (h) => { G.hud = h; renderBoard(); const t = $("#bk-timer"); if (h.left != null && t) t.innerHTML = `<b>${Math.ceil(h.left)}</b> s`; updateCrown(); });
-    s.on("b:end", (d) => { G.end = d; showEnd(d); });
+    s.on("b:end", (d) => { G.end = d; const w = Math.max(0, (G.slowUntil || 0) - performance.now()) + (G.lag || 0); if (w > 30) setTimeout(() => showEnd(d), w + 150); else showEnd(d); });
     s.on("b:over", (d) => { G.over = d; setTimeout(() => showOver(d), 1800); });
     s.on("b:cosmap", (m) => { G.cos = m; refreshPreview(); });
     s.on("room:lobbyAgain", () => { leaveGame(); });
@@ -141,7 +142,7 @@
     G.snaps.push(sn); if (G.snaps.length > 40) G.snaps.shift();
     if (sn.phase !== undefined) return;
     // état des dalles qui s'effondrent
-    G.tiles = sn.tl; G.tilesAt = sn.t;
+    G.tiles = sn.tl; G.tilesAt = sn.t; if (sn.tw) { G.tw = sn.tw; G.LW.tilt = { x: sn.tw[0], z: sn.tw[1] }; }
     // événements
     if (sn.ev && sn.ev.length) sn.ev.forEach((e) => onEvent(e, sn));
     // recalage de ma prédiction
@@ -151,6 +152,9 @@
     const age = (performance.now() - arr) / 1000; const ex = s[0] + s[3] * age, ez = s[1] + s[4] * age; const dx = ex - L.x, dz = ez - L.z, d = Math.hypot(dx, dz);
     if (!alive) { L.alive = false; return; }
     if (!L.alive) { L.alive = true; L.fall = false; L.air = false; L.y = 0; L.vy = 0; L.x = s[0]; L.z = s[1]; L.vx = s[3]; L.vz = s[4]; L.holding = false; L.dash = 0; L.rec = 0; L.cd = 0; L.stun = 0; }
+    // accroché au rebord. Juste après une remontée locale, on laisse au serveur le temps de suivre
+    if (st === "ledge") { G.ledgeMis = 0; if (!(L.ledge > 0) && performance.now() - G.climbAt > 450) { L.ledge = 0.5; L.lx = s[0]; L.lz = s[1]; L.x = s[0]; L.z = s[1]; L.vx = L.vz = 0; L.y = -0.35; L.fall = false; L.air = false; L.holding = false; L.dash = 0; if (L.gx == null) { L.gx = s[0] * 0.92; L.gz = s[1] * 0.92; } } return; }
+    if (L.ledge > 0) { G.ledgeMis = (G.ledgeMis || 0) + 1; if (G.ledgeMis < 4 && st !== "fall") return; L.ledge = 0; L.x = s[0]; L.z = s[1]; L.vx = s[3]; L.vz = s[4]; L.y = s[2]; L.fall = st === "fall"; L.air = st === "air"; if (!L.fall && !L.air) { L.y = 0; L.vy = 0; } return; }
     if (d > 3.2 || st === "fall" || st === "air" || (L.fall && st !== "fall")) { L.x = s[0]; L.z = s[1]; L.vx = s[3]; L.vz = s[4]; L.y = s[2]; L.fall = st === "fall"; L.air = st === "air"; if (!L.fall && !L.air) { L.y = 0; L.vy = 0; } }
     else if (d > 0.03) { const k = d > 0.8 ? 0.5 : 0.22; L.x += dx * k; L.z += dz * k; L.vx += (s[3] - L.vx) * 0.35; L.vz += (s[4] - L.vz) * 0.35; }
     // états de combat, on suit le serveur quand il est en désaccord durablement
@@ -165,7 +169,16 @@
   function onEvent(e, sn) {
     const v = G.view; const me = G.mine; const now = performance.now();
     switch (e.e) {
-      case "hit": { FX.impact(e.x, e.z, e.p, e.nx, e.nz); if (now - G.hitSnd > 70) { SND.hit(e.p); G.hitSnd = now; } shake(e.p * 0.9 + 0.1); const b = G.actors[e.b]; if (b && e.p > 0.3) b.oneShot("hit", 1.5); break; }
+      case "hit": { FX.impact(e.x, e.z, e.p, e.nx, e.nz); if (now - G.hitSnd > 70) { SND.hit(e.p); G.hitSnd = now; } shake(e.p * 1.15 + 0.1); const b = G.actors[e.b]; if (b && e.p > 0.3) b.oneShot("hit", 1.5);
+        // gros choc, l'image se fige un instant, son grave et étoiles
+        if (e.p > 0.55) { G.stopUntil = Math.max(G.stopUntil || 0, now + 45 + e.p * 50); SND.boom(e.p); FX.stars(e.x, 1.9, e.z, 6 + Math.round(e.p * 4)); }
+        break; }
+      case "ledge": { if (e.id === me) { SND.grab(); if ((G.ledgeTips = (G.ledgeTips || 0) + 1) <= 2) toast("Accroché au bord, appuie sur saut pour remonter", "info"); } FX.dust(e.x, e.z, 0, 0, 3); break; }
+      case "climb": { if (e.id === me) SND.climb(); FX.ring(e.x, e.z, 0x7fe07f, 1.3, 0.3); break; }
+      case "drop": { if (e.id === me) SND.fall(); break; }
+      case "bolt": { SND.thunder(); FX.bolt(e.x, e.z, e.r); shake(0.9); if (G.view) G.view.flash = 1; break; }
+      case "cushion": { if (now - (G.cushSnd || 0) > 90) { SND.bump(); G.cushSnd = now; } FX.ring(e.x, e.z, 0x7be07b, 1.0, 0.25); break; }
+      case "final": { G.slowUntil = now + 1500; G.focus = { id: e.id, until: now + 1900 }; SND.slowmo(); break; }
       case "dash": { SND.dash(e.c); const a = G.actors[e.id]; if (a) FX.dust(e.x, e.z, e.dx, e.dz, 5); break; }
       case "pulse": { SND.pulse(); const a = G.actors[e.id]; if (a) a.oneShot("kick", 1.8); FX.ring(e.x + e.fx, e.z + e.fz, 0xffffff, 1.2, 0.22); break; }
       case "miss": { FX.dust(e.x, e.z, 0, 0, 6); break; }
@@ -179,7 +192,7 @@
       case "save": { FX.ring(e.x, e.z, 0x7fe07f, 1.4, 0.3); break; }
       case "crumble": { SND.crumble(); break; }
       case "interrupt": { if (e.id === me) SND.chargeStop(); break; }
-      case "ko": { const a = G.actors[e.id]; if (a) FX.poof(e.x, 0.5, e.z, 0xffffff); SND.ko(); feed(e.by && e.by !== e.id ? `${dotHtml(e.by)} a éjecté ${dotHtml(e.id)}` : `${dotHtml(e.id)} est tombé`); if (e.id === me) shake(0.8); break; }
+      case "ko": { const a = G.actors[e.id]; if (a) FX.poof(e.x, 0.5, e.z, 0xffffff); SND.ko(); if (G.A && (G.A.theme === "raft" || G.A.theme === "pool" || G.A.theme === "ice")) { FX.splash(e.x, e.z); SND.splash(); } feed(e.by && e.by !== e.id ? `${dotHtml(e.by)} a éjecté ${dotHtml(e.id)}` : `${dotHtml(e.id)} est tombé`); if (e.id === me) shake(0.8); break; }
       case "respawn": { FX.ring(e.x, e.z, 0xffffff, 2.2, 0.5); FX.confetti(e.x, 1, e.z, 12); break; }
       case "crown": { SND.crown(); banner("", "La couronne se déplace", 1400); break; }
     }
@@ -253,12 +266,16 @@
   function frame() {
     const now = performance.now(); let dt = Math.min(0.1, (now - G.last) / 1000); G.last = now; if (!G.round || !G.view || document.body.dataset.screen !== "game") { return; }
     G.frame++; G.fps.push(dt); if (G.fps.length > 90) { const avg = G.fps.reduce((a, b) => a + b, 0) / G.fps.length; G.fps = []; adapt(avg); }
-    const tNow = serverNow(); const srvMs = G.clockOff == null ? 0 : now - G.clockOff - 100;
+    // ralenti de l'éjection finale et arrêt sur image des gros chocs, l'affichage prend du retard puis le rattrape
+    const slow = now < (G.slowUntil || 0), stop = now < (G.stopUntil || 0);
+    if (stop) G.lag = (G.lag || 0) + dt * 1000; else if (slow) G.lag = (G.lag || 0) + dt * 1000 * 0.72; else G.lag = Math.max(0, (G.lag || 0) - dt * 1000 * 0.6);
+    G.lag = Math.min(G.lag, 1000); const vdt = stop ? 0 : slow ? dt * 0.28 : dt;
+    const tNow = serverNow(); const srvMs = G.clockOff == null ? 0 : now - G.clockOff - 100 - G.lag;
     const playing = G.phase === "play"; const inp = readInput();
     // prédiction locale
     if (playing && G.L && G.L.alive && !$("#bk-pause").classList.contains("show")) {
       G.acc += dt; const W = G.LW; let n = 0;
-      while (G.acc >= Sim.DT && n < 5) { G.acc -= Sim.DT; n++; W.t = tNow; Sim.prepare(W); applyTiles(W); Sim.stepPlayer(W, G.L, inp); W.events.length = 0; }
+      while (G.acc >= Sim.DT && n < 5) { G.acc -= Sim.DT; n++; W.t = tNow; Sim.prepare(W); applyTiles(W); const was = G.L.ledge > 0; Sim.stepPlayer(W, G.L, inp); if (was && !(G.L.ledge > 0) && !G.L.fall) G.climbAt = performance.now(); W.events.length = 0; }
       if (G.acc > 0.2) G.acc = 0;
     } else G.acc = 0;
     // envoi des commandes
@@ -271,12 +288,12 @@
     G.round.players.forEach((p, i) => {
       const a = G.actors[p.id]; if (!a) return; let s = null;
       if (G.podium) return;
-      if (i === meIdx && G.L && G.L.alive && playing) { const sv = sn && sn.p[i] ? interp(i, srvMs) : null; const Lp = G.L; s = { x: Lp.x, z: Lp.z, y: Lp.y, vx: Lp.vx, vz: Lp.vz, a: Math.atan2(Lp.fz, Lp.fx), st: Lp.fall ? "fall" : Lp.air ? "air" : Lp.dash > 0 ? "dash" : Lp.holding ? "charge" : Lp.rec > 0 ? "rec" : Lp.stun > 0 ? "stun" : "ok", ch: Lp.ch, alive: true, inv: sv ? sv.inv : false }; if (sv && (sv.st === "rec" || sv.st === "stun") && s.st === "ok") s.st = sv.st; }
+      if (i === meIdx && G.L && G.L.alive && playing && G.lag < 25) { const sv = sn && sn.p[i] ? interp(i, srvMs) : null; const Lp = G.L; s = { x: Lp.x, z: Lp.z, y: Lp.y, vx: Lp.vx, vz: Lp.vz, a: Math.atan2(Lp.fz, Lp.fx), st: Lp.ledge > 0 ? "ledge" : Lp.fall ? "fall" : Lp.air ? "air" : Lp.dash > 0 ? "dash" : Lp.holding ? "charge" : Lp.rec > 0 ? "rec" : Lp.stun > 0 ? "stun" : "ok", ch: Lp.ch, alive: true, inv: sv ? sv.inv : false }; if (sv && (sv.st === "rec" || sv.st === "stun") && s.st === "ok") s.st = sv.st; }
       else if (sn) s = interp(i, srvMs);
       if (!s) { const pre = G.pre && G.pre[i]; if (pre) s = { x: pre.x, z: pre.z, y: 0, vx: 0, vz: 0, a: pre.a, st: "ok", ch: 0, alive: true, inv: false }; else return; }
       if (G.phase === "intro" || G.phase === "count") s.st = "ok";
       if (G.phase === "roundEnd" || G.phase === "over") { const win = G.end && G.end.end && G.end.end.winners.includes(p.id); if (win) s.cheer = true; }
-      a.show(s, dt); if (i === meIdx) a.group.visible = !(G.fp && playing && s.alive && G.phase === "play");
+      a.show(s, vdt); if (i === meIdx) a.group.visible = !(G.fp && playing && s.alive && G.phase === "play");
       const co = G.cos[p.id]; if (co && co.trail && playing && s.alive && (s.st === "dash" || Math.hypot(s.vx, s.vz) > 3)) FX.trail(co.trail, s.x, 0, s.z, s.vx, s.vz);
       if (s.st === "dash" && s.alive) FX.dashTrail(s.x, s.z, s.vx / (Math.hypot(s.vx, s.vz) || 1), s.vz / (Math.hypot(s.vx, s.vz) || 1), colorOf(p.id));
       else if (s.alive && s.y <= 0.01 && Math.hypot(s.vx, s.vz) > 5.5 && G.frame % 5 === 0) FX.dust(s.x, s.z, s.vx * 0.1, s.vz * 0.1, 1);
@@ -285,12 +302,21 @@
     });
     if (G.podium) podiumUpdate(dt);
     // monde animé
-    const tView = G.phase === "intro" || G.phase === "count" ? 0 : (sn ? sn.t + ((now - G.clockOff - 100) - sn.now) / 1000 : 0);
-    G.view.update(Math.max(0, tView), G.tiles, sn && sn.ck ? sn.ck : 0, dt);
-    FX.update(dt);
+    const tView = G.phase === "intro" || G.phase === "count" ? 0 : (sn ? sn.t + ((now - G.clockOff - 100 - G.lag) - sn.now) / 1000 : 0);
+    G.view.tw = G.tw; G.view.update(Math.max(0, tView), G.tiles, sn && sn.ck ? sn.ck : 0, vdt, G.actors);
+    FX.update(vdt);
+    if (playing) announce(tView);
     updateHud(mine, L, dt);
     camera(dt, cn ? { x: cx / cn, z: cz / cn } : { x: 0, z: 0 }, mine);
     R.renderer.render(R.scene, R.cam); PicuiteGL.verify(R.renderer);
+  }
+  // événements de mi-manche, annoncés trois secondes avant
+  function announce(t) {
+    const L = G.A && G.A.events; if (!L) return;
+    L.forEach((e, i) => {
+      if (!G.ann[i] && t >= e.at - 3 && t < e.at) { G.ann[i] = 1; SND.alarm(); banner("⚠️ " + e.name, EVDESC[e.k] || "", 2700); }
+      if (!G.annGo[i] && t >= e.at && t < e.at + e.dur) { G.annGo[i] = 1; G.ann[i] = 1; banner(e.name + " !", "", 1100); shake(0.4); if (e.k === "bumper") FX.ring(e.x || 0, e.z || 0, 0xff4b8a, 4, 0.6); }
+    });
   }
   function applyTiles(W) {
     const tl = G.tiles; if (!tl) return; let k = 0; const A = G.A;
@@ -326,6 +352,8 @@
     else c.yaw = (c.yaw || 0) * Math.max(0, 1 - dt * 4);
     if (mine && mine.st === "fall" && G.phase === "play") { ty = clamp(mine.y * 0.2, -2.5, 0); }
     if (G.podium) { tx = 0; tz = 0; dist = 11; }
+    else if (G.focus && performance.now() < G.focus.until && G.actors[G.focus.id]) { const p = G.actors[G.focus.id].group.position; c.fx = (c.fx == null ? tx : c.fx) + (p.x - (c.fx == null ? tx : c.fx)) * Math.min(1, dt * 3); c.fz = (c.fz == null ? tz : c.fz) + (p.z - (c.fz == null ? tz : c.fz)) * Math.min(1, dt * 3); tx = c.fx; tz = c.fz; dist *= 0.6; }
+    else { c.fx = null; c.fz = null; }
     const ca = Math.cos(pitch), sa = Math.sin(pitch); const yaw = c.yaw || 0;
     const px = tx + Math.sin(yaw) * dist * ca, pz = tz + Math.cos(yaw) * dist * ca, py = ty + dist * sa;
     c.x += (px - c.x) * Math.min(1, dt * 5); c.y += (py - c.y) * Math.min(1, dt * 5); c.z += (pz - c.z) * Math.min(1, dt * 5);
@@ -441,7 +469,7 @@
   Kit.init({
     id: "bouskaille", hero: true, title: "Bouskaille", emoji: "🥊", ribbon: "Pousse, esquive, tiens bon", tagline: "Des arènes qui bougent, des copains à pousser dans le vide.",
     createLabel: "Créer un salon", soloLabel: "Jouer contre des bots", startLabel: "Lancer la partie", helpTitle: "Comment jouer",
-    floaters: [{ e: "🥊", x: 6 }, { e: "☁️", x: 20 }, { e: "🎠", x: 34 }, { e: "🏝️", x: 48 }, { e: "🎡", x: 62 }, { e: "🍄", x: 76 }, { e: "⭐", x: 90 }],
+    floaters: [{ e: "🥊", x: 6 }, { e: "☁️", x: 20 }, { e: "🎠", x: 34 }, { e: "🏝️", x: 48 }, { e: "🎡", x: 62 }, { e: "🍄", x: 76 }, { e: "⚡", x: 90 }],
     colors: COLORS, botLevels: LEVELS, maxPlayers: 8, minPlayers: 2, schema: Rules.SCHEMA,
     help: [
       { title: "Le but", text: "Reste sur l'arène et fais tomber les autres. Dans Chacun pour soi, le dernier debout gagne la manche. Chaque éjection rapporte aussi des points, donc quelqu'un d'éliminé tôt peut remonter au classement général." },
@@ -449,7 +477,9 @@
       { title: "Pousser et charger", text: "Un appui rapide sur Espace donne une poussée courte, utile pour repousser quelqu'un qui est tout près. Si tu maintiens Espace, tu charges, tu avances lentement et un anneau grandit autour de toi. En relâchant, tu fonces dans la direction où tu vas. Plus la charge est longue, plus le choc est fort." },
       { title: "Les risques", text: "Une charge qui ne touche personne te laisse sans défense un instant, et tu ne peux pas enchaîner les charges sans pause. Quelqu'un qui te percute pendant que tu charges ou que tu récupères t'envoie bien plus loin." },
       { title: "Jouer avec l'élan", text: "Un choc de plein fouet avec beaucoup de vitesse pousse bien plus qu'un choc de côté. Tu peux infléchir un peu ta charge en route, et esquiver sur le côté quand tu vois quelqu'un charger." },
-      { title: "Les arènes", text: "Les nuages ont des rafales de vent annoncées par des traînées blanches. L'usine a des tapis roulants et des pistons qui clignotent avant de sortir. Le manège tourne avec des bras qui balayent. L'île a de la boue, des champignons et une marée. Les sections glissent, la fête foraine a des bumpers, et la structure flottante allonge ses bras." },
+      { title: "Les arènes", text: "Les nuages ont des rafales de vent annoncées par des traînées blanches. L'usine a des tapis roulants et des pistons qui clignotent avant de sortir. Le manège tourne avec des bras qui balayent. L'île a de la boue, des champignons et une marée. Les sections glissent, la fête foraine a des bumpers, et la structure flottante allonge ses bras. Le radeau penche du côté où se tient le groupe. La patinoire en pente fait glisser vers le bord rouge. Sur le ring en spirale, les dalles qui tremblent vont tomber et le centre tient jusqu'au bout. Sur le toit sous l'orage, un cercle lumineux annonce chaque éclair. Le billard renvoie tout le monde contre ses bandes et ses poches grandissent. Au volcan, les îlots s'écartent au-dessus de la lave." },
+      { title: "Se rattraper au bord", text: "Si tu tombes du bord sans avoir été projeté trop fort, tu t'y accroches un court instant. Appuie sur saut pour remonter. Un coup reçu pendant que tu es accroché te fait lâcher prise." },
+      { title: "Les événements", text: "Vers le milieu de la manche, un événement est annoncé trois secondes avant. Le sol bascule d'un côté, un bumper géant sort au centre, la gravité baisse ou tout gèle. On peut les couper dans les réglages du salon." },
       { title: "Les modes", text: "Chacun pour soi, équipe contre équipe, Points où l'on revient après une chute, et Roi de la couronne où il faut rester seul dans la zone dorée. À la fin, l'arène rétrécit pour que les manches se terminent." },
       { title: "Personnaliser", text: "Dans le salon, choisis ton personnage, ton accessoire et ton effet. Ça ne change rien au jeu." },
     ],

@@ -33,6 +33,9 @@ function safeDir(W, P, dx, dz, ch) {
 function decide(W, P, B, now) {
   const lv = B.lv, rnd = B.rnd;
   const out = { mx: B.mx, mz: B.mz, h: B.h };
+  // accroché au rebord, il remonte après son temps de réaction, ou il rate parfois chez les débutants
+  if (P.ledge > 0) { B.h = false; B.mode = "roam"; if (B.ledgeAt == null) { B.ledgeAt = now; B.ledgeWait = lv.react * (0.9 + rnd() * 0.8) + (rnd() < 0.25 * (1 - lv.skill) ? 1.2 : 0); } const j = now - B.ledgeAt >= B.ledgeWait && !B.jPrev; B.jPrev = j; return { mx: 0, mz: 0, h: false, j }; }
+  B.ledgeAt = null; B.jPrev = false;
   if (!P.alive || P.fall || P.air) { B.h = false; return { mx: 0, mz: 0, h: false }; }
   const enemies = W.players.filter((q) => q !== P && q.alive && !q.fall && q.inv <= 0 && !(q.team && q.team === P.team));
   // pensée à intervalle, mais le relâchement de la charge est vérifié à chaque pas
@@ -70,12 +73,19 @@ function decide(W, P, B, now) {
     for (let k = 0; k < 12; k++) { const a = (k / 12) * Math.PI * 2; const dx = Math.cos(a), dz = Math.sin(a); const vd = voidDist(W, P.x, P.z, dx, dz, 6); const toC = (-P.x * dx - P.z * dz) / (here || 1); const sc = Math.min(vd, 6) + toC * 2.5; if (sc > bs) { bs = sc; best = { x: dx, z: dz }; } }
     mx = best.x; mz = best.z; priority = 3; B.h = false; B.mode = "roam";
   }
+  // foudre annoncée, on sort du cercle lumineux
+  if (priority < 3 && W.arena.bolts && rnd() < lv.hazard + 0.1) {
+    for (const b of W.arena.bolts) { const u = b.at - W.t; if (u < -0.05 || u > K.BOLT_WARN + 0.2) continue; const dx = P.x - b.x, dz = P.z - b.z, d = Math.hypot(dx, dz); if (d > b.r + 0.9) continue;
+      let fx = d > 0.1 ? dx / d : Math.cos(B.wander), fz = d > 0.1 ? dz / d : Math.sin(B.wander); if (voidDist(W, P.x, P.z, fx, fz, 3) < 3) { const a1 = voidDist(W, P.x, P.z, -fz, fx, 4), a2 = voidDist(W, P.x, P.z, fz, -fx, 4); const ox = fx; if (a1 >= a2) { fx = -fz; fz = ox; } else { fx = fz; fz = -ox; } }
+      mx = fx; mz = fz; priority = 3; B.h = false; B.mode = "roam"; break; }
+    if (priority === 3) { B.next = now + 0.08; B.mx = mx; B.mz = mz; return { mx, mz, h: false }; }
+  }
   // pièges mobiles
   if (priority < 2 && rnd() < lv.hazard) {
     const t1 = W.t + 0.45;
     for (const b of W.arena.bars) { const sg = Sim.barSeg(b, t1); const sx = sg.x1 - sg.x0, sz = sg.z1 - sg.z0; let u = ((P.x - sg.x0) * sx + (P.z - sg.z0) * sz) / (sx * sx + sz * sz); u = Math.max(0, Math.min(1, u)); const qx = sg.x0 + sx * u, qz = sg.z0 + sz * u; const d = Math.hypot(P.x - qx, P.z - qz); if (d < 2.3) { mx = (P.x - qx) / (d || 1); mz = (P.z - qz) / (d || 1); priority = 2; } }
     for (const o of W.arena.sliders) { const bx = Sim.sliderBox(o, W.t + 0.9); if (Math.abs(P.x - bx.x) < bx.hw + 1.8 && Math.abs(P.z - bx.z) < bx.hd + 1.8) { const dx = P.x - bx.x, dz = P.z - bx.z, d = Math.hypot(dx, dz) || 1; mx = dx / d; mz = dz / d; priority = 2; } }
-    for (const g of W.arena.pegs) if (g.bounce && Math.hypot(P.x - g.x, P.z - g.z) < g.r + 1.4) { const dx = P.x - g.x, dz = P.z - g.z, d = Math.hypot(dx, dz) || 1; mx = dx / d; mz = dz / d; priority = 1; }
+    for (const g of W.arena.pegs) if (g.bounce && !(g.t0 != null && (W.t < g.t0 - 1 || W.t > g.t1)) && Math.hypot(P.x - g.x, P.z - g.z) < g.r + 1.4) { const dx = P.x - g.x, dz = P.z - g.z, d = Math.hypot(dx, dz) || 1; mx = dx / d; mz = dz / d; priority = 1; }
   }
   // esquive d'une charge adverse
   if (priority < 2 && now > B.dodgeUntil) {

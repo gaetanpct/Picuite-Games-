@@ -28,6 +28,7 @@
     { category: "🏟️ Les arènes", rules: [
       { id: "arenas", label: "Arènes possibles", type: "multi", default: Arenas.IDS.slice(), options: ARENA_OPTIONS, info: "Coche les arènes que tu veux croiser. Chacune a sa façon de jouer, et chaque manche génère une variante différente." },
       { id: "hazards", label: "Pièges de l'arène", type: "chips", default: "normal", options: [{ value: "none", label: "Aucun" }, { value: "normal", label: "Normaux" }], info: "Les pistons et les bras tournants peuvent être retirés pour un duel plus pur." },
+      { id: "events", label: "Événements en cours de manche", type: "bool", default: true, info: "Vers la moitié de la manche, un événement annoncé trois secondes avant change la donne. Le sol bascule, un bumper géant surgit au centre, la gravité baisse ou tout gèle." },
       { id: "shrink", label: "Les bords s'effondrent à la fin", type: "bool", default: true, info: "Après une minute environ, l'arène rétrécit. Ça évite les manches qui n'en finissent plus.", showIf: { mode: ["ffa", "teams"] } },
       { id: "friendly", label: "Équipiers qui se poussent", type: "bool", default: false, showIf: { mode: "teams" }, info: "Par défaut on ne peut pas bousculer ses équipiers." },
     ] },

@@ -18,6 +18,7 @@
     GRAV: 30, SPRING_V: 12.5, FALL_OUT: -13, EDGE: 0.18, AIRCTL: 0.35, STUN_K: 0.012,
     BRACE: 0.8, RECV: 1.5, INV_SELF: 1.6, HIT_MEMORY: 4,
     RAMP: 4, JUMP_V: 8.6, JUMP_CD: 0.95,
+    LEDGE_T: 0.95, LEDGE_CD: 3, LEDGE_VMAX: 9.5, BOLT_F: 13, BOLT_WARN: 1.6,
   };
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const len = (x, z) => Math.sqrt(x * x + z * z);
@@ -47,6 +48,7 @@
     if (m) {
       const tt = ramp(t), dt = dramp(t);
       if (m.type === "orbit") { const a = m.ph + m.w * tt; cx = m.cx + Math.cos(a) * m.rad; cz = m.cz + Math.sin(a) * m.rad; vx = -Math.sin(a) * m.rad * m.w * dt; vz = Math.cos(a) * m.rad * m.w * dt; rot = (s.rot || 0) + (m.selfSpin ? a : 0); }
+      else if (m.type === "drift") { const u = Math.max(0, t - m.t0); const d = Math.min(m.max, u * m.rate); cx = s.x + m.dx * d; cz = s.z + m.dz * d; if (d < m.max && u > 0) { vx = m.dx * m.rate; vz = m.dz * m.rate; } }
       else if (m.type === "slide") { const a = m.ph + m.w * tt; const o = Math.sin(a) * m.amp; cx = s.x + m.ax * o; cz = s.z + m.az * o; const dv = Math.cos(a) * m.amp * m.w * dt; vx = m.ax * dv; vz = m.az * dv; }
       else if (m.type === "spin") {
         const th = m.w * tt; const c = Math.cos(th), sn = Math.sin(th); const rx = s.x - m.px, rz = s.z - m.pz;
@@ -105,9 +107,10 @@
   function surfaceAt(W, x, z) {
     const A = W.arena;
     if (x * x + z * z > W.clipR * W.clipR) return null;
+    if (A.holes) for (let h = 0; h < A.holes.length; h++) { const q = A.holes[h]; const r = holeR(q, W.t); if ((x - q.x) * (x - q.x) + (z - q.z) * (z - q.z) < r * r) return null; }
     let best = null;
     for (let i = 0; i < A.surfaces.length; i++) {
-      const s = A.surfaces[i]; if (s.kind === "crumble" && !tileOn(W, i)) continue;
+      const s = A.surfaces[i]; if (s.kind === "crumble" && !tileOn(W, i)) continue; if (s.fallAt != null && W.t >= s.fallAt) continue;
       const st = W.ss[i]; const dx = x - st.cx, dz = z - st.cz;
       const lx = dx * st.cos + dz * st.sin, lz = -dx * st.sin + dz * st.cos;
       let inside;
@@ -117,7 +120,7 @@
       let vx = st.vx, vz = st.vz;
       if (st.w) { vx += -st.w * (z - st.pz); vz += st.w * (x - st.px); }
       if (s.belt) { vx += (s.belt.x * st.cos - s.belt.z * st.sin) * dramp(W.t); vz += (s.belt.x * st.sin + s.belt.z * st.cos) * dramp(W.t); }
-      best = { i, vx, vz, slip: !!s.slip, mud: !!s.mud, crumble: s.kind === "crumble" }; break;
+      best = { i, vx, vz, slip: !!s.slip || !!A.ice || evOn(W, "glace"), mud: !!s.mud, crumble: s.kind === "crumble" }; break;
     }
     return best;
   }
@@ -145,6 +148,18 @@
   const windState = (zn, t) => { const u = (((t + zn.ph) % zn.period) + zn.period) % zn.period; return t > 4 && u < zn.on ? 2 : (t > 3 && u >= zn.period - 1.1 ? 1 : 0); };
 
   const ev = (W, e) => { if (W.events.length < 80) W.events.push(e); };
+  // trous de billard qui s'élargissent avec le temps
+  const holeR = (q, t) => q.r + (q.grow ? q.grow * clamp((t - q.g0) / q.gd, 0, 1) : 0);
+  // événement de mi-manche actif à cet instant
+  function evOn(W, k) { const L = W.arena.events; if (!L) return null; for (let i = 0; i < L.length; i++) { const e = L[i]; if (e.k === k && W.t >= e.at && W.t < e.at + e.dur) return e; } return null; }
+  // poussée constante du sol, pente de la patinoire, radeau qui penche ou sol qui bascule
+  function groundPush(W) {
+    let ax = 0, az = 0; const A = W.arena;
+    if (A.slope) { ax += A.slope.dx * A.slope.f * dramp(W.t); az += A.slope.dz * A.slope.f * dramp(W.t); }
+    if (A.raft && W.tilt) { ax += W.tilt.x * A.raft.k; az += W.tilt.z * A.raft.k; }
+    const b = evOn(W, "bascule"); if (b) { const k = clamp((W.t - b.at) / 1.2, 0, 1) * clamp((b.at + b.dur - W.t) / 1.0, 0, 1); ax += b.dx * b.f * k; az += b.dz * b.f * k; }
+    return { ax, az };
+  }
 
   // ---------- un pas pour un joueur ----------
   function stepPlayer(W, P, inp) {
@@ -153,9 +168,20 @@
     P.cd = Math.max(0, P.cd - dt); P.rec = Math.max(0, P.rec - dt); P.stun = Math.max(0, P.stun - dt); P.slide = Math.max(0, P.slide - dt); P.inv = Math.max(0, P.inv - dt); P.springCd = Math.max(0, P.springCd - dt); P.jcd = Math.max(0, (P.jcd || 0) - dt);
     const jEdge = !!inp.j && !P.jHeld; P.jHeld = !!inp.j;
     let mx = +inp.mx || 0, mz = +inp.mz || 0; const ml = len(mx, mz); if (ml > 1) { mx /= ml; mz /= ml; }
+    P.ledgeCd = Math.max(0, (P.ledgeCd || 0) - dt);
+    // accroché au bord, une seconde pour remonter en appuyant sur saut
+    if (P.ledge > 0) {
+      const sp0 = len(P.vx, P.vz); P.x = P.lx; P.z = P.lz; P.y = -0.35; P.holding = false; P.dash = 0; P.ch = 0;
+      if (sp0 > 3.5) { P.ledge = 0; P.ledgeCd = K.LEDGE_CD; P.fall = true; P.vy = 0; ev(W, { e: "drop", id: P.id, x: P.x, z: P.z }); P.st = "fall"; return; }
+      P.vx = P.vz = 0; P.ledge -= dt;
+      if (jEdge || (inp.h && !P.ledgeH)) { const sf0 = surfaceAt(W, P.gx, P.gz); if (sf0) { P.x = P.gx; P.z = P.gz; P.y = 0; P.ledge = 0; P.ledgeCd = K.LEDGE_CD; P.inv = Math.max(P.inv, 0.35); P.rec = 0.12; P.cd = Math.max(P.cd, 0.3); ev(W, { e: "climb", id: P.id, x: P.x, z: P.z }); P.st = "ok"; return; } }
+      P.ledgeH = !!inp.h;
+      if (P.ledge <= 0) { P.ledge = 0; P.ledgeCd = K.LEDGE_CD; P.fall = true; P.vy = 0; ev(W, { e: "drop", id: P.id, x: P.x, z: P.z }); P.st = "fall"; return; }
+      P.st = "ledge"; return;
+    }
     // chute
     if (P.fall) {
-      P.vy -= K.GRAV * dt; P.y += P.vy * dt; const d = Math.exp(-0.45 * dt); P.vx *= d; P.vz *= d; P.x += P.vx * dt; P.z += P.vz * dt;
+      P.vy -= K.GRAV * (evOn(W, "lune") ? 0.4 : 1) * dt; P.y += P.vy * dt; const d = Math.exp(-0.45 * dt); P.vx *= d; P.vz *= d; P.x += P.vx * dt; P.z += P.vz * dt;
       P.holding = false; P.dash = 0; P.ch = 0;
       if (P.y > -0.55 && P.vy < 0) { const sf = surfaceAt(W, P.x, P.z); if (sf && !sf.crumble) { P.fall = false; P.y = 0; P.vy = 0; P.air = false; ev(W, { e: "save", id: P.id, x: P.x, z: P.z }); } }
       if (P.y < K.FALL_OUT) { P.alive = false; ev(W, { e: "ko", id: P.id, x: P.x, z: P.z, by: koBy(W, P) }); }
@@ -163,14 +189,18 @@
     }
     // air (ressort)
     if (P.air) {
-      P.vy -= K.GRAV * dt; P.y += P.vy * dt;
+      P.vy -= K.GRAV * (evOn(W, "lune") ? 0.4 : 1) * dt; P.y += P.vy * dt;
       const des = K.RUN * K.AIRCTL; const wx = mx * des, wz = mz * des; P.vx += clamp(wx - P.vx, -K.ACC * 0.3 * dt, K.ACC * 0.3 * dt) * (Math.abs(wx) > 0 ? 1 : 0); P.vz += clamp(wz - P.vz, -K.ACC * 0.3 * dt, K.ACC * 0.3 * dt) * (Math.abs(wz) > 0 ? 1 : 0);
       P.x += P.vx * dt; P.z += P.vz * dt;
       if (P.y <= 0 && P.vy < 0) { const sf = surfaceAt(W, P.x, P.z); if (sf && !(sf.crumble && false)) { P.y = 0; P.vy = 0; P.air = false; ev(W, { e: "land", id: P.id, x: P.x, z: P.z }); } else { P.air = false; P.fall = true; P.y = 0; ev(W, { e: "edge", id: P.id, x: P.x, z: P.z }); } }
       P.st = "air"; return;
     }
     const sf = surfaceAt(W, P.x, P.z);
-    if (!sf) { P.fall = true; P.vy = 0; ev(W, { e: "edge", id: P.id, x: P.x, z: P.z }); P.st = "fall"; return; }
+    if (!sf) {
+      // on peut se rattraper au rebord si l'on n'a pas été projeté trop fort et que le sol d'où l'on vient existe encore
+      if (W.arena.ledge !== false && !W.noLedge && P.ledgeCd <= 0 && P.gx != null && len(P.vx, P.vz) < K.LEDGE_VMAX && surfaceAt(W, P.gx, P.gz)) { P.ledge = K.LEDGE_T; P.lx = P.x; P.lz = P.z; P.vx = P.vz = 0; P.y = -0.35; P.ledgeH = !!inp.h; P.holding = false; P.dash = 0; ev(W, { e: "ledge", id: P.id, x: P.x, z: P.z }); P.st = "ledge"; return; }
+      P.fall = true; P.vy = 0; ev(W, { e: "edge", id: P.id, x: P.x, z: P.z }); P.st = "fall"; return; }
+    P.gx = P.x; P.gz = P.z;
     if (!sf.slip && zoneAt(W, P.x, P.z, "slip")) sf.slip = true; if (!sf.mud && zoneAt(W, P.x, P.z, "mud")) sf.mud = true;
     P.slip = sf.slip; P.ground = true;
     if (sf.crumble) { const T = W.tiles[sf.i]; if (T.touch < 0) { T.touch = W.t; T.down = W.t + W.arena.surfaces[sf.i].delay; ev(W, { e: "crumble", i: sf.i }); } }
@@ -216,6 +246,7 @@
     }
     // vent
     const wd = windAt(W, P.x, P.z); if (wd.ax || wd.az) { P.vx += wd.ax * dt; P.vz += wd.az * dt; }
+    const gp = groundPush(W); if (gp.ax || gp.az) { P.vx += gp.ax * dt; P.vz += gp.az * dt; if (Math.abs(gp.ax) + Math.abs(gp.az) > 1.5) P.slide = Math.max(P.slide, 0.05); }
     // déplacement, le sol mobile emporte le joueur
     P.x += (P.vx + sf.vx) * dt; P.z += (P.vz + sf.vz) * dt;
     // ressorts
@@ -283,7 +314,14 @@
       const os = len(ovx, ovz); if (os > 0.5) { P.slide = 0.6; P.vx += ovx * 0.9; P.vz += ovz * 0.9; P.stun = Math.max(P.stun, 0.25); if (P.dash > 0) P.dash = 0; ev(W, { e: "bar", x: cx, z: cz, id: P.id, p: Math.min(1, os / 10) }); }
       capV(P, K.VCAP_BAR + 3);
     }
+    for (const w of (A.walls || [])) {
+      const sx = w.x1 - w.x0, sz = w.z1 - w.z0, l2 = sx * sx + sz * sz; let u = ((P.x - w.x0) * sx + (P.z - w.z0) * sz) / l2; u = clamp(u, 0, 1);
+      const qx = w.x0 + sx * u, qz = w.z0 + sz * u; let dx = P.x - qx, dz = P.z - qz, d = len(dx, dz); const rr = RAD + 0.25; if (d >= rr) continue; if (d < 1e-4) { dx = -sz; dz = sx; d = Math.sqrt(l2); }
+      const nx = dx / d, nz = dz / d; P.x += nx * (rr - d); P.z += nz * (rr - d); const vn = P.vx * nx + P.vz * nz;
+      if (vn < 0) { P.vx -= (1 + (w.e || 0.85)) * vn * nx; P.vz -= (1 + (w.e || 0.85)) * vn * nz; if (vn < -4) { P.slide = 0.5; if (P.dash > 0) P.dash = 0; ev(W, { e: "cushion", x: qx, z: qz, id: P.id, p: Math.min(1, -vn / 12) }); } }
+    }
     for (const g of A.pegs) {
+      if (g.t0 != null && (t < g.t0 || t >= g.t1)) continue;
       let dx = P.x - g.x, dz = P.z - g.z, d = len(dx, dz); const rr = RAD + g.r; if (d >= rr) continue; if (d < 1e-4) { dx = 1; dz = 0; d = 1; }
       const nx = dx / d, nz = dz / d; P.x += nx * (rr - d); P.z += nz * (rr - d); const vn = P.vx * nx + P.vz * nz;
       if (vn < 0) { const e = g.bounce || 0.3; P.vx -= (1 + e) * vn * nx; P.vz -= (1 + e) * vn * nz; if (g.bounce) { P.slide = 0.6; const s = len(P.vx, P.vz); if (s < 7) { P.vx += nx * (7 - s); P.vz += nz * (7 - s); } P.stun = Math.max(P.stun, 0.1); ev(W, { e: "bump", x: g.x, z: g.z, id: P.id, i: g.i }); } if (P.dash > 0 && g.bounce) P.dash = 0; }
@@ -341,6 +379,12 @@
   // ---------- un pas de monde complet ----------
   function stepWorld(W, inputs) {
     W.t += DT; W.tick++; prepare(W);
+    const A = W.arena;
+    // radeau, il penche du côté où se tiennent les joueurs
+    if (A.raft) { let sx = 0, sz = 0, n = 0; for (const P of W.players) if (P.alive && !P.fall && !P.air) { sx += P.x * (P.g ? P.g.m : 1); sz += P.z * (P.g ? P.g.m : 1); n += P.g ? P.g.m : 1; } const tx = n ? sx / n / A.raft.half : 0, tz = n ? sz / n / A.raft.half : 0; const k = Math.min(1, DT * 2.2); W.tilt = W.tilt || { x: 0, z: 0 }; W.tilt.x += (clamp(tx, -1, 1) - W.tilt.x) * k; W.tilt.z += (clamp(tz, -1, 1) - W.tilt.z) * k; }
+    // éclairs, un cercle prévient puis la foudre éjecte tout ce qui s'y trouve
+    if (A.bolts) for (let i = 0; i < A.bolts.length; i++) { const b = A.bolts[i]; if (W.t - DT < b.at && W.t >= b.at) { ev(W, { e: "bolt", x: b.x, z: b.z, r: b.r });
+      for (const P of W.players) { if (!P.alive || P.fall || P.inv > 0) continue; const dx = P.x - b.x, dz = P.z - b.z, d = len(dx, dz); if (d > b.r) continue; const nx = d > 0.05 ? dx / d : 1, nz = d > 0.05 ? dz / d : 0; const f = K.BOLT_F * (0.75 + 0.25 * (1 - d / b.r)) / Math.pow(P.g ? P.g.m : 1, 0.7); P.vx += nx * f; P.vz += nz * f; P.slide = 0.7; P.stun = Math.max(P.stun, 0.45); P.holding = false; P.dash = 0; P.lastHit = null; } } }
     for (const P of W.players) stepPlayer(W, P, inputs ? inputs[P.id] : null);
     for (const P of W.players) collideObstacles(W, P);
     collidePlayers(W); collidePlayers(W);
@@ -348,5 +392,5 @@
   }
   function drain(W) { const e = W.events; W.events = []; return e; }
 
-  return { GAB, GAB_IDS, gabOf, setGab, DT, RAD, K, clamp, len, ramp, dramp, newPlayer, makeWorld, prepare, stepPlayer, stepWorld, surfaceAt, zoneAt, windAt, windState, surfState, sliderBox, sliderPos, barSeg, barAngle, zonePos, clipRadius, tileOn, drain, doPulse };
+  return { evOn, holeR, groundPush, GAB, GAB_IDS, gabOf, setGab, DT, RAD, K, clamp, len, ramp, dramp, newPlayer, makeWorld, prepare, stepPlayer, stepWorld, surfaceAt, zoneAt, windAt, windState, surfState, sliderBox, sliderPos, barSeg, barAngle, zonePos, clipRadius, tileOn, drain, doPulse };
 });

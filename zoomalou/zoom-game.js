@@ -153,10 +153,14 @@ function planBotAttempt(room, def) {
     // en mode contact le pilote roule vraiment sur le serveur, pour qu'on puisse le pousser, le faire tourner et qu'il se rattrape
     if (room.settings.mode === "contact") {
       const lv = Bot.createLive(track, P.car, lvl, seedStr, Object.assign({ slot, ref: use && use.frames, refTag: tag, push: k, maxSeconds: Math.min(240, capOf(track)), persona: g.baseSeed + def.id + g.roundIdx }, launchOf(room, def.id)));
-      P.live = { lv, at: Math.max(g.goAt, Date.now() + 50), n: 0, frames: [], done: false }; P.tryCount = (P.tryCount || 0) + 1; P.botDone = true; return;
+      // le chrono d'un pilote automatique part toujours au feu vert, même si son réglage a fini un peu plus tard. Il rattrape alors en direct le temps perdu,
+      // pour que sa position à l'écran corresponde toujours à son temps
+      P.live = { lv, at: k === 0 ? g.goAt : Math.max(g.goAt, Date.now() + 50), n: 0, frames: [], done: false }; P.tryCount = (P.tryCount || 0) + 1; P.botDone = true; return;
     }
     const r = Bot.simulateRun(track, P.car, lvl, seedStr, capOf(track), Object.assign({ slot, ref: use && use.frames, refTag: tag, push: k, persona: g.baseSeed + def.id + g.roundIdx }, launchOf(room, def.id)));
-    const now = Date.now(); const at = Math.max(g.goAt, P.nextAt || 0, now + 50);
+    // premier essai calé sur le feu vert, quelle que soit l'heure où le calcul se termine. La voiture apparaît là où elle serait vraiment,
+    // sinon un automate parti en retard franchissait la ligne après un humain tout en affichant un meilleur temps
+    const now = Date.now(); const at = k === 0 ? g.goAt : Math.max(g.goAt, P.nextAt || 0, now + 50);
     if (!r.finished) { P.botDone = true; P.done = true; if (r.stuck) g.api.sysChat(room, def.name + " est bloqué et abandonne, pénalité."); return; }
     const rp = Car.replay(track, P.car, r.bytes, null, Object.assign({ slot }, launchOf(room, def.id)));
     P.plan = { at, dur: r.time * 1000 * TS, time: r.time, frames: rp.frames, bytes: r.bytes, car: P.car, slot, done: false }; P.tryCount = (P.tryCount || 0) + 1; P.botDone = true;

@@ -113,7 +113,75 @@
     ringSpawns(A, 6.2, 0.4); ringCrown(A, 3.6, 4); A.shrink = { R0: 16, Rmin: 4, start: 50, dur: 40 }; A.info = "Les extrémités avancent et reculent."; return A;
   });
 
+  // retire les obstacles posés trop près d'une apparition
+  function clearPegs(A) { A.pegs = A.pegs.filter((g) => A.spawns.every((s) => Math.hypot(s.x - g.x, s.z - g.z) >= g.r + 1.5)); A.pegs.forEach((g, i) => { g.i = i; }); }
+  // ---------- 8. Le Radeau sur la rivière ----------
+  reg("radeau", "Le Radeau", "raft", "Un radeau sur la rivière qui penche du côté où se tiennent les joueurs. Tout le monde du même côté, et ça glisse.", (seed) => {
+    const r = rng(seed); const W = 17 + r() * 2, D = 12 + r() * 1.5; const A = empty("radeau", "Le Radeau", "raft", 13);
+    A.surfaces.push(rect(0, 0, W, D)); A.raft = { k: 7.5 + r() * 1.5, half: W / 2 };
+    const nb = 2 + Math.floor(r() * 2); for (let i = 0; i < nb; i++) { const x = (i % 2 ? 1 : -1) * (2.5 + r() * 3), z = (r() - 0.5) * (D - 5); A.pegs.push({ x, z, r: 0.8, i, barrel: 1 }); }
+    if (r() < 0.6) A.zones.push({ k: "slip", shape: "disc", x: (r() - 0.5) * 6, z: (r() - 0.5) * 4, r: 1.8 });
+    ringSpawns(A, Math.min(W, D) * 0.33, r()); clearPegs(A); A.crown.push({ x: 0, z: 0 }, { x: 3, z: 0 }, { x: -3, z: 0 });
+    A.shrink = { R0: A.R + 1.6, Rmin: 4.2, start: 55, dur: 45 }; A.rectBounds = { w: W, d: D }; A.info = "Le radeau penche du côté du groupe, répartissez-vous ou faites tout basculer."; return A;
+  });
+
+  // ---------- 9. La Patinoire en pente ----------
+  reg("patinoire", "La Patinoire en pente", "ice", "Une patinoire de glace inclinée. On charge vers le haut avec peine et on dévale vers le bas.", (seed) => {
+    const r = rng(seed); const W = 18, D = 16; const A = empty("patinoire", "La Patinoire en pente", "ice", 13);
+    A.surfaces.push(rect(0, 0, W, D)); A.ice = true; A.slope = { dx: 0, dz: 1, f: 2.6 + r() * 0.6 };
+    for (let i = 0; i < 2; i++) A.zones.push({ k: "mud", shape: "disc", x: (i ? 1 : -1) * (3 + r() * 3), z: -3 + r() * 4, r: 1.6, snow: 1 });
+    A.pegs.push({ x: (r() - 0.5) * 6, z: -2 + r() * 2, r: 0.9, i: 0 });
+    ringSpawns(A, 4.6, r()); A.spawns.forEach((q) => { q.z -= 1.5; }); clearPegs(A); A.crown.push({ x: 0, z: -4 }, { x: 4, z: -3 }, { x: -4, z: -3 });
+    A.shrink = { R0: A.R + 1.6, Rmin: 4, start: 55, dur: 45 }; A.rectBounds = { w: W, d: D }; A.info = "La glace descend vers le bord rouge, reste en haut."; return A;
+  });
+
+  // ---------- 10. Le Ring en spirale ----------
+  reg("spirale", "Le Ring en spirale", "ring", "Un ring de dalles qui tombent une par une en spirale depuis le bord. Le centre résiste jusqu'au bout.", (seed) => {
+    const r = rng(seed); const N = 7, S = 2.6; const A = empty("spirale", "Le Ring en spirale", "ring", 12);
+    // ordre en spirale depuis un coin, sens tiré au hasard
+    const order = []; let x0 = 0, y0 = 0, x1 = N - 1, y1 = N - 1; while (x0 <= x1 && y0 <= y1) { for (let x = x0; x <= x1; x++) order.push([x, y0]); for (let y = y0 + 1; y <= y1; y++) order.push([x1, y]); if (y0 < y1) for (let x = x1 - 1; x >= x0; x--) order.push([x, y1]); if (x0 < x1) for (let y = y1 - 1; y > y0; y--) order.push([x0, y]); x0++; y0++; x1--; y1--; }
+    const flip = r() < 0.5, rot = Math.floor(r() * 4); const start = 22 + r() * 6, every = 1.25 + r() * 0.25; const keep = 9; // les neuf dernières dalles, le centre, ne tombent jamais
+    order.forEach(([gx, gy], k) => { let a = gx, b = gy; if (flip) a = N - 1 - a; for (let q = 0; q < rot; q++) { const t = a; a = N - 1 - b; b = t; } const x = (a - (N - 1) / 2) * S, z = (b - (N - 1) / 2) * S; A.surfaces.push(rect(x, z, S - 0.06, S - 0.06, k < order.length - keep ? { fallAt: +(start + k * every).toFixed(2), tile: 1 } : { tile: 1 })); });
+    A.minArea = 0.15; ringSpawns(A, 5.2, 0.4); ringCrown(A, 1.5, 4); A.shrink = null; A.rectBounds = { w: N * S, d: N * S }; A.info = "Les dalles qui tremblent vont tomber, le centre ne tombe jamais."; return A;
+  });
+
+  // ---------- 11. Le Toit sous l'orage ----------
+  reg("toit", "Le Toit sous l'orage", "storm", "Un toit d'immeuble sous l'orage. Un cercle lumineux annonce chaque éclair, qui éjecte tout ce qui s'y trouve.", (seed) => {
+    const r = rng(seed); const W = 19, D = 16; const A = empty("toit", "Le Toit sous l'orage", "storm", 13);
+    A.surfaces.push(rect(0, 0, W, D)); A.pegs.push({ x: -W / 2 + 2.2, z: -D / 2 + 2.2, r: 1.0, i: 0, chimney: 1 }); A.pegs.push({ x: W / 2 - 2.6, z: D / 2 - 2.4, r: 0.9, i: 1, chimney: 1 });
+    A.bolts = []; let t = 9 + r() * 3; while (t < 150) { const n = t > 60 ? 2 : 1; for (let q = 0; q < n; q++) A.bolts.push({ x: +((r() - 0.5) * (W - 3)).toFixed(2), z: +((r() - 0.5) * (D - 3)).toFixed(2), r: 2.1 + r() * 0.5, at: +(t + q * 0.7).toFixed(2) }); t += 3.2 + r() * 1.6; }
+    ringSpawns(A, 5.4, r()); ringCrown(A, 3.4, 4); A.shrink = { R0: A.R + 1.6, Rmin: 4.2, start: 60, dur: 45 }; A.rectBounds = { w: W, d: D }; A.info = "Sors vite des cercles lumineux, la foudre y tombe."; return A;
+  });
+
+  // ---------- 12. La Table de billard ----------
+  reg("billard", "La Table de billard", "pool", "Les joueurs sont les boules. Les bandes renvoient tout le monde, il faut pousser les autres dans les poches.", (seed) => {
+    const r = rng(seed); const W = 22, D = 12.5; const A = empty("billard", "La Table de billard", "pool", 13);
+    A.surfaces.push(rect(0, 0, W, D, { slip: true })); const pr = 1.25, grow = 1.0 + r() * 0.4;
+    A.holes = [[-W / 2, -D / 2], [0, -D / 2 - 0.3], [W / 2, -D / 2], [-W / 2, D / 2], [0, D / 2 + 0.3], [W / 2, D / 2]].map(([x, z]) => ({ x, z, r: pr, grow, g0: 40, gd: 50 }));
+    const hw = W / 2, hd = D / 2, g = 1.6; A.walls = [[-hw + g, -hd, -g, -hd], [g, -hd, hw - g, -hd], [-hw + g, hd, -g, hd], [g, hd, hw - g, hd], [-hw, -hd + g, -hw, hd - g], [hw, -hd + g, hw, hd - g]].map(([x0, z0, x1, z1]) => ({ x0, z0, x1, z1, e: 0.9 }));
+    A.ledge = false; A.minArea = 0.5; ringSpawns(A, 3.4, 0.4); A.spawns.forEach((q) => { q.x *= 1.6; }); A.crown.push({ x: 0, z: 0 }, { x: -4, z: 0 }, { x: 4, z: 0 });
+    A.shrink = null; A.rectBounds = { w: W, d: D }; A.info = "Les bandes rebondissent, les poches grandissent avec le temps."; return A;
+  });
+
+  // ---------- 13. Le Volcan ----------
+  reg("volcan", "Le Volcan", "volcano", "L'arène se fissure en îlots qui s'éloignent lentement les uns des autres au-dessus de la lave.", (seed) => {
+    const r = rng(seed); const A = empty("volcan", "Le Volcan", "volcano", 15);
+    A.surfaces.push(disc(0, 0, 4.2)); const n = 6, a0 = r() * TAU, t0 = 12 + r() * 6;
+    for (let i = 0; i < n; i++) { const a = a0 + (i / n) * TAU; const d = 6.0; A.surfaces.push(disc(Math.cos(a) * d, Math.sin(a) * d, 3.4, { mv: { type: "drift", dx: Math.cos(a), dz: Math.sin(a), rate: 0.09 + r() * 0.03, max: 2.6 + r() * 0.6, t0: t0 + i * 1.5 } })); }
+    A.zones.push({ k: "spring", shape: "disc", x: 0, z: 0, r: 0.9 });
+    A.split = true; ringSpawns(A, 6.2, a0 + Math.PI / 6); ringCrown(A, 0.01, 1); A.shrink = { R0: A.R + 1.6, Rmin: 4.2, start: 70, dur: 50 }; A.info = "Les îlots s'écartent, saute de l'un à l'autre."; return A;
+  });
+
   const IDS = LIST.map((a) => a.id);
+  // ---------- événements de mi-manche, annoncés trois secondes avant ----------
+  const EVENTS = { bascule: "Le sol bascule", bumper: "Bumper géant", lune: "Gravité réduite", glace: "Tout gèle" };
+  function addEvents(A, seed) {
+    const r = rng((seed ^ 0x5bd1e995) >>> 0); A.events = []; const list = ["bascule", "bumper", "lune", "glace"].filter((k) => !(k === "glace" && A.ice) && !(k === "bascule" && (A.slope || A.raft)) && !(k === "bumper" && A.theme === "pool"));
+    let t = 24 + r() * 8; const n = 1 + (r() < 0.5 ? 1 : 0);
+    for (let q = 0; q < n; q++) { const k = list[Math.floor(r() * list.length)]; const a = r() * TAU; const e = { k, at: +t.toFixed(2), dur: k === "bumper" ? 12 : k === "lune" ? 10 : 8, dx: Math.cos(a), dz: Math.sin(a), f: 4.5, name: EVENTS[k] };
+      if (k === "bumper") { const c = A.crown[0] || { x: 0, z: 0 }; e.x = c.x; e.z = c.z; A.pegs.push({ x: c.x, z: c.z, r: 1.7, bounce: 1.35, i: A.pegs.length, t0: e.at, t1: e.at + e.dur, big: 1 }); }
+      A.events.push(e); t += 26 + r() * 10; }
+  }
   function build(id, seed) {
     const e = LIST.find((a) => a.id === id) || LIST[0]; const A = e.build(seed >>> 0); A.seed = seed >>> 0; A.blurb = e.blurb;
     // aucun ressort ne doit se trouver sur une place de départ, on le fait glisser le long de son cercle
@@ -124,7 +192,7 @@
     return A;
   }
   // arène de manche, avec ses options. Sans pièges, les pistons et les bras disparaissent
-  function make(id, seed, opts) { const A = build(id, seed); if (opts && opts.hazards === "none") { A.bars = []; A.sliders = []; } return A; }
+  function make(id, seed, opts) { const A = build(id, seed); if (opts && opts.hazards === "none") { A.bars = []; A.sliders = []; } if (!opts || opts.events !== false) addEvents(A, seed); else A.events = []; return A; }
   const meta = () => LIST.map((a) => ({ id: a.id, name: a.name, theme: a.theme, blurb: a.blurb }));
 
   // ---------- vérification, une arène générée doit toujours être jouable ----------
@@ -143,8 +211,8 @@
     const base = comp(0).tot;
     for (let t = 0; t <= 80; t += 2) {
       const c = comp(t);
-      if (c.tot < base * 0.55) probs.push("surface trop réduite à t=" + t);
-      if (c.best < c.tot * 0.88) probs.push("zone isolée à t=" + t + " (" + c.best + "/" + c.tot + ")");
+      if (c.tot < base * (A.minArea || 0.55) && t <= (A.areaUntil || 80)) probs.push("surface trop réduite à t=" + t);
+      if (!A.split && c.best < c.tot * 0.88) probs.push("zone isolée à t=" + t + " (" + c.best + "/" + c.tot + ")");
       if (probs.length > 3) break;
     }
     // points d'apparition
@@ -154,7 +222,7 @@
       A.spawns.forEach((s, i) => {
         for (const o of A.sliders) { const b = Sim.sliderBox(o, t); if (Math.abs(s.x - b.x) < b.hw + 1.2 && Math.abs(s.z - b.z) < b.hd + 1.2) probs.push("piston sur l'apparition " + i + " à t=" + t); }
         for (const b of A.bars) { const sg = Sim.barSeg(b, t); const sx = sg.x1 - sg.x0, sz = sg.z1 - sg.z0; let u = ((s.x - sg.x0) * sx + (s.z - sg.z0) * sz) / (sx * sx + sz * sz); u = Math.max(0, Math.min(1, u)); if (Math.hypot(s.x - (sg.x0 + sx * u), s.z - (sg.z0 + sz * u)) < 1.0) probs.push("bras sur l'apparition " + i + " à t=" + t); }
-        for (const g of A.pegs) if (Math.hypot(s.x - g.x, s.z - g.z) < g.r + 1.2) probs.push("obstacle sur l'apparition " + i);
+        for (const g of A.pegs) if (!(g.t0 > 0) && Math.hypot(s.x - g.x, s.z - g.z) < g.r + 1.2) probs.push("obstacle sur l'apparition " + i);
         if (Sim.zoneAt(W, s.x, s.z, "spring") || Sim.zoneAt(W, s.x, s.z, "wind") && false) probs.push("ressort sur l'apparition " + i);
       });
     }
@@ -175,5 +243,5 @@
     for (let i = 0; i < n; i++) out[i] = slots[order[i]];
     return out;
   }
-  return { IDS, LIST, meta, build, make, arenaCheck, spawnsFor, rng };
+  return { EVENTS, IDS, LIST, meta, build, make, arenaCheck, spawnsFor, rng };
 });

@@ -1415,3 +1415,36 @@ Chaque jeu a été regardé seul, accueil, salon et partie. Le but n'était pas 
 ### Ce qu'il faut déposer sur GitHub
 - Le dossier vertigogo, et le fichier README.md.
 
+
+## Cinquante-deuxième mise à jour, lot 9, Bouskaille et correction des temps de Zoomalou
+
+### Zoomalou, les temps des bots
+- Correction d'un gros bug. Parfois un bot franchissait la ligne après toi mais affichait un temps meilleur que le tien.
+- La cause. Le chrono d'un bot partait de l'heure prévue de son départ, alors que sa voiture ne démarrait vraiment qu'une fois sa trajectoire calculée. Quand le serveur était chargé, ce calcul prenait une à cinq secondes, et ce retard disparaissait du temps affiché.
+- Désormais le chrono d'un bot démarre au moment exact où sa voiture s'élance, en mode chrono comme en mode contact. Avec un serveur volontairement ralenti, l'écart entre l'arrivée vue à l'écran et le temps affiché passe de près de cinq secondes à cinq centièmes au plus.
+
+### Six nouvelles arènes
+- 🛶 Le Radeau. Il penche du côté où se tiennent les joueurs, en tenant compte de leur poids. Tout le monde du même côté, et ça glisse. Quelques tonneaux servent d'appui.
+- ⛸️ La Patinoire en pente. De la glace inclinée, on charge vers le haut avec peine et on dévale vers le bord rouge. Des flèches au sol montrent la pente, deux plaques de neige freinent.
+- 🥊 Le Ring en spirale. Une grille de dalles qui tremblent puis tombent une par une en spirale depuis le bord, à partir d'une vingtaine de secondes. Les neuf dalles du centre ne tombent jamais.
+- ⛈️ Le Toit sous l'orage. Un cercle lumineux annonce chaque éclair une seconde et demie avant. L'éclair éjecte tout ce qui s'y trouve. Après une minute, ils tombent par deux.
+- 🎱 La Table de billard. Les joueurs sont les boules, le tapis glisse, les bandes renvoient tout le monde et les six poches grandissent avec le temps. Pas de rebord pour se rattraper ici.
+- 🌋 Le Volcan. Un disque central entouré de six îlots qui s'écartent lentement au-dessus de la lave. Il faut sauter de l'un à l'autre.
+- Chaque arène a sa lumière, son décor, sa petite musique et sa règle propre. Toutes passent par le générateur de variantes, chaque manche donne une version différente, toujours vérifiée.
+
+### Nouvelles mécaniques
+- Rebord d'agrippement. Si tu tombes du bord sans avoir été projeté trop fort, tu restes accroché presque une seconde. Un appui sur saut, ou sur pousser, te fait remonter. Un coup reçu pendant que tu es accroché te fait lâcher. Après une remontée, il faut trois secondes avant de pouvoir s'accrocher de nouveau. Les bots savent remonter, plus ou moins vite selon leur niveau.
+- Événements de mi-manche, annoncés par une alarme et un bandeau trois secondes avant. Le sol bascule d'un côté, un bumper géant sort au centre, la gravité baisse, ou tout gèle. Un ou deux par manche, chacun dure quelques secondes. Nouveau réglage dans le salon pour les couper.
+
+### Sensations
+- Un gros choc fige l'image un très court instant, avec un son grave et des étoiles.
+- La secousse de caméra suit la force du choc.
+- L'éjection qui termine la manche passe au ralenti, la caméra se rapproche de celui qui tombe, puis l'écran de fin arrive.
+
+### Tests
+- Cent quatre-vingts variantes de chacune des treize arènes vérifiées, toutes jouables.
+- Matchs complets entre bots sur chaque arène, en chacun pour soi et en points, sans erreur. Les bots s'accrochent et remontent, fuient les cercles de foudre et rebondissent sur les bandes.
+- Nouvelles arènes ouvertes dans le navigateur, et copie propre décompressée testée.
+
+### Ce qu'il faut déposer sur GitHub
+- Le dossier bouskaille, le dossier zoomalou et le fichier README.md.

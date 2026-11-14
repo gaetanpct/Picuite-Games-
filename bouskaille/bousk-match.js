@@ -8,7 +8,7 @@ const Bot = require("./bousk-bot.js");
 
 const T_INTRO = 4.2, T_COUNT = 3.0, T_END = 6.5, RESPAWN = 3.0, CAP = 150;
 const r2 = (v) => Math.round(v * 100) / 100;
-const ST = { ok: 0, charge: 1, dash: 2, rec: 3, stun: 4, fall: 5, air: 6, out: 7 };
+const ST = { ok: 0, charge: 1, dash: 2, rec: 3, stun: 4, fall: 5, air: 6, out: 7, ledge: 8 };
 
 class Match {
   // defs: [{id, name, color, isBot, level}]
@@ -30,7 +30,7 @@ class Match {
     this.round++; const pool = this.arenaPool(); let id;
     for (let k = 0; k < 8; k++) { id = pool[Math.floor(this.rnd() * pool.length)]; if (pool.length < 2 || id !== this.lastArena) break; }
     this.lastArena = id; let A = null, seed = 0;
-    for (let k = 0; k < 6; k++) { seed = Math.floor(this.rnd() * 4294967295); A = Arenas.make(id, seed, { hazards: this.s.hazards }); if (Arenas.arenaCheck(A).ok) break; }
+    for (let k = 0; k < 6; k++) { seed = Math.floor(this.rnd() * 4294967295); A = Arenas.make(id, seed, { hazards: this.s.hazards, events: this.s.events }); if (Arenas.arenaCheck(A).ok) break; }
     this.A = A; this.seed = seed; this.W = Sim.makeWorld(A, { friendly: this.s.friendly, noShrink: !(this.s.shrink && !Rules.isTimed(this.s.mode)) });
     const sp = Arenas.spawnsFor(A, this.n, this.s.mode === "teams" ? this.teamOf() : null);
     this.P = {}; this.W.players = this.defs.map((d, i) => { const p = Sim.newPlayer(d.id, d.team, sp[i].x, sp[i].z, sp[i].a); p.inv = 0; this.P[d.id] = p; return p; });
@@ -39,10 +39,10 @@ class Match {
     this.defs.forEach((d) => Sim.setGab(this.P[d.id], this.gabs[d.id] || "moyen"));
     this.spawnOf = {}; this.defs.forEach((d, i) => { this.spawnOf[d.id] = sp[i]; });
     this.R = {}; this.defs.forEach((d) => { this.R[d.id] = { ko: 0, falls: 0, outAt: null, pts: 0, respawnAt: null, crown: 0, firstOut: false }; });
-    this.phase = "intro"; this.pt = 0; this.tPlay = 0; this.crown = null; this.crownTimer = 0; this.endInfo = null; this.freeze = true; this.out.push({ e: "round", i: this.round });
+    this.finalSaid = false; this.phase = "intro"; this.pt = 0; this.tPlay = 0; this.crown = null; this.crownTimer = 0; this.endInfo = null; this.freeze = true; this.out.push({ e: "round", i: this.round });
     this.input = {}; Object.values(this.brains).forEach((b) => { b.h = false; b.mx = 0; b.mz = 0; b.mode = "roam"; b.next = 0; });
   }
-  roundMsg() { return { i: this.round, total: this.total, arena: this.A.id, seed: this.seed, hazards: this.s.hazards, mode: this.s.mode, shrink: !!(this.s.shrink && !Rules.isTimed(this.s.mode)), dur: this.s.roundTime, double: !!(this.s.finalDouble && this.round === this.total - 1 && this.total > 1), players: this.defs.map((d) => ({ id: d.id, name: d.name, color: d.color, team: d.team, bot: !!d.isBot })) , gabs: Object.assign({}, this.gabs), gabMode: this.s.gabarits }; }
+  roundMsg() { return { i: this.round, total: this.total, arena: this.A.id, seed: this.seed, hazards: this.s.hazards, events: this.s.events, mode: this.s.mode, shrink: !!(this.s.shrink && !Rules.isTimed(this.s.mode)), dur: this.s.roundTime, double: !!(this.s.finalDouble && this.round === this.total - 1 && this.total > 1), players: this.defs.map((d) => ({ id: d.id, name: d.name, color: d.color, team: d.team, bot: !!d.isBot })) , gabs: Object.assign({}, this.gabs), gabMode: this.s.gabarits }; }
   setInput(id, inp) { this.input[id] = { mx: +inp.mx || 0, mz: +inp.mz || 0, h: !!inp.h, seq: inp.seq | 0 }; const jq = this.jq || (this.jq = {}), jp = this.jprev || (this.jprev = {}); if (inp.j && !jp[id]) jq[id] = true; jp[id] = !!inp.j; }
   setAuto(id, on) { if (on) this.autoIds.add(id); else this.autoIds.delete(id); if (on && !this.brains[id]) { const d = this.defs.find((x) => x.id === id); this.brains[id] = Bot.newBrain("moyen", this.rnd); } }
 
@@ -65,6 +65,12 @@ class Match {
     for (const e of Sim.drain(W)) { this.out.push(e); if (e.e === "hit") this.stats.hits++; else if (e.e === "dash") this.stats.dashes++; else if (e.e === "pulse") this.stats.pulses++; else if (e.e === "miss") this.stats.misses++; }
     // éliminations
     const timed = Rules.isTimed(this.s.mode);
+    // éjection décisive, tout le monde sauf un est en train de tomber. Les écrans passent au ralenti
+    if (!timed && !this.finalSaid) {
+      const alive = W.players.filter((p) => p.alive); const up = alive.filter((p) => !p.fall);
+      const side = (L) => (this.s.mode === "teams" ? new Set(L.map((p) => p.team)).size : L.length);
+      if (alive.length > 1 && side(up) <= 1 && side(alive) > 1) { const f = alive.filter((p) => p.fall).sort((a, c) => c.y - a.y)[0]; if (f) { this.finalSaid = true; this.out.push({ e: "final", id: f.id, x: r2(f.x), z: r2(f.z) }); } }
+    }
     for (const p of W.players) {
       const R = this.R[p.id];
       if (!p.alive && R.outAt === null) {
@@ -150,9 +156,9 @@ class Match {
   // ----- messages -----
   snapshot() {
     const W = this.W;
-    const p = W.players.map((P) => { const R = this.R[P.id]; const st = !P.alive ? ST.out : P.fall ? ST.fall : P.air ? ST.air : ST[P.st] || 0; return [r2(P.x), r2(P.z), r2(P.y), r2(P.vx), r2(P.vz), r2(Math.atan2(P.fz, P.fx)), st, Math.round(P.ch * 100), (P.alive ? 1 : 0) | (P.inv > 0 ? 2 : 0) | (P.cd > 0 && P.cd < 5 ? 4 : 0), r2(P.dash > 0 ? Math.atan2(P.dz, P.dx) : 0), R.respawnAt !== null ? r2(Math.max(0, R.respawnAt - this.tPlay)) : 0]; });
+    const p = W.players.map((P) => { const R = this.R[P.id]; const st = !P.alive ? ST.out : P.ledge > 0 ? ST.ledge : P.fall ? ST.fall : P.air ? ST.air : ST[P.st] || 0; return [r2(P.x), r2(P.z), r2(P.y), r2(P.vx), r2(P.vz), r2(Math.atan2(P.fz, P.fx)), st, Math.round(P.ch * 100), (P.alive ? 1 : 0) | (P.inv > 0 ? 2 : 0) | (P.cd > 0 && P.cd < 5 ? 4 : 0), r2(P.dash > 0 ? Math.atan2(P.dz, P.dx) : 0), R.respawnAt !== null ? r2(Math.max(0, R.respawnAt - this.tPlay)) : 0]; });
     const tl = []; this.A.surfaces.forEach((s, i) => { if (s.kind === "crumble") { const T = W.tiles[i]; tl.push(T.touch < 0 ? -1 : T.down < 0 ? -1 : r2(T.down - W.t)); } });
-    return { t: r2(W.t), ph: this.phase, pt: r2(this.pt), p, tl, ck: W.clipR > 1e8 ? 0 : r2(W.clipR) };
+    const o = { t: r2(W.t), ph: this.phase, pt: r2(this.pt), p, tl, ck: W.clipR > 1e8 ? 0 : r2(W.clipR) }; if (W.tilt) o.tw = [Math.round(W.tilt.x * 1000) / 1000, Math.round(W.tilt.z * 1000) / 1000]; return o;
   }
   hud() {
     const timed = Rules.isTimed(this.s.mode);
