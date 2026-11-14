@@ -1118,7 +1118,7 @@ Chaque jeu a été regardé seul, accueil, salon et partie. Le but n'était pas 
 - L'accueil, qui était nu, reçoit son image de quartier.
 
 ### Richissime Destiny
-- L'image remplace la rangée d'emojis de l'accueil. Le titre ne se superpose plus sur téléphone, son ombre est réduite sur les petits écrans.
+- L'image remplace la rangée d'emojis de l'accueil. Elle est intégrée directement dans la feuille de style, sans fichier à part, pour que le dossier richissime reste à 99 fichiers. Elle est rendue à partir de formes modélisées par le code, rien d'emprunté. Le titre ne se superpose plus sur téléphone, son ombre est réduite sur les petits écrans.
 
 ### Ce qui n'a pas été touché, et pourquoi
 - Dans la partie de Golfouille, Zoomalou, Cristal Tordu, Main Morte et Mauvaises Langues. Leur direction artistique tient déjà, elle est cohérente avec le jeu et lisible. Ajouter des éléments les aurait alourdis.
@@ -1145,3 +1145,19 @@ Chaque jeu a été regardé seul, accueil, salon et partie. Le but n'était pas 
 ### Limites connues
 - Tout a été testé avec un Chromium sans carte graphique, pas sur de vrais appareils.
 - Les visuels d'accueil sont des images fixes, pas des scènes 3D vivantes. C'est un choix pour ne rien coûter en fluidité.
+
+## Quarante-troisième mise à jour, Vertigogo débloqué et nouvelles touches
+
+### Vertigogo ne bougeait plus après la présentation du terrain
+- La cause venait de la caméra automatique ajoutée juste avant. Son réglage portait le même nom qu'un outil interne de test du pilote automatique, donc à chaque image le jeu essayait de lancer ce pilote, échouait, et ne déplaçait plus le personnage. L'image restait figée sur le départ.
+- Le réglage a maintenant son propre nom. Testé en partie, le personnage avance dès la fin du compte à rebours et la caméra suit toujours la direction.
+- Pour les prochaines fois, la première erreur d'affichage 3D est aussi écrite dans la console du navigateur, ce qui permet de la retrouver tout de suite.
+
+### Les touches, dans Vertigogo et dans Bouskaille
+- Les flèches du clavier servent uniquement à se déplacer, jamais à tourner la caméra. ZQSD et WASD marchent toujours aussi.
+- La caméra se tourne avec F pour regarder à gauche, H pour regarder à droite, T pour regarder vers le haut et G pour regarder vers le bas. La souris marche toujours.
+- Dans Vertigogo, le retour au dernier drapeau passe de T à R, puisque T sert maintenant à la caméra. C remet la caméra derrière le personnage.
+- Dans Bouskaille, ces touches de caméra servent en vue à la première personne. En vue normale, la caméra de l'arène reste fixe comme avant.
+
+### Ce qu'il faut déposer sur GitHub
+- Les dossiers vertigogo, bouskaille et common, et le fichier README.md. Rien à supprimer.

@@ -478,7 +478,7 @@
   // dessine une image sans jamais casser la boucle
   GL.frame = function (fn) {
     try { fn(); } catch (e) {
-      GL.errors++;
+      GL.errors++; if (GL.errors === 1 && window.console) console.error("Picuite 3D", e);
       if (GL.errors === 3) GL.banner("Une erreur d'affichage 3D se répète. Détail " + String(e && e.message || e).slice(0, 160));
       if (GL.errors > 400) return;
     }

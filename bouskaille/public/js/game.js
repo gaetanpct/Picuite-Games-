@@ -49,7 +49,7 @@
     sc.appendChild(hudEl);
     $("#bk-snd").onclick = () => { SND.setMute(!SND.muted); $("#bk-snd").textContent = SND.muted ? "🔇" : "🔊"; if (!SND.muted) SND.click(); };
     $("#bk-snd").textContent = SND.muted ? "🔇" : "🔊";
-    $("#bk-menu").onclick = openPause; $("#bk-keys").innerHTML = "<span><kbd>Maj</kbd> ou <kbd>E</kbd> saut</span>"; $("#bk-xh").style.display = G.fp ? "block" : "none";
+    $("#bk-menu").onclick = openPause; keysHint(); $("#bk-xh").style.display = G.fp ? "block" : "none";
     document.addEventListener("pointerlockchange", () => { if (document.pointerLockElement !== canvas) G.act = false; });
     bindInput();
   }
@@ -186,7 +186,7 @@
     const map = (e) => { const k = e.key.toLowerCase(); return k; };
     window.addEventListener("keydown", (e) => {
       if (document.body.dataset.screen !== "game") return; const t = e.target && e.target.tagName; if (t === "INPUT" || t === "TEXTAREA") return;
-      const k = map(e); if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "z", "q", "s", "d", "w", "a", "e", "shift"].includes(k)) e.preventDefault();
+      const k = map(e); if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "z", "q", "s", "d", "w", "a", "e", "shift", "f", "h", "t", "g"].includes(k)) e.preventDefault();
       G.keys[k] = true; SND.unlock(); if (k === "escape") { if ($("#bk-pause").classList.contains("show")) closePause(); else openPause(); }
     });
     window.addEventListener("keyup", (e) => { G.keys[map(e)] = false; });
@@ -213,11 +213,13 @@
     if (G.joy.on) { mx = G.joy.x; mz = G.joy.z; }
     const j = !!(k["shift"] || k["e"] || G.jumpBtn);
     if (G.fp) {
-      let a = 0, b = 0; if (k["q"] || k["a"]) a -= 1; if (k["d"]) a += 1; if (k["z"] || k["w"]) b += 1; if (k["s"]) b -= 1;
+      let a = 0, b = 0; if (k["arrowleft"] || k["q"] || k["a"]) a -= 1; if (k["arrowright"] || k["d"]) a += 1; if (k["arrowup"] || k["z"] || k["w"]) b += 1; if (k["arrowdown"] || k["s"]) b -= 1;
       if (G.joy.on) { a = G.joy.x; b = -G.joy.z; }
-      const turn = (k["arrowleft"] ? 1 : 0) - (k["arrowright"] ? 1 : 0); if (turn) { G.fpManual = performance.now(); G.fpYaw += turn * 0.045 * G.sens; } if (k["arrowup"]) G.fpPitch = clamp(G.fpPitch + 0.03, -1.2, 1.2); if (k["arrowdown"]) G.fpPitch = clamp(G.fpPitch - 0.03, -1.2, 1.2);
       const ll = Math.hypot(a, b); if (ll > 1) { a /= ll; b /= ll; }
       { const tn = performance.now(), dtf = Math.min(0.1, (tn - (G.fpT || tn)) / 1000); G.fpT = tn;
+        // caméra au clavier, F gauche, H droite, T haut, G bas. Les flèches servent seulement à se déplacer
+        const turn = (k["f"] ? 1 : 0) - (k["h"] ? 1 : 0), look = (k["t"] ? 1 : 0) - (k["g"] ? 1 : 0);
+        if (turn || look) { G.fpManual = tn; G.fpYaw += turn * 2.6 * G.sens * dtf; G.fpPitch = clamp(G.fpPitch + look * 1.7 * G.sens * dtf * (G.inv ? -1 : 1), -1.2, 1.2); }
         if (G.phase === "play" && Math.hypot(a, b) > 0.25 && tn - G.fpManual > 700) { const d = Math.atan2(-a, b); if (Math.abs(d) < 2.35) G.fpYaw += clamp(d * 1.25, -1.5, 1.5) * dtf; } }
       const fxv = -Math.sin(G.fpYaw), fzv = -Math.cos(G.fpYaw), rxv = Math.cos(G.fpYaw), rzv = -Math.sin(G.fpYaw);
       mx = fxv * b + rxv * a; mz = fzv * b + rzv * a; const hh = !!(k[" "] || k["space"] || G.act);
@@ -292,8 +294,9 @@
   function adapt(avg) { const fps = 1 / avg; if (G.phase !== "play") return; if (fps < 38 && G.pr > 0.65) { G.pr = Math.max(0.65, G.pr - 0.15); resize(); } else if (fps > 56 && G.pr < 1) { G.pr = Math.min(1, G.pr + 0.1); resize(); } }
 
   // ---------- caméra ----------
+  function keysHint() { const kk = $("#bk-keys"); if (kk) kk.innerHTML = "<span><kbd>Maj</kbd> ou <kbd>E</kbd> saut</span>" + (G.fp ? "<span><kbd>F</kbd><kbd>H</kbd><kbd>T</kbd><kbd>G</kbd> caméra</span>" : ""); }
   function setFp(on) {
-    on = !!on; if (on === G.fp) return; G.fp = on; G.fpInit = false; const xh = $("#bk-xh"); if (xh) xh.style.display = G.fp ? "block" : "none";
+    on = !!on; if (on === G.fp) return; G.fp = on; G.fpInit = false; keysHint(); const xh = $("#bk-xh"); if (xh) xh.style.display = G.fp ? "block" : "none";
     if (!G.fp && document.pointerLockElement) document.exitPointerLock();
     if (G.fp && G.phase === "play") toast("Vue à la première personne, clique pour capturer la souris", "info");
     if (!G.fp) { R.cam.fov = 38; R.cam.near = 0.5; R.cam.updateProjectionMatrix(); }
@@ -435,7 +438,7 @@
     colors: COLORS, botLevels: LEVELS, maxPlayers: 8, minPlayers: 2, schema: Rules.SCHEMA,
     help: [
       { title: "Le but", text: "Reste sur l'arène et fais tomber les autres. Dans Chacun pour soi, le dernier debout gagne la manche. Chaque éjection rapporte aussi des points, donc quelqu'un d'éliminé tôt peut remonter au classement général." },
-      { title: "Se déplacer", text: "ZQSD, WASD ou les flèches pour bouger. Sur téléphone, un joystick et un bouton apparaissent." },
+      { title: "Se déplacer", text: "Les flèches du clavier, ZQSD ou WASD pour bouger. Sur téléphone, un joystick et un bouton apparaissent. En vue à la première personne, la caméra suit ta direction toute seule, et tu peux aussi l'orienter avec la souris ou avec F et H pour regarder à gauche et à droite, T et G pour regarder vers le haut et vers le bas." },
       { title: "Pousser et charger", text: "Un appui rapide sur Espace donne une poussée courte, utile pour repousser quelqu'un qui est tout près. Si tu maintiens Espace, tu charges, tu avances lentement et un anneau grandit autour de toi. En relâchant, tu fonces dans la direction où tu vas. Plus la charge est longue, plus le choc est fort." },
       { title: "Les risques", text: "Une charge qui ne touche personne te laisse sans défense un instant, et tu ne peux pas enchaîner les charges sans pause. Quelqu'un qui te percute pendant que tu charges ou que tu récupères t'envoie bien plus loin." },
       { title: "Jouer avec l'élan", text: "Un choc de plein fouet avec beaucoup de vitesse pousse bien plus qu'un choc de côté. Tu peux infléchir un peu ta charge en route, et esquiver sur le côté quand tu vois quelqu'un charger." },
