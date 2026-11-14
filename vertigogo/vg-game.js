@@ -51,19 +51,26 @@ function prepare(room) {
     if (p.isBot) { const W = S.makeWorld(C); const P = S.newPlayer(x, 0, z, 0); P.on = C.startBox; pl.sim = { W, P, pilot: Pilot.create(W, C, p.level || "moyen", Math.random), delay: 0.6 + Math.random() * 1.6 }; }
     g.pl[p.id] = pl;
   });
+  if (g.mode === "lave") { const s = room.settings; g.lava = { y0: -4, delay: Rules.LAVA_DELAY, v: +((C.summitTop + 4) / (Rules.LAVA[s.lavaSpeed] || 420)).toFixed(4) }; }
   g.ready = true; g.phase = "count"; g.tCount = Date.now() + COUNT * 1000; g.tStart = g.tCount;
   toAll(room, "v:course", courseMsg(room)); toAll(room, "v:phase", { p: "count", n: COUNT }); toAll(room, "v:rank", rankMsg(room));
   g.timer = setInterval(() => { try { loop(room); } catch (e) { console.error("vertigogo loop", e); } }, 8); if (g.timer.unref) g.timer.unref();
 }
 function courseMsg(room) {
-  const g = room.g; const C = g.C; return { opts: Object.assign({}, g.opts, { salt: g.salt }), mode: g.mode, seed: g.seedLabel, day: g.day, tl: g.tl, summit: C.summitTop, players: room.players.map((p) => ({ id: p.id, name: p.name, color: p.color, bot: !!p.isBot })), cos: cosMap(room), left: Math.max(0, (g.tCount - Date.now()) / 1000) };
+  const g = room.g; const C = g.C; return { opts: Object.assign({}, g.opts, { salt: g.salt }), mode: g.mode, seed: g.seedLabel, day: g.day, tl: g.tl, summit: C.summitTop, lava: g.lava || null, players: room.players.map((p) => ({ id: p.id, name: p.name, color: p.color, bot: !!p.isBot })), cos: cosMap(room), left: Math.max(0, (g.tCount - Date.now()) / 1000) };
 }
 function onDestroy(room) { if (room.g && room.g.timer) { clearInterval(room.g.timer); room.g.timer = null; } }
 
 // ---------- progression, chute, arrivée ----------
 function floorBox(g, pl) { const C = g.C; if (Rules.checkpoints(g.mode) && pl.cp) return C.boxes[pl.cp]; return C.boxes[Cr.netFor(C, pl.best)]; }
+// mode lave, le joueur touche la lave ou n'a plus de point de reprise au-dessus d'elle
+function eliminate(room, pl) {
+  const g = room.g; if (pl.out || pl.fin) return; pl.out = { t: r2(elapsed(g)), h: r2(pl.best) }; g.outN = (g.outN || 0) + 1;
+  toAll(room, "v:out", { id: pl.id, t: pl.out.t }); toAll(room, "v:rank", rankMsg(room));
+}
 function respawn(room, pl, why, free) {
-  const g = room.g, C = g.C; const b = floorBox(g, pl); const x = (b.x0 + b.x1) / 2, z = (b.z0 + b.z1) / 2, y = b.y1 + 0.02;
+  const g = room.g, C = g.C; const b = floorBox(g, pl);
+  if (g.lava && b.y1 < Rules.lavaY(g.lava, elapsed(g)) + 0.8) { eliminate(room, pl); return; } const x = (b.x0 + b.x1) / 2, z = (b.z0 + b.z1) / 2, y = b.y1 + 0.02;
   pl.x = x; pl.y = y; pl.z = z; pl.good = { x, y, z }; pl.viol = 0; pl.on = b.i; pl.vy = 0; pl.lastT = Date.now();
   if (!free) { pl.falls++; if (g.mode === "chrono" || g.mode === "jour") pl.pen += g.mode === "chrono" ? PEN : 0; }
   if (pl.sim) { const P = pl.sim.P; P.x = x; P.y = y; P.z = z; P.vx = P.vy = P.vz = 0; P.st = "ground"; P.on = b.i; P.hang = null; P.climb = null; pl.sim.W.cr = {}; pl.sim.pilot.run = false; pl.sim.pilot.wait = 0; }
@@ -82,7 +89,8 @@ function verifyOn(g, pl) { // le joueur annonce qu'il se tient sur la boîte "on
   const y0 = b.y1 - tol - (ax === "y" ? am : 0), y1 = b.y1 + tol + (ax === "y" ? am : 0); return pl.x >= x0 && pl.x <= x1 && pl.z >= z0 && pl.z <= z1 && pl.y >= y0 && pl.y <= y1;
 }
 function progress(room, pl) {
-  const g = room.g, C = g.C;
+  const g = room.g, C = g.C; if (pl.out) return;
+  if (g.lava && !pl.fin && pl.y < Rules.lavaY(g.lava, elapsed(g)) - 0.2) { eliminate(room, pl); return; }
   if (pl.s === 0 && pl.on >= 0 && verifyOn(g, pl)) {
     const b = C.boxes[pl.on]; if (b.k !== "crumble" && b.k !== "spring") { pl.good = { x: pl.x, y: pl.y, z: pl.z }; }
     const r = standing(g, pl, pl.on); if (r && r.cp) { const p = room.players.find((q) => q.id === pl.id); if (p) sendTo(room, p, "v:cp", { i: pl.cpN, t: r2(elapsed(g)) }); }
@@ -99,8 +107,8 @@ function finish(room, pl) {
 // ---------- classement ----------
 function rows(room) {
   const g = room.g; const list = room.players.map((p) => g.pl[p.id]).filter(Boolean);
-  list.sort((a, b) => { if (a.fin && b.fin) return a.fin.t - b.fin.t; if (a.fin) return -1; if (b.fin) return 1; return (b.best - a.best) || (a.bestT - b.bestT); });
-  return list.map((pl, i) => ({ id: pl.id, place: i + 1, h: r2(pl.best), y: r2(pl.y), fin: pl.fin ? pl.fin.t : null, falls: pl.falls, pen: pl.pen, cp: pl.cpN, away: !!pl.away }));
+  list.sort((a, b) => { if (a.fin && b.fin) return a.fin.t - b.fin.t; if (a.fin) return -1; if (b.fin) return 1; if (!!a.out !== !!b.out) return a.out ? 1 : -1; if (a.out && b.out) return (b.out.t - a.out.t) || (b.best - a.best); return (b.best - a.best) || (a.bestT - b.bestT); });
+  return list.map((pl, i) => ({ id: pl.id, place: i + 1, h: r2(pl.best), y: r2(pl.y), fin: pl.fin ? pl.fin.t : null, out: pl.out ? pl.out.t : null, falls: pl.falls, pen: pl.pen, cp: pl.cpN, away: !!pl.away }));
 }
 function rankMsg(room) { const g = room.g; const e = g.phase === "play" ? elapsed(g) : 0; return { rows: rows(room), t: r2(e), left: g.phase === "play" ? Math.max(0, Math.round((g.closeAt && g.closeAt < g.tl ? g.closeAt : g.tl) - e)) : null, closing: !!(g.closeAt && g.closeAt < g.tl), summit: g.C ? g.C.summitTop : 0 }; }
 
@@ -111,7 +119,10 @@ function loop(room) {
   g.acc += Math.min(100, now - g.last); g.last = now; let n = 0;
   while (g.acc >= TICK && n < 6) { g.acc -= TICK; n++; g.tickN++; if (g.phase === "play") stepBots(room); if (g.tickN % 4 === 0) sendSnap(room); if (g.tickN % 15 === 0 && g.phase !== "over") toAll(room, "v:rank", rankMsg(room)); }
   if (g.phase === "play") {
-    const e = elapsed(g); const hs = humans(room); const allDone = hs.length > 0 && hs.every((p) => g.pl[p.id] && g.pl[p.id].fin);
+    if (g.lava) { const ly = Rules.lavaY(g.lava, elapsed(g)); Object.values(g.pl).forEach((pl) => { if (!pl.out && !pl.fin && pl.y < ly - 0.2) eliminate(room, pl); }); }
+    const e = elapsed(g); const hs = humans(room); let allDone = hs.length > 0 && hs.every((p) => g.pl[p.id] && (g.pl[p.id].fin || g.pl[p.id].out));
+    // mode lave, la partie s'arrête aussi quand il ne reste qu'un seul survivant parmi plusieurs
+    if (g.lava && room.players.length > 1) { const alive = room.players.filter((p) => g.pl[p.id] && !g.pl[p.id].out && !g.pl[p.id].fin); if (alive.length === 0 || (alive.length === 1 && !g.finishedN && g.outN)) allDone = true; }
     if (allDone || e >= g.tl || (g.closeAt && e >= g.closeAt)) endGame(room);
     else if (!hs.length) onDestroy(room);
   }
@@ -119,7 +130,7 @@ function loop(room) {
 function stepBots(room) {
   const g = room.g, C = g.C; const e = elapsed(g);
   for (const p of room.players) {
-    if (!p.isBot) continue; const pl = g.pl[p.id]; if (!pl || pl.fin) continue; const { W, P, pilot } = pl.sim; W.t = e; S.prepare(W);
+    if (!p.isBot) continue; const pl = g.pl[p.id]; if (!pl || pl.fin || pl.out) continue; const { W, P, pilot } = pl.sim; W.t = e; S.prepare(W);
     let inp = { mx: 0, mz: 0, jump: false, drop: false }; if (e > pl.sim.delay) inp = Pilot.step(pilot, P);
     S.stepPlayer(W, P, inp, []);
     pl.x = P.x; pl.y = P.y; pl.z = P.z; pl.vy = P.vy; pl.ry = Math.atan2(P.fx, P.fz); pl.on = P.st === "ground" ? P.on : -1; pl.s = P.st === "ground" ? 0 : P.st === "hang" ? 2 : P.st === "climb" ? 3 : 1;
@@ -128,7 +139,7 @@ function stepBots(room) {
   }
 }
 function sendSnap(room) {
-  const g = room.g; if (!g.C) return; const p = room.players.map((q) => { const pl = g.pl[q.id]; return pl ? [r2(pl.x), r2(pl.y), r2(pl.z), r2(pl.ry), pl.a | 0, r2(pl.vh || 0), pl.fin ? 1 : 0] : null; });
+  const g = room.g; if (!g.C) return; const p = room.players.map((q) => { const pl = g.pl[q.id]; return pl ? [r2(pl.x), r2(pl.y), r2(pl.z), r2(pl.ry), pl.a | 0, r2(pl.vh || 0), pl.fin ? 1 : pl.out ? 2 : 0] : null; });
   toAll(room, "v:snap", { t: r2(elapsed(g)), now: Date.now(), p });
 }
 function endGame(room) {
@@ -144,7 +155,7 @@ function bind(socket, h, api) {
   let nIn = 0, tIn = 0;
   socket.on("v:st", safe((d) => {
     if (!inGame() || !d) return; const g = ctx.room.g; if (g.phase !== "play") return; const now = Date.now(); if (now - tIn > 1000) { tIn = now; nIn = 0; } if (++nIn > 40) return;
-    const p = me(); if (!p) return; const pl = g.pl[p.id]; if (!pl || pl.fin && false) return;
+    const p = me(); if (!p) return; const pl = g.pl[p.id]; if (!pl || pl.out) return;
     const x = +d.x, y = +d.y, z = +d.z; if (!isFinite(x) || !isFinite(y) || !isFinite(z) || Math.abs(x) > 90 || Math.abs(z) > 90 || y < -50 || y > 600) return;
     const dt = Math.max(0.02, Math.min(0.7, (now - pl.lastT) / 1000)); pl.lastT = now; pl.away = false;
     const dh = Math.hypot(x - pl.x, z - pl.z), dv = y - pl.y;

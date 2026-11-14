@@ -1379,3 +1379,39 @@ Chaque jeu a été regardé seul, accueil, salon et partie. Le but n'était pas 
 ### Ce qu'il faut déposer sur GitHub
 - Le dossier zoomalou, et le fichier README.md.
 
+## Cinquante et unième mise à jour, lot 8, Vertigogo
+
+### Cinq nouveaux mondes
+- La tour peut maintenant empiler treize mondes. De bas en haut, le jardin, la plage, la rue, le chantier, l'automne, la maison, la cuisine, l'usine à jouets, les toits, l'hiver, le cimetière, les nuages et l'espace. Le jardin reste toujours en bas et l'espace toujours au sommet. Une partie en prend quatre, six ou huit parmi ceux qui sont cochés dans le salon.
+- 🏖️ La plage. Des bouées qui flottent, montent et descendent doucement et font rebondir, des parasols où l'on se pose sur la toile, des châteaux de sable, des transats et des glacières.
+- 🍂 L'automne. Des tas de feuilles mortes qui glissent un peu, moins que la glace, des souches, des arbres roux et des citrouilles.
+- ❄️ L'hiver. Des plaques de glace, des bonshommes de neige, des igloos, et des stalactites qui tremblent puis tombent sur certaines plaques. Une ombre bleue au sol prévient de la chute. Une stalactite bouscule le joueur, qui peut tomber s'il se tient au bord.
+- 🧸 L'usine à jouets. Des engrenages géants qui tournent et emportent le joueur, des tapis roulants, des pistons, des cubes empilés et des toupies.
+- 🚀 L'espace. Une gravité plus faible pour de très grands sauts, des débris qui dérivent lentement, des astéroïdes, des satellites aux panneaux solaires et des fusées. Le ciel devient nuit étoilée.
+- Chaque monde a ses couleurs, son ciel, ses textures de dessus de plateforme et ses îlots de décor.
+
+### Objets qui tournent et qui flottent
+- Les engrenages et plaques tournantes emportent le joueur en tournant, et le font pivoter avec eux. Une flèche blanche sur le dessus montre le sens de rotation.
+- Les débris de l'espace et les bouées de la plage flottent et dérivent lentement.
+- Les objets inclinés de dix à trente-cinq degrés demandent une nouvelle physique de pentes, ils sont prévus pour le dernier lot avec la corde.
+
+### Nouveau mode, le sol est de la lave
+- La lave attend vingt secondes, puis monte depuis le bas à vitesse constante. Réglage lente, normale ou rapide, la lave met environ dix, sept ou cinq minutes à atteindre le sommet.
+- Une chute ne coûte rien tant que le point de reprise de la zone reste au-dessus de la lave. Sinon, ou si l'on touche la lave, on est englouti et on regarde la fin de la course.
+- Le premier au sommet gagne. S'il ne reste qu'un seul survivant, la partie s'arrête et il gagne. La hauteur au-dessus de la lave s'affiche sous l'altitude.
+
+### Ralenti des grandes chutes
+- Quand on tombe de plus de quatorze mètres, le temps s'étire une seconde et la caméra recule pour voir toute la chute. Cela ne change rien pour les autres joueurs.
+
+### Pas encore fait
+- Les raccourcis secrets, la corde à deux et les objets inclinés viendront dans le lot final, comme prévu dans le doc.
+- Le printemps du doc est couvert par le jardin, avec ses champignons et trampolines.
+
+### Tests
+- Vingt-quatre parcours générés avec tous les mondes, en facile, normal et difficile, sont tous vérifiés par le pilote automatique, chaque monde nouveau apparaît plusieurs fois.
+- Engrenage, stalactite, feuilles et gravité testés un par un avec la vraie physique.
+- Partie en mode lave simulée sur le serveur, le joueur resté au départ est bien englouti et le classement est juste. Mode lave et nouveaux mondes vérifiés dans le navigateur.
+
+### Ce qu'il faut déposer sur GitHub
+- Le dossier vertigogo, et le fichier README.md.
+

@@ -16,6 +16,11 @@
     { n: "toits", sky: [0xf29b6a, 0xffd9b0], fog: 0xffd9b0, sun: 0xffc48a, hemi: [0xffe2c4, 0x8a6a6a], top: ["roof", 0xb5654a, 0x8a4a38], side: ["brick", 0xa5543c, 0x7a3c2a], accent: 0xff6a4d, stars: 0 },
     { n: "cimetiere", sky: [0x1a1540, 0x7a5a8a], fog: 0x5a4468, sun: 0xc8b0ff, hemi: [0x9a88c8, 0x30283a], top: ["moss", 0x5f6f56, 0x3a4a3a], side: ["stone", 0x5a5a62, 0x3a3a44], accent: 0xff8a2a, stars: 1 },
     { n: "nuages", sky: [0x4a90e8, 0xeaf4ff], fog: 0xeaf4ff, sun: 0xffffff, hemi: [0xf4faff, 0x9ab6d8], top: ["cloud", 0xf6f9ff, 0xdbe8f8], side: ["cloudside", 0xe2ecf8, 0xc6d6ec], accent: 0xffd166, stars: 0 },
+    { n: "plage", sky: [0x3ab8f0, 0xfff4d8], fog: 0xfff0d0, sun: 0xfff2c8, hemi: [0xfff6e0, 0xd8b878], top: ["sand", 0xf0d898, 0xd8b870], side: ["dirt", 0xd8b878, 0xa88a50], accent: 0x2ad0d8, stars: 0 },
+    { n: "automne", sky: [0xe8a060, 0xffe4c0], fog: 0xf6d8b0, sun: 0xffc88a, hemi: [0xffe0c0, 0x8a5a3a], top: ["leaves", 0xc8742a, 0xe8b040], side: ["dirt", 0x7a4a2a, 0x4a2a18], accent: 0xff7a1a, stars: 0 },
+    { n: "hiver", sky: [0x8ab8e8, 0xf4faff], fog: 0xeef6ff, sun: 0xf4f8ff, hemi: [0xf0f8ff, 0x9ab0c8], top: ["snow", 0xf6fbff, 0xcfe2f4], side: ["stone", 0x8a96a8, 0x5a6678], accent: 0x5ac8ff, stars: 0 },
+    { n: "jouets", sky: [0xffb0d8, 0xfff0f8], fog: 0xffe8f4, sun: 0xffffff, hemi: [0xfff0fa, 0x9a8ab8], top: ["plastic", 0x4a9aff, 0xffd23d], side: ["tilewall", 0xff6a8a, 0xffd0dc], accent: 0x3ad070, stars: 0 },
+    { n: "espace", sky: [0x05031a, 0x2a1a5a], fog: 0x1a1240, sun: 0xd8d0ff, hemi: [0x8a80d8, 0x2a2048], top: ["metal", 0x9aa4b8, 0x5a6478], side: ["stone", 0x4a4a62, 0x2a2a3a], accent: 0x5affd8, stars: 1 },
   ];
   api.THEMES = THEMES;
 
@@ -43,6 +48,11 @@
       else if (kind === "moss") { for (let k = 0; k < 14; k++) { const x = rnd() * s, y = rnd() * s, w = 50 + rnd() * 50, h = 40 + rnd() * 40; g.fillStyle = hex(mix(c1, rnd() < 0.5 ? 0x8a8a90 : 0x2a3a2a, rnd() * 0.3)); g.beginPath(); g.roundRect ? g.roundRect(x - w / 2, y - h / 2, w, h, 12) : g.rect(x - w / 2, y - h / 2, w, h); g.fill(); g.strokeStyle = "rgba(10,12,16,0.55)"; g.lineWidth = 2.5; g.stroke(); } blob(g, s, 40, 0x4a8a3a, 0.35, 8, 24); speck(g, s, 400, "#a8c890", 0.18, 1, 3); g.strokeStyle = "rgba(10,10,12,0.5)"; for (let i = 0; i < 4; i++) { g.beginPath(); let x = rnd() * s, y = rnd() * s; g.moveTo(x, y); for (let k = 0; k < 5; k++) { x += rnd() * 20 - 10; y += rnd() * 20 - 10; g.lineTo(x, y); } g.stroke(); } }
       else if (kind === "cloud") { for (let i = 0; i < 40; i++) { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 34); gr.addColorStop(0, "rgba(255,255,255,0.9)"); gr.addColorStop(1, "rgba(255,255,255,0)"); g.save(); g.translate(rnd() * s, rnd() * s); g.fillStyle = gr; g.fillRect(-34, -34, 68, 68); g.restore(); } blob(g, s, 14, c2, 0.35, 16, 40); }
       else if (kind === "crystal") { const gr = g.createLinearGradient(0, 0, s, s); gr.addColorStop(0, hex(c1)); gr.addColorStop(1, hex(c2)); g.fillStyle = gr; g.fillRect(0, 0, s, s); g.strokeStyle = "rgba(255,255,255,0.35)"; g.lineWidth = 2; for (let i = 0; i < 9; i++) { g.beginPath(); g.moveTo(rnd() * s, rnd() * s); g.lineTo(rnd() * s, rnd() * s); g.stroke(); } }
+      else if (kind === "sand") { speck(g, s, 1600, hex(c2), 0.4, 1, 2.6); speck(g, s, 500, "#ffffff", 0.35, 1, 2); blob(g, s, 14, c2, 0.25, 18, 40); g.strokeStyle = rgba(c2, 0.5); g.lineWidth = 2; for (let y = 20; y < s; y += 36) { g.beginPath(); for (let x = 0; x <= s; x += 16) g.lineTo(x, y + Math.sin(x / 20 + y) * 4); g.stroke(); } }
+      else if (kind === "leaves") { blob(g, s, 16, 0x8a4a1a, 0.3, 18, 40); const cs = [0xe8b040, 0xd85a1a, 0xc8742a, 0x9a3a1a, 0xf0c860]; for (let i = 0; i < 160; i++) { g.fillStyle = hex(cs[Math.floor(rnd() * cs.length)]); g.save(); g.translate(rnd() * s, rnd() * s); g.rotate(rnd() * 6.28); g.beginPath(); g.ellipse(0, 0, 9, 4.5, 0, 0, 6.28); g.fill(); g.restore(); } }
+      else if (kind === "snow") { blob(g, s, 20, c2, 0.35, 16, 40); speck(g, s, 500, "#ffffff", 0.9, 1, 2.4); speck(g, s, 200, "#bcd8f0", 0.4, 1, 2); }
+      else if (kind === "plastic") { const t = s / 4; for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { const gr = g.createRadialGradient(i * t + t / 2 - 5, j * t + t / 2 - 5, 2, i * t + t / 2, j * t + t / 2, t * 0.32); gr.addColorStop(0, "rgba(255,255,255,0.55)"); gr.addColorStop(1, rgba(mix(c1, 0x000000, 0.25), 1)); g.fillStyle = gr; g.beginPath(); g.arc(i * t + t / 2, j * t + t / 2, t * 0.3, 0, 6.28); g.fill(); } }
+      else if (kind === "metal") { g.strokeStyle = rgba(c2, 0.8); g.lineWidth = 3; for (let x = 0; x <= s; x += 64) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, s); g.stroke(); g.beginPath(); g.moveTo(0, x); g.lineTo(s, x); g.stroke(); } g.fillStyle = rgba(0xffffff, 0.5); for (let x = 8; x < s; x += 64) for (let y = 8; y < s; y += 64) { [[0, 0], [48, 0], [0, 48], [48, 48]].forEach(([a, b]) => { g.beginPath(); g.arc(x + a, y + b, 3, 0, 6.28); g.fill(); }); } blob(g, s, 10, 0x000000, 0.12, 12, 30); }
       else if (kind === "tiles") { g.fillStyle = hex(c2); for (let y = 0; y < s; y += 64) for (let x = (y / 64 % 2) * 32; x < s + 32; x += 64) { g.fillRect(x, y, 60, 3); g.fillRect(x, y, 3, 64); } blob(g, s, 14, 0x000000, 0.1, 10, 28); }
       // bord clair, très lisible pour juger le rebord
       const bw = kind === "cloud" ? 0 : 9; if (bw) { const gr = g.createLinearGradient(0, 0, 0, bw); gr.addColorStop(0, "rgba(255,255,255,0.55)"); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; g.fillRect(0, 0, s, bw); g.fillRect(0, s - bw, s, bw); const g2 = g.createLinearGradient(0, 0, bw, 0); g2.addColorStop(0, "rgba(255,255,255,0.55)"); g2.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = g2; g.fillRect(0, 0, bw, s); g.fillRect(s - bw, 0, bw, s); g.strokeStyle = "rgba(0,0,0,0.28)"; g.lineWidth = 2; g.strokeRect(1, 1, s - 2, s - 2); }
@@ -63,6 +73,8 @@
       const sh = g.createLinearGradient(0, 0, 0, s); sh.addColorStop(0, "rgba(255,255,255,0.10)"); sh.addColorStop(1, "rgba(0,0,0,0.28)"); g.fillStyle = sh; g.fillRect(0, 0, s, s);
     });
   }
+  const buoyTex = () => canvasTex("buoy", 64, (g, s) => { for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? "#ffffff" : "#ff4a3a"; g.fillRect(i * s / 8, 0, s / 8, s); } });
+  function gear(r, h, color) { const g = new T.Group(); const m = lam({ color }); const disc = new T.Mesh(new T.CylinderGeometry(r * 0.86, r * 0.86, h, 24), m); disc.position.y = h / 2; disc.castShadow = true; disc.receiveShadow = true; g.add(disc); const n = 12; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; const tooth = new T.Mesh(new T.BoxGeometry(r * 0.26, h * 0.9, r * 0.22), m); tooth.position.set(Math.cos(a) * r * 0.9, h / 2, Math.sin(a) * r * 0.9); tooth.rotation.y = -a; g.add(tooth); } const hub = new T.Mesh(new T.CylinderGeometry(r * 0.22, r * 0.22, h + 0.12, 12), lam({ color: 0xe8453c })); hub.position.y = h / 2; g.add(hub); const arrow = new T.Mesh(new T.BoxGeometry(r * 1.1, 0.04, 0.24), lam({ color: 0xffffff })); arrow.position.set(r * 0.25, h + 0.02, 0); g.add(arrow); return g; }
   const hazardTex = () => canvasTex("hazard", 64, (g, s) => { g.fillStyle = "#ffcf1a"; g.fillRect(0, 0, s, s); g.fillStyle = "#222"; for (let i = -s; i < s * 2; i += 32) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 16, 0); g.lineTo(i + 16 + s, s); g.lineTo(i + s, s); g.fill(); } });
   const barTex = () => canvasTex("bar", 64, (g, s) => { g.fillStyle = "#ffffff"; g.fillRect(0, 0, s, s); g.fillStyle = "#e8453c"; for (let i = 0; i < s; i += 32) g.fillRect(i, 0, 16, s); });
   api.softTex = null;
@@ -73,6 +85,7 @@
     const k = "m" + theme; if (matCache[k]) return matCache[k]; const th = THEMES[theme];
     const m = { top: lam({ map: topTex(th.top[0], th.top[1], th.top[2]) }), side: lam({ map: sideTex(th.side[0], th.side[1], th.side[2] != null ? th.side[2] : th.side[1]) }) };
     m.ice = { top: lam({ color: 0xcdefff, emissive: 0x2a5a80, map: topTex("crystal", 0xbfe8ff, 0xffffff), transparent: true, opacity: 0.92 }), side: lam({ color: 0x9ad8ff, emissive: 0x1a4060, transparent: true, opacity: 0.85 }) };
+    m.leaf = { top: lam({ map: topTex("leaves", 0xc8742a, 0xe8b040) }), side: lam({ map: sideTex("dirt", 0x7a4a2a, 0x4a2a18) }) };
     m.crumble = { top: lam({ map: topTex("tiles", 0xd8c8a8, 0x8a7a5a) }), side: lam({ color: 0x9a8a6a }) };
     m.mover = { top: lam({ map: topTex(th.top[0], th.top[1], th.top[2]), emissive: 0x201400 }), side: lam({ map: hazardTex() }) };
     matCache[k] = m; return m;
@@ -164,9 +177,14 @@
     4: [["stove_multi", 9], ["fridge_A", 14], ["kitchentable_A_large", 7], ["pot_large", 7], ["jar_A_large", 7], ["oven", 9], ["kitchencabinet", 8], ["extractorhood", 6], ["dishrack", 5], ["crate_tomatoes", 4], ["cuttingboard", 2]],
     5: [["building_A", 38], ["building_C", 34], ["building_E", 30], ["building_G", 36], ["watertower", 18], ["building_tower_A_red", 20], ["streetlight", 10], ["trafficlight_B", 9], ["building_B", 40]],
     6: [["tree_dead_large", 13], ["tree_dead_medium", 10], ["gravestone", 4.5], ["crypt", 10], ["coffin", 3.5], ["shrine", 7], ["pumpkin_orange_jackolantern", 3.5], ["lantern_standing", 7], ["arch", 9], ["fence", 3], ["tree_pine_orange_large", 13]],
+    8: [["tent", 6], ["barrel", 3], ["flag_red", 8], ["rock_single_E", 6], ["bush", 3], ["tree_single_A", 9]],
+    9: [["tree_pine_orange_large", 13], ["pumpkin_orange", 3], ["bush", 3], ["building_home_A_red", 8], ["resource_lumber", 3], ["tree_dead_medium", 10]],
+    10: [["tree_single_B", 10], ["rock_single_E", 6], ["building_home_A_red", 8], ["tent", 6], ["tree_pine_orange_large", 12]],
+    11: [["crate_A_big", 5], ["barrel", 4], ["building_tower_A_red", 16], ["building_windmill_red", 14], ["flag_blue", 8]],
+    12: [["rock_single_E", 7], ["building_tower_B_red", 15], ["flag_blue", 8], ["rock_single_C", 6]],
     7: [["building_castle_red", 18], ["building_windmill_red", 14], ["tree_single_A", 9], ["building_tower_B_red", 15], ["cloud_small", 4], ["flag_blue", 8]],
   };
-  const FALLBACK = [3, 1, 0, 4, 2, 1, 7, 5];
+  const FALLBACK = [3, 1, 0, 4, 2, 1, 7, 5, 3, 3, 3, 4, 7];
   function buildIsles(g, zi, R, y0, y1, zid, P3, sh) {
     const th = THEMES[zid]; const M = mats(zi, zid); const list = ISLE[zid]; const cloudy = zid === 7;
     const topM = M.top.clone(); topM.map = M.top.map.clone(); topM.map.repeat.set(2, 2); topM.map.needsUpdate = true; const sideM = M.side.clone(); sideM.map = M.side.map.clone(); sideM.map.repeat.set(3, 1); sideM.map.needsUpdate = true;
@@ -193,21 +211,21 @@
   // ---------- la vue du parcours ----------
   class CourseView {
     constructor(scene, C, quality) {
-      this.scene = scene; this.C = C; this.q = quality || "high"; this.root = new T.Group(); scene.add(this.root); this.dyn = { mov: [], cru: [], spr: [], sw: [], flags: {} }; this.decor = []; this.t = 0;
+      this.scene = scene; this.C = C; this.q = quality || "high"; this.root = new T.Group(); scene.add(this.root); this.dyn = { mov: [], cru: [], spr: [], sw: [], flags: {}, spin: [], drops: [] }; this.decor = []; this.t = 0;
       const R = (() => { let a = 777; return () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; }; })();
       // objets du parcours dessinés avec de vrais modèles ou par le code
       const P3 = window.VgProps3D; const skip = new Set(); this.objs = []; this.dyn.belts = []; this.dyn.osq = []; const sh = this.q === "high";
       (C.objs || []).forEach((o) => {
-        const ctx = { M: mats(o.zone, C.zones[o.zone].id), sh, belts: this.dyn.belts, spring: (bi, tgt, amp, dip) => { this.dyn.osq.push({ i: bi, tgt, amp, dip: !!dip, t: 9, y0: tgt.position.y }); } };
+        const ctx = { M: mats(o.zone, C.zones[o.zone].id), sh, belts: this.dyn.belts, spins: this.dyn.spin, spring: (bi, tgt, amp, dip) => { this.dyn.osq.push({ i: bi, tgt, amp, dip: !!dip, t: 9, y0: tgt.position.y }); } };
         const g = P3 ? P3.build(o, C, ctx) : null; if (!g) return;
         for (let k = 0; k < o.nb; k++) { const bb = C.boxes[o.b0 + k]; if (bb && bb.k === "spring" && !(this.dyn.osq.some((q) => q.i === o.b0 + k))) this.dyn.osq.push({ i: o.b0 + k, tgt: g, amp: 0.1, dip: false, t: 9, y0: g.position.y }); }
         this.root.add(g); this.objs.push({ g, o }); for (let k = 0; k < o.nb; k++) skip.add(o.b0 + k);
       });
       // boîtes statiques regroupées par monde
       const byZone = {};
-      C.boxes.forEach((b, bi) => { if (skip.has(bi) || b.mv || b.k === "crumble" || b.k === "spring") return; const key = b.zone + (b.k === "ice" ? "i" : ""); (byZone[key] = byZone[key] || []).push(b); });
+      C.boxes.forEach((b, bi) => { if (skip.has(bi) || b.mv || b.k === "crumble" || b.k === "spring") return; if (b.k === "spin") return; const key = b.zone + (b.k === "ice" ? "i" : b.k === "leaf" ? "l" : ""); (byZone[key] = byZone[key] || []).push(b); });
       Object.keys(byZone).forEach((key) => {
-        const list = byZone[key]; const zi = parseInt(key, 10); const theme = C.zones[zi].id; const M = mats(zi, theme); const ice = /i$/.test(key); const m = ice ? M.ice : M;
+        const list = byZone[key]; const zi = parseInt(key, 10); const theme = C.zones[zi].id; const M = mats(zi, theme); const ice = /i$/.test(key); const m = ice ? M.ice : /l$/.test(key) ? M.leaf : M;
         const top = new T.Mesh(mergeBoxes(list, "top", 3.2), m.top), side = new T.Mesh(mergeBoxes(list, "side", 3.2), m.side);
         [top, side].forEach((o) => { o.castShadow = true; o.receiveShadow = true; this.root.add(o); });
       });
@@ -215,11 +233,15 @@
       C.boxes.forEach((b, bi) => {
         if (skip.has(bi)) return;
         const theme = C.zones[b.zone].id; const M = mats(b.zone, theme); const w = b.x1 - b.x0, h = b.y1 - b.y0, d = b.z1 - b.z0;
+        if (b.k === "spring" && b.look === "bouee") { const g = new T.Group(); const r = Math.min(w, d) / 2; const tor = new T.Mesh(new T.TorusGeometry(r * 0.72, r * 0.3, 10, 22), lam({ map: buoyTex() })); tor.rotation.x = Math.PI / 2; tor.castShadow = true; g.add(tor); const water = new T.Mesh(new T.CircleGeometry(r * 0.45, 18), lam({ color: 0x2ab0e8, transparent: true, opacity: 0.7 })); water.rotation.x = -Math.PI / 2; water.position.y = -0.05; g.add(water); g.position.set((b.x0 + b.x1) / 2, b.y1 - 0.12, (b.z0 + b.z1) / 2); this.root.add(g); this.dyn.mov.push({ b, mesh: g, c: g.position.clone() }); return; }
+        if (b.k === "spin") { const g = gear(Math.min(w, d) / 2, h, theme === 11 ? 0xffc21a : 0x9aa4b8); g.position.set((b.x0 + b.x1) / 2, b.y0, (b.z0 + b.z1) / 2); this.root.add(g); this.dyn.spin.push({ g, b }); return; }
         if (b.k === "spring") { const g = new T.Group(); const base = cyl(0.8, 0.9, 0.14, 0xe8453c, 18); base.position.y = 0.07; const coil = cyl(0.5, 0.5, 0.1, 0xffffff, 16); coil.position.y = 0.18; const cap = cyl(0.62, 0.62, 0.08, 0xffd23d, 18, { emissive: 0x553b00 }); cap.position.y = 0.24; g.add(base, coil, cap); g.position.set((b.x0 + b.x1) / 2, b.y0, (b.z0 + b.z1) / 2); g.userData = { cap, coil, t: 9, b }; this.root.add(g); this.dyn.spr.push(g); return; }
         if (!b.mv && b.k !== "crumble") return;
         const kind = b.k === "crumble" ? M.crumble : M.mover; const mesh = new T.Mesh(new T.BoxGeometry(w, h, d), [kind.side, kind.side, kind.top, kind.side, kind.side, kind.side]); mesh.castShadow = true; mesh.receiveShadow = true; mesh.position.set((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, (b.z0 + b.z1) / 2); this.root.add(mesh);
         if (b.mv) this.dyn.mov.push({ b, mesh, c: mesh.position.clone() }); else this.dyn.cru.push({ b, mesh, c: mesh.position.clone() });
       });
+      // stalactites au-dessus des plaques de glace
+      (C.drops || []).forEach((d) => { const g = new T.Group(); const ice = new T.Mesh(new T.ConeGeometry(d.r, 1.8, 7), lam({ color: 0xcdefff, emissive: 0x2a5a80, transparent: true, opacity: 0.9 })); ice.rotation.x = Math.PI; ice.position.y = 0.9; g.add(ice); const sh = new T.Mesh(new T.CircleGeometry(d.r * 1.3, 14), new T.MeshBasicMaterial({ color: 0x2a4a8a, transparent: true, opacity: 0, depthWrite: false })); sh.rotation.x = -Math.PI / 2; sh.position.set(d.x, d.y + 0.03, d.z); this.root.add(sh); g.position.set(d.x, d.y + d.h, d.z); this.root.add(g); this.dyn.drops.push({ g, d, sh }); });
       // barres tournantes
       (C.sweeps || []).forEach((s) => { const g = new T.Group(); const bar = new T.Mesh(new T.BoxGeometry(s.len * 2, 0.5, s.th * 2), lam({ map: barTex() })); bar.position.y = 0.3; bar.castShadow = true; const hub = cyl(0.45, 0.55, 0.7, 0xffd23d, 12); hub.position.y = 0.35; g.add(bar, hub); g.position.set(s.x, s.y, s.z); g.userData = { s, bar }; this.root.add(g); this.dyn.sw.push(g); const map = bar.material.map; map.repeat.set(s.len * 1.2, 1); });
       // drapeaux, repères de zone et sommet
@@ -248,8 +270,8 @@
     // palette selon l'altitude, avec un fondu à l'entrée de chaque monde
     setAltitude(y, dt) {
       const C = this.C; let zi = 0; for (let i = 0; i < C.zones.length; i++) if (y >= C.zones[i].y0 - 3) zi = i; const z = C.zones[zi]; const th = THEMES[z.id];
-      let top = C3(th.sky[0]), bot = C3(th.sky[1]), hem = C3(th.hemi[0]), grd = C3(th.hemi[1]), sun = C3(th.sun), stars = z.id === 6 ? 1 : 0;
-      if (zi > 0) { const pz = THEMES[C.zones[zi - 1].id]; const k = Math.max(0, Math.min(1, (y - (z.y0 - 3)) / 12)); if (k < 1) { top = C3(pz.sky[0]).lerp(top, k); bot = C3(pz.sky[1]).lerp(bot, k); hem = C3(pz.hemi[0]).lerp(hem, k); grd = C3(pz.hemi[1]).lerp(grd, k); sun = C3(pz.sun).lerp(sun, k); if (C.zones[zi - 1].id === 6) stars = 1 - k; else if (z.id === 6) stars = k; } }
+      let top = C3(th.sky[0]), bot = C3(th.sky[1]), hem = C3(th.hemi[0]), grd = C3(th.hemi[1]), sun = C3(th.sun), stars = z.id === 6 || z.id === 12 ? 1 : 0;
+      if (zi > 0) { const pz = THEMES[C.zones[zi - 1].id]; const k = Math.max(0, Math.min(1, (y - (z.y0 - 3)) / 12)); if (k < 1) { top = C3(pz.sky[0]).lerp(top, k); bot = C3(pz.sky[1]).lerp(bot, k); hem = C3(pz.hemi[0]).lerp(hem, k); grd = C3(pz.hemi[1]).lerp(grd, k); sun = C3(pz.sun).lerp(sun, k); if (C.zones[zi - 1].id === 6 || C.zones[zi - 1].id === 12) stars = 1 - k; else if (z.id === 6 || z.id === 12) stars = k; } }
       const f = Math.min(1, (dt || 0.016) * 3); const c = this.cur; c.top.lerp(top, f); c.bot.lerp(bot, f); c.hem.lerp(hem, f); c.grd.lerp(grd, f); c.sun.lerp(sun, f); c.stars += (stars - c.stars) * f;
       this.sky.material.uniforms.top.value.copy(c.top); this.sky.material.uniforms.bot.value.copy(c.bot); this.scene.fog.color.copy(c.bot); this.hemi.color.copy(c.hem); this.hemi.groundColor.copy(c.grd); this.sun.color.copy(c.sun); this.stars.material.opacity = c.stars; this.zone = zi;
     }
@@ -287,6 +309,8 @@
       for (const q of D.osq) { q.t += dt; const k = Math.max(0, 1 - q.t / 0.45), w = k * Math.cos(q.t * 26); if (q.dip) q.tgt.position.y = q.y0 - q.amp * w; else q.tgt.scale.y = 1 - q.amp * w; }
       for (const b of D.belts) { b.map.offset.x -= 2.3 * dt / 1.9; }
       if (focus && (this._lod = (this._lod || 0) + dt) > 0.3) { this._lod = 0; for (const e of this.objs) { const dx = e.o.px - focus.x, dy = e.o.py - focus.y, dz = e.o.pz - focus.z; e.g.visible = dx * dx + dy * dy + dz * dz < 170 * 170; } }
+      for (const sp of D.spin) sp.g.rotation.y = -sp.b.spin * t;
+      for (const q of D.drops) { const k = VgSim.dropState(q.d, t); const y = VgSim.dropY(q.d, t); q.g.visible = !(k > 0.98); if (y == null) { q.g.position.y = q.d.y + q.d.h + (k > 0.5 ? Math.sin(t * 50) * 0.04 : 0); q.sh.material.opacity = k > 0.5 ? 0.35 : 0; } else { q.g.position.y = y; q.sh.material.opacity = 0.55; } }
       for (const s of D.sw) { s.rotation.y = -(s.userData.s.w * t + s.userData.s.ph); }
       for (const g of D.spr) { const u = g.userData; u.t += dt; const k = Math.max(0, 1 - u.t / 0.35); const sq = 1 - 0.55 * k * Math.sin(u.t * 30 + 1); u.cap.scale.y = Math.max(0.3, sq); u.cap.position.y = 0.24 + (1 - sq) * -0.06 + (u.t < 0.35 ? 0.18 * Math.sin(u.t * 9) : 0); u.coil.scale.y = u.t < 0.35 ? 1 + 3 * Math.sin(u.t * 9) : 1; }
       for (const d of this.decor) { const g = d.g; g.visible = Math.abs(d.zi - (this.zone || 0)) <= 1; if (g.userData.bob) g.userData.bob.forEach(([o, y, ph]) => { o.position.y = y + Math.sin(t * 0.5 + ph) * 0.6; }); if (g.userData.spin) g.userData.spin.forEach(([o, w]) => { o.rotation.z += w * dt; }); if (g.userData.wheel) { g.userData.wheel.rotation.z += dt * 0.12; g.userData.wheel.children.forEach((c) => { if (c.userData.gond) c.rotation.z = -g.userData.wheel.rotation.z; }); } if (g.userData.floaters) g.userData.floaters.forEach((o, i) => { o.rotation.y += dt * 0.3; o.position.y += Math.sin(t * 0.7 + i) * dt * 0.4; }); if (g.userData.hands) { g.userData.hands.forEach((h, i) => { h.rotation.z = -(t * (i ? 0.02 : 0.2)); }); } }

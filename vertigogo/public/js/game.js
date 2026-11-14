@@ -77,7 +77,11 @@
     const mk = new T.Group(); const ring = new T.Mesh(new T.RingGeometry(0.34, 0.5, 28), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false, depthTest: false })); ring.rotation.x = -Math.PI / 2; const dot = new T.Mesh(new T.CircleGeometry(0.3, 20), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false, depthTest: false })); dot.rotation.x = -Math.PI / 2; mk.add(ring, dot); mk.renderOrder = 9; ring.renderOrder = 9; dot.renderOrder = 9; R.scene.add(mk); G.marker = mk;
     // ombre ronde toujours posée sous le personnage, pour juger chaque atterrissage
     const blob = new T.Mesh(new T.CircleGeometry(0.42, 24), new T.MeshBasicMaterial({ color: 0x0a0c18, transparent: true, opacity: 0.4, depthWrite: false })); blob.rotation.x = -Math.PI / 2; blob.renderOrder = 8; R.scene.add(blob); G.blob = blob;
-    G.cam.yaw = G.C.start.ry + Math.PI; G.cam.pitch = 0.42; G.cam.init = false;
+    G.cam.yaw = G.C.start.ry + Math.PI; G.cam.pitch = 0.42; G.cam.init = false; G.out = null; G.slow = 0; G.fallTop = null;
+    // mode lave, une grande nappe rougeoyante qui monte depuis le bas
+    if (G.lavaM) { R.scene.remove(G.lavaM); G.lavaM = null; }
+    if (msg.lava) { const c = document.createElement("canvas"); c.width = c.height = 256; const g2 = c.getContext("2d"); g2.fillStyle = "#ff5a10"; g2.fillRect(0, 0, 256, 256); for (let i = 0; i < 60; i++) { g2.fillStyle = "rgba(" + (40 + Math.floor(Math.random() * 30)) + ",16,16," + (0.55 + Math.random() * 0.4) + ")"; g2.beginPath(); const x = Math.random() * 256, y = Math.random() * 256, r = 8 + Math.random() * 22; for (let a = 0; a < 7; a++) { const an = a / 7 * 6.28, d = r * (0.7 + Math.random() * 0.5); g2.lineTo(x + Math.cos(an) * d, y + Math.sin(an) * d); } g2.fill(); } for (let i = 0; i < 30; i++) { g2.fillStyle = "rgba(255,220,90,0.5)"; g2.beginPath(); g2.arc(Math.random() * 256, Math.random() * 256, 2 + Math.random() * 5, 0, 6.28); g2.fill(); }
+      const tx = new T.CanvasTexture(c); tx.wrapS = tx.wrapT = T.RepeatWrapping; tx.repeat.set(30, 30); const lm = new T.Mesh(new T.PlaneGeometry(600, 600), new T.MeshBasicMaterial({ map: tx, fog: false })); lm.rotation.x = -Math.PI / 2; lm.position.y = msg.lava.y0; lm.renderOrder = 1; R.scene.add(lm); G.lavaM = lm; }
     document.body.dataset.vg = "course"; $("#vg-end").classList.remove("show"); $("#vg-over").classList.remove("show");
     const md = Rules.MODES[msg.mode] || ""; $("#vg-mode").innerHTML = `<span>${esc(md)}</span><span style="opacity:.75">${msg.mode === "jour" ? esc(msg.day) : "Graine " + esc(msg.seed)}</span>`;
     renderRail(); renderBoard();
@@ -103,6 +107,7 @@
     s.on("v:rank", (r) => { G.rank = r; });
     s.on("v:fix", onFix);
     s.on("v:cp", () => {});
+    s.on("v:out", (d) => { if (!G.msg) return; feed(`${dotHtml(d.id)} est englouti par la lave`); if (d.id === G.mine) { G.out = d; SND.crumble(); banner("Englouti par la lave", "Tu regardes la fin de la course", 5000); } });
     s.on("v:fin", (d) => { if (!G.msg) return; feed(`${dotHtml(d.id)} atteint le sommet en ${esc(fmtT(d.t))}`); if (d.id === G.mine) onMyFinish(d); });
     s.on("v:over", (d) => { G.over = d; showOver(d); });
     s.on("v:cosmap", (m) => { G.cos = m; refreshPreview(); });
@@ -180,10 +185,15 @@
     // simulation locale à pas fixe
     if (G.phase === "play") {
       G.acc += dt; let n = 0; const inp = G.auto ? G.auto() : readInput(); if (G.lock > 0) { G.lock -= dt; inp.mx = inp.mz = 0; inp.jump = false; } if (!playing) { inp.mx = inp.mz = 0; inp.jump = false; }
+      // ralenti d'une grande chute, une seconde où le temps du personnage s'étire et la caméra recule
+      if (P.st === "air" && P.vy < 0) { if (G.fallTop == null) G.fallTop = P.y; if (!G.slowDone && G.slowOn !== false && G.fallTop - P.y > 14 && P.vy < -16) { G.slow = 1.0; G.slowDone = true; SND.whoosh && SND.whoosh(); } } else if (P.st !== "air") { G.fallTop = null; G.slowDone = false; }
+      if (G.slow > 0) { G.slow -= dt; G.acc -= dt * 0.65; if (G.acc < 0) G.acc = 0; }
+      if (G.out) { inp.mx = inp.mz = 0; inp.jump = false; }
       while (G.acc >= S.DT && n < 5) { G.acc -= S.DT; n++; W.t = G.tPlay - G.acc; if (W.t < 0) W.t = 0; S.prepare(W); S.stepPlayer(W, P, inp, ev); }
       if (G.acc > 0.2) G.acc = 0;
     } else { G.acc = 0; W.t = G.tPlay; S.prepare(W); }
     handleEvents(ev, dt);
+    if (G.lavaM && G.msg.lava) { const L = G.msg.lava; const y = L.y0 + Math.max(0, (G.phase === "play" ? G.tPlay : 0) - L.delay) * L.v; G.lavaM.position.y = y; G.lavaM.material.map.offset.x = (G.tPlay || 0) * 0.004; G.lavaM.material.map.offset.y = Math.sin((G.tPlay || 0) * 0.3) * 0.01; G.lavaY = y; }
     // envoi de l'état
     if (G.phase === "play" && now - G.lastSend > 50) { G.lastSend = now; Kit.socket.emit("v:st", { x: +P.x.toFixed(3), y: +P.y.toFixed(3), z: +P.z.toFixed(3), ry: +Math.atan2(P.fx, P.fz).toFixed(3), a: animCode(P), s: P.st === "ground" ? 0 : P.st === "air" ? 1 : P.st === "hang" ? 2 : 3, on: P.st === "ground" ? P.on : -1, vh: +Math.hypot(P.vx, P.vz).toFixed(2), vy: +P.vy.toFixed(2) }); }
     // sécurité si le serveur ne répond pas à une chute
@@ -215,6 +225,7 @@
       else if (e.e === "mantle") { SND.mantle(); FX.dust(e.x, e.y, e.z, 0, 0, 5); }
       else if (e.e === "spring") { SND.spring(); FX.spring(e.x, e.y, e.z); G.view.squash(e.i); shake(0.2); }
       else if (e.e === "crumble") { SND.crumble(); const b = G.C.boxes[e.i]; if (b) FX.crumble((b.x0 + b.x1) / 2, b.y1, (b.z0 + b.z1) / 2); }
+      else if (e.e === "drop") { if (performance.now() - (G.dropAt || 0) > 500) { SND.crumble(); shake(0.25); G.dropAt = performance.now(); FX.poof(P.x, P.y + 1.8, P.z, 0xcdefff); } }
       else if (e.e === "sweep") { if (performance.now() - (G.sweepAt || 0) > 400) { SND.sweep(); G.sweepAt = performance.now(); } }
     }
   }
@@ -248,7 +259,7 @@
     if (!c.init) { c.fx = tx; c.fy = ty; c.fz = tz; c.init = true; c.dist = 7; }
     c.fx += (tx - c.fx) * Math.min(1, dt * 12); c.fz += (tz - c.fz) * Math.min(1, dt * 12);
     const rate = P.st === "ground" || P.st === "hang" || P.st === "climb" ? 7 : P.vy < -10 ? 10 : 3.5; c.fy += (ty - c.fy) * Math.min(1, dt * rate); if (c.fy > ty + 2) c.fy = ty + 2; if (c.fy < ty - 3.2) c.fy = ty - 3.2;
-    const sp = Math.hypot(P.vx, P.vz); const want = 6.6 + clamp(sp * 0.09, 0, 0.7) + (P.vy < -8 ? clamp(-P.vy * 0.08, 0, 3) : 0) + (P.st === "hang" ? 1.2 : 0) + (asp < 0.8 ? 2 : 0);
+    const sp = Math.hypot(P.vx, P.vz); const want = (G.slow > 0 ? 4.5 * Math.sin(Math.min(1, G.slow) * Math.PI) : 0) + 6.6 + clamp(sp * 0.09, 0, 0.7) + (P.vy < -8 ? clamp(-P.vy * 0.08, 0, 3) : 0) + (P.st === "hang" ? 1.2 : 0) + (asp < 0.8 ? 2 : 0);
     const cp = Math.cos(c.pitch), sp2 = Math.sin(c.pitch); const dx = Math.sin(c.yaw) * cp, dy = sp2, dz = Math.cos(c.yaw) * cp;
     const th = rayBoxes(c.fx, c.fy, c.fz, dx, dy, dz, want + 0.4); let d = th < want + 0.4 ? Math.max(1.0, th - 0.45) : want;
     if (d < c.dist) c.dist = c.dist + (d - c.dist) * Math.min(1, dt * 18); else c.dist += (d - c.dist) * Math.min(1, dt * 2.5);
@@ -263,7 +274,7 @@
   function updateHud(P, dt) {
     const now = performance.now(); if (now - G.hudAt < 100) return; G.hudAt = now; const C = G.C; const top = C.summitTop;
     const rk = G.rank; const pen = G.pen || 0; const tl = $("#vg-timer"); if (tl) { const el0 = G.phase === "play" ? G.tPlay : (G.over ? G.over.t : 0); tl.textContent = fmtS(el0 + (G.msg.mode === "chrono" ? pen : 0)) + (G.msg.mode === "chrono" && pen ? " (plus " + pen + " s)" : "") + (rk && rk.left != null && G.phase === "play" ? "  reste " + fmtS(rk.left) : ""); }
-    $("#vg-h").textContent = Math.max(0, Math.round(P.y)) + " m"; const zi = Cr.zoneAt(C, P.y); $("#vg-z").textContent = C.zones[zi].name + "  sur  " + Math.round(top) + " m";
+    $("#vg-h").textContent = Math.max(0, Math.round(P.y)) + " m" + (G.lavaY != null && G.msg.lava && !G.out && !G.fin ? "  ·  lave à " + Math.max(0, Math.round(P.y - G.lavaY)) + " m" : ""); const zi = Cr.zoneAt(C, P.y); $("#vg-z").textContent = C.zones[zi].name + "  sur  " + Math.round(top) + " m";
     if (rk) { renderBoard(); rk.rows.forEach((r) => { const pin = $("#pin-" + r.id); if (pin) pin.style.bottom = clamp((r.id === G.mine ? Math.max(P.y, r.h) : r.h) / top * 100, 0, 100) + "%"; }); if (rk.closing && G.phase === "play") { const l = $("#vg-timer"); } }
     const pr = $("#vg-prompt"); const on = P.st === "hang"; pr.classList.toggle("on", on); if (on) pr.textContent = isTouch ? "Saute pour te hisser" : "Espace ou avance pour te hisser, Maj pour lâcher";
     if (G.phase === "count") { const n = Math.ceil((G.countAt - now) / 1000); if (n !== G.countN && n > 0 && n <= 3) { G.countN = n; SND.beep(n === 1 ? 1 : 0); banner(String(n), "", 0); } else if (n > 3) { banner(G.C.zones.length + " mondes, " + Math.round(top) + " mètres", "Atteins le sommet avant les autres", 0); } }
@@ -271,7 +282,7 @@
 
   // ---------- fin de course ----------
   function tableRows(rows, mode) {
-    return `<table class="vg-tab"><tr><th>#</th><th>Joueur</th><th class="n">Hauteur</th><th class="n">Temps</th><th class="n">Chutes</th></tr>` + rows.map((r) => `<tr class="${r.id === G.mine ? "me" : ""} ${r.place === 1 ? "win" : ""}"><td>${r.place}</td><td><span class="dot" style="background:${colorOf(r.id)}"></span>${esc(nameOf(r.id))}</td><td class="n">${Math.round(r.h)} m</td><td class="n">${r.fin != null ? esc(fmtT(r.fin)) : "pas fini"}</td><td class="n">${r.falls}</td></tr>`).join("") + "</table>";
+    return `<table class="vg-tab"><tr><th>#</th><th>Joueur</th><th class="n">Hauteur</th><th class="n">Temps</th><th class="n">Chutes</th></tr>` + rows.map((r) => `<tr class="${r.id === G.mine ? "me" : ""} ${r.place === 1 ? "win" : ""}"><td>${r.place}</td><td><span class="dot" style="background:${colorOf(r.id)}"></span>${esc(nameOf(r.id))}</td><td class="n">${Math.round(r.h)} m</td><td class="n">${r.fin != null ? esc(fmtT(r.fin)) : r.out != null ? "englouti à " + fmtT(r.out) : "pas fini"}</td><td class="n">${r.falls}</td></tr>`).join("") + "</table>";
   }
   function showOver(d) {
     if (!G.msg) return; const ov = $("#vg-over"); const first = d.rows[0]; const head = first && first.fin != null ? nameOf(first.id) + " remporte la course" : "Course terminée";

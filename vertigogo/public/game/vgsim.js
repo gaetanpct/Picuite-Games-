@@ -6,7 +6,7 @@
   const DT = 1 / 60;
   const K = {
     R: 0.32, H: 1.7, RUN: 6.0, ACC: 46, DEC: 52, AIR_ACC: 22, AIR_MAX: 6.8, G: 27, JV: 9.6, CUT: 0.42, COY: 0.11, BUF: 0.13, VMAX: -34,
-    ICE_ACC: 6, ICE_DEC: 1.3, SPRING_V: 17.5, STEP: 0.3, REACH_LO: 0.95, REACH_HI: 1.8, HANG_DY: 1.55, CLIMB_T: 0.52, REGRAB: 0.35, TURN: 16,
+    ICE_ACC: 6, ICE_DEC: 1.3, LEAF_ACC: 15, LEAF_DEC: 4.5, SPRING_V: 17.5, STEP: 0.3, REACH_LO: 0.95, REACH_HI: 1.8, HANG_DY: 1.55, CLIMB_T: 0.52, REGRAB: 0.35, TURN: 16,
   };
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
@@ -14,7 +14,7 @@
   // box : {id, x0,x1,y0,y1,z0,z1, k:"solid|ice|crumble|spring|mover|lift", mv:{ax,amp,per,ph}, cr:{delay,back}}
   // sweep : {x,y,z, len, w (rad/s), ph, h, th} barre qui tourne
   function makeWorld(course) {
-    const W = { t: 0, boxes: course.boxes.map((b) => Object.assign({}, b)), sweeps: course.sweeps || [], cr: {}, cell: 6, grid: new Map(), movers: [], dyn: [] };
+    const W = { t: 0, boxes: course.boxes.map((b) => Object.assign({}, b)), sweeps: course.sweeps || [], drops: course.drops || [], grav: course.grav || [], cr: {}, cell: 6, grid: new Map(), movers: [], dyn: [] };
     W.boxes.forEach((b, i) => {
       b.i = i; b.ox = 0; b.oy = 0; b.oz = 0; b.px = 0; b.py = 0; b.pz = 0; b.live = true;
       b.X0 = b.x0; b.X1 = b.x1; b.Y0 = b.y0; b.Y1 = b.y1; b.Z0 = b.z0; b.Z1 = b.z1;
@@ -64,8 +64,9 @@
     if (jpress) P.buf = K.BUF; else P.buf = Math.max(0, P.buf - dt);
     P.grabLock = Math.max(0, P.grabLock - dt);
 
-    // porté par une plateforme mobile ou un tapis roulant
-    if (P.on >= 0) { const b = W.boxes[P.on]; if (b && b.mv) { P.x += b.ox - b.px; P.y += b.oy - b.py; P.z += b.oz - b.pz; } else if (b && b.cv && P.st === "ground") { P.x += b.cv[0] * dt; P.z += b.cv[1] * dt; } }
+    // porté par une plateforme mobile, un tapis roulant ou une plaque tournante
+    if (P.on >= 0) { const b = W.boxes[P.on]; if (b && b.mv) { P.x += b.ox - b.px; P.y += b.oy - b.py; P.z += b.oz - b.pz; } else if (b && b.cv && P.st === "ground") { P.x += b.cv[0] * dt; P.z += b.cv[1] * dt; }
+      if (b && b.spin && P.st === "ground") { const cx = (b.X0 + b.X1) / 2, cz = (b.Z0 + b.Z1) / 2, a = b.spin * dt, ca = Math.cos(a), sa = Math.sin(a); const rx = P.x - cx, rz = P.z - cz; P.x = cx + rx * ca - rz * sa; P.z = cz + rx * sa + rz * ca; const fx = P.fx * ca - P.fz * sa, fz = P.fx * sa + P.fz * ca; P.fx = fx; P.fz = fz; } }
 
     // ---- escalade ----
     if (P.st === "climb") {
@@ -94,10 +95,10 @@
     const grounded = P.st === "ground";
     if (grounded) { P.coy = K.COY; P.tAir = 0; } else { P.coy = Math.max(0, P.coy - dt); P.tAir += dt; }
     // surface
-    let ice = false; if (grounded && P.on >= 0) { const b = W.boxes[P.on]; ice = b && b.k === "ice"; }
+    let ice = false, leaf = false; if (grounded && P.on >= 0) { const b = W.boxes[P.on]; ice = b && b.k === "ice"; leaf = b && b.k === "leaf"; }
     const wantL = Math.hypot(mx, mz); const sp = K.RUN * wantL;
     if (grounded) {
-      const tvx = mx * K.RUN, tvz = mz * K.RUN; const a = ice ? (wantL > 0.05 ? K.ICE_ACC : K.ICE_DEC) : (wantL > 0.05 ? K.ACC : K.DEC);
+      const tvx = mx * K.RUN, tvz = mz * K.RUN; const a = ice ? (wantL > 0.05 ? K.ICE_ACC : K.ICE_DEC) : leaf ? (wantL > 0.05 ? K.LEAF_ACC : K.LEAF_DEC) : (wantL > 0.05 ? K.ACC : K.DEC);
       const dx = tvx - P.vx, dz = tvz - P.vz, dl = Math.hypot(dx, dz), s = Math.min(dl, a * dt); if (dl > 1e-6) { P.vx += dx / dl * s; P.vz += dz / dl * s; }
     } else {
       // contrôle aérien, on ne brake pas, on infléchit
@@ -110,7 +111,8 @@
     // saut
     if (P.buf > 0 && P.coy > 0) { P.vy = K.JV; P.st = "air"; P.on = -1; P.coy = 0; P.buf = 0; P.jumped = true; ev.push({ e: "jump", x: P.x, y: P.y, z: P.z }); }
     if (!P.jheld && P.vy > 0 && P.jumped) { P.vy *= Math.pow(K.CUT, dt * 12); }
-    P.vy -= K.G * dt; if (P.vy < K.VMAX) P.vy = K.VMAX;
+    let gk = 1; for (let i = 0; i < W.grav.length; i++) { const q = W.grav[i]; if (P.y >= q.y0 && P.y <= q.y1) { gk = q.g; break; } }
+    P.vy -= K.G * gk * dt; if (P.vy < K.VMAX * (gk < 1 ? 0.75 : 1)) P.vy = K.VMAX * (gk < 1 ? 0.75 : 1);
 
     // déplacement par axes
     const box = tmp; let hit = null;
@@ -149,6 +151,12 @@
       const lim = s.len; if (Math.abs(u) > lim + R) continue; const hw = s.th + R; if (Math.abs(v) < hw) { const sg = v >= 0 ? 1 : -1; const push = (hw - Math.abs(v)) + 0.02; P.x += -sa * sg * push; P.z += ca * sg * push; const ws = s.w * Math.abs(u); P.vx += -sa * sg * Math.min(8, ws * 0.6 + 2); P.vz += ca * sg * Math.min(8, ws * 0.6 + 2); ev.push({ e: "sweep", i }); }
     }
 
+    // ---- stalactites qui tombent ----
+    for (let i = 0; i < W.drops.length; i++) {
+      const d = W.drops[i]; const y = dropY(d, W.t); if (y == null) continue; if (P.y > y + 0.2 || P.y + H < y - 1.2) continue; const rx = P.x - d.x, rz = P.z - d.z, dist = Math.hypot(rx, rz); if (dist > d.r + R) continue;
+      const nx = dist > 0.01 ? rx / dist : 1, nz = dist > 0.01 ? rz / dist : 0; P.vx = nx * 5.5; P.vz = nz * 5.5; if (P.st === "ground") { P.vy = 4; P.st = "air"; P.on = -1; } if (P.st === "hang") { P.st = "air"; P.hang = null; P.grabLock = K.REGRAB; } ev.push({ e: "drop", i });
+    }
+
     // ---- accroche de rebord ----
     if (P.st === "air" && P.vy < 2.5 && P.vy > -7.5 && P.grabLock <= 0 && !P.noGrab) {
       let gx = mx, gz = mz; if (Math.hypot(gx, gz) < 0.2) { gx = P.fx; gz = P.fz; } const gl = Math.hypot(gx, gz) || 1; gx /= gl; gz /= gl;
@@ -171,11 +179,14 @@
     return ev;
   }
 
+  // hauteur de la pointe d'une stalactite, ou rien quand elle remonte. Elle pend, tremble, tombe en 0,45 s puis réapparaît en haut
+  function dropY(d, t) { const k = ((t / d.per + d.ph) % 1 + 1) % 1; if (k < 0.62) return null; if (k < 0.8) return d.y + d.h; const f = (k - 0.8) / 0.2; return d.y + d.h * (1 - f * f); }
+  const dropState = (d, t) => { const k = ((t / d.per + d.ph) % 1 + 1) % 1; return k; };
   // avance le monde d'un pas
   function tick(W) { W.t += DT; prepare(W); }
 
   function clonePlayer(P) { const c = Object.assign({}, P); if (P.hang) c.hang = Object.assign({}, P.hang); if (P.climb) c.climb = Object.assign({}, P.climb); return c; }
   function cloneWorldState(W) { return { t: W.t, cr: JSON.parse(JSON.stringify(W.cr)) }; }
 
-  return { DT, K, clamp, makeWorld, prepare, tick, newPlayer, stepPlayer, clonePlayer, cloneWorldState, near, solid, overlapAny };
+  return { dropY, dropState, DT, K, clamp, makeWorld, prepare, tick, newPlayer, stepPlayer, clonePlayer, cloneWorldState, near, solid, overlapAny };
 });

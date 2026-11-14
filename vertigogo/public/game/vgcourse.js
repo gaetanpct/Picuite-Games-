@@ -4,9 +4,11 @@
 // sur les vrais sauts du contrôleur, puis le serveur vérifie tout avec un pilote automatique.
 // ============================================================
 (function (root, factory) { if (typeof module === "object" && module.exports) module.exports = factory(require("./vgsim.js"), require("./vgprops.js")); else root.VgCourse = factory(root.VgSim, root.VgProps); })(typeof self !== "undefined" ? self : this, function (S, PR) {
-  const THEMES = ["jardin", "rue", "chantier", "maison", "cuisine", "toits", "cimetiere", "nuages"];
-  const NAMES = ["Le jardin", "La rue", "Le chantier", "La maison géante", "La cuisine géante", "Les toits", "Le cimetière", "Les nuages"];
-  const BLURBS = ["Des pins, des rochers et des champignons qui font rebondir.", "Des voitures, des bennes et des poteaux tout fins.", "Des caisses, des poutres et des palettes empilées.", "Des chaises, des tables, un canapé et un lit trampoline.", "Un fourneau, un frigo, des marmites et un tapis roulant.", "Des immeubles de hauteurs différentes et des trampolines.", "Des arbres morts, des citrouilles et des tombes qui s'effritent.", "Des nuages moelleux et des bonds géants vers le sommet."];
+  const THEMES = ["jardin", "rue", "chantier", "maison", "cuisine", "toits", "cimetiere", "nuages", "plage", "automne", "hiver", "jouets", "espace"];
+  const NAMES = ["Le jardin", "La rue", "Le chantier", "La maison géante", "La cuisine géante", "Les toits", "Le cimetière", "Les nuages", "La plage", "L'automne", "L'hiver", "L'usine à jouets", "L'espace"];
+  // ordre de montée des mondes, de bas en haut
+  const ORDER = [0, 8, 1, 2, 9, 3, 4, 11, 5, 10, 6, 7, 12];
+  const BLURBS = ["Des pins, des rochers et des champignons qui font rebondir.", "Des voitures, des bennes et des poteaux tout fins.", "Des caisses, des poutres et des palettes empilées.", "Des chaises, des tables, un canapé et un lit trampoline.", "Un fourneau, un frigo, des marmites et un tapis roulant.", "Des immeubles de hauteurs différentes et des trampolines.", "Des arbres morts, des citrouilles et des tombes qui s'effritent.", "Des nuages moelleux et des bonds géants vers le sommet.", "Des bouées qui flottent et font rebondir, des parasols et des châteaux de sable.", "Des tas de feuilles mortes qui glissent un peu et des branches qui craquent sous les pieds.", "De la glace où l'on glisse, des bonshommes de neige et des stalactites qui tombent.", "Des tapis roulants, des pistons et des engrenages qui tournent.", "Une gravité plus faible pour de grands sauts, des astéroïdes et des débris qui flottent."];
   const WEIGHTS = [
     { prop: 8, steps: 2, gaps: 2, narrow: 1, crumble: 1, tramp: 2 },
     { prop: 8, gaps: 2, steps: 1, wall: 1, mover: 2, lift: 1, tramp: 2 },
@@ -16,6 +18,11 @@
     { prop: 7, gaps: 3, wall: 2, narrow: 1, tramp: 3, mover: 1 },
     { prop: 7, crumble: 3, narrow: 1, sweeper: 1, steps: 1, spring: 1, tramp: 1 },
     { prop: 6, crumble: 3, spring: 2, tramp: 3, gaps: 1, lift: 1, mover: 1, ice: 1 },
+    { prop: 7, bouee: 3, steps: 1, gaps: 1, mover: 1, tramp: 1 },
+    { prop: 7, leaf: 3, crumble: 2, steps: 1, gaps: 1, tramp: 1 },
+    { prop: 6, ice: 3, drop: 2, steps: 1, narrow: 1, gaps: 1, tramp: 1 },
+    { prop: 6, spin: 3, lift: 2, mover: 1, steps: 1, tramp: 1 },
+    { prop: 6, debris: 3, gaps: 2, spin: 1, mover: 1, tramp: 1 },
   ];
   const DIFF = {
     facile: { gap: 0.58, wall: 2.1, narrow: 1.6, crumble: 0.85, per: 6.2, zoneBonus: 0.06 },
@@ -48,10 +55,10 @@
     const nzReq = [4, 6, 8].includes(opts.zones | 0) ? opts.zones | 0 : 6; const R = rng(hash(String(seed) + "|" + nzReq + "|" + diffName + "|" + salt + "|" + (opts.pool ? opts.pool.join("") : "")));
     const pick = (lo, hi) => lo + (hi - lo) * R(); const ri = (lo, hi) => Math.floor(pick(lo, hi + 1)); const sgn = () => (R() < 0.5 ? -1 : 1);
     // quelles zones, toujours dans l'ordre de montée
-    let pool = Array.from(new Set((opts.pool && opts.pool.length ? opts.pool : [0, 1, 2, 3, 4, 5, 6, 7]).map(Number).filter((v) => v >= 0 && v <= 7))).sort((a, b) => a - b); if (!pool.length) pool = [0, 1, 2, 3, 4, 5, 6, 7];
+    let pool = Array.from(new Set((opts.pool && opts.pool.length ? opts.pool : ORDER).map(Number).filter((v) => v >= 0 && v < THEMES.length))).sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b)); if (!pool.length) pool = ORDER.slice();
     let ids; if (pool.length <= nzReq) ids = pool.slice(); else { const keep = new Set([pool[0], pool[pool.length - 1]]); while (keep.size < nzReq) keep.add(pool[ri(1, pool.length - 2)]); ids = pool.filter((v) => keep.has(v)); }
     const nz = ids.length;
-    const C = { boxes: [], sweeps: [], nodes: [], zones: [], objs: [], seed, opts: { seed, salt, diff: diffName, zones: nzReq, pool: opts.pool || null } }; const boxes = C.boxes;
+    const C = { boxes: [], sweeps: [], drops: [], nodes: [], zones: [], objs: [], seed, opts: { seed, salt, diff: diffName, zones: nzReq, pool: opts.pool || null } }; const boxes = C.boxes;
     const HZ = nz <= 3 ? 42 : nz === 4 ? 38 : nz <= 6 ? 31 : 26; const Hs = 12 + ri(0, 2) * 1.5; // demi-côté de la spirale
     // état du curseur
     let dir = 0, lx = -Hs, lz = -Hs, ltop = 0, lw = 8, ld = 8, lastBox = null; let zoneIdx = 0, zStartY = 0, zNodeStart = 0, side = 0, halfPlaced = false, nextCp = 0;
@@ -115,6 +122,20 @@
         const dy2 = pick(0, 0.6), e = place(sg(dy2, gapF(z) * 0.7), dy2, pick(3, 4), 3.2, 0, "solid"); if (conflict(e, 2)) { C.sweeps.pop(); boxes.pop(); C.nodes.pop(); return false; } commit(e); adopt(e); return true;
       },
     };
+    // bouées qui flottent, montent et descendent doucement et font rebondir
+    MODS.bouee = function (z) { const n = ri(2, 3); for (let i = 0; i < n; i++) { const dy = pick(0, 0.5), g = sg(dy, gapF(z)) * pick(0.45, 0.7); const b = place(g, dy, 2.6, 2.6, pick(-0.6, 0.6), "spring", { sv: 15.5, mv: { ax: "y", amp: 0.35, per: pick(2.2, 3.0), ph: R() }, look: "bouee" }, 0.6); if (conflict(b, 1)) return false; commit(b); adopt(b);
+      const d2 = pick(2.4, 3.4), b2 = place(pick(1.2, 2.4), d2, pick(3, 3.8), pick(3, 3.6), pick(-0.6, 0.6), "solid", { look: "sable" }, 1.2); if (conflict(b2, 1)) return false; commit(b2); adopt(b2); } return true; };
+    // feuilles mortes, une surface qui glisse un peu
+    MODS.leaf = function (z) { const n = ri(2, 4); for (let i = 0; i < n; i++) { const dy = pick(-0.2, 0.7), g = sg(dy, gapF(z)) * pick(0.55, 0.85); const b = place(g, dy, pick(2.6, 3.6), pick(3, 4.2), pick(-0.6, 0.6), "leaf", null, 1.0); if (conflict(b, 1)) return false; commit(b); adopt(b); } return true; };
+    // plaques tournantes, un engrenage géant qui emporte le joueur en tournant
+    MODS.spin = function (z) { const n = ri(1, 2); for (let i = 0; i < n; i++) { const dy = pick(0, 0.6), sz = pick(3.8, 4.8), g = sg(dy, gapF(z)) * pick(0.5, 0.75); const b = place(g, dy, sz, sz, pick(-0.5, 0.5), "spin", { spin: sgn() * pick(0.6, 1.0) * (diffName === "facile" ? 0.75 : diffName === "difficile" ? 1.2 : 1) }, 0.8); if (conflict(b, 1)) return false; commit(b); adopt(b); }
+      const e = place(sg(0.3, gapF(z)) * 0.7, 0.3, pick(3, 3.8), 3.2, 0, "solid"); if (conflict(e, 1)) return false; commit(e); adopt(e); return true; };
+    // débris qui flottent dans l'espace, de petites plateformes qui dérivent lentement
+    MODS.debris = function (z) { const n = ri(2, 3); for (let i = 0; i < n; i++) { const f = DIRS[dir]; const dy = pick(0.2, 1.0), g = sg(dy, gapF(z)) * pick(0.45, 0.65); const b = place(g, dy, pick(2.8, 3.4), pick(2.8, 3.2), 0, "solid", { mv: { ax: R() < 0.5 ? "y" : (f[0] ? "z" : "x"), amp: pick(0.5, 0.9), per: pick(4.5, 6.5), ph: R() }, look: "debris" }, 0.9); if (conflict(b, 1)) return false; commit(b); adopt(b); } return true; };
+    // stalactites, des pointes de glace qui tombent régulièrement sur une plateforme large
+    MODS.drop = function (z) { const dy = pick(0, 0.5), b = place(sg(dy, gapF(z) * 0.7), dy, 5.6, 5.6, 0, "ice", null, 1.2); if (conflict(b, 1)) return false; commit(b); adopt(b);
+      const k = ri(2, 3); for (let q = 0; q < k; q++) C.drops.push({ x: (b.x0 + b.x1) / 2 + pick(-1.6, 1.6), z: (b.z0 + b.z1) / 2 + pick(-1.6, 1.6), y: b.y1, h: 6, per: pick(2.6, 3.6), ph: R(), r: 0.5, box: b.i });
+      const e = place(sg(0.4, gapF(z)) * 0.7, 0.4, pick(3, 3.8), 3.2, 0, "solid"); if (conflict(e, 1)) return false; commit(e); adopt(e); return true; };
     // ---- objets du quotidien : chaque objet a ses propres boîtes de collision ----
     let recent = [];
     function placeTpl(T, z, o) {
@@ -125,7 +146,7 @@
       const wb = L.boxes.map((b) => {
         const xs = [], zs = []; [[b.u0, b.v0], [b.u1, b.v0], [b.u0, b.v1], [b.u1, b.v1]].forEach((q) => { xs.push(fv[0] * (pf + q[0]) + nv[0] * (pn + q[1])); zs.push(fv[1] * (pf + q[0]) + nv[1] * (pn + q[1])); });
         const w = { x0: Math.min.apply(null, xs), x1: Math.max.apply(null, xs), z0: Math.min.apply(null, zs), z1: Math.max.apply(null, zs), y0: py + b.y0, y1: py + b.y1, k: b.k || "solid", zone: zoneIdx, w: Math.abs(b.v1 - b.v0), d: Math.abs(b.u1 - b.u0) };
-        if (b.sv) w.sv = b.sv; if (b.cv) { const sgn = R() < 0.5 ? -1 : 1; w.cv = [fv[0] * 2.3 * sgn, fv[1] * 2.3 * sgn]; w.cvs = sgn; } if (b.node === false) w.nonode = 1; return w;
+        if (b.sv) w.sv = b.sv; if (b.mv) w.mv = Object.assign({}, b.mv, { ph: R() }); if (b.spin) w.spin = b.spin * (R() < 0.5 ? -1 : 1); if (b.cv) { const sgn = R() < 0.5 ? -1 : 1; w.cv = [fv[0] * 2.3 * sgn, fv[1] * 2.3 * sgn]; w.cvs = sgn; } if (b.node === false) w.nonode = 1; return w;
       });
       for (let i = 0; i < wb.length; i++) if (conflict(wb[i], 1)) return false;
       const id = C.objs.length; const base = boxes.length; wb.forEach((w) => { w.obj = id; commit(w, false); });
@@ -141,8 +162,8 @@
     MODS.tramp = function (z) { return placeTpl(PR.byId("trampoline"), z, { dy: pick(0, 0.6), gap: pick(0.9, 1.8) }); };
     let lastMod = "";
     function weightedPick(z) { const w = WEIGHTS[ids[z]]; let tot = 0; const eff = {}; for (const k in w) { eff[k] = w[k] * ((k === "tramp" || k === "spring") && (lastMod === "tramp" || lastMod === "spring" || lastMod === "mover") ? 0 : k === lastMod && k !== "prop" ? 0.35 : 1); tot += eff[k]; } let r = R() * tot; for (const k in eff) { r -= eff[k]; if (r <= 0) return k; } return "steps"; }
-    function snapshotState() { return { dir, lx, lz, ltop, lw, ld, lastBox, nb: boxes.length, nn: C.nodes.length, ns: C.sweeps.length, no: C.objs.length }; }
-    function restore(s) { dir = s.dir; lx = s.lx; lz = s.lz; ltop = s.ltop; lw = s.lw; ld = s.ld; lastBox = s.lastBox; boxes.length = s.nb; C.nodes.length = s.nn; C.sweeps.length = s.ns; C.objs.length = s.no; }
+    function snapshotState() { return { dir, lx, lz, ltop, lw, ld, lastBox, nb: boxes.length, nn: C.nodes.length, ns: C.sweeps.length, no: C.objs.length, nd: C.drops.length }; }
+    function restore(s) { dir = s.dir; lx = s.lx; lz = s.lz; ltop = s.ltop; lw = s.lw; ld = s.ld; lastBox = s.lastBox; boxes.length = s.nb; C.nodes.length = s.nn; C.sweeps.length = s.ns; C.objs.length = s.no; C.drops.length = s.nd; }
     function corner(big, rest) { // plateforme d'angle, ou de repos, puis virage à droite
       const f = DIRS[dir], n = [-f[1], f[0]]; const t = cornerTarget(); const size = big ? 7.4 : 4.6;
       // on vise le coin idéal, en bornant la distance de saut
@@ -177,6 +198,8 @@
     C.cps = []; C.zones.forEach((zz, i) => { if (i > 0) C.cps.push(zz.rest); zz.cps.forEach((c) => C.cps.push(c)); }); C.cps.sort((a, b) => boxes[a].y1 - boxes[b].y1);
     // normalise pour le monde
     boxes.forEach((b) => { b.th = b.y1 - b.y0; });
+    // gravité plus faible dans l'espace
+    C.grav = C.zones.map((zz) => ({ y0: zz.y0 - 1, y1: zz.y1 + 4, g: zz.theme === "espace" ? 0.62 : 1 })).filter((q) => q.g !== 1);
     return C;
   }
 
@@ -185,5 +208,5 @@
   // rattrapage de zone en mode classique, c'est le repos de la zone en cours
   function netFor(C, bestY) { let r = C.startBox; for (let i = 0; i < C.zones.length; i++) { if (bestY >= C.boxes[C.zones[i].rest].y1 - 0.5) r = C.zones[i].rest; } return r; }
 
-  return { THEMES, NAMES, BLURBS, DIFF, generate, maxGap, envelope, rng, hash, zoneAt, netFor, trial };
+  return { ORDER, THEMES, NAMES, BLURBS, DIFF, generate, maxGap, envelope, rng, hash, zoneAt, netFor, trial };
 });

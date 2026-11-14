@@ -60,8 +60,8 @@
   one("chateau_eau", [5], "watertower", 9, B(.18, .82, .7, .78, .18, .82), 0, { w: 2 });
   // ---------- 6 le cimetière ----------
   def({ id: "arbre_mort", zones: [6], w: 4, proc: "arbre", style: "mort", parts: [], abs: [[-3.4, -0.9, -0.5, 0, -0.65, 0.65], [-0.45, 0.45, -5.5, 5.2, -0.45, 0.45, { node: false, trunk: 1 }], [-0.65, 0.65, 0.9, 1.4, 0.9, 3.4], [0.9, 3.5, 2.4, 2.8, -0.65, 0.65]], route: [0, 2, 3] });
-  one("citrouille", [6], "pumpkin_orange", 2.8, B(.1, .9, 0, .95, .1, .9), 0, { w: 2 });
-  one("citrouille_j", [6], "pumpkin_orange_jackolantern", 2.6, B(.1, .9, 0, .95, .1, .9), 0, { w: 2 });
+  one("citrouille", [6, 9], "pumpkin_orange", 2.8, B(.1, .9, 0, .95, .1, .9), 0, { w: 2 });
+  one("citrouille_j", [6, 9], "pumpkin_orange_jackolantern", 2.6, B(.1, .9, 0, .95, .1, .9), 0, { w: 2 });
   def({ id: "tas_citrouilles", zones: [6], w: 3, parts: [{ m: "pumpkin_yellow", s: 2.6, p: [0, 0, 0], ry: 0, b: [B(.1, .9, 0, .95, .1, .9)] }, { m: "pumpkin_orange", s: 3.0, p: [3.2, 0, 0], ry: 0, b: [B(.1, .9, 0, .95, .1, .9)] }, { m: "pumpkin_orange_jackolantern", s: 2.6, p: [6.95, 0, 0], ry: 0, b: [B(.1, .9, 0, .95, .1, .9)] }], route: [0, 1, 2] });
   one("tombe", [6], "gravestone", 2.4, B(.02, .98, 0, 1, .02, .98), 0, { w: 2 });
   one("cercueil", [6], "coffin", 2.3, B(.02, .98, 0, .86, .02, .98), 0, { w: 2 });
@@ -70,8 +70,31 @@
   one("nuage_g", [7], "cloud_big", 2.0, B(.12, .88, .62, .80, .12, .88), 0, { w: 3 });
   one("nuage_p", [7], "cloud_small", 2.6, B(.12, .88, .62, .80, .12, .88), 0, { w: 3 });
   def({ id: "nuage_saut", zones: [7], w: 3, parts: [{ m: "cloud_small", s: 2.4, p: [0, 0, 0], ry: 0, b: [B(.32, .68, .62, .80, .2, .8, { k: "spring", sv: 18 })] }, { m: "cloud_big", s: 2.0, p: [7.0, 3.3, 0], ry: 0, b: [B(.12, .88, .62, .80, .12, .88)] }], route: [0, 1] });
+  // ---------- 8 la plage ----------
+  def({ id: "parasol", zones: [8], w: 3, proc: "parasol", parts: [], abs: [[-0.2, 0.2, -4.5, 2.6, -0.2, 0.2, { node: false, trunk: 1 }], [-1.9, 1.9, 2.6, 2.9, -1.9, 1.9]], route: [1] });
+  def({ id: "chateau", zones: [8], w: 3, proc: "chateau", parts: [], abs: [[-2.2, 2.2, 0, 1.2, -2.2, 2.2], [-1.2, 1.2, 1.2, 2.5, -1.2, 1.2]], route: [0, 1] });
+  def({ id: "transat", zones: [8], w: 2, proc: "transat", parts: [], abs: [[-1.5, 1.5, 0, 0.8, -0.9, 0.9]], route: [0] });
+  def({ id: "glaciere", zones: [8], w: 1.5, proc: "glaciere", parts: [], abs: [[-1.1, 1.1, 0, 1.3, -1.4, 1.4]], route: [0] });
+  // ---------- 9 l'automne ----------
+  def({ id: "tas_feuilles", zones: [9], w: 3, proc: "feuilles", parts: [], abs: [[-1.9, 1.9, 0, 0.9, -1.9, 1.9, { k: "leaf" }]], route: [0] });
+  def({ id: "souche", zones: [9], w: 2, proc: "souche", parts: [], abs: [[-1.1, 1.1, 0, 1.3, -1.1, 1.1]], route: [0] });
+  def({ id: "arbre_roux", zones: [9], w: 3, proc: "arbre", style: "automne", parts: [], abs: [[-3.4, -0.9, -0.5, 0, -0.65, 0.65], [-0.45, 0.45, -5.5, 5.2, -0.45, 0.45, { node: false, trunk: 1 }], [-0.65, 0.65, 0.9, 1.4, 0.9, 3.4], [0.9, 3.5, 2.4, 2.8, -0.65, 0.65]], route: [0, 2, 3] });
+  // ---------- 10 l'hiver ----------
+  def({ id: "bonhomme", zones: [10], w: 3, proc: "bonhomme", parts: [], abs: [[-1.3, 1.3, 0, 1.6, -1.3, 1.3], [1.9, 3.7, 0, 2.9, -0.9, 0.9]], route: [0, 1] });
+  def({ id: "bloc_glace", zones: [10], w: 3, proc: "glacon", parts: [], abs: [[-1.7, 1.7, 0, 1.3, -1.7, 1.7, { k: "ice" }]], route: [0] });
+  def({ id: "igloo", zones: [10], w: 2, proc: "igloo", parts: [], abs: [[-2.1, 2.1, 0, 1.9, -2.1, 2.1]], route: [0] });
+  // ---------- 11 l'usine à jouets ----------
+  def({ id: "cubes", zones: [11], w: 3, proc: "cubes", parts: [], abs: [[-1.2, 1.2, 0, 1.2, -1.2, 1.2], [1.8, 4.2, 0, 2.4, -1.2, 1.2]], route: [0, 1] });
+  def({ id: "engrenage", zones: [11, 12], w: 3, proc: "engrenage", parts: [], abs: [[-2.2, 2.2, 0, 0.7, -2.2, 2.2, { k: "spin", spin: 0.8 }]], route: [0] });
+  def({ id: "toupie", zones: [11], w: 2, proc: "toupie", parts: [], abs: [[-1.4, 1.4, 0, 1.5, -1.4, 1.4]], route: [0] });
+  def({ id: "tapis_jouets", zones: [11], w: 3, proc: "tapis", parts: [], abs: [[-3.6, 3.6, -0.5, 0, -1.5, 1.5, { cv: 1 }]], route: [0] });
+  // ---------- 12 l'espace ----------
+  def({ id: "asteroide", zones: [12], w: 3, proc: "asteroide", parts: [], abs: [[-1.9, 1.9, 0, 1.3, -1.9, 1.9]], route: [0] });
+  def({ id: "satellite", zones: [12], w: 3, proc: "satellite", parts: [], abs: [[-1.1, 1.1, 0, 1.2, -1.1, 1.1], [1.9, 5.6, 0.85, 1.15, -1.0, 1.0]], route: [0, 1] });
+  def({ id: "fusee", zones: [12], w: 2, proc: "fusee", parts: [], abs: [[-1.0, 1.0, -7, 0.6, -1.0, 1.0]], route: [0] });
+
   // ---------- tremplins, dans tous les mondes ----------
-  def({ id: "trampoline", zones: [0, 1, 2, 3, 4, 5, 6, 7], w: 0, proc: "trampoline", parts: [], abs: [[-1.7, 1.7, -0.55, 0, -1.7, 1.7, { k: "spring", sv: 21.5 }], [4.8, 8.0, 4.2, 4.8, -1.6, 1.6]], route: [0, 1] });
+  def({ id: "trampoline", zones: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], w: 0, proc: "trampoline", parts: [], abs: [[-1.7, 1.7, -0.55, 0, -1.7, 1.7, { k: "spring", sv: 21.5 }], [4.8, 8.0, 4.2, 4.8, -1.6, 1.6]], route: [0, 1] });
 
   // ---------- mise en place d'un objet dans le repère local ----------
   const rotk = (x, z, k) => { k = ((k % 4) + 4) % 4; return k === 0 ? [x, z] : k === 1 ? [z, -x] : k === 2 ? [-x, -z] : [-z, x]; };
