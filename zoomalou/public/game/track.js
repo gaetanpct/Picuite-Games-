@@ -24,7 +24,7 @@
   const OBS = { cone: { r: 0.75, h: 1.4 }, barrel: { r: 1.15, h: 1.7 }, crate: { r: 1.4, h: 2.2 }, pillar: { r: 0.95, h: 5 }, tires: { r: 1.05, h: 1.2 }, rock: { r: 1.5, h: 2.1 }, bale: { r: 1.3, h: 1.6 }, ice: { r: 1.2, h: 1.8 }, crystal: { r: 0.95, h: 2.6 }, nose: { r: 1.2, h: 1.4 } };
   const OBS_IDS = ["cone", "barrel", "crate", "pillar", "tires", "rock", "bale", "ice", "crystal", "nose"];
   // chaque biome a ses propres obstacles
-  const OBS_BY = { cote: ["cone", "barrel", "crate", "tires", "bale"], neige: ["cone", "barrel", "ice", "tires", "pillar"], neon: ["pillar", "crystal", "crate", "barrel"], megapole: ["pillar", "cone", "barrel", "crate"], jungle: ["rock", "bale", "barrel", "crate", "tires"], usine: ["crate", "barrel", "pillar", "tires", "cone"], foraine: ["cone", "barrel", "tires", "crate", "bale"], dunes: ["rock", "barrel", "bale", "cone", "tires"] };
+  const OBS_BY = { cote: ["cone", "barrel", "crate", "tires", "bale"], neige: ["cone", "barrel", "ice", "tires", "pillar"], neon: ["pillar", "crystal", "crate", "barrel"], megapole: ["pillar", "cone", "barrel", "crate"], jungle: ["rock", "bale", "barrel", "crate", "tires"], usine: ["crate", "barrel", "pillar", "tires", "cone"], foraine: ["cone", "barrel", "tires", "crate", "bale"], dunes: ["rock", "barrel", "bale", "cone", "tires"], volcan: ["rock", "crystal", "barrel", "pillar"], abysses: ["rock", "barrel", "crate", "pillar"], chambre: ["crate", "cone", "barrel", "tires"], orage: ["cone", "barrel", "tires", "crate", "pillar"] };
 
   function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   function hashSeed(s) { s = String(s); let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -49,10 +49,23 @@
       el: { cross: 6, drop: 2.6, dbl: 2, ring: 1.6, mag: 1.3, gap: 1.2, verge: 0.1, bank: 1.6, xing: 0.45, cut: 1.2 }, deco: ["grandeRoue", "chapiteau", "ballons", "manege", "tree", "ballons"], names: ["Grand Huit", "Train Fantôme", "Chenille Folle", "Barbe à Papa", "Le Plongeon"] },
     dunes: { id: "dunes", phys: { wind: 2.2, grip: 0.97 }, identity: "Presque aucun mur, des bas-côtés de sable, des crêtes et du vent", name: "Dunes", icon: "🏜️", sky: ["#ffa94a", "#fff0cf"], fog: "#ffe2b0", sun: "#fff0c0", amb: "#ffe0b0", ground: "#e9b868", road: "#6a5a4a", wall: "#f2d29a", curb: ["#c0552a", "#f6e2b4"], gravity: 9.8, plan: { dirt: 0.3, ice: 0, slow: 0.08 }, vergeK: "sable", vergeCol: "#f0c878",
       el: { verge: 0.92, steep: 1.6, jumps: 1.6, bridge: 0.5, mag: 0.35, fork: 0.8, cut: 1.8, bank: 0.6 }, deco: ["dune", "cactus", "rock", "dune", "pyramide", "arche"], names: ["Piste Poussiéreuse", "Mirage Rapide", "Mer de Sable", "Dune Furieuse", "Oasis Express"] },
+    volcan: { id: "volcan", phys: { lava: 1 }, identity: "Bas-côtés de lave qui brûlent et freinent fort, ponts de pierre au-dessus des coulées", name: "Volcan", icon: "🌋", sky: ["#3a1410", "#ff8a4a"], fog: "#6a3424", sun: "#ffc08a", amb: "#e0805a", ground: "#ff5a1a", road: "#3a3236", wall: "#5a4a48", curb: ["#ff5a1a", "#2a2224"], gravity: 9.8, plan: { dirt: 0.2, ice: 0, slow: 0.08 }, vergeK: "lave", vergeCol: "#ff6a1a", lavaSea: true,
+      el: { verge: 0.55, bridge: 2.4, gap: 1.3, steep: 1.3, cut: 1.2, tunnel: 0.6, drop: 1.2 }, deco: ["volcanCone", "geyser", "obelisque", "rock", "crystal", "fumerolle"], names: ["Coulée Rouge", "Cratère Express", "Pont de Basalte", "Gueule de Feu", "Magma Rapide"] },
+    abysses: { id: "abysses", phys: { current: 2.4 }, identity: "Gravité molle et grands sauts, courants qui poussent sur le côté, tunnels de verre", name: "Fonds marins", icon: "🐠", sky: ["#0a3a6a", "#3ab0d0"], fog: "#1f6a8a", sun: "#d8f8ff", amb: "#7ad0ea", ground: "#cdb88c", road: "#3a4a5a", wall: "#7ad8e8", curb: ["#ff8a5a", "#f4f4f4"], gravity: 6.2, water: true, plan: { dirt: 0.15, ice: 0, slow: 0.08 }, vergeK: "sable", vergeCol: "#d8c49a",
+      el: { tunnel: 2.6, gap: 1.5, jumps: 1.6, drop: 1.3, verge: 0.2, bridge: 0.8, ring: 1.3 }, deco: ["corail", "algue", "corail", "coquillage", "epave", "algue"], names: ["Récif Turbo", "Fosse des Bulles", "Grand Corail", "Épave Express", "Courant Bleu"] },
+    chambre: { id: "chambre", phys: { grip: 1.08, accel: 1.03 }, identity: "Piste en plastique orange qui accroche fort, tremplins et loopings partout", name: "Chambre d'enfant", icon: "🧸", sky: ["#f6d8b0", "#fff6e6"], fog: "#f4e0c4", sun: "#fff4dc", amb: "#ffe8d0", ground: "#c08a52", road: "#ff8a1a", wall: "#ffb03a", curb: ["#ff6a00", "#ffc060"], gravity: 9.8, toy: true, plan: { dirt: 0, ice: 0, slow: 0.1 }, vergeK: "tapis", vergeCol: "#5a8ad8",
+      el: { mag: 3, jumps: 2.4, gap: 1.4, ring: 1.2, steep: 0.8, verge: 0.15, tube: 0.6, bank: 1.4, obst: 0.8 }, deco: ["livres", "cubes", "crayon", "ourson", "toupieJouet", "livres"], names: ["Tapis Volant", "Coffre à Jouets", "Sous le Lit", "Grand Huit en Plastique", "Parquet Express"] },
+    orage: { id: "orage", phys: { wet: 0.3, grip: 0.97 }, identity: "Route mouillée qui glisse en virage, flaques traîtres et éclairs dans la nuit", name: "Orage", icon: "⛈️", sky: ["#121828", "#3a4660"], fog: "#2a3448", sun: "#c8d4ff", amb: "#6a7a9a", ground: "#26362a", road: "#2a2e36", wall: "#8a96a8", curb: ["#e8e8f0", "#3a4a6a"], gravity: 9.8, storm: true, iceName: "Flaques", iceCol: "#4a6a8e", plan: { dirt: 0.05, ice: 0.3, slow: 0.08 }, vergeK: "herbe", vergeCol: "#2f4a34",
+      el: { verge: 0.3, bank: 1.2, tunnel: 1.2, steep: 1.0 }, deco: ["arbreMort", "pylone", "rock", "grange", "arbreMort", "paratonnerre"], names: ["Nuit d'Orage", "Route Glissante", "Éclair Noir", "Tonnerre Express", "Pluie Battante"] },
   };
   const BIOME_IDS = Object.keys(BIOMES);
+  // courant sous-marin, une poussée de côté par zones le long du circuit. Ne dépend que de la position sur le circuit, donc identique partout
+  function currentAt(tr, idx) {
+    const B = BIOMES[tr.biome]; const amp = B && B.phys && B.phys.current; if (!amp) return 0; const ph = (tr.n % 97) * 0.07;
+    const a = idx * 0.012 + ph; const s = Math.sin(a); if (s < 0.5) return 0; const k = (s - 0.5) / 0.5; const dir = Math.floor(a / (2 * Math.PI)) % 2 ? 1 : -1; return amp * k * k * dir;
+  }
   // grands décors, posés plus loin de la route pour que la caméra ne passe pas au travers
-  const BIG_DECO = { grandeRoue: 16, chapiteau: 8, manege: 7, immeuble: 9, tourverre: 7, cheminee: 9, grue: 10, cuve: 6, temple: 7, pyramide: 8, conteneur: 5, phare: 3, arche: 5, dune: 9, panneau: 5 };
+  const BIG_DECO = { volcanCone: 14, epave: 7, grange: 6, ourson: 4, toupieJouet: 3, grandeRoue: 16, chapiteau: 8, manege: 7, immeuble: 9, tourverre: 7, cheminee: 9, grue: 10, cuve: 6, temple: 7, pyramide: 8, conteneur: 5, phare: 3, arche: 5, dune: 9, panneau: 5 };
 
   // vitesse atteinte par la voiture la plus lente après L mètres, au départ arrêté
   function accelSpeed(L, vmax, acc) { let v = 0, s = 0; for (let k = 0; k < 8000 && s < L; k++) { v += acc * Math.max(0, 1 - (v / vmax) * (v / vmax)) / 60; s += v / 60; } return v; }
@@ -855,5 +868,5 @@
   }
   // pente latérale de la route (virage relevé). Le bord droit est plus haut de u fois cette valeur
   function bankAt(tr, idx) { const B = tr.bank; if (!B) return 0; let i = Math.floor(idx); if (i < 0) i = 0; if (i > tr.n - 2) i = tr.n - 2; const t = idx - i; return B[i] + (B[i + 1] - B[i]) * (t < 0 ? 0 : t > 1 ? 1 : t); }
-  return { bankAt, STEP, SURF, SURF_NAMES, FLAG, BIOMES, BIOME_IDS, AIRK, WEAK, VTOP, OBS, OBS_IDS, mulberry32, hashSeed, generate, magMap, frameAt, solidAt, obsBuckets, laneAt, accelSpeed, forkMap, forkGeo, forkDy, moverMap, moverDy };
+  return { currentAt, bankAt, STEP, SURF, SURF_NAMES, FLAG, BIOMES, BIOME_IDS, AIRK, WEAK, VTOP, OBS, OBS_IDS, mulberry32, hashSeed, generate, magMap, frameAt, solidAt, obsBuckets, laneAt, accelSpeed, forkMap, forkGeo, forkDy, moverMap, moverDy };
 });

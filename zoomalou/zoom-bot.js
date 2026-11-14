@@ -14,7 +14,7 @@ const LEVELS = {
   debutant: { id: "debutant", label: "Pilote du dimanche", evals: 0, ms: 0, noise: 0.28, pace: 0.5, paceJit: 0.08, corner: 0.55, clear: 1.5, lineK: 0.3, lapse: 0.006, useRef: 0, push: 0 },
   moyen: { id: "moyen", label: "Habitué", evals: 6, ms: 300, noise: 0.14, pace: 0.64, paceJit: 0.05, corner: 0.72, clear: 1.0, lineK: 0.6, lapse: 0.002, useRef: 0.3, push: 0.01 },
   champion: { id: "champion", label: "Champion", evals: 34, ms: 1500, noise: 0.03, pace: 0.82, paceJit: 0.018, corner: 0.94, clear: 0.7, lineK: 0.9, lapse: 0.0002, useRef: 1, push: 0.02 },
-  prodige: { id: "prodige", label: "Prodige", evals: 280, ms: 14000, noise: 0.002, pace: 1.0, paceJit: 0.002, corner: 1.04, clear: 0.55, lineK: 1.0, lapse: 0, useRef: 1, push: 0.05, slide: true, steadyCap: 1.15, noGaffe: true },
+  prodige: { id: "prodige", label: "Prodige", evals: 1000, ms: 12000, neutral: true, polish: 0.25, noise: 0.002, pace: 1.0, paceJit: 0.002, corner: 1.04, clear: 0.55, lineK: 1.0, lapse: 0, useRef: 1, push: 0.07, slide: true, steadyCap: 1.15, noGaffe: true },
 };
 
 // personnalités. Chaque pilote automatique a un caractère tiré d'après sa graine, pour que quatre champions ne roulent pas pareil
@@ -34,6 +34,8 @@ function personaOf(seed) {
 }
 function applyPersona(th, lv, per) {
   if (!per) return lv;
+  // un prodige garde son caractère dans sa façon de doubler et de bloquer, mais roule toujours sur sa meilleure trajectoire
+  if (lv.neutral) { th.corner *= 1 + 0.01 * Math.max(0, per.risk); return Object.assign({}, lv, { noise: lv.noise * Math.min(per.steady, lv.steadyCap || 1) }); }
   th.corner *= 1 + 0.07 * per.risk; th.brake *= 1 - 0.12 * per.risk; th.lat = per.lat;
   const st = lv.steadyCap ? Math.min(per.steady, lv.steadyCap) : per.steady;
   return Object.assign({}, lv, { noise: lv.noise * st, lapse: lv.lapse * per.lapseK, pace: lv.pace * (1 + 0.03 * Math.max(lv.steadyCap ? 0 : -1, per.risk)) });
@@ -74,9 +76,11 @@ function forkGuess(tr) {
 }
 // raccourcis par les airs. Par défaut on saute si la voiture va assez vite pour passer
 function cutGuess(tr, car) { return (tr.cuts || []).map((c) => (car.vmax >= c.vreq * 1.1 ? "1" : "0")).join(""); }
-function baseLine(tr, clear, fk, ck) {
+// anneaux turbo. Par défaut le pilote passe dans tous ceux qu'il peut atteindre
+function ringGuess(tr) { return (tr.rings || []).map(() => "1").join(""); }
+function baseLine(tr, clear, fk, ck, rk) {
   let m = lineCache.get(tr); if (!m) { m = new Map(); lineCache.set(tr, m); }
-  fk = fk || ""; ck = ck || ""; const key = Math.round(clear * 10) + "|" + fk + "|" + ck; if (m.has(key)) return m.get(key);
+  fk = fk || ""; ck = ck || ""; rk = rk || ""; const key = Math.round(clear * 10) + "|" + fk + "|" + ck + "|" + rk; if (m.has(key)) return m.get(key);
   const n = tr.n, X = tr.x, Z = tr.z, H = tr.h, W = tr.w; const nx = new Float64Array(n), nz = new Float64Array(n), lo = new Float64Array(n), hi = new Float64Array(n), u = new Float64Array(n), px = Float64Array.from(X), pz = Float64Array.from(Z);
   const FL = Track.FLAG;
   for (let i = 0; i < n; i++) {
@@ -105,6 +109,13 @@ function baseLine(tr, clear, fk, ck) {
       if (take) { lo[j] = Math.max(lo[j], mid - hl - sl); hi[j] = Math.min(hi[j], mid + hl + sl); }
       else if (d <= 30) { if (c.u0 > 0) hi[j] = Math.min(hi[j], c.u0 - Car.HALF_W - 0.5 + Math.max(0, d - 16) * 0.5); else lo[j] = Math.max(lo[j], c.u1 + Car.HALF_W + 0.5 - Math.max(0, d - 16) * 0.5); }
       if (lo[j] > hi[j]) { const m2 = (lo[j] + hi[j]) / 2; lo[j] = hi[j] = m2; } }
+  });
+  // anneaux turbo. Le pilote vise le centre de l'anneau, le couloir se resserre en entonnoir avant et après
+  (tr.rings || []).forEach((g, k) => {
+    if (rk.charAt(k) !== "1" || g.i < 3 || g.i > n - 4 || (tr.flags[g.i] & FL.MAG)) return;
+    const half = Math.max(0.35, Math.sqrt(Math.max(0, g.r * g.r - 1.6 * 1.6)) - 0.9);
+    for (let d = -22; d <= 10; d++) { const j = g.i + d; if (j < 0 || j >= n || (tr.flags[j] & FL.MAG)) continue; const sl = Math.max(0, Math.abs(d) - 2) * (d < 0 ? 0.35 : 0.6);
+      const a2 = Math.max(lo[j], g.u - half - sl), b2 = Math.min(hi[j], g.u + half + sl); if (a2 <= b2) { lo[j] = a2; hi[j] = b2; } }
   });
   // entonnoir. Avant et après un obstacle le couloir se resserre progressivement, pour avoir le temps de se placer
   { const lo0 = Float64Array.from(lo), hi0 = Float64Array.from(hi);
@@ -142,7 +153,7 @@ function refFromFrames(tr, frames) {
 
 // construit la trajectoire et les vitesses cibles pour un jeu de paramètres
 function buildPlan(tr, car, th, ref) {
-  const n = tr.n; const base = baseLine(tr, th.clear, th.fk, th.ck); const X = tr.x, Z = tr.z;
+  const n = tr.n; const base = baseLine(tr, th.clear, th.fk, th.ck, th.rk); const X = tr.x, Z = tr.z;
   const lx = new Float64Array(n), lz = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     let u = base.u[i] * th.lineK;
@@ -257,14 +268,14 @@ function cost(res, tr) { const r = res.r; if (r.finished) return r.finishTime + 
 const cacheOf = new WeakMap();
 const keyOf = (carId, levelId, refTag) => carId + "|" + levelId + "|" + (refTag || "");
 function entry(tr, key) { let m = cacheOf.get(tr); if (!m) { m = new Map(); cacheOf.set(tr, m); } return { get: () => m.get(key), set: (v) => m.set(key, v) }; }
-function startTheta(lv, tr, car) { return Object.assign({}, TH0, { corner: TH0.corner * lv.corner, clear: lv.clear, lineK: lv.lineK, fk: tr ? forkGuess(tr) : "", ck: tr ? cutGuess(tr, car || Car.CARS.bolide) : "" }); }
+function startTheta(lv, tr, car) { return Object.assign({}, TH0, { corner: TH0.corner * lv.corner, clear: lv.clear, lineK: lv.lineK, fk: tr ? forkGuess(tr) : "", ck: tr ? cutGuess(tr, car || Car.CARS.bolide) : "", rk: tr && lv.evals > 0 ? ringGuess(tr) : "" }); }
 
 // état de recherche, avancé par petites étapes pour ne pas bloquer le serveur
 function newSearch(tr, carId, lv, ref) {
   const th = startTheta(lv, tr, Car.CARS[carId]); const s = { tr, carId, lv, ref, best: th, bestCost: Infinity, it: 0, t0: Date.now(), done: false, rnd: Track.mulberry32(Track.hashSeed(tr.name + carId + lv.id + tr.n)), grid: [] };
   const evalTh = (t) => cost(run(tr, carId, t, Object.assign({}, lv, { noise: 0, lapse: 0 }), "ev", { ref, noBytes: true }), tr);
   s.evalTh = evalTh;
-  if (lv.evals > 0) { s.grid = [0.85, 1.0, 1.12, 1.25].map((c) => Object.assign({}, th, { corner: th.corner * c })); if (lv.slide) [[0.35, 0.5], [0.7, 0.4], [1.0, 0.3]].forEach((q) => s.grid.push(Object.assign({}, th, { corner: th.corner * 1.08, slideK: q[0], slideOn: q[1] }))); if (ref && lv.useRef) { s.grid.push(Object.assign({}, th, { refBlend: 1 }), Object.assign({}, th, { refBlend: 0.5 }), Object.assign({}, th, { refBlend: 1, refSpeed: 0.95 })); } }
+  if (lv.evals > 0) { s.grid = [0.85, 1.0, 1.12, 1.25].map((c) => Object.assign({}, th, { corner: th.corner * c })); if (lv.slide) [[0.35, 0.5], [0.7, 0.4], [1.0, 0.3]].forEach((q) => s.grid.push(Object.assign({}, th, { corner: th.corner * 1.08, slideK: q[0], slideOn: q[1] }))); if (th.rk) s.grid.push(Object.assign({}, th, { rk: th.rk.replace(/1/g, "0") })); if (ref && lv.useRef) { s.grid.push(Object.assign({}, th, { refBlend: 1 }), Object.assign({}, th, { refBlend: 0.5 }), Object.assign({}, th, { refBlend: 1, refSpeed: 0.95 })); } }
   s.bestCost = lv.evals > 0 ? Infinity : 0;
   return s;
 }
@@ -272,12 +283,19 @@ function stepSearch(s) {
   if (s.done) return;
   const lv = s.lv; const over = s.it >= lv.evals || Date.now() - s.t0 > lv.ms; if (lv.evals <= 0 || over) { s.done = true; return; }
   let cand;
+  const polishAt = lv.polish ? Math.floor(lv.evals * (1 - lv.polish)) : Infinity;
   if (s.it < s.grid.length) cand = s.grid[s.it];
+  else if (s.it >= polishAt) {
+    // finition, on pousse chaque réglage d'un petit pas dans un sens puis dans l'autre autour du meilleur
+    const PK = ["corner", "brake", "lookK", "look0", "sg", "clear", "dvHi", "slipMix", "slideK", "slideOn"]; const j = s.it - polishAt; const k = PK[Math.floor(j / 2) % PK.length]; const [a, b] = RANGE[k];
+    const stepK = (Math.floor(j / (2 * PK.length)) % 2 ? 0.012 : 0.03) * (b - a); cand = Object.assign({}, s.best); cand[k] = clamp(cand[k] + (j % 2 ? -stepK : stepK), a, b);
+  }
   else {
     const prog = (s.it - s.grid.length) / Math.max(1, lv.evals - s.grid.length); const sigma = 0.3 * (1 - prog) + 0.05; cand = Object.assign({}, s.best); const keys = Object.keys(RANGE).filter((k) => ((k !== "refBlend" && k !== "refSpeed") || (s.ref && lv.useRef)) && ((k !== "slideK" && k !== "slideOn") || lv.slide));
     const m = 1 + Math.floor(s.rnd() * 3); for (let q = 0; q < m; q++) { const k = keys[Math.floor(s.rnd() * keys.length)]; const [a, b] = RANGE[k]; cand[k] = clamp(cand[k] + gauss(s.rnd) * sigma * (b - a), a, b); }
     // de temps en temps on essaie l'autre voie d'un embranchement
     if (cand.ck && s.rnd() < 0.25) { const q = Math.floor(s.rnd() * cand.ck.length); cand.ck = cand.ck.slice(0, q) + (cand.ck.charAt(q) === "1" ? "0" : "1") + cand.ck.slice(q + 1); }
+    if (cand.rk && s.rnd() < 0.2) { const q = Math.floor(s.rnd() * cand.rk.length); cand.rk = cand.rk.slice(0, q) + (cand.rk.charAt(q) === "1" ? "0" : "1") + cand.rk.slice(q + 1); }
     if (cand.fk && s.rnd() < 0.3) { const q = Math.floor(s.rnd() * cand.fk.length); cand.fk = cand.fk.slice(0, q) + (cand.fk.charAt(q) === "1" ? "0" : "1") + cand.fk.slice(q + 1); }
   }
   const c = s.evalTh(cand); s.it++; if (c < s.bestCost) { s.bestCost = c; s.best = cand; }
@@ -306,7 +324,7 @@ function thetaFor(tr, carId, levelId, frames, refTag) {
 }
 
 // forme du jour. Un bon pilote a parfois un jour sans (rythme plus lent, plus d'erreurs et une vraie faute de pilotage) et parfois un jour de grâce
-const FORM = { debutant: [0, 0], moyen: [0.1, 0.1], champion: [0.15, 0.1], prodige: [0.05, 0.12] };
+const FORM = { debutant: [0, 0], moyen: [0.1, 0.1], champion: [0.15, 0.1], prodige: [0, 0.15] };
 function formOf(levelId, seed) {
   const r = Track.mulberry32(Track.hashSeed("forme" + seed)); const f = FORM[levelId] || [0, 0]; const x = r();
   // un prodige n'a que de petits jours sans, sans vraie faute de pilotage

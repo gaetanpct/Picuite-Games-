@@ -7,6 +7,7 @@ const Track = require("./public/game/track.js");
 const Car = require("./public/game/car.js");
 const Rules = require("./public/game/rules.js");
 const Bot = require("./zoom-bot.js");
+const Com = require("./zoom-com.js");
 
 const TS = Math.max(0.001, Number(process.env.ZOOM_TIME_SCALE) || 1);
 const INTRO_MS = 3500 * TS, ROUND_END_MS = 6500 * TS, FIRST_GO_MS = 3000, NEXT_GO_MS = 1300;
@@ -104,7 +105,7 @@ function startRound(room) {
   } else g.order = seats.slice();
   const nSeat = room.players.length; g.slots = {}; const perm = room.players.map((_, i) => i); for (let i = perm.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = perm[i]; perm[i] = perm[j]; perm[j] = t; } room.players.forEach((p, i) => { g.slots[p.id] = isChrono(s) ? +Car.gridSlot(g.track, perm[i], nSeat).toFixed(2) : 0; });
   g.goAt = 0; g.phase = "garage"; g.phaseUntil = Date.now() + s.garage * 1000 * TS;
-  g.api.emitAll(room, "z:round", roundMsg(room));
+  g.api.emitAll(room, "z:round", roundMsg(room)); Com.round(room);
   prepareBots(room); emitState(room);
 }
 function roundMsg(room) { const g = room.g; return { now: Date.now(), index: g.roundIdx, total: g.total, mode: room.settings.mode, track: g.trackMsg, author: g.author, car: g.car, order: g.order, slots: g.slots, carMode: Rules.carModeFor(room.settings, g.roundIdx), stage: g.track.stage || null, survie: !!room.settings.survie }; }
@@ -120,7 +121,7 @@ function prepareBots(room) {
 function beginDrive(room) {
   const g = room.g, s = room.settings;
   if (isChrono(s)) {
-    g.extended = false; g.allDoneAt = 0; g.goAt = Date.now() + 4200; g.phase = "race"; g.win = windowOf(g, s); g.raceEnd = g.goAt + g.win * 1000 * TS; g.phaseUntil = g.raceEnd;
+    g.extended = false; g.allDoneAt = 0; g.goAt = Date.now() + 4200; Com.race(room); g.phase = "race"; g.win = windowOf(g, s); g.raceEnd = g.goAt + g.win * 1000 * TS; g.phaseUntil = g.raceEnd;
     room.players.forEach((def) => { const P = g.players[def.id]; P.plan = null; P.live = null; P.planning = false; P.nextAt = 0; P.botN = 0; });
     if (s.survie) g.api.sysChat(room, "Survie, tout le monde sur la ligne. À chaque point de contrôle, le dernier à passer est éliminé" + (s.mode === "contact" ? ", et les voitures se touchent." : "."));
     else g.api.sysChat(room, (g.track.stage ? g.track.stage.icon + " " + g.track.stage.name + " " + (g.track.stage.i + 1) + " sur " + g.track.stage.n + ". " : "") + "Tout le monde sur la ligne, départ dans quelques secondes. Vous avez ensuite " + g.win + " secondes pour signer votre meilleur temps" + (s.mode === "contact" ? ", et les voitures se touchent." : "."));
@@ -226,6 +227,7 @@ function tickBots(room, now) {
 function acceptTime(room, pid, time, bytes, carId, frames) {
   const g = room.g; const P = g.players[pid]; const def = defOf(room, pid);
   P.finishes++;
+  if (g.phase === "race") { let bestOther = null, photo = null; Object.keys(g.players).forEach((id) => { const Q = g.players[id]; if (id === pid || Q.best == null) return; if (bestOther == null || Q.best < bestOther) bestOther = Q.best; if (Math.abs(Q.best - time) < 0.25) photo = id; }); Com.finish(room, pid, time, { photo, best: bestOther != null && time < bestOther }); }
   if (P.best == null || time < P.best) { P.best = time; P.bestBytes = bytes; P.bestCar = carId; P.bestFrames = frames || null; }
   if (P.bestAll == null || time < P.bestAll) P.bestAll = time;
   g.api.sysChat(room, def.name + " termine en " + fmt(time) + ".");
@@ -264,7 +266,7 @@ function nextTurn(room) {
     g.turnIdx++;
     if (g.turnIdx < g.order.length) {
       const pid = g.order[g.turnIdx]; makeTurn(room, pid, "open", fix1(g.players[pid].fuel));
-      g.api.emitAll(room, "z:turn", turnMsg(room));
+      g.api.emitAll(room, "z:turn", turnMsg(room)); Com.turn(room, g.turn, null);
       g.api.sysChat(room, pName(room, pid) + (g.turnIdx === 0 ? " ouvre la course et pose un temps." : " pose son temps."));
       emitState(room); return;
     }
@@ -277,7 +279,7 @@ function nextTurn(room) {
     const dryNow = P.fuel <= 0.05; // sans essence, il garde un dernier essai pour reprendre la place
     setRecord(room, recordOf(room, tgt) || { time: 999, pid: tgt, car: g.car, frames: null });
     makeTurn(room, worst, "duel", dryNow ? 0.3 : fix1(P.fuel)); if (dryNow) g.turn.last = true;
-    g.api.emitAll(room, "z:turn", turnMsg(room));
+    g.api.emitAll(room, "z:turn", turnMsg(room)); Com.turn(room, g.turn, g.record);
     g.api.sysChat(room, pName(room, worst) + " est dernier. " + (dryNow ? "Il n'a plus d'essence mais il lui reste un dernier essai pour battre " : "Il a " + Math.round(P.fuel) + " secondes d'essence pour battre ") + pName(room, tgt) + " et ses " + fmt(g.record.time) + ".");
     emitState(room); return;
   }
@@ -303,7 +305,7 @@ function finishTurn(room, result) {
       g.api.sysChat(room, def.name + " bat " + tgt + " avec " + fmt(t.bestTime) + " et n'est plus dernier.");
     } else { eliminate(room, t.pid, result === "quit" ? "quit" : "dry"); if (result === "quit" && s.giveUp === "fin") g.endAfterGap = true; }
   }
-  g.api.emitAll(room, "z:turnEnd", { pid: t.pid, result, time: t.bestTime, role: t.role });
+  g.api.emitAll(room, "z:turnEnd", { pid: t.pid, result, time: t.bestTime, role: t.role }); Com.turnEnd(room, t, result, g.record);
   g.phase = "turnGap"; g.phaseUntil = Date.now() + 2200 * TS; g.gapNext = true;
   emitState(room);
 }
@@ -374,7 +376,7 @@ function tickTurn(room, now) {
     for (let i = 0; i < a.segs.length; i++) { const sg = a.segs[i]; if (e < sg.t0 + sg.dur + BOT_GAP) { seg = sg; idx = i; break; } burned += sg.burn; }
     const local = e - seg.t0; const f = seg.frames; const nF = f.length / 8 - 1;
     const k = Math.max(0, Math.min(nF, Math.floor(Math.min(local, seg.dur) * 10)));
-    P.feed = { x: f[k * 8], y: f[k * 8 + 1], z: f[k * 8 + 2], h: f[k * 8 + 3], p: f[k * 8 + 4], a: f[k * 8 + 5], b: f[k * 8 + 6], i: f[k * 8 + 7], car: P.car };
+    P.feed = { x: f[k * 8], y: f[k * 8 + 1], z: f[k * 8 + 2], h: f[k * 8 + 3], p: f[k * 8 + 4], a: f[k * 8 + 5], b: f[k * 8 + 6], i: f[k * 8 + 7], car: P.car }; P.comEl = Math.min(local, seg.dur);
     if (a.fuel > 0) t.fuelLeft = Math.max(0, fix1(a.fuel - burned - (local > 0 ? Math.min(local, seg.burn > 0 ? seg.burn : 0, seg.dur) : 0)));
     t.tries = idx + 1; return;
   }
@@ -421,6 +423,7 @@ function svEliminate(room, id, gate, why) {
   P.out = true; P.done = true; P.svGate = gate; g.elim.push(id); P.feed = null; P.att = null; P.pos = null; if (P.live) { P.live = null; } if (P.plan) P.plan.done = true; P.botDone = true;
   const alive = room.players.filter((d) => !g.players[d.id].out).length;
   g.api.emitAll(room, "z:elim", { pid: id, gate, gates: nG, alive, why });
+  if (why !== "left") Com.svOut(room, id);
   if (why !== "left") g.api.sysChat(room, pName(room, id) + " est éliminé " + (gate >= nG - 1 ? "à l'arrivée" : "au point de contrôle " + (gate + 1)) + ". Encore " + alive + " en course.");
   emitState(room);
 }
@@ -448,7 +451,7 @@ function endRound(room) {
     const alive = aliveRank(room); const order = alive.concat(g.elim.slice().reverse()); winner = alive[0] || (timed[0] && timed[0].id) || null;
     order.forEach((id, i) => { if (pts[id] != null) pts[id] = scale[Math.min(i, scale.length - 1)]; });
   }
-  if (winner) { g.players[winner].wins++; g.lastWinner = winner; }
+  if (winner) { g.players[winner].wins++; g.lastWinner = winner; } Com.roundEnd(room, winner);
   ps.forEach((P) => { P.pts += pts[P.id] || 0; });
   const rows = ps.map((P) => ({ id: P.id, best: P.best, car: P.car, tries: P.tryCount || 0, pts: pts[P.id] || 0, total: P.pts, finishes: P.finishes, winner: P.id === winner, counted: timeOfRow[P.id] == null ? null : timeOfRow[P.id], pen: !!penalised[P.id], cum: isChrono(s) ? P.cum : null, sv: s.survie ? (P.out ? P.svGate : -1) : null })).sort((a, b) => (s.survie && g.svOrder ? g.svOrder.indexOf(a.id) - g.svOrder.indexOf(b.id) : (a.best == null) - (b.best == null) || a.best - b.best));
   g.history.push({ track: g.track.name, biome: g.track.biome, drawn: g.track.drawn || [], stage: g.track.stage ? g.track.stage.icon + " " + g.track.stage.name : null, rows: rows.map((r) => ({ id: r.id, best: r.best, pts: r.pts, counted: r.counted, pen: r.pen })) });
@@ -529,6 +532,8 @@ function tick(room) {
       cars.push({ id: def.id, c: f.c || now, x: f.x, y: f.y, z: f.z, vx: f.vx, vz: f.vz, h: f.h, p: f.p, a: f.a, b: f.b, i: f.i || 0, car: f.car || P.car });
     });
     if (cars.length) g.api.emitAll(room, "z:snap", { t: now, cars });
+    if (g.phase === "turns" && g.turn && !g.turn.auto && g.turn.att) { const Pt = g.players[g.turn.pid]; if (Pt) Pt.comEl = (now - g.turn.att.goAt) / (1000 * TS); }
+    try { Com.snap(room, cars, now); } catch (e) { console.error("commentateur", e); }
   }
   if (now - (g.lastEmit || 0) > 2000) emitState(room);
 }

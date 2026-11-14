@@ -1329,3 +1329,30 @@ Chaque jeu a été regardé seul, accueil, salon et partie. Le but n'était pas 
 - Les dossiers pagaille et common, et le fichier README.md.
 - Ne dépose pas de fichier notes-joueurs.json, il se crée tout seul sur le serveur.
 
+## Quarante-neuvième mise à jour, lot 6, Zoomalou première partie
+
+### Des pilotes Prodige bien plus forts
+- Le Prodige roulait parfois avec un caractère qui le gênait, collé à un bord de la route ou trop prudent en virage. Il garde maintenant son caractère pour doubler et bloquer, mais roule toujours sur sa meilleure trajectoire.
+- Il étudie chaque circuit beaucoup plus longtemps avant la course, environ mille essais au lieu de deux cent quatre-vingts, avec une phase de finition où il affine chaque réglage.
+- Il n'a plus de jour sans. Il a toujours ses jours de grâce, un peu plus fréquents.
+- Il prend plus de risques à chaque nouvel essai en mode essence, pour battre un temps qui lui résiste.
+- Il sait viser les anneaux turbo.
+- Sur seize circuits variés, toutes voitures confondues, il est en moyenne environ 6 % plus rapide que dans la version précédente, et environ 11 % plus rapide qu'avant le lot 1. Il finit toutes les courses de test. Le Champion et les niveaux plus faciles ne changent pas.
+
+### Un commentateur sportif
+- Le serveur repère les moments forts de la course. Départ, prise de tête, dépassement, duel roue contre roue de plus de trois secondes, aspiration en mode contact, chute dans le vide, sortie de route, grand envol, remontée d'un dernier, dernière ligne droite, photo-finish, premier à l'arrivée, meilleur temps et victoire.
+- En mode essence, il annonce qui doit battre qui, l'avance ou le retard sur le temps à battre au tiers et aux deux tiers du circuit, la réserve d'essence presque vide, le sauvetage ou l'élimination.
+- Chaque navigateur tire une réplique dans une banque d'environ deux cents phrases avec le nom des pilotes, sans répéter les dernières. La phrase s'affiche en sous-titre en haut de l'écran et elle est dite par la voix du navigateur.
+- Le bouton 🎙️ en course et le menu ⚙️ permettent de choisir voix et sous-titres, sous-titres seuls, ou coupé.
+- Les phrases écrites par une IA demanderaient une clé payante, elles ne sont pas incluses. La voix du navigateur est gratuite mais un peu robotique selon l'ordinateur.
+
+### Quatre nouveaux biomes
+- 🌋 Volcan. Des bas-côtés de lave sans barrière qui freinent très fort, beaucoup de ponts de pierre, et une mer de lave qui monte et descend lentement sous la route sans jamais l'atteindre. Rien ne s'effondre après un passage.
+- 🐠 Fonds marins. Gravité molle et grands sauts, des courants qui poussent la voiture sur le côté, signalés par des chevrons bleus au sol, et des tunnels de verre. Brume bleue et bulles qui montent.
+- 🧸 Chambre d'enfant. Une piste orange en plastique qui accroche fort, posée sur un parquet géant, des loopings orange et des tremplins partout, avec piles de livres, cubes, crayons, toupies et oursons.
+- ⛈️ Orage. De nuit, route mouillée qui glisse quand on braque fort, flaques traîtres à la place de la glace, pluie, éclairs qui illuminent le circuit et tonnerre.
+- Les nouveaux biomes sont cochés par défaut dans Biomes possibles. Les pilotes automatiques des quatre niveaux finissent toutes les courses de test sur ces biomes.
+
+### Ce qu'il faut déposer sur GitHub
+- Le dossier zoomalou, et le fichier README.md.
+

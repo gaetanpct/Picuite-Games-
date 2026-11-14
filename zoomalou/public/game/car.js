@@ -263,19 +263,22 @@
     if (surf === S.DIRT) { gripMul = car.dirt; vmax *= 0.93; drag = 0.35; }
     else if (surf === S.ICE) { gripMul = car.ice; drag = 0.05; }
     else if (surf === S.SLOW) { gripMul = 0.9; vmax *= 0.62; accMul = 0.75; drag = 1.1; }
-    else if (surf === S.VERGE) { gripMul = Math.min(1, car.dirt * 0.75); vmax *= 0.8; accMul *= 0.88; drag = 0.6; }
+    else if (surf === S.VERGE) { gripMul = Math.min(1, car.dirt * 0.75); vmax *= ph.lava ? 0.55 : 0.8; accMul *= ph.lava ? 0.6 : 0.88; drag = ph.lava ? 1.4 : 0.6; }
     // virage relevé. La route penchée tient la voiture, on tourne plus fort et on glisse moins
     const bk0 = !r.air && tr.bank ? Math.abs(Track.bankAt(tr, r.idx)) : 0; if (bk0 > 0.01) gripMul *= 1 + 1.5 * bk0;
     // aspiration, derrière une autre voiture en mode contact
     if (r.draft > 0.01) { vmax *= 1 + 0.07 * r.draft; accMul += 0.35 * r.draft; }
     // direction
     const target = inp.steer; r.steerV += (target - r.steerV) * Math.min(1, DT * 14); const st = r.steerV;
+    // route mouillée, l'adhérence baisse quand on braque fort à bonne vitesse
+    if (ph.wet && !r.air) gripMul *= 1 - ph.wet * Math.min(1, Math.abs(st) * 1.3) * Math.min(1, Math.abs(vf) / 25);
     const sgnV = vf >= 0 ? 1 : -1; const sf = Math.min(1, Math.abs(vf) / 6);
     const fall = 1 / (1 + Math.pow(Math.abs(vf) / (car.vmax * (car.cv || 0.68) * (1 + 1.25 * bk0)), 1.6) * 0.85);
     let yaw = -st * car.turn * sf * fall * sgnV; if (r.air) yaw *= car.airCtl || 0.35; if (r.boostT > 0 && car.boostTurn) yaw *= car.boostTurn; r.hd += yaw * DT;
     if (r.spin) { r.hd += r.spin * DT; r.spin *= 0.9; if (Math.abs(r.spin) < 0.03) r.spin = 0; }
     // accélération
     const boosted = r.boostT > 0; if (boosted) { const bk = (ph.boost || 1) * (car.boostK || 1) * (r.boostLv || 1); vmax = Math.min(VCAP, vmax * (1 + 0.3 * bk)); accMul += 1.1 * bk; r.boostT--; if (r.boostT <= 0) r.boostLv = 1; }
+    if (ph.current && !r.air && !(sp.flags & Track.FLAG.TUNNEL)) { const cu = Track.currentAt(tr, r.idx); if (cu) vl += cu * DT * 6; }
     if (ph.wind && !r.air) { vl += ph.wind * Math.sin(r.tick * 0.021 + r.idx * 0.018) * Math.sin(r.tick * 0.0067 + 1.3) * DT * 6; }
     if (!r.air) {
       // batterie du Volt. Le freinage la remplit, elle pousse à la relance

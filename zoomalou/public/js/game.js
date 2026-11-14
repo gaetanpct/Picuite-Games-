@@ -65,6 +65,12 @@
     if (!eng.ctx || !SMP.buf.impact || !sound.enabled) return false; const now = performance.now(); if (now - (eng.lastImpact || 0) < 120) return true; eng.lastImpact = now;
     try { const src = eng.ctx.createBufferSource(); src.buffer = SMP.buf.impact; src.playbackRate.value = 0.85 + Math.random() * 0.3; const g = eng.ctx.createGain(); g.gain.value = Math.min(0.55, 0.12 + hit * 0.02); src.connect(g); g.connect(eng.ctx.destination); src.start(); return true; } catch (e) { return false; }
   }
+  // tonnerre de l'orage, un grondement de bruit filtré qui roule puis s'éteint
+  function thunder() {
+    if (!eng.ctx || !sound.enabled) return; try { const ctx = eng.ctx; const len = Math.floor(ctx.sampleRate * 2.6); const buf = ctx.createBuffer(1, len, ctx.sampleRate); const d = buf.getChannelData(0); let v = 0; for (let i = 0; i < len; i++) { v = v * 0.985 + (Math.random() * 2 - 1) * 0.15; d[i] = v * Math.pow(1 - i / len, 1.6) * (1 + 0.6 * Math.sin(i / ctx.sampleRate * 9)); }
+      const src = ctx.createBufferSource(); src.buffer = buf; const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 260; const g = ctx.createGain(); g.gain.value = 0.9; src.connect(f); f.connect(g); g.connect(ctx.destination); src.start(); } catch (e) { /* pas de son */ }
+  }
+  V.onThunder = thunder;
   // démarrage au garage, un coup d'accélérateur à vide
   function engineRev(carId) {
     engineStart(); if (!eng.ctx || !sound.enabled) return; try { if (eng.ctx.resume) eng.ctx.resume(); } catch (e) { /* rien */ }
@@ -114,9 +120,11 @@
       el("div", { id: "z-center", class: "z-center nopoint" }),
       el("div", { id: "z-feed", class: "z-feed nopoint" }),
       el("div", { id: "z-tip", class: "z-tip nopoint" }),
+      el("div", { id: "z-com", class: "z-com nopoint z-com--hide" }),
       el("div", { class: "z-menu" }, [
         el("button", { class: "round-btn", id: "btn-menu", title: "Menu et commandes", text: "⚙️" }),
         el("button", { class: "round-btn", id: "btn-cam", title: "Changer de caméra", text: "🎥" }),
+        el("button", { class: "round-btn", id: "btn-com", title: "Commentateur, voix, sous-titres ou coupé", text: "🎙️" }),
         el("button", { class: "round-btn", id: "btn-restart", title: "Recommencer l'essai", text: "↺" }),
         el("button", { class: "round-btn", id: "btn-respawn", title: "Revenir au dernier point de contrôle", text: "📍" }),
         el("button", { class: "round-btn", id: "btn-back", title: "Regarder derrière, maintenir appuyé", text: "🪞" }),
@@ -587,6 +595,7 @@
 
   // ---------- entrées ----------
   function wireInput() {
+    $("#btn-com").onclick = () => { if (!window.ZoomCom) return; const v = ZoomCom.next(); comBtn(); toast("Commentateur, " + ZoomCom.label(v).toLowerCase(), "info"); }; comBtn();
     $("#btn-menu").onclick = openMenu; $("#btn-cam").onclick = () => { const m = V.cycleCam(); toast(["Caméra poursuite", "Caméra haute", "Caméra capot"][m], "info"); };
     $("#btn-giveup").onclick = () => Kit.confirm("Abandonner ? Tu sors de la course et tu ne pourras plus rejouer cette manche.", () => { if (G.run && !G.run.finishSent) G.run = null; Kit.socket.emit("z:giveup"); });
     $("#btn-restart").onclick = restartAttempt; $("#btn-respawn").onclick = () => { G.rstReq = true; };
@@ -612,6 +621,7 @@
     const qbox = el("div", { class: "chips" }, qs.map(([v, l]) => el("button", { class: "chip" + (q === v ? " chip--on" : ""), text: l, onclick: (ev) => { store.set("zoom.quality", v); V.setQuality(v); ev.target.parentNode.querySelectorAll(".chip").forEach((c) => c.classList.remove("chip--on")); ev.target.classList.add("chip--on"); } })));
     const cbtn = el("button", { class: "btn btn--small btn--ghost", text: PicuiteGL.compat() ? "Compatibilité activée" : "Compatibilité coupée", onclick: () => PicuiteGL.setCompat(!PicuiteGL.compat()) });
     const sbtn = el("button", { class: "btn btn--small btn--ghost", text: sound.enabled ? "Son activé" : "Son coupé", onclick: (ev) => { ev.target.textContent = sound.toggle() ? "Son activé" : "Son coupé"; } });
+    const CM = window.ZoomCom; const cmbox = el("div", { class: "chips" }, ["voix", "texte", "off"].map((v) => el("button", { class: "chip" + (CM && CM.mode === v ? " chip--on" : ""), text: CM ? CM.label(v) : v, onclick: (ev) => { if (!CM) return; CM.setMode(v); ev.target.parentNode.querySelectorAll(".chip").forEach((c) => c.classList.remove("chip--on")); ev.target.classList.add("chip--on"); comBtn(); } })));
     const keys = el("div", { class: "keys" }, [
       el("kbd", { text: "↑ ↓ ← →" }), el("span", { text: "Flèche du haut pour accélérer, flèche du bas pour freiner puis reculer, flèches de côté pour tourner." }),
       el("kbd", { text: "Entrée" }), el("span", { text: "En mode essence, recommence l'essai depuis la ligne de départ et l'essence déjà brûlée est perdue. En chrono fantôme et contact, on n'a qu'un seul essai, la touche sert à abandonner et demande une confirmation." }),
@@ -622,10 +632,12 @@
       el("kbd", { text: "Manette" }), el("span", { text: "Stick gauche pour tourner, gâchette droite pour accélérer, gauche pour freiner, carré pour revenir au point de contrôle, triangle pour recommencer ou abandonner, bouton L1 pour regarder derrière." }),
     ]);
     const cars = el("div", {}, CA.CAR_ORDER.map((id) => el("p", { class: "small", text: CA.CARS[id].icon + " " + CA.CARS[id].name + " · " + CA.CARS[id].desc })));
-    Kit.showModal("Menu", [row("Qualité graphique", "Basse retire les ombres et allège l'affichage, utile sur téléphone ou ordinateur modeste.", qbox), row("Mode compatibilité", "Affichage 3D le plus simple possible, sans ombres ni reflets. À essayer si l'écran reste blanc ou noir, c'est le cas de certains Mac. La page se recharge. Activé par défaut sur Safari.", cbtn), row("Sons", "Moteur, points de contrôle et arrivées.", sbtn),
+    Kit.showModal("Menu", [row("Qualité graphique", "Basse retire les ombres et allège l'affichage, utile sur téléphone ou ordinateur modeste.", qbox), row("Mode compatibilité", "Affichage 3D le plus simple possible, sans ombres ni reflets. À essayer si l'écran reste blanc ou noir, c'est le cas de certains Mac. La page se recharge. Activé par défaut sur Safari.", cbtn), row("Sons", "Moteur, points de contrôle et arrivées.", sbtn), row("Commentateur", "Un commentateur réagit aux dépassements, aux duels, aux chutes, aux records et aux arrivées. Avec la voix du navigateur et des sous-titres, avec les sous-titres seuls, ou coupé. Le bouton 🎙️ change aussi ce réglage pendant la course.", cmbox),
       el("h3", { text: "Commandes", style: { marginTop: "0.8rem" } }), keys, el("h3", { text: "Les voitures", style: { marginTop: "0.8rem" } }), cars,
       el("button", { class: "btn btn--danger btn--small", style: { marginTop: "0.8rem" }, text: "Quitter la partie", onclick: () => Kit.confirm("Quitter la partie et revenir à l'accueil ?", () => { $("#modal").classList.add("hidden"); Kit.leave(); }) })]);
   }
+
+  function comBtn() { const b = $("#btn-com"); if (!b || !window.ZoomCom) return; b.style.opacity = ZoomCom.mode === "off" ? 0.45 : 1; b.textContent = ZoomCom.mode === "off" ? "🔇" : "🎙️"; }
 
   // ---------- aspiration ----------
   // positions des voitures des autres pilotes, telles qu'elles sont affichées, pour savoir si l'on roule dans leur sillage
@@ -784,7 +796,7 @@
       el("div", { class: "meta", text: B.icon + " " + t.name }), el("p", { class: "small", text: B.name + " · " + Math.round(t.length) + " m · environ " + Math.round(t.length / 27) + " s de conduite" }),
       t.drawn && t.drawn.length ? el("p", { class: "small", text: "Tiré au sort pour cette course, " + t.drawn.join(", ") }) : null,
       el("p", { class: "small muted", text: elementsText(t) }),
-      el("p", { class: "small muted", text: (jumps ? jumps + " bosse" + (jumps > 1 ? "s" : "") + " à sauter. " : "") + (boosts ? boosts + " tapis turbo. " : "") + (t.surf.some((v) => v === 2) ? "De la glace. " : "") + (t.surf.some((v) => v === 1) ? "De la terre. " : "") + (t.surf.some((v) => v === 4) ? "Un sol collant. " : "") }),
+      el("p", { class: "small muted", text: (jumps ? jumps + " bosse" + (jumps > 1 ? "s" : "") + " à sauter. " : "") + (boosts ? boosts + " tapis turbo. " : "") + (t.surf.some((v) => v === 2) ? (TR.BIOMES[t.biome] && TR.BIOMES[t.biome].iceName ? "Des flaques. " : "De la glace. ") : "") + (t.surf.some((v) => v === 1) ? "De la terre. " : "") + (t.surf.some((v) => v === 4) ? "Un sol collant. " : "") }),
       el("p", { class: "small muted", text: seeded ? "Parcours fixé par la graine " + seed + (s.rounds > 1 ? ". Course " + (idx + 1) + " sur " + s.rounds + "." : ".") : "Simple aperçu d'un circuit possible. Fixe la graine pour jouer exactement celui-ci." }),
       el("div", { class: "row" }, [
         seeded && s.rounds > 1 ? el("button", { class: "btn btn--small btn--ghost", text: "◀", onclick: () => { G.prev.idx = (idx + s.rounds - 1) % s.rounds; renderPreview(box, Kit.room); } }) : null,
@@ -804,7 +816,7 @@
   function attach() {
     const so = Kit.socket; if (!so || G.attached) return; G.attached = true;
     so.on("z:round", onRound); so.on("z:author", (m) => { G.author = m.time; G.lastGar = 0; }); so.on("z:state", onState); so.on("z:turn", onTurn); so.on("z:record", onRecord); so.on("z:go", onGo); so.on("z:snap", onSnap);
-    so.on("z:turnEnd", onTurnEnd); so.on("z:result", onResult); so.on("z:botTurn", onBotTurn); so.on("z:roundEnd", onRoundEnd); so.on("z:over", (m) => { G.overSound = false; onOver(m); }); so.on("z:replayData", onReplayData); so.on("z:elim", onElim);
+    so.on("z:turnEnd", onTurnEnd); so.on("z:result", onResult); so.on("z:botTurn", onBotTurn); so.on("z:roundEnd", onRoundEnd); so.on("z:over", (m) => { G.overSound = false; onOver(m); }); so.on("z:replayData", onReplayData); so.on("z:elim", onElim); so.on("z:com", (m) => { if (window.ZoomCom) ZoomCom.on(m); });
   }
   // envoi régulier de la position pendant un essai
   const sendPos = () => { const r = G.run; if (!r || r.done || !Kit.socket || r.countdown > 0 || !canDrive()) return; const a = r.r; const fx = Math.sin(a.hd), fz = Math.cos(a.hd); Kit.socket.emit("z:pos", { c: Date.now(), x: +a.x.toFixed(2), y: +a.y.toFixed(2), z: +a.z.toFixed(2), vx: +a.vx.toFixed(2), vz: +a.vz.toFixed(2), h: +a.hd.toFixed(3), p: +a.pitch.toFixed(3), a: a.rail ? 2 : a.air ? 1 : 0, i: +a.idx.toFixed(2), b: a.boostT > 0 ? 1 : 0 }); };
