@@ -1356,3 +1356,26 @@ Chaque jeu a été regardé seul, accueil, salon et partie. Le but n'était pas 
 ### Ce qu'il faut déposer sur GitHub
 - Le dossier zoomalou, et le fichier README.md.
 
+## Cinquantième mise à jour, lot 7, Zoomalou deuxième partie, nouvelles routes
+
+### Nouvelles routes
+- Embranchement à deux niveaux. Une voie monte en viaduc, avec un tapis turbo dans la descente, pendant que l'autre plonge dans une tranchée entre deux parois de roche, puis elles se rejoignent.
+- Corniche, un raccourci risqué. Dans certains embranchements, la voie la plus courte est une corniche étroite et surélevée, sans aucune barrière. On gagne du temps, mais une roue de trop et c'est la chute, retour au point de contrôle.
+- Passage sous une colline. La route s'enfonce de quelques mètres sous un grand dôme de terre, traverse un tunnel, puis remonte de l'autre côté.
+- Col de montagne. Une longue montée en quatre ou cinq lacets puis la descente, qui fait travailler le freinage.
+- Spirale. La route monte en tire-bouchon autour d'une grande tour rayée, presque deux tours complets, puis redescend en ligne droite. Les deux étages de la spirale laissent toujours la place de passer dessous.
+
+### Rubans sans gravité
+- Une nouvelle zone sans gravité, le ruban. Une longue route qui ondule à gauche et à droite, monte, redescend et fait parfois une vrille complète, en gardant la voiture collée comme dans les loopings.
+
+### Ce qui n'est pas inclus
+- Les demi-tubes où l'on choisit sa hauteur sur la paroi et les sauts d'un ruban à l'autre demandent une nouvelle physique de vol collé, ils ne sont pas faits.
+- Le tunnel ne passe pas vraiment sous le sol de la carte, il passe sous une colline posée sur la route, ce qui donne le même effet sans casser le décor.
+
+### Tests
+- Sur cent soixante circuits générés dans tous les biomes, aucune erreur de génération.
+- Les pilotes automatiques des quatre niveaux finissent tous les circuits de test qui contiennent ces nouvelles routes.
+
+### Ce qu'il faut déposer sur GitHub
+- Le dossier zoomalou, et le fichier README.md.
+

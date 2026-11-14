@@ -218,7 +218,7 @@
         const core = (FL[i] & FG.FORK) !== 0;
         [0, 1].forEach((k) => { const ln = g0.f.lanes[k]; const ls = core && ln.s ? ln.s : s; const c2 = surfCol(ls, i).clone(); const u0a = k ? g0.b0 : g0.a0, u1a = k ? g0.b1 : g0.a1, u0b = k ? g1.b0 : g1.a0, u1b = k ? g1.b1 : g1.a1, da = k ? g0.dB : g0.dA, db = k ? g1.dB : g1.dA; quad(P(i, u1a, da), P(i + 1, u1b, db), P(i, u0a, da), P(i + 1, u0b, db), c2, pos, cols); });
         // dessus du terre-plein
-        if (g0.m > 0.05) { const gc = col(B.vergeCol || B.ground).multiplyScalar(0.92 + 0.06 * (i % 2)); const top = Math.min(g0.dA, g0.dB, g1.dA, g1.dB) + 0.25; quad(P(i, g0.b0, top), P(i + 1, g1.b0, top), P(i, g0.a1, top), P(i + 1, g1.a1, top), gc, pos, cols); }
+        if (g0.m > 0.05) { const gc = col(B.vergeCol || B.ground).multiplyScalar(0.92 + 0.06 * (i % 2)); const top = Math.max(0, Math.min(g0.dA, g0.dB, g1.dA, g1.dB)) + 0.25; quad(P(i, g0.b0, top), P(i + 1, g1.b0, top), P(i, g0.a1, top), P(i + 1, g1.a1, top), gc, pos, cols); }
         continue;
       }
       // droite a gauche. Le cap croissant tourne à gauche
@@ -255,11 +255,16 @@
       if (inFork(i)) {
         const g0 = fgeo(i), g1 = fgeo(i + 1);
         if (g0.m >= 0.05 || g1.m >= 0.05) {
-          wallSeg(g0.b1, g1.b1, g0.dB, g1.dB, i, 1, cA, WH); wallSeg(g0.a0, g1.a0, g0.dA, g1.dA, i, -1, cA, WH);
-          if (g0.m >= 1.2 && g1.m >= 1.2) { wallSeg(g0.a1, g1.a1, g0.dA, g1.dA, i, 1, cA, 0.7); wallSeg(g0.b0, g1.b0, g0.dB, g1.dB, i, -1, cA, 0.7); }
+          // une corniche n'a aucune barrière là où les voies sont séparées
+          const core = g0.m >= 1.2 && g1.m >= 1.2 && (FL[i] & FG.FORK); const nwA = core && g0.f.lanes[0].nw, nwB = core && g0.f.lanes[1].nw;
+          if (!nwB) wallSeg(g0.b1, g1.b1, g0.dB, g1.dB, i, 1, cA, WH); if (!nwA) wallSeg(g0.a0, g1.a0, g0.dA, g1.dA, i, -1, cA, WH);
+          if (g0.m >= 1.2 && g1.m >= 1.2) { if (!nwA) wallSeg(g0.a1, g1.a1, g0.dA, g1.dA, i, 1, cA, 0.7); if (!nwB) wallSeg(g0.b0, g1.b0, g0.dB, g1.dB, i, -1, cA, 0.7); }
           // flancs des voies surélevées et jupes extérieures
           [[g0.a0, g1.a0, -1], [g0.b1, g1.b1, 1]].forEach(([ua, ub, o]) => { const a = P(i, ua, 0), b = P(i + 1, ub, 0), gnd = [a[0], tr.groundY, a[2]], gnd2 = [b[0], tr.groundY, b[2]]; if (o > 0) quad(a, b, gnd, gnd2, skirt, wp, wc); else quad(b, a, gnd2, gnd, skirt, wp, wc); });
-          [[g0.a1, g1.a1, g0.dA, g1.dA, 1], [g0.a0, g1.a0, g0.dA, g1.dA, -1], [g0.b0, g1.b0, g0.dB, g1.dB, -1], [g0.b1, g1.b1, g0.dB, g1.dB, 1]].forEach(([ua, ub, da, db, o]) => { if (da < 0.05 && db < 0.05) return; const a = P(i, ua, da), b = P(i + 1, ub, db), a0 = P(i, ua, 0), b0 = P(i + 1, ub, 0); if (o > 0) quad(a, b, a0, b0, deck, wp, wc); else quad(b, a, b0, a0, deck, wp, wc); });
+          [[g0.a1, g1.a1, g0.dA, g1.dA, 1], [g0.a0, g1.a0, g0.dA, g1.dA, -1], [g0.b0, g1.b0, g0.dB, g1.dB, -1], [g0.b1, g1.b1, g0.dB, g1.dB, 1]].forEach(([ua, ub, da, db, o]) => { if (Math.abs(da) < 0.05 && Math.abs(db) < 0.05) return;
+            // tranchée, des parois de roche qui dépassent un peu le niveau de la route
+            if (da < 0 || db < 0) { const rk = col(B.lavaSea ? "#3a2a2c" : "#8a7a6a").multiplyScalar(0.85 + 0.1 * ((i >> 1) % 2)); const a = P(i, ua, Math.min(0, da)), b = P(i + 1, ub, Math.min(0, db)), a0 = P(i, ua, 1.1), b0 = P(i + 1, ub, 1.1); quad(a, b, a0, b0, rk, wp, wc); quad(b, a, b0, a0, rk, wp, wc); return; }
+            const a = P(i, ua, da), b = P(i + 1, ub, db), a0 = P(i, ua, 0), b0 = P(i + 1, ub, 0); if (o > 0) quad(a, b, a0, b0, deck, wp, wc); else quad(b, a, b0, a0, deck, wp, wc); });
           continue;
         }
       }
@@ -302,6 +307,11 @@
     if (B.water) { const cv = chevTexture("rgba(0,0,0,0)", "#bff4ff"); for (let i = 4; i < n - 4; i += 6) { if (MM[i] >= 0 || hole(i) || (FL[i] & FG.TUNNEL)) continue; const cu = Track.currentAt(tr, i); if (Math.abs(cu) < 0.6) continue; const pl = new T.Mesh(new T.PlaneGeometry(2.4, 3.2), new T.MeshBasicMaterial({ map: cv, transparent: true, opacity: Math.min(0.8, 0.25 + Math.abs(cu) * 0.22), depthWrite: false })); pl.rotation.order = "YXZ"; pl.rotation.y = H[i] + (cu > 0 ? Math.PI / 2 : -Math.PI / 2); pl.rotation.x = -Math.PI / 2; const p0 = P(i, 0, 0.06); pl.position.set(p0[0], p0[1], p0[2]); group.add(pl); } }
     // routes qui bougent, un maillage refait à chaque image
     movers = (tr.movers || []).map((mv) => { const m = new T.Mesh(new T.BufferGeometry(), new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, flatShading: true, side: T.DoubleSide })); m.receiveShadow = true; m.frustumCulled = false; group.add(m); return { mv, m, cA: B.curb.map((c) => col(c)), road: col(B.road), stripe: col("#ffb21a") }; });
+    // spirales, une tour rayée au centre du tire-bouchon
+    (tr.towers || []).forEach((tw) => { const h = tw.h - tr.groundY + (Y[0] || 0); const tg = new T.Group(); const H2 = Math.max(10, tw.h + 6); const n2 = 6; for (let q = 0; q < n2; q++) tg.add(mesh(G.cyl(tw.r * 0.55, tw.r * 0.6, H2 / n2, 14), mat(q % 2 ? "#ffffff" : (B.curb[0] || "#ff5a4a")), 0, H2 / n2 * (q + 0.5), 0)); tg.add(mesh(G.cone(tw.r * 0.75, 5, 14), mat(B.curb[1] === "#ffffff" ? "#2f78d1" : B.curb[1] || "#2f78d1"), 0, H2 + 2.5, 0)); tg.add(mesh(G.sph(1.1, 10, 8), mat("#ffe27a", { emissive: col("#ffcf3a"), emissiveIntensity: 0.9 }), 0, H2 + 5.6, 0)); tg.position.set(tw.x, tr.groundY, tw.z); group.add(tg); });
+    // passages sous une colline, un grand dôme de terre recouvre la route enfoncée
+    (tr.tunnels || []).forEach((tu) => { if (!tu.hill) return; const a = tu.a, b = tu.b, m = Math.floor((a + b) / 2); const len = Math.hypot(X[b] - X[a], Z[b] - Z[a]) + 6; const wd = W[m] * 2 + 26; const yTop = Math.max(Y[a - 8] || Y[a], Y[b + 8] || Y[b]) + 4.5; const hh = yTop - tr.groundY;
+      const dome = new T.Mesh(new T.SphereGeometry(1, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), new T.MeshStandardMaterial({ color: col(B.lavaSea ? "#3a2a2c" : B.toy ? "#ff9a3a" : B.water ? "#c8b48a" : B.ground).multiplyScalar(0.9), roughness: 1, flatShading: true })); dome.scale.set(wd / 2, hh, len / 2); dome.position.set((X[a] + X[b]) / 2, tr.groundY, (Z[a] + Z[b]) / 2); dome.rotation.y = Math.atan2(X[b] - X[a], Z[b] - Z[a]); dome.receiveShadow = true; group.add(dome); });
     // tunnels, une voûte au-dessus de la route ou d'une seule voie d'embranchement
     { const tcol = col(B.id === "volcan" ? "#3a2a2c" : B.id === "chambre" ? "#ff8a1a" : B.id === "orage" ? "#3a4048" : B.id === "megapole" ? "#3a4a5e" : B.id === "jungle" ? "#2f7a3a" : B.id === "neige" ? "#cfe6f6" : B.id === "usine" ? "#5a5650" : B.id === "foraine" ? "#6a3a7a" : B.id === "dunes" ? "#c98e5a" : B.id === "neon" ? "#2a2470" : "#8a8f96");
       const lcol = col(B.id === "volcan" ? "#ff7a2a" : B.water ? "#bff4ff" : B.id === "megapole" ? "#5affff" : B.id === "neon" ? "#ff4a8a" : B.id === "jungle" ? "#c8ff8a" : "#fff2b0");
@@ -315,7 +325,7 @@
           if ((i - tu.a) % 7 === 0) lights.push(P(i, ca, da + ha - 0.35));
         }
         // butte de terre collée à la voûte, elle suit la route et s'amincit aux deux bouts
-        if (B.id !== "megapole" && B.id !== "usine" && !B.water && tu.lane < 0) {
+        if (B.id !== "megapole" && B.id !== "usine" && !B.water && tu.lane < 0 && !tu.hill) {
           const gcol = col(B.ground).multiplyScalar(0.82);
           for (let i = tu.a; i < tu.b && i < n - 1; i++) {
             const e0 = 1.5 * Math.min(1, Math.min(i - tu.a, tu.b - i) / 8), e1 = 1.5 * Math.min(1, Math.min(i + 1 - tu.a, tu.b - i - 1) / 8);
@@ -631,6 +641,7 @@
       const tx = tr.x[i] + Math.cos(tr.h[i]) * 10, ty = Math.max(tr.y[i], tr.y[j]) + 17, tz = tr.z[i] - Math.sin(tr.h[i]) * 10; if (!camInit) { camPos.set(tx, ty, tz); camInit = true; } camPos.x += (tx - camPos.x) * Math.min(1, dt * 2); camPos.y += (ty - camPos.y) * Math.min(1, dt * 2); camPos.z += (tz - camPos.z) * Math.min(1, dt * 2);
       camera.position.copy(camPos); camera.lookAt(tr.x[j], tr.y[j], tr.z[j]); if (camera.fov !== 58) { camera.fov = 58; camera.updateProjectionMatrix(); } return;
     }
+    if (View.debugCam) { const d = View.debugCam; camera.up.set(0, 1, 0); camera.position.set(d.x, d.y, d.z); camera.lookAt(d.lx, d.ly, d.lz); camera.fov = 60; camera.updateProjectionMatrix(); return; }
     if (orbit) { camera.up.set(0, 1, 0); // vue de garage, la caméra tourne autour du départ
       const t = time * 0.35; const s = View.track.start; camera.position.set(s.x + Math.sin(t) * 14, s.y + 5.2, s.z + Math.cos(t) * 14); camera.lookAt(s.x, s.y + 0.8, s.z); camera.fov = 52; camera.updateProjectionMatrix(); return;
     }

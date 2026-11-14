@@ -445,8 +445,10 @@
       else if (shape === "S") parts = [{ straight: 30 }, { angle: s * ang(35, 55), radius: rad(90, 120) }, { angle: -s * ang(35, 55), radius: rad(90, 120) }, { straight: 30 }];
       else parts = [{ straight: rad(160, 220) }];
       const inner = shape === "arc" ? (s > 0 ? 0 : 1) : (rng() < 0.5 ? 0 : 1);
-      const riskT = pick(shape === "arc" ? ["terre", "saut", "obst", "etroit", "tunnel", "saut"] : ["saut", "obst", "saut", "tunnel"]); const safeT = pick(shape === "arc" ? ["turbo", "large", "turbo", "bitume"] : ["turbo", "large", "bitume"]);
-      const wRisk = riskT === "etroit" || riskT === "tunnel" ? Math.max(2.9, wl * 0.74) : wl; const wSafe = safeT === "large" ? Math.min(6.2, wl * 1.18) : wl;
+      let riskT = pick(shape === "arc" ? ["terre", "saut", "obst", "etroit", "tunnel", "saut", "corniche", "corniche"] : ["saut", "obst", "saut", "tunnel"]); let safeT = pick(shape === "arc" ? ["turbo", "large", "turbo", "bitume"] : ["turbo", "large", "bitume"]);
+      // embranchement à deux niveaux, une voie monte en viaduc pendant que l'autre descend dans une tranchée
+      if (F.bridges && hillsLvl >= 1 && rng() < 0.3) { riskT = "tranchee"; safeT = "viaduc"; }
+      const wRisk = riskT === "etroit" || riskT === "tunnel" ? Math.max(2.9, wl * 0.74) : riskT === "corniche" ? Math.max(2.75, wl * 0.66) : wl; const wSafe = safeT === "large" ? Math.min(6.2, wl * 1.18) : wl;
       const wA = inner === 0 ? wRisk : wSafe, wB = inner === 0 ? wSafe : wRisk;
       const env = (f) => sm(f / 0.2) * sm((1 - f) / 0.2); const lw = (f, wt) => hw / 2 + (wt - hw / 2) * sm(f / 0.13) * sm((1 - f) / 0.13);
       return { surf: SURF.ASPHALT, parts, wf: (f) => (M * env(f) + 2 * Math.max(lw(f, wA), lw(f, wB))) / hw, reg(i0, i1) {
@@ -458,6 +460,12 @@
         lanes.forEach((ln, k) => {
           if (ln.t === "terre" && F.surfaces) ln.s = biome.id === "neige" ? SURF.ICE : SURF.DIRT;
           if (ln.t === "saut") { const dy = new Array(N).fill(0); const p0 = c0 + Math.floor((c1 - c0) * 0.25), len = Math.max(12, Math.floor((c1 - c0) * 0.34)); const Hc = rad(2.6, 3.8); for (let q = 0; q <= len && p0 + q < N; q++) dy[p0 + q] = +(Hc * sm(q / len)).toFixed(2); const drop = Math.max(4, Math.round(Hc / 0.85)); for (let q = 1; q <= drop && p0 + len + q < N; q++) dy[p0 + len + q] = +(Hc * (1 - q / drop)).toFixed(2); ln.dy = dy; ln.crest = i0 + p0 + len; }
+          // voie à hauteur différente, rampe douce, palier, puis retour au niveau de la route
+          if (ln.t === "viaduc" || ln.t === "tranchee" || ln.t === "corniche") {
+            const span = c1 - c0; const rl = Math.max(8, Math.floor(span * 0.28)); const Hv = ln.t === "viaduc" ? Math.min(7, 0.2 * rl * STEP) : ln.t === "tranchee" ? -Math.min(3.4, 0.16 * rl * STEP) : Math.min(3.6, 0.2 * rl * STEP);
+            const dy = new Array(N).fill(0); for (let j = c0; j <= c1; j++) { const q = j - c0; const e = q < rl ? sm(q / rl) : q > span - rl ? sm((span - q) / rl) : 1; dy[j] = +(Hv * e).toFixed(2); } ln.dy = dy; if (ln.t === "corniche") ln.nw = 1;
+            if (ln.t === "viaduc" && F.boosts) { const j = c1 - Math.floor(rl * 0.6); const c = ctr(k, j), h = half(k, j) - 0.4; items.push({ t: "pad", a: i0 + j - 2, b: i0 + j + 2, u0: +(c - h).toFixed(2), u1: +(c + h).toFixed(2), k: 1, dy: +(dy[j]).toFixed(2) }); }
+          }
           if (ln.t === "turbo" && F.boosts) { [0.3, 0.66].forEach((fr) => { const j = c0 + Math.floor((c1 - c0) * fr); const c = ctr(k, j), h = half(k, j) - 0.4; items.push({ t: "pad", a: i0 + j - 2, b: i0 + j + 2, u0: +(c - h).toFixed(2), u1: +(c + h).toFixed(2), k: rng() < 0.35 * EL.sup ? 2 : 1 }); }); }
           if (ln.t === "obst" && F.obstacles) { const tys = (OBS_BY[biome.id] || ["cone", "barrel"]).filter((t) => OBS[t].r <= 1.2); const ty = tys.length ? pick(tys) : "cone"; let sd = rng() < 0.5 ? 1 : -1; for (let j = c0 + 12; j < c1 - 10; j += 13) { const c = ctr(k, j), h = half(k, j); forkObs.push({ i: i0 + j, u: c + sd * h * 0.42, r: OBS[ty].r, ty }); sd = -sd; } }
           if (ln.t === "tunnel") items.push({ t: "tunnel", a: i0 + c0 + 4, b: i0 + c1 - 4, lane: k });
@@ -543,21 +551,77 @@
       return { surf: SURF.ASPHALT, noSelf: true, make: () => magPiece({ fine, w, kind: "tube" }), reg: regMag() };
     }
 
+    // ---------- col de montagne, une longue montée en lacets puis la descente de l'autre côté ----------
+    function kCol() {
+      if (!pinOK() || room() < 760 || hillsLvl < 1) return null;
+      const s = sgn(); const R = rad(18, 23); const cnt = pick([4, 4, 5]); const parts = [{ straight: 20 }]; for (let q = 0; q < cnt; q++) { parts.push({ angle: (q % 2 ? -1 : 1) * s * ang(158, 176), radius: R }); parts.push({ straight: rad(14, 22) }); }
+      const hf = [0.7, 0.85, 1, 1.2][hillsLvl];
+      return { surf: pickSurf(), parts, reg(i0, i1) {
+        const N = i1 - i0 + 1; const top = Math.floor(N * (0.55 + rng() * 0.1)); const Dh = Math.min(rad(18, 30) * hf, 0.11 * top * STEP, 0.13 * (N - top) * STEP); const arr = [];
+        for (let i = 2; i <= N - 3; i++) { const t = i < top ? sm((i - 2) / (top - 2)) : sm((N - 3 - i) / (N - 3 - top)); arr.push(+(Dh * t).toFixed(3)); }
+        const o0 = arr[0]; items.push({ t: "region", a: i0 + 2, b: i1 - 2, ofs: arr.map((v) => v - o0) }); items.push({ t: "steep", a: i0, type: "col" });
+      } };
+    }
+    // ---------- spirale, la route monte en tire-bouchon autour d'une tour puis redescend ----------
+    function kSpirale() {
+      if (!pinOK() || room() < 900 || size < 2 || !F.cross) return null;
+      const s = sgn(); const R = rad(30, 40); const turns = 1.75; const Lin = rad(24, 34); const a1 = Math.round(Lin / STEP), a2 = a1 + Math.round(turns * 2 * Math.PI * R / STEP);
+      // montée régulière depuis le début de l'approche, dix mètres par tour de spirale
+      const rate = 10.2 / (2 * Math.PI * R / STEP); const Ht = rate * a2; const nd = Math.ceil(Ht / 0.2 / STEP); const hold = Math.ceil(Math.sqrt(2 * R * 24) / STEP) + 2;
+      const Lout = (hold + nd) * STEP + 26; const parts = [{ straight: Lin }, { angle: s * turns * 2 * Math.PI, radius: R }, { straight: Lout }];
+      const pts = walk({ parts }); const N = pts.length;
+      const ofs = []; for (let j = 0; j < N; j++) { let v = 0; if (j < a2) v = rate * j; else if (j < a2 + hold) v = Ht; else v = Ht * (1 - sm((j - a2 - hold) / nd)); ofs.push(v); }
+      // lissage des débuts de pente
+      for (let pass = 0; pass < 3; pass++) for (let j = 1; j < N - 1; j++) ofs[j] = (ofs[j - 1] + 2 * ofs[j] + ofs[j + 1]) / 4;
+      // deux passages superposés doivent laisser la place de passer dessous
+      for (let i = 0; i < N; i++) for (let j = i + 30; j < N; j++) { const d = Math.hypot(pts[i].x - pts[j].x, pts[i].z - pts[j].z); if (d < pts[i].w + pts[j].w + 6 && Math.abs(ofs[j] - ofs[i]) < 8.4) return null; }
+      let cx = 0, cz = 0; for (let j = a1; j < a2; j++) { cx += pts[j].x; cz += pts[j].z; } cx /= Math.max(1, a2 - a1); cz /= Math.max(1, a2 - a1);
+      return { surf: SURF.ASPHALT, noSelf: true, parts, reg(i0, i1) {
+        const M = i1 - i0 + 1; const o = ofs.slice(0, M); while (o.length < M) o.push(0); items.push({ t: "region", a: i0, b: i1, ofs: o.map((v) => +v.toFixed(3)) }); items.push({ t: "cross", a: i0, b: i1, cp: i0 + 3 });
+        items.push({ t: "tower", a: i0, x: +cx.toFixed(1), z: +cz.toFixed(1), r: +Math.max(4, R - hw - 5).toFixed(1), h: +(Ht + 14).toFixed(1) });
+      } };
+    }
+    // ---------- passage sous une colline, la route plonge dans la terre et ressort de l'autre côté ----------
+    function kSousColline() {
+      if (room() < 420 || hillsLvl < 1) return null;
+      const L = rad(130, 180); const D = rad(3, 4.5); const s = sgn(); const curved = rng() < 0.45; const k = Math.max(3.6 / hw, 0.8);
+      const parts = curved ? [{ straight: 22 }, { angle: s * ang(25, 55), radius: rad(110, 160) }, { straight: 22 }] : [{ straight: L }];
+      return { surf: SURF.ASPHALT, parts, wf: (f) => 1 + (k - 1) * sm(Math.min(f, 1 - f) / 0.15), reg(i0, i1) {
+        const N = i1 - i0 + 1; const rl = Math.floor(N * 0.26); const arr = []; for (let j = 0; j < N; j++) { const e = j < rl ? sm(j / rl) : j > N - 1 - rl ? sm((N - 1 - j) / rl) : 1; arr.push(+(-D * e).toFixed(3)); }
+        items.push({ t: "region", a: i0, b: i1, ofs: arr }); const ta = i0 + Math.floor(rl * 0.55), tb = i1 - Math.floor(rl * 0.55); for (let i = ta; i <= tb; i++) FL[i] |= FLAG.TUNNEL;
+        items.push({ t: "tunnel", a: ta, b: tb, hill: 1 }); items.push({ t: "neck", a: i0, b: i1 });
+      } };
+    }
+
+    // ruban, une longue route sans gravité qui enchaîne virages, montées et vrilles en restant collée
+    function kRuban() {
+      if (!magOK(480) || size < 2) return null;
+      const w = Math.min(hw, 6); const L = rad(230, 340); const NN = 900; const A = ang(30, 62); const k1 = pick([1, 1.5, 2]); const H = rad(7, 15) * (1 + 0.1 * hillsLvl); const tw = rng() < 0.6 ? (rng() < 0.5 ? 1 : -1) * 2 * Math.PI : 0; const lean = rng() < 0.5 ? 1 : -1;
+      const fine = []; let a = 0, b = 0; const ds = L / NN;
+      for (let q = 0; q <= NN; q++) {
+        const t = q / NN; const env = sm(Math.min(t, 1 - t) / 0.12); const psi = A * Math.sin(2 * Math.PI * k1 * t) * env; const dpsi = A * 2 * Math.PI * k1 * Math.cos(2 * Math.PI * k1 * t) * env / L;
+        const th = clamp(lean * dpsi * 28, -1.05, 1.05) * env + tw * sm((t - 0.42) / 0.16);
+        fine.push({ a, b, c: H * Math.sin(Math.PI * t) ** 2 + rollLift(th, w, 3), th, nl: null });
+        a += Math.cos(psi) * ds; b += Math.sin(psi) * ds;
+      }
+      return { surf: SURF.ASPHALT, noSelf: true, make: () => magPiece({ fine, w, kind: "ruban" }), reg: regMag() };
+    }
+
     // ---------- choix de la pièce suivante ----------
     function makeKind() {
       const tw = mood.twist, fl = mood.flow; const cands = [[1.8 * fl, kStraight], [3, kCurve], [(0.7 + diff * 0.8) * tw, kHairpin], [1.6, kBends], [(0.6 + diff * 0.8) * tw, kChic], [1.2 * fl, kSweep], [(0.8 + diff * 0.6) * tw, kTight], [(0.5 + diff * 0.5) * tw, kEsses], [(0.15 + diff * 0.35) * tw, kDouble], [(0.25 + diff * 0.3) * tw, kSpiral], [(0.25 + diff * 0.3) * tw, kFer], [(0.5 + diff * 0.2) * fl, kSerpent]];
       if (wild > 0) {
         const k = wild * 0.8 * elemK; const sizeOK = size >= 2;
-        if (F.steep) { cands.push([2.4 * k * mood.steep * EL.steep, kSteep]); cands.push([0.9 * k * mood.steep * EL.steep, kLacets]); }
+        if (F.steep) { cands.push([2.4 * k * mood.steep * EL.steep, kSteep]); cands.push([0.9 * k * mood.steep * EL.steep, kLacets]); cands.push([0.45 * k * mood.steep * EL.steep, kCol]); }
         if (F.obstacles) cands.push([1.8 * k * mood.obst * EL.obst, kObstacles]);
         if (F.widths) { cands.push([0.8 * k * mood.width, kNeck]); cands.push([0.6 * k * mood.width, kArena]); cands.push([0.5 * k * mood.width, kPulse]); cands.push([0.5 * k * mood.width, kRond]); cands.push([0.6 * k * mood.width, kEntonnoir]); }
         if (F.gaps && sizeOK) { const gk = k * mood.gap * EL.gap; cands.push([1.6 * gk, () => kGap("simple")]); cands.push([0.45 * gk * EL.dbl, () => kGap("double")]); cands.push([0.45 * gk * EL.drop, () => kGap("plongeon")]); cands.push([0.3 * gk, () => kGap("montant")]); }
         if (F.bridges && sizeOK) { const bk = k * mood.bridge * EL.bridge; cands.push([0.6 * bk, kBridge]); cands.push([0.35 * bk, kCorniche]); cands.push([0.6 * bk, kViaduc]); cands.push([0.4 * bk, kPasserelle]); cands.push([0.45 * bk, kPontVague]); }
-        if (F.mag && sizeOK) { const mk = k * mood.mag * EL.mag; cands.push([0.8 * mk, kLoop]); cands.push([0.55 * mk, kRoll]); cands.push([0.6 * mk, kWall]); cands.push([0.4 * mk, kCeiling]); cands.push([0.35 * mk * EL.tube, kTube]); }
+        if (F.mag && sizeOK) { const mk = k * mood.mag * EL.mag; cands.push([0.8 * mk, kLoop]); cands.push([0.55 * mk, kRoll]); cands.push([0.6 * mk, kWall]); cands.push([0.4 * mk, kCeiling]); cands.push([0.35 * mk * EL.tube, kTube]); cands.push([0.75 * mk, kRuban]); }
         if (F.forks && sizeOK) cands.push([1.5 * k * EL.fork, kFork]);
-        if (F.cross && sizeOK) cands.push([0.55 * k * EL.cross, kCross]);
+        if (F.cross && sizeOK) { cands.push([0.55 * k * EL.cross, kCross]); cands.push([0.5 * k * EL.cross, kSpirale]); }
         if (F.movers && sizeOK) cands.push([0.5 * k * EL.mover, kMover]);
-        cands.push([0.55 * k * EL.tunnel, kTunnel]);
+        cands.push([0.55 * k * EL.tunnel, kTunnel]); cands.push([0.3 * k * EL.tunnel, kSousColline]);
         if (F.bank) cands.push([0.8 * k * EL.bank, kBank]);
         if (F.xing && sizeOK) cands.push([0.6 * k * EL.cross * EL.xing, kCarrefour]);
         if (F.cut && sizeOK) cands.push([0.75 * k * EL.cut, kCut]);
@@ -785,13 +849,14 @@
     const magsOut = items.filter((it) => it.t === "mag").map((it) => ({ a: it.a, b: it.b, k: it.kind, f: round(it.f, 4) }));
     const gapsOut = items.filter((it) => it.t === "gap").map((it) => ({ cp: it.cp, lip: it.lip, land: it.land, vk: +it.vk.toFixed(3), tf: +it.tf.toFixed(3), vreq: +it.vreq.toFixed(2), G: it.G, La: it.La, v: it.v || "simple" }));
     const kicks = gapsOut.map((g) => ({ i: g.lip, vy: g.vk }));
-    const forksOut = items.filter((it) => it.t === "fork").map((it) => ({ a: it.a, b: it.b, c0: it.c0, c1: it.c1, m: it.m, wa: it.wa, wb: it.wb, inner: it.inner, shape: it.shape, lanes: it.lanes.map((l) => ({ t: l.t, s: l.s, dy: l.dy, crest: l.crest || 0 })), olo: it.lnObs >= 0 ? it.olo : null, ohi: it.lnObs >= 0 ? it.ohi : null, lnObs: it.lnObs }));
+    const forksOut = items.filter((it) => it.t === "fork").map((it) => ({ a: it.a, b: it.b, c0: it.c0, c1: it.c1, m: it.m, wa: it.wa, wb: it.wb, inner: it.inner, shape: it.shape, lanes: it.lanes.map((l) => ({ t: l.t, s: l.s, dy: l.dy, crest: l.crest || 0, nw: l.nw || 0 })), olo: it.lnObs >= 0 ? it.olo : null, ohi: it.lnObs >= 0 ? it.ohi : null, lnObs: it.lnObs }));
     const padsOut = items.filter((it) => it.t === "pad").map((it) => ({ a: it.a, b: it.b, u0: it.u0, u1: it.u1, k: it.k }));
     const moversOut = items.filter((it) => it.t === "mover").map((it) => ({ a: it.a, b: it.b, k: it.k, A: it.A, T: it.T, ph: it.ph, L: it.L }));
     const cutsOut = items.filter((it) => it.t === "cut").map((it) => ({ a: it.a, b: it.b, lip: it.lip, land: it.land, u0: it.u0, u1: it.u1, vk: it.vk, vreq: it.vreq, D: it.D, ax: +X[it.lip].toFixed(2), az: +Z[it.lip].toFixed(2), h: +H[it.lip].toFixed(4) }));
     const xingsOut = items.filter((it) => it.t === "xing" && !it.dup).map((it) => ({ a: it.a, b: it.b, ja: it.ja, jb: it.jb }));
     let bankOut = null; items.filter((it) => it.t === "bank").forEach((it) => { if (!bankOut) bankOut = new Array(n).fill(0); for (let j = 0; j < it.B.length && it.a + j < n; j++) bankOut[it.a + j] = it.B[j]; });
-    const tunnelsOut = items.filter((it) => it.t === "tunnel").map((it) => ({ a: it.a, b: it.b, lane: it.lane == null ? -1 : it.lane }));
+    const tunnelsOut = items.filter((it) => it.t === "tunnel").map((it) => ({ a: it.a, b: it.b, lane: it.lane == null ? -1 : it.lane, hill: it.hill || 0 }));
+    const towersOut = items.filter((it) => it.t === "tower").map((it) => ({ x: it.x, z: it.z, r: it.r, h: it.h }));
     // anneaux turbo. Au sommet de la trajectoire d'un saut, après une bosse ou en portique sur une ligne droite. Les traverser donne un gros turbo
     const rings = [];
     if (F.rings && EL.ring > 0) {
@@ -803,11 +868,11 @@
       rings.sort((a2, b2) => a2.i - b2.i);
     }
     const stats = { forks: forksOut.length, cross: items.filter((it) => it.t === "cross").length, movers: moversOut.length, tunnels: tunnelsOut.length, rings: rings.length, verge: Math.round(vwOut.filter((v) => v > 0.3).length * STEP), banks: items.filter((it) => it.t === "bank").length, xings: xingsOut.length, cuts: cutsOut.length, tubes: 0, doubles: gapsOut.filter((g) => g.v === "double").length, plongeons: gapsOut.filter((g) => g.v === "plongeon").length, supers: SF.filter((v) => v === SURF.SUPER).length, loops: 0, rolls: 0, walls: 0, ceilings: 0, gaps: gapsOut.length, steep: items.filter((it) => it.t === "steep").length, bridges: items.filter((it) => it.t === "bridge").length, necks: items.filter((it) => it.t === "neck" || it.t === "arena").length, obstacles: items.filter((it) => it.t === "obspat").length, bumps: items.filter((it) => it.t === "bump").length, lacets: items.filter((it) => it.t === "steep" && it.type === "lacets").length, road: +roadK.toFixed(2) };
-    items.filter((it) => it.t === "mag").forEach((it) => { if (it.kind === "loop") stats.loops++; else if (it.kind === "roll") stats.rolls++; else if (it.kind === "wall") stats.walls++; else if (it.kind === "tube") stats.tubes++; else stats.ceilings++; });
+    items.filter((it) => it.t === "mag").forEach((it) => { if (it.kind === "loop") stats.loops++; else if (it.kind === "roll") stats.rolls++; else if (it.kind === "wall") stats.walls++; else if (it.kind === "tube") stats.tubes++; else if (it.kind === "ruban") stats.rubans = (stats.rubans || 0) + 1; else stats.ceilings++; });
     return {
       version: 3, spec: Object.assign({}, spec), biome: biome.id, name: TRACE ? (String(spec.trace.name || "").slice(0, 24) || "Circuit dessiné") : biome.names[Math.floor(rng() * biome.names.length)], trace: TRACE ? { info: traceInfo, err: traceErr } : null, n, step: STEP, length: len, gravity: biome.gravity, airG: +airG.toFixed(3),
       x: round(X, 2), z: round(Z, 2), y: round(Y, 2), h: round(H, 3), w: round(W, 2), surf: SF, flags: FL, cps, groundY: +(minY - 1.2).toFixed(2), decor: dec,
-      mags: magsOut, gaps: gapsOut, kicks, obs, lanes, stats, crosses: items.filter((it) => it.t === "cross").map((it) => ({ a: it.a, b: it.b })), forks: forksOut, pads: padsOut, movers: moversOut, tunnels: tunnelsOut, rings, vw: vwOut, bank: bankOut, cuts: cutsOut, xings: xingsOut, vergeK: biome.vergeK || "sable",
+      mags: magsOut, gaps: gapsOut, kicks, obs, lanes, stats, crosses: items.filter((it) => it.t === "cross").map((it) => ({ a: it.a, b: it.b })), forks: forksOut, towers: towersOut, pads: padsOut, movers: moversOut, tunnels: tunnelsOut, rings, vw: vwOut, bank: bankOut, cuts: cutsOut, xings: xingsOut, vergeK: biome.vergeK || "sable",
       start: { x: X[2], z: Z[2], y: +Y[2].toFixed(2), h: H[2], idx: 2 },
     };
   }

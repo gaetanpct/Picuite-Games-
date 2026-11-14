@@ -70,7 +70,7 @@ const lineCache = new WeakMap();
 function forkGuess(tr) {
   return (tr.forks || []).map((f) => {
     const est = [0, 1].map((k) => { let L = 0, px = null, pz = null; for (let i = f.a; i <= f.b; i++) { const g = Track.forkGeo(f, i); const u = k === 0 ? (g.a0 + g.a1) / 2 : (g.b0 + g.b1) / 2; const x = tr.x[i] + -Math.cos(tr.h[i]) * u, z = tr.z[i] + Math.sin(tr.h[i]) * u; if (px != null) L += Math.hypot(x - px, z - pz); px = x; pz = z; }
-      const t = f.lanes[k].t; const sl = t === "terre" ? 0.86 : t === "obst" ? 0.88 : t === "etroit" || t === "tunnel" ? 0.96 : t === "saut" ? 0.95 : t === "turbo" ? 1.08 : t === "large" ? 1.02 : 1; return L / sl; });
+      const t = f.lanes[k].t; const sl = t === "terre" ? 0.86 : t === "obst" ? 0.88 : t === "etroit" || t === "tunnel" ? 0.96 : t === "saut" ? 0.95 : t === "turbo" ? 1.08 : t === "large" ? 1.02 : t === "corniche" ? 0.9 : t === "tranchee" ? 0.98 : t === "viaduc" ? 1.02 : 1; return L / sl; });
     return est[0] <= est[1] ? 0 : 1;
   }).join("");
 }
@@ -93,7 +93,7 @@ function baseLine(tr, clear, fk, ck, rk) {
   (tr.forks || []).forEach((f, k) => {
     const side = fk.charAt(k) === "1" ? 1 : 0; let first = -1;
     for (let i = f.a; i <= f.b && i < n; i++) {
-      const g = Track.forkGeo(f, i); const mm = Math.max(g.m, 1.3); const c = clear + 0.25;
+      const g = Track.forkGeo(f, i); const mm = Math.max(g.m, 1.3); const c = clear + 0.25 + (f.lanes[side] && f.lanes[side].nw ? 0.55 : 0);
       let a2, b2; if (side === 0) { a2 = (g.m >= 1.2 ? g.a0 : -W[i]) + Car.HALF_W + c; b2 = -mm - Car.HALF_W - c; } else { a2 = mm + Car.HALF_W + c; b2 = (g.m >= 1.2 ? g.b1 : W[i]) - Car.HALF_W - c; }
       if (f.lnObs === side && f.olo && f.olo[i - f.a] != null && g.m >= 1.2) { a2 = Math.max(a2, f.olo[i - f.a] + 0.1); b2 = Math.min(b2, f.ohi[i - f.a] - 0.1); }
       if (i > (f.a + f.b) / 2 && g.m < 1.2) break;
@@ -175,11 +175,11 @@ function buildPlan(tr, car, th, ref) {
   const vlimA = new Float64Array(n), vlimB = new Float64Array(n);
   const fmap = tr.forks && tr.forks.length ? Track.forkMap(tr) : null; const carB = car.boostTurn ? Object.assign({}, car, { id: car.id + "B", turn: car.turn * car.boostTurn }) : null;
   for (let i = 0; i < n; i++) {
-    let s = tr.surf[i]; let cap = car.vmax; let cf = 1;
-    if (fmap && fmap[i] >= 0 && (tr.flags[i] & Track.FLAG.FORK)) { const ln = tr.forks[fmap[i]].lanes[(th.fk || "").charAt(fmap[i]) === "1" ? 1 : 0]; if (ln && ln.s) s = ln.s; }
+    let s = tr.surf[i]; let cap = car.vmax; let cf = 1; let nwL = false;
+    if (fmap && fmap[i] >= 0 && (tr.flags[i] & Track.FLAG.FORK)) { const ln = tr.forks[fmap[i]].lanes[(th.fk || "").charAt(fmap[i]) === "1" ? 1 : 0]; if (ln && ln.s) s = ln.s; if (ln && ln.nw) nwL = true; }
     if (s === 1) { cap *= 0.93; cf = clamp(th.dirtK * (0.72 + 0.3 * car.dirt), 0.4, 1.2); } else if (s === 4) { cap *= 0.62; cf = 0.9; } else if (s === 2) cf = clamp(th.iceK * (0.35 + 1.1 * car.ice), 0.3, 1.1);
     const bkI = tr.bank ? Math.abs(tr.bank[i]) : 0; const carK = bkI > 0.02 ? bankCar(car, bkI) : car;
-    let vc = ks[i] > 1e-4 ? speedForRadius(carK, 1 / ks[i]) * th.corner * cf : 1e9; if ((tr.flags[i] & Track.FLAG.NOWALL) && vc < 1e8) vc *= 0.8;
+    let vc = ks[i] > 1e-4 ? speedForRadius(carK, 1 / ks[i]) * th.corner * cf : 1e9; if (((tr.flags[i] & Track.FLAG.NOWALL) || nwL) && vc < 1e8) vc *= 0.8;
     // la Comète braque moins pendant un turbo, sa vitesse de virage sous turbo est plus basse
     let vcB = vc; if (carB && ks[i] > 1e-4) { vcB = speedForRadius(carB, 1 / ks[i]) * th.corner * cf; if (tr.flags[i] & Track.FLAG.NOWALL) vcB *= 0.8; }
     let vr = 1e9; if (ref && th.refSpeed > 0 && ref.ok[i]) vr = th.refSpeed * ref.v[i];

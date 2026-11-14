@@ -57,6 +57,7 @@
     return { x: tr.x[i] + (tr.x[i + 1] - tr.x[i]) * t, z: tr.z[i] + (tr.z[i + 1] - tr.z[i]) * t, y: tr.y[i] + (tr.y[i + 1] - tr.y[i]) * t, h: hd, w: tr.w[i] + (tr.w[i + 1] - tr.w[i]) * t, surf: tr.surf[t < 0.5 ? i : i + 1], flags: tr.flags[i], slope: (tr.y[i + 1] - tr.y[i]) / (tr.step), solid: !((tr.flags[i] | tr.flags[i + 1]) & Track.FLAG.GAP) };
   }
 
+  const sp0Flags = (tr, idx) => tr.flags[Math.max(0, Math.min(tr.n - 1, Math.floor(idx)))];
   function newRun(tr, carId, opts) {
     const car = CARS[carId] || CARS.bolide; const st = tr.start; const slot = (opts && opts.slot) || 0;
     const r = {
@@ -315,12 +316,14 @@
     const lim = ps.w + (vw > 0.05 ? vw : 0) - HALF_W; const nowall = !!(ps.flags & Track.FLAG.NOWALL);
     let loU = -lim, hiU = lim;
     // embranchement. Une fois le terre-plein assez large, chaque voiture reste dans la voie où elle est entrée
-    let laneDy = 0; const fk = tr.forks && tr.forks.length ? Track.forkMap(tr)[Math.floor(Math.min(tr.n - 1, Math.max(0, r.idx)))] : -1;
+    let laneDy = 0, laneNW = false; const fk = tr.forks && tr.forks.length ? Track.forkMap(tr)[Math.floor(Math.min(tr.n - 1, Math.max(0, r.idx)))] : -1;
     if (fk >= 0) {
       const f = tr.forks[fk]; const fg = Track.forkGeo(f, r.idx);
       if (fg.m >= 1.2) {
         if (r.laneF !== fk || r.lane < 0) { r.laneF = fk; r.lane = u < 0 ? 0 : 1; }
         if (r.lane === 0) { loU = fg.a0 + HALF_W; hiU = fg.a1 - HALF_W; } else { loU = fg.b0 + HALF_W; hiU = fg.b1 - HALF_W; }
+        // corniche, voie étroite sans barrière, on tombe si on en sort
+        if (r.laneF === fk && f.lanes[r.lane] && f.lanes[r.lane].nw && (sp0Flags(tr, r.idx) & Track.FLAG.FORK)) laneNW = true;
       }
       if (r.laneF === fk && r.lane >= 0) laneDy = Track.forkDy(f, r.lane, r.idx);
     } else if (r.lane >= 0) { r.lane = -1; r.laneF = -1; }
@@ -332,7 +335,7 @@
       if (r.out && Math.abs(u) <= lim) r.out = false;
       if (!r.out && r.air && Math.abs(u) > lim && r.y - ps.y > 0.9) r.out = true;
     }
-    if (!nowall && !r.out && (u > hiU || u < loU)) {
+    if (!nowall && !laneNW && !r.out && (u > hiU || u < loU)) {
       const sg = u > hiU ? 1 : -1; const tgt = sg > 0 ? hiU : loU; const push = u - tgt; r.x -= rrx * push; r.z -= rrz * push;
       const vn = r.vx * rrx + r.vz * rrz;
       if (vn * sg > 0) {
@@ -354,7 +357,7 @@
       for (let q = 0; q < tr.cuts.length; q++) { const c = tr.cuts[q]; if (r.prevIdx < c.lip + 0.5 && r.idx >= c.lip + 0.5 && u >= c.u0 - 0.25 && u <= c.u1 + 0.25) { r.air = true; r.vy = c.vk; r.climb = 0; r.y = ps.y + 0.55; r.cut = q; r.kickEvt = r.tick; r.cutEvt = r.tick; progress(r); return; } }
     }
     // hauteur et envol
-    const offroad = (nowall || r.out) && Math.abs(u) > ps.w + 0.2; let solid = ps.solid && !offroad; const bkn = tr.bank ? Track.bankAt(tr, r.idx) : 0; r.bank = bkn; const gy = solid ? ps.y + laneDy + u * bkn : -1e9;
+    const offroad = ((nowall || r.out) && Math.abs(u) > ps.w + 0.2) || (laneNW && (u > hiU + HALF_W + 0.2 || u < loU - HALF_W - 0.2)); let solid = ps.solid && !offroad; const bkn = tr.bank ? Track.bankAt(tr, r.idx) : 0; r.bank = bkn; const gy = solid ? ps.y + laneDy + u * bkn : -1e9;
     if (!r.air) {
       const freeY = r.y + r.climb * DT - 0.5 * gAir * DT * DT;
       const bkTol = bkn ? Math.abs(bkn) * Math.abs(r.vx * rrx + r.vz * rrz) * DT * 1.6 + 0.04 : 0; // sur un virage relevé la route descend sous la voiture quand elle glisse vers l'intérieur, ce n'est pas un saut
