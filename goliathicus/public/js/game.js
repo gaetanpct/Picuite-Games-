@@ -153,6 +153,19 @@
   function onHover(cellPos) {
     hoverCell = cellPos;
     renderInfo();
+    floatTip();
+  }
+  // petite bulle au survol, juste à côté de la pièce, avec sa force et son pouvoir
+  let tipEl = null, mouse = { x: 0, y: 0 };
+  document.addEventListener("mousemove", (e) => { mouse.x = e.clientX; mouse.y = e.clientY; if (tipEl && !tipEl.classList.contains("hidden")) placeTip(); });
+  function placeTip() { const w = tipEl.offsetWidth, h = tipEl.offsetHeight; let x = mouse.x + 16, y = mouse.y + 18; if (x + w > window.innerWidth - 8) x = mouse.x - w - 12; if (y + h > window.innerHeight - 8) y = mouse.y - h - 12; tipEl.style.left = x + "px"; tipEl.style.top = y + "px"; }
+  function floatTip() {
+    if (!tipEl) { tipEl = el("div", { class: "ftip hidden" }); document.body.appendChild(tipEl); }
+    const p = st && hoverCell ? pieceAt(hoverCell.r, hoverCell.c) : null; if (!p || window.matchMedia("(hover: none)").matches) { tipEl.classList.add("hidden"); return; }
+    const d = p.type ? PIECES[p.type] : null; const own = st.players[p.owner] ? st.players[p.owner].name : "";
+    if (d) tipEl.innerHTML = `<b>${d.icon} ${esc(d.name)}</b> <span class="ftip__rk">${d.bomb ? "piège" : d.id === "oeuf" ? "à protéger" : "force " + (d.rank + (p.grow || 0))}</span><div class="ftip__own">${esc(own)}</div><p>${esc(d.desc)}</p>`;
+    else tipEl.innerHTML = `<b>❔ Pièce mystère</b><div class="ftip__own">${esc(own)}</div><p>${p.moved ? "Elle a déjà bougé, ce n'est ni une tarte ni l'Œuf." : "Elle n'a jamais bougé."}</p>`;
+    tipEl.classList.remove("hidden"); placeTip();
   }
 
   function onCell(r, c) {

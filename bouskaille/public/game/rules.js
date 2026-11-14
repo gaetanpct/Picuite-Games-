@@ -16,6 +16,12 @@
       ] },
       { id: "rounds", label: "Nombre de manches", type: "range", min: 1, max: 9, step: 1, default: 5, info: "Chaque manche se joue sur une arène générée pour toi. Les points s'additionnent, donc quelqu'un d'éliminé tôt peut toujours revenir." },
       { id: "roundTime", label: "Durée d'une manche chronométrée", type: "range", min: 45, max: 150, step: 15, default: 90, unit: " s", showIf: { mode: ["points", "couronne"] } },
+      { id: "gabarits", label: "Gabarits des personnages", type: "cards", default: "libre", options: [
+        { value: "libre", label: "Chacun choisit", icon: "🧍", desc: "Chacun choisit son gabarit dans le salon, poids plume, moyen, lourd ou caoutchouc." },
+        { value: "hasard", label: "Au hasard à chaque manche", icon: "🎲", desc: "Une roulette donne un gabarit à chacun au début de chaque manche. Il faut changer de style à chaque fois." },
+        { value: "echange", label: "Échange", icon: "🔁", desc: "Gabarits au hasard, et celui qui éjecte un adversaire lui vole son gabarit, l'autre récupère le sien." },
+        { value: "egal", label: "Tous pareils", icon: "⚖️", desc: "Tout le monde a le même poids, comme avant." },
+      ] },
       { id: "firstPerson", label: "Vue à la première personne pour tous", type: "bool", default: false, info: "Si c'est activé, tout le monde joue avec la caméra à hauteur de yeux, qui tourne toute seule vers la direction où l'on va. Les flèches servent à se déplacer, F, H, T et G orientent la caméra. Le choix vaut pour tous les joueurs de la partie." },
       { id: "finalDouble", label: "Dernière manche à points doubles", type: "bool", default: true, info: "Pour que tout se joue jusqu'au bout." },
     ] },

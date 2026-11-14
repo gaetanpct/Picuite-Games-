@@ -1192,3 +1192,28 @@ Chaque jeu a été regardé seul, accueil, salon et partie. Le but n'était pas 
 ### Ce qu'il faut faire sur GitHub
 - Supprimer le dossier fart-together.
 - Déposer les dossiers vertigogo et zoomalou, et le fichier README.md.
+
+## Quarante-cinquième mise à jour, lot 2 de la grande refonte
+
+### Golfouille, tir au lance-pierre
+- On clique sur sa balle (ou on pose le doigt dessus), on tire vers l'arrière et on lâche. Plus on tire loin, plus on tape fort, et le côté vers lequel on tire envoie la balle de l'autre côté. Un élastique coloré relie la balle au doigt, du vert pour un petit coup au rouge pour un coup plein, avec le pourcentage affiché.
+- Pendant le tirage, l'arc et le cercle d'arrivée suivent en direct, et la caméra reste immobile pour viser tranquillement. Clic droit ou Échap annule le tir.
+- Le choix du club reste à côté. Il règle la hauteur et la portée maximale.
+- L'ancienne façon de viser reste possible, toucher le terrain puis appuyer sur Taper ou sur espace. Le tutoriel est réécrit et s'affiche une fois de plus pour tout le monde.
+
+### Goliathicus, grand duel au centre
+- À chaque combat, les deux pièces quittent le plateau, grossissent face à face au centre de l'écran, se retournent pour montrer leur force et s'entrechoquent dans un éclair, avec le verdict écrit en dessous.
+- Le perdant disparaît à sa façon. La tarte s'écrase, le dragon et le phénix flambent, le golem et le troll s'effritent, le fantôme et le reflet s'évaporent, l'escargot fond, le bouffon tourbillonne, l'œuf se fêle, et une explosion souffle tout. Les autres pièces se font croquer.
+- Ensuite la case du combat clignote pour que tout le monde la repère. Le tout dure moins de deux secondes et suit le mode lent.
+- Une petite bulle au survol de chaque pièce donne sa force, son propriétaire et son pouvoir, sans quitter le plateau des yeux. Sur téléphone, la fiche habituelle reste à sa place.
+- Les pièces adverses déjà révélées restaient déjà visibles sur le plateau. Je n'ai pas ajouté de mémoire en plus, elle aurait annulé l'effet de la Cloche de l'oubli et des échanges de pièces.
+
+### Bouskaille, gabarits
+- Quatre gabarits avec leur propre physique. Poids plume (rapide, charge vite, tourne sec, mais vole loin), poids moyen, poids lourd (presque inamovible, poussée terrible, mais lent et charge longue) et caoutchouc (renvoie une partie de chaque charge à celui qui la lance, mais pousse moins fort).
+- Un choc tient compte des deux masses. Un plume qui charge un lourd rebondit dessus.
+- La taille du personnage montre son gabarit, du plus petit pour le plume au plus grand pour le lourd.
+- Un nouveau réglage de salon, Gabarits des personnages. Chacun choisit (dans le salon, sous l'aperçu du personnage), Au hasard à chaque manche, Échange (celui qui éjecte un adversaire lui vole son gabarit et l'autre récupère le sien), ou Tous pareils comme avant.
+- L'équilibre a été réglé en faisant s'affronter les bots en duel. Il demandera sans doute quelques retouches après de vraies parties.
+
+### Ce qu'il faut déposer sur GitHub
+- Les dossiers golfouille, goliathicus et bouskaille, et le fichier README.md.

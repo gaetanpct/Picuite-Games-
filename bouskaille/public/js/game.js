@@ -27,7 +27,7 @@
   const myPid = () => { const p = Kit.me(); return p ? p.id : null; };
   const colorOf = (id) => { const d = G.round && G.round.players.find((p) => p.id === id); if (!d) return "#fff"; return d.team && G.round.mode === "teams" ? TEAM[d.team].hex : COLORS[d.color % 8].hex; };
   const nameOf = (id) => { const d = G.round && G.round.players.find((p) => p.id === id); return d ? d.name : "?"; };
-  const myCos = () => { try { const c = JSON.parse(store.get("bousk.cos", "{}")); return { char: c.char | 0, hat: c.hat | 0, trail: c.trail | 0 }; } catch (e) { return { char: 0, hat: 0, trail: 0 }; } };
+  const myCos = () => { try { const c = JSON.parse(store.get("bousk.cos", "{}")); return { char: c.char | 0, hat: c.hat | 0, trail: c.trail | 0, gab: Sim.GAB[c.gab] ? c.gab : "moyen" }; } catch (e) { return { char: 0, hat: 0, trail: 0, gab: "moyen" }; } };
 
   // ---------- construction de l'écran ----------
   let R = null, canvas, hudEl;
@@ -86,12 +86,13 @@
       const co = G.cos[p.id] || { char: 0, hat: 0, trail: 0 };
       G.actors[p.id] = new CH.Actor(R.scene, { name: p.name, color: colorOf(p.id), char: co.char, hat: co.hat, trail: co.trail });
     });
+    G.gabs = msg.gabs || {}; applyGabs();
     const sp = Ar.spawnsFor(G.A, msg.players.length, msg.mode === "teams" ? msg.players.map((p) => p.team) : null);
     msg.players.forEach((p, i) => { const a = G.actors[p.id]; a.group.position.set(sp[i].x, 0, sp[i].z); a.fx = Math.PI / 2 - sp[i].a; G.snaps.length = 0; });
     G.pre = msg.players.map((p, i) => ({ x: sp[i].x, z: sp[i].z, a: sp[i].a }));
     SND.ambience(G.A.theme); renderBoard(); updateHeader(); document.body.dataset.bk = "round";
     $("#bk-end").classList.remove("show"); $("#bk-over").classList.remove("show");
-    banner(G.A.name, G.A.blurb + " " + (G.A.info || ""), 0);
+    banner(G.A.name, G.A.blurb + " " + (G.A.info || "") + (msg.gabMode && msg.gabMode !== "egal" && G.gabs[G.mine] ? " Tu joues " + gabLine(G.mine) + "." : ""), 0);
     G.phase = "intro"; G.introAt = performance.now(); G.cam.fit = null;
     const h = $("#bk-help"); if (h) { h.style.opacity = 1; h.innerHTML = isTouch ? "Joystick pour te déplacer, bouton pour pousser, bouton Saut pour sauter. Maintiens pour charger." : "<kbd>ZQSD</kbd> ou <kbd>flèches</kbd> pour bouger. <kbd>Espace</kbd> pour pousser, maintiens pour charger et relâche pour foncer. <kbd>Maj</kbd> ou <kbd>E</kbd> pour sauter."; }
   }
@@ -145,7 +146,7 @@
     if (sn.ev && sn.ev.length) sn.ev.forEach((e) => onEvent(e, sn));
     // recalage de ma prédiction
     const me = G.idx[G.mine]; if (me === undefined || !sn.p[me]) return; const s = sn.p[me];
-    if (!G.L) { G.L = Sim.newPlayer(G.mine, 0, s[0], s[1], s[5]); G.LW.players = [G.L]; G.L.alive = !!(s[8] & 1); }
+    if (!G.L) { G.L = Sim.newPlayer(G.mine, 0, s[0], s[1], s[5]); Sim.setGab(G.L, (G.gabs && G.gabs[G.mine]) || "moyen"); G.LW.players = [G.L]; G.L.alive = !!(s[8] & 1); }
     const L = G.L; const st = STN[s[6]] || "ok"; const alive = !!(s[8] & 1);
     const age = (performance.now() - arr) / 1000; const ex = s[0] + s[3] * age, ez = s[1] + s[4] * age; const dx = ex - L.x, dz = ez - L.z, d = Math.hypot(dx, dz);
     if (!alive) { L.alive = false; return; }
@@ -158,6 +159,9 @@
     if (G.mismatch > 2) { if (st === "rec") { L.rec = 0.35; L.holding = false; L.dash = 0; } else if (st === "stun") { L.stun = 0.25; L.holding = false; L.dash = 0; } else if (st === "ok") { L.holding = false; L.dash = 0; L.rec = 0; } else if (st === "dash" && L.dash <= 0) { L.dash = 0.2; L.dx = L.fx; L.dz = L.fz; L.ds = 12; L.dashLen = 0.3; } G.mismatch = 0; }
     L.cd = (s[8] & 4) ? Math.max(L.cd, 0.2) : L.cd;
   }
+  // gabarits, la taille du personnage le montre, et ma prédiction locale suit le même poids
+  function applyGabs() { Object.keys(G.actors).forEach((id) => { const a = G.actors[id]; const g = Sim.gabOf(G.gabs && G.gabs[id]); if (a && a.group) a.group.scale.setScalar(g.scale); }); if (G.L) Sim.setGab(G.L, (G.gabs && G.gabs[G.mine]) || "moyen"); }
+  function gabLine(id) { const g = Sim.gabOf(G.gabs && G.gabs[id]); return g.icon + " " + g.name; }
   function onEvent(e, sn) {
     const v = G.view; const me = G.mine; const now = performance.now();
     switch (e.e) {
@@ -165,6 +169,7 @@
       case "dash": { SND.dash(e.c); const a = G.actors[e.id]; if (a) FX.dust(e.x, e.z, e.dx, e.dz, 5); break; }
       case "pulse": { SND.pulse(); const a = G.actors[e.id]; if (a) a.oneShot("kick", 1.8); FX.ring(e.x + e.fx, e.z + e.fz, 0xffffff, 1.2, 0.22); break; }
       case "miss": { FX.dust(e.x, e.z, 0, 0, 6); break; }
+      case "gabs": { G.gabs = e.map || G.gabs; applyGabs(); feed(`${dotHtml(e.by)} vole le gabarit ${esc(gabLine(e.by))} à ${dotHtml(e.id)}`); if (e.by === me || e.id === me) toast("Tu es maintenant " + gabLine(me), "info"); break; }
       case "bar": { SND.bar(); FX.impact(e.x, e.z, e.p * 0.5, 0, 0); shake(0.35); break; }
       case "bump": { SND.bump(); const pg = v && v.pegs[e.i]; if (pg) { pg.g.scale.set(1.25, 0.8, 1.25); setTimeout(() => pg.g.scale.set(1, 1, 1), 110); } FX.ring(e.x, e.z, 0xffe14d, 1.6, 0.3); break; }
       case "spring": { SND.spring(); FX.spring(e.x, e.z); if (v) { const i = v.nearestSpring(e.x, e.z); if (i >= 0) v.squash(i); } break; }
@@ -402,11 +407,13 @@
   // ---------- personnalisation dans le salon ----------
   let prev = null, prevNode = null;
   function setCos(k, d) { const c = myCos(); const n = { char: CH.FILES.length, hat: CH.HATS.length, trail: CH.TRAILS.length }[k]; c[k] = (c[k] + d + n) % n; store.set("bousk.cos", JSON.stringify(c)); sendCos(); refreshPreview(); drawPickers(); }
-  function drawPickers() { if (!prevNode) return; const c = myCos(); [["char", "Personnage", CH.NAMES], ["hat", "Accessoire", CH.HATS], ["trail", "Effet", CH.TRAILS]].forEach(([k, l, arr]) => { const e = prevNode.querySelector("[data-k=" + k + "] b"); if (e) e.textContent = arr[c[k]]; }); }
+  function setGab(d) { const c = myCos(); const L = Sim.GAB_IDS; c.gab = L[(L.indexOf(c.gab) + d + L.length) % L.length]; store.set("bousk.cos", JSON.stringify(c)); sendCos(); refreshPreview(); drawPickers(); }
+  function drawPickers() { if (!prevNode) return; const c = myCos(); { const g = Sim.gabOf(c.gab); const b = prevNode.querySelector("[data-k=gab] b"); if (b) b.textContent = g.icon + " " + g.name; const mode = S().gabarits || "libre"; const d = prevNode.querySelector(".bk-gabdesc"); if (d) d.textContent = mode === "libre" ? g.desc : mode === "egal" ? "Dans ce salon tout le monde a le même poids." : "Dans ce salon les gabarits sont tirés au hasard, ton choix servira dans un autre salon."; } [["char", "Personnage", CH.NAMES], ["hat", "Accessoire", CH.HATS], ["trail", "Effet", CH.TRAILS]].forEach(([k, l, arr]) => { const e = prevNode.querySelector("[data-k=" + k + "] b"); if (e) e.textContent = arr[c[k]]; }); }
   function makePreview() {
     if (prevNode) return; prevNode = el("div", { class: "bk-custom" });
     const cv = el("canvas", { width: 300, height: 380 }); prevNode.appendChild(cv);
-    const box = el("div"); [["char", "Personnage"], ["hat", "Accessoire"], ["trail", "Effet"]].forEach(([k, l]) => box.appendChild(el("div", { class: "bk-pick", "data-k": k }, [el("span", { class: "l", text: l }), el("button", { text: "‹", title: "Précédent", onclick: () => setCos(k, -1) }), el("b"), el("button", { text: "›", title: "Suivant", onclick: () => setCos(k, 1) })])));
+    const box = el("div"); box.appendChild(el("div", { class: "bk-pick bk-pick--gab", "data-k": "gab" }, [el("span", { class: "l", text: "Gabarit" }), el("button", { text: "‹", title: "Précédent", onclick: () => setGab(-1) }), el("b"), el("button", { text: "›", title: "Suivant", onclick: () => setGab(1) })])); box.appendChild(el("p", { class: "muted small bk-gabdesc" }));
+    [["char", "Personnage"], ["hat", "Accessoire"], ["trail", "Effet"]].forEach(([k, l]) => box.appendChild(el("div", { class: "bk-pick", "data-k": k }, [el("span", { class: "l", text: l }), el("button", { text: "‹", title: "Précédent", onclick: () => setCos(k, -1) }), el("b"), el("button", { text: "›", title: "Suivant", onclick: () => setCos(k, 1) })])));
     box.appendChild(el("p", { class: "muted small", text: "Les accessoires et les effets ne changent rien au jeu, ils servent à te reconnaître." }));
     prevNode.appendChild(box); drawPickers();
     try { const r = new T.WebGLRenderer({ canvas: cv, antialias: true, alpha: true }); r.setClearColor(0x000000, 0); const sc = new T.Scene(); const cam = new T.PerspectiveCamera(30, 300 / 380, 0.1, 50); cam.position.set(0, 1.5, 5.4); cam.lookAt(0, 1.0, 0); sc.add(new T.HemisphereLight(0xffffff, 0x8899bb, 1.1)); const dl = new T.DirectionalLight(0xffffff, 0.9); dl.position.set(3, 6, 5); sc.add(dl); prev = { r, sc, cam, actor: null, key: "" }; } catch (e) { prev = null; }
@@ -414,8 +421,8 @@
     tick();
   }
   function refreshPreview() {
-    if (!prev) return; const c = myCos(); const me = Kit.me(); const col = me ? COLORS[me.color % 8].hex : "#e8453c"; const key = [c.char, c.hat, col].join("|"); if (key === prev.key) return; prev.key = key;
-    if (prev.actor) { prev.actor.dispose(); prev.actor = null; } CH.load(() => { if (prev.key !== key) return; prev.actor = new CH.Actor(prev.sc, { name: "", color: col, char: c.char, hat: c.hat }); prev.actor.group.scale.setScalar(1); });
+    if (!prev) return; const c = myCos(); const me = Kit.me(); const col = me ? COLORS[me.color % 8].hex : "#e8453c"; const key = [c.char, c.hat, col, c.gab].join("|"); if (key === prev.key) return; prev.key = key;
+    if (prev.actor) { prev.actor.dispose(); prev.actor = null; } CH.load(() => { if (prev.key !== key) return; prev.actor = new CH.Actor(prev.sc, { name: "", color: col, char: c.char, hat: c.hat }); prev.actor.group.scale.setScalar(Sim.gabOf(c.gab).scale * 0.95); });
   }
   function renderPreview(box, room) {
     makePreview(); if (!prevNode.isConnected || prevNode.parentNode !== box) box.appendChild(prevNode); refreshPreview(); drawPickers();

@@ -532,3 +532,41 @@ input[type="text"]:focus { border-color: var(--plum-3); box-shadow: 0 0 0 4px rg
 /* accessibilité commune, ajoutée par la refonte v49 */
 button:focus-visible, a:focus-visible, select:focus-visible, [role="button"]:focus-visible, summary:focus-visible { outline: 3px solid #ffd23f; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+
+/* ---------- grand duel au centre ---------- */
+.clash { position: fixed; inset: 0; z-index: 60; pointer-events: none; background: radial-gradient(circle at 50% 44%, rgba(20, 12, 40, 0.35), rgba(10, 6, 24, 0.72)); opacity: 0; transition: opacity 0.18s; }
+.clash--on { opacity: 1; }
+.clash--out { opacity: 0; transition: opacity 0.3s; }
+.clash__piece { position: fixed; margin: 0; transform-origin: center; z-index: 2; filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.55)); }
+.clash__flash { position: fixed; left: 50%; top: 44%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: radial-gradient(circle, #fff 0, rgba(255, 236, 160, 0.9) 30%, rgba(255, 180, 60, 0) 70%); opacity: 0; z-index: 3; }
+.clash__flash--on { animation: clashFlash 0.55s ease-out; }
+@keyframes clashFlash { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(34); } }
+.clash--hit { animation: clashShake 0.35s; }
+.clash--boom { animation: clashShake 0.6s; }
+@keyframes clashShake { 0%, 100% { transform: none; } 20% { transform: translate(-6px, 3px); } 40% { transform: translate(5px, -4px); } 60% { transform: translate(-4px, -2px); } 80% { transform: translate(3px, 4px); } }
+.clash__piece--hit .piece__ico { animation: clashPop 0.4s; }
+@keyframes clashPop { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
+.clash__verdict { position: fixed; left: 50%; top: calc(44% + 105px); transform: translateX(-50%); display: flex; gap: 0.6rem; align-items: baseline; background: rgba(20, 14, 40, 0.88); color: #fff; padding: 0.4rem 1rem; border-radius: 999px; font-size: 1.05rem; white-space: nowrap; opacity: 0; transition: opacity 0.2s; z-index: 4; }
+.clash__verdict:not(:empty) { opacity: 1; }
+.clash__verdict i { opacity: 0.7; font-style: normal; font-size: 0.9rem; }
+.clash__piece--win { animation: clashWin 0.6s ease-out forwards; }
+@keyframes clashWin { 0% { filter: drop-shadow(0 0 0 gold); } 100% { filter: drop-shadow(0 0 18px #ffd84a) drop-shadow(0 10px 14px rgba(0, 0, 0, 0.55)); } }
+.clash__piece--die { animation-duration: 0.65s; animation-fill-mode: forwards; animation-timing-function: ease-in; }
+.die--crunch { animation-name: dieCrunch; } @keyframes dieCrunch { 30% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); } 60% { clip-path: polygon(0 0, 70% 0, 55% 25%, 75% 45%, 55% 65%, 70% 100%, 0 100%); opacity: 1; } 100% { clip-path: polygon(0 0, 40% 0, 25% 25%, 45% 45%, 25% 65%, 40% 100%, 0 100%); opacity: 0; } }
+.die--splat { animation-name: dieSplat; } @keyframes dieSplat { 40% { transform-origin: bottom; } 100% { opacity: 0; filter: hue-rotate(-20deg) saturate(1.6); } }
+.die--fire { animation-name: dieFire; } @keyframes dieFire { 0% { filter: brightness(1); } 50% { filter: brightness(2.2) sepia(1) saturate(4) hue-rotate(-20deg); } 100% { opacity: 0; filter: brightness(3) sepia(1) saturate(6) blur(4px); } }
+.die--crumble { animation-name: dieCrumble; } @keyframes dieCrumble { 30% { filter: grayscale(1) contrast(1.3); } 100% { opacity: 0; filter: grayscale(1) blur(3px); clip-path: inset(70% 0 0 0); } }
+.die--fade { animation-name: dieFade; } @keyframes dieFade { 100% { opacity: 0; filter: blur(8px) brightness(1.8); } }
+.die--melt { animation-name: dieMelt; } @keyframes dieMelt { 100% { opacity: 0; clip-path: inset(85% 0 0 0); filter: hue-rotate(60deg); } }
+.die--spin { animation-name: dieSpin; } @keyframes dieSpin { 100% { opacity: 0; rotate: 540deg; scale: 0.2; } }
+.die--crack { animation-name: dieCrack; } @keyframes dieCrack { 40% { rotate: -8deg; } 60% { rotate: 8deg; } 100% { opacity: 0; scale: 1.3; filter: brightness(2); } }
+.die--boom { animation-name: dieBoom; } @keyframes dieBoom { 0% { filter: brightness(1); } 30% { filter: brightness(3); scale: 1.3; } 100% { opacity: 0; scale: 2.2; filter: blur(6px) brightness(3); } }
+.cellflash { position: absolute; border-radius: 10px; box-shadow: 0 0 0 3px #ffd84a, 0 0 18px 4px rgba(255, 216, 74, 0.8); animation: cellFlash 0.35s ease-in-out 3 alternate; pointer-events: none; z-index: 5; }
+@keyframes cellFlash { from { opacity: 1; } to { opacity: 0.2; } }
+@media (prefers-reduced-motion: reduce) { .clash--hit, .clash--boom { animation: none; } }
+
+.ftip { position: fixed; z-index: 50; max-width: 260px; background: rgba(24, 18, 44, 0.94); color: #fff; border-radius: 12px; padding: 0.5rem 0.7rem; font-size: 0.85rem; line-height: 1.3; pointer-events: none; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35); }
+.ftip.hidden { display: none; }
+.ftip__rk { background: #ffd84a; color: #2a2140; border-radius: 999px; padding: 0 0.45rem; font-weight: 800; font-size: 0.78rem; margin-left: 0.3rem; }
+.ftip__own { opacity: 0.7; font-size: 0.78rem; margin-top: 0.1rem; }
+.ftip p { margin: 0.3rem 0 0; opacity: 0.92; }

@@ -6,15 +6,16 @@ const Rules = require("./public/game/rules.js");
 
 const TICK_MS = 1000 / 60;
 const HATS = 10, TRAILS = 6, CHARS = 5;
-const cleanCos = (c) => { c = c || {}; const n = (v, m) => { v = Math.floor(Number(v)); return v >= 0 && v < m ? v : 0; }; return { char: n(c.char, CHARS), hat: n(c.hat, HATS), trail: n(c.trail, TRAILS) }; };
+const GABS = ["moyen", "plume", "lourd", "rebond"];
+const cleanCos = (c) => { c = c || {}; const n = (v, m) => { v = Math.floor(Number(v)); return v >= 0 && v < m ? v : 0; }; return { char: n(c.char, CHARS), hat: n(c.hat, HATS), trail: n(c.trail, TRAILS), gab: GABS.includes(c.gab) ? c.gab : "moyen" }; };
 
 function cosMap(room) { const m = {}; room.players.forEach((p) => { m[p.id] = p.cos || { char: 0, hat: 0, trail: 0 }; }); return m; }
 function sendTo(room, p, ev, data) { if (!p.isBot && p.socketId && room.g) room.g.api.io.to(p.socketId).emit(ev, data); }
 function toAll(room, ev, data) { room.g.api.emitAll(room, ev, data); }
 
 function start(room, api) {
-  room.players.forEach((p, i) => { if (!p.cos) p.cos = p.isBot ? { char: (i * 2 + 1) % CHARS, hat: (i * 3) % HATS, trail: i % TRAILS } : { char: 0, hat: 0, trail: 0 }; });
-  const defs = room.players.map((p) => ({ id: p.id, name: p.name, color: p.color, isBot: p.isBot, level: p.level || "moyen" }));
+  room.players.forEach((p, i) => { if (!p.cos) p.cos = p.isBot ? { char: (i * 2 + 1) % CHARS, hat: (i * 3) % HATS, trail: i % TRAILS } : { char: 0, hat: 0, trail: 0 }; if (p.isBot && !p.cos.gab) p.cos.gab = GABS[(i * 3 + 1) % GABS.length]; });
+  const defs = room.players.map((p) => ({ id: p.id, name: p.name, color: p.color, isBot: p.isBot, level: p.level || "moyen", gab: (p.cos && p.cos.gab) || "moyen" }));
   const m = new Match(room.settings, defs);
   room.g = { api, m, last: Date.now(), acc: 0, tickN: 0, evBuf: [], hudAt: 0, timer: null, over: false, cos: cosMap(room) };
   room.players.forEach((p) => { if (!p.isBot && !p.connected) m.setAuto(p.id, true); });

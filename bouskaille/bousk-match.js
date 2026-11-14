@@ -21,6 +21,7 @@ class Match {
     this.input = {}; this.brains = {}; this.out = []; this.history = []; this.lastArena = null; this.stats = { hits: 0, dashes: 0, pulses: 0, kos: 0, misses: 0 };
     this.defs.forEach((d) => { if (d.isBot) this.brains[d.id] = Bot.newBrain(d.level, this.rnd); });
     this.autoIds = new Set(); // joueurs absents, repris par un bot
+    this.gabs = {}; this.defs.forEach((d) => { this.gabs[d.id] = this.s.gabarits === "libre" ? (Sim.GAB[d.gab] ? d.gab : "moyen") : this.s.gabarits === "egal" ? "moyen" : Sim.GAB_IDS[Math.floor(this.rnd() * Sim.GAB_IDS.length)]; });
     this.startRound();
   }
   teamOf() { return this.defs.map((d) => d.team); }
@@ -33,12 +34,15 @@ class Match {
     this.A = A; this.seed = seed; this.W = Sim.makeWorld(A, { friendly: this.s.friendly, noShrink: !(this.s.shrink && !Rules.isTimed(this.s.mode)) });
     const sp = Arenas.spawnsFor(A, this.n, this.s.mode === "teams" ? this.teamOf() : null);
     this.P = {}; this.W.players = this.defs.map((d, i) => { const p = Sim.newPlayer(d.id, d.team, sp[i].x, sp[i].z, sp[i].a); p.inv = 0; this.P[d.id] = p; return p; });
+    // au hasard, chaque manche tire de nouveaux gabarits. En échange, on garde ceux de la manche d'avant
+    if (this.s.gabarits === "hasard" && this.round > 0) this.defs.forEach((d) => { this.gabs[d.id] = Sim.GAB_IDS[Math.floor(this.rnd() * Sim.GAB_IDS.length)]; });
+    this.defs.forEach((d) => Sim.setGab(this.P[d.id], this.gabs[d.id] || "moyen"));
     this.spawnOf = {}; this.defs.forEach((d, i) => { this.spawnOf[d.id] = sp[i]; });
     this.R = {}; this.defs.forEach((d) => { this.R[d.id] = { ko: 0, falls: 0, outAt: null, pts: 0, respawnAt: null, crown: 0, firstOut: false }; });
     this.phase = "intro"; this.pt = 0; this.tPlay = 0; this.crown = null; this.crownTimer = 0; this.endInfo = null; this.freeze = true; this.out.push({ e: "round", i: this.round });
     this.input = {}; Object.values(this.brains).forEach((b) => { b.h = false; b.mx = 0; b.mz = 0; b.mode = "roam"; b.next = 0; });
   }
-  roundMsg() { return { i: this.round, total: this.total, arena: this.A.id, seed: this.seed, hazards: this.s.hazards, mode: this.s.mode, shrink: !!(this.s.shrink && !Rules.isTimed(this.s.mode)), dur: this.s.roundTime, double: !!(this.s.finalDouble && this.round === this.total - 1 && this.total > 1), players: this.defs.map((d) => ({ id: d.id, name: d.name, color: d.color, team: d.team, bot: !!d.isBot })) }; }
+  roundMsg() { return { i: this.round, total: this.total, arena: this.A.id, seed: this.seed, hazards: this.s.hazards, mode: this.s.mode, shrink: !!(this.s.shrink && !Rules.isTimed(this.s.mode)), dur: this.s.roundTime, double: !!(this.s.finalDouble && this.round === this.total - 1 && this.total > 1), players: this.defs.map((d) => ({ id: d.id, name: d.name, color: d.color, team: d.team, bot: !!d.isBot })) , gabs: Object.assign({}, this.gabs), gabMode: this.s.gabarits }; }
   setInput(id, inp) { this.input[id] = { mx: +inp.mx || 0, mz: +inp.mz || 0, h: !!inp.h, seq: inp.seq | 0 }; const jq = this.jq || (this.jq = {}), jp = this.jprev || (this.jprev = {}); if (inp.j && !jp[id]) jq[id] = true; jp[id] = !!inp.j; }
   setAuto(id, on) { if (on) this.autoIds.add(id); else this.autoIds.delete(id); if (on && !this.brains[id]) { const d = this.defs.find((x) => x.id === id); this.brains[id] = Bot.newBrain("moyen", this.rnd); } }
 
@@ -70,6 +74,8 @@ class Match {
         if (by && by !== p.id && this.R[by] && !(this.P[by].team && this.P[by].team === p.team)) { this.R[by].ko++; if (timed) this.R[by].pts = (this.R[by].pts || 0) + 3; }
         else if (timed && this.s.mode === "points") this.R[p.id].pts -= 1;
         if (!by) this.out.push({ e: "selfko", id: p.id });
+        // échange, celui qui éjecte prend le gabarit de sa victime, et la victime récupère le sien
+        if (by && by !== p.id && this.s.gabarits === "echange" && this.P[by] && !(this.P[by].team && this.P[by].team === p.team) && this.gabs[by] !== this.gabs[p.id]) { const a = this.gabs[by]; this.gabs[by] = this.gabs[p.id]; this.gabs[p.id] = a; Sim.setGab(this.P[by], this.gabs[by]); Sim.setGab(p, this.gabs[p.id]); this.out.push({ e: "gabs", by, id: p.id, map: Object.assign({}, this.gabs) }); }
         if (timed) R.respawnAt = this.tPlay + RESPAWN;
       }
       if (timed && !p.alive && R.respawnAt !== null && this.tPlay >= R.respawnAt) this.respawn(p, R);
@@ -88,7 +94,7 @@ class Match {
   respawn(p, R) {
     const alive = this.aliveList(); let best = null, bd = -1;
     for (const s of this.A.spawns) { const dm = alive.length ? Math.min.apply(null, alive.map((q) => Math.hypot(q.x - s.x, q.z - s.z))) : 9; if (dm > bd) { bd = dm; best = s; } }
-    const np = Sim.newPlayer(p.id, p.team, best.x, best.z, best.a); np.inv = Sim.K.INV_SELF;
+    const np = Sim.newPlayer(p.id, p.team, best.x, best.z, best.a); np.inv = Sim.K.INV_SELF; Sim.setGab(np, this.gabs[p.id] || "moyen");
     Object.assign(p, np); R.outAt = null; R.respawnAt = null; this.out.push({ e: "respawn", id: p.id, x: p.x, z: p.z });
   }
   tickCrown(dt) {

@@ -25,8 +25,18 @@
   const ramp = (t) => (t < K.RAMP ? (t * t) / (2 * K.RAMP) : t - K.RAMP / 2);
   const dramp = (t) => (t < K.RAMP ? t / K.RAMP : 1);
 
+  // gabarits. Chaque personnage a sa masse et sa façon de bouger, un choc tient compte des deux masses
+  const GAB = {
+    moyen: { id: "moyen", name: "Poids moyen", icon: "⚖️", m: 1, run: 1, acc: 1, dash: 1, chg: 1, steer: 1, push: 1, bounce: 0, scale: 1, desc: "Équilibré, sans point faible." },
+    plume: { id: "plume", name: "Poids plume", icon: "🪶", m: 0.78, run: 1.16, acc: 1.3, dash: 1.06, chg: 0.8, steer: 1.25, push: 0.9, bounce: 0, scale: 0.86, desc: "Rapide, charge vite et tourne sec, mais vole loin au moindre choc." },
+    lourd: { id: "lourd", name: "Poids lourd", icon: "🪨", m: 1.42, run: 0.86, acc: 0.78, dash: 0.9, chg: 1.3, steer: 0.85, push: 1.15, bounce: 0, scale: 1.2, desc: "Presque impossible à bouger et sa poussée est terrible, mais il est lent et sa charge est longue." },
+    rebond: { id: "rebond", name: "Caoutchouc", icon: "🎈", m: 0.95, run: 1, acc: 1, dash: 0.92, chg: 1, steer: 1, push: 0.78, bounce: 0.4, scale: 1, desc: "Renvoie une partie de chaque charge à celui qui la lance, mais pousse moins fort." },
+  };
+  const GAB_IDS = ["moyen", "plume", "lourd", "rebond"];
+  const gabOf = (id) => GAB[id] || GAB.moyen;
+  function setGab(P, id) { P.g = gabOf(id); P.gab = P.g.id; }
   function newPlayer(id, team, x, z, face) {
-    return { id, team: team || 0, x, z, y: 0, vx: 0, vz: 0, vy: 0, fx: Math.cos(face || 0), fz: Math.sin(face || 0),
+    return { g: GAB.moyen, gab: "moyen", id, team: team || 0, x, z, y: 0, vx: 0, vz: 0, vy: 0, fx: Math.cos(face || 0), fz: Math.sin(face || 0),
       alive: true, fall: false, air: false, holding: false, chT: 0, ch: 0, dash: 0, dx: 0, dz: 0, ds: 0, dpow: 0, dhit: false,
       rec: 0, cd: 0, jcd: 0, jHeld: false, stun: 0, slide: 0, inv: 0, springCd: 0, lastHit: null, hits: 0, ground: true, slip: false, st: "ok" };
   }
@@ -174,7 +184,7 @@
       if (hold && !P.holding && P.cd <= 0 && !recov && !stunned) { P.holding = true; P.chT = 0; P.ch = 0; ev(W, { e: "chargeStart", id: P.id }); }
       if (P.holding) {
         if (stunned && P.stun > 0.3) { P.holding = false; P.ch = 0; P.cd = 0.4; ev(W, { e: "interrupt", id: P.id }); }
-        else if (hold) { P.chT += dt; P.ch = clamp((P.chT - K.CH_MIN) / K.CH_SPAN, 0, 1); }
+        else if (hold) { P.chT += dt; P.ch = clamp((P.chT - K.CH_MIN) / (K.CH_SPAN * P.g.chg), 0, 1); }
         else {
           P.holding = false;
           if (P.chT < K.CH_MIN) doPulse(W, P); else startDash(W, P, mx, mz, ml);
@@ -183,12 +193,12 @@
       }
     }
     // vitesse voulue
-    let cap = K.RUN * (sf.mud ? K.MUD : 1);
-    if (P.holding) cap = K.CHG_SPD * (1 - 0.35 * P.ch); else if (recov) cap = K.RUN * K.REC_SPD; else if (stunned) cap *= 0.3;
-    const acc = (sf.slip ? (ml > 0.05 ? K.ICE_ACC : 0.5) : K.ACC) * (stunned ? 0.3 : 1), damp = sf.slip ? K.ICE_DAMP : K.DAMP;
+    const g = P.g || GAB.moyen; let cap = K.RUN * g.run * (sf.mud ? K.MUD : 1);
+    if (P.holding) cap = K.CHG_SPD * (1 - 0.35 * P.ch); else if (recov) cap = K.RUN * g.run * K.REC_SPD; else if (stunned) cap *= 0.3;
+    const acc = (sf.slip ? (ml > 0.05 ? K.ICE_ACC : 0.5) : K.ACC * g.acc) * (stunned ? 0.3 : 1), damp = sf.slip ? K.ICE_DAMP : K.DAMP;
     if (P.dash > 0) {
       // charge, on peut infléchir un peu la trajectoire
-      if (ml > 0.2) { const a0 = Math.atan2(P.dz, P.dx), a1 = Math.atan2(mz, mx); let d = a1 - a0; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; const na = a0 + clamp(d, -K.STEER * dt, K.STEER * dt); P.dx = Math.cos(na); P.dz = Math.sin(na); }
+      if (ml > 0.2) { const a0 = Math.atan2(P.dz, P.dx), a1 = Math.atan2(mz, mx); let d = a1 - a0; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; const na = a0 + clamp(d, -K.STEER * g.steer * dt, K.STEER * g.steer * dt); P.dx = Math.cos(na); P.dz = Math.sin(na); }
       P.dash -= dt; const u = P.dashLen > 0 ? P.dash / P.dashLen : 0; const sp = P.ds * (u > 0.3 ? 1 : 0.55 + 0.45 * (u / 0.3));
       P.vx = P.dx * sp; P.vz = P.dz * sp; P.fx = P.dx; P.fz = P.dz;
       if (P.dash <= 0) { P.dash = 0; const keep = Math.min(P.ds, 8.5); P.vx = P.dx * keep; P.vz = P.dz * keep; endDash(W, P); }
@@ -217,7 +227,7 @@
   function startDash(W, P, mx, mz, ml) {
     const c = P.ch; let dx, dz;
     if (ml > 0.2) { dx = mx / ml; dz = mz / ml; } else { dx = P.fx; dz = P.fz; }
-    P.dx = dx; P.dz = dz; P.ds = K.DASH_V0 + K.DASH_V1 * c; P.dashLen = K.DASH_T0 + K.DASH_T1 * c; P.dash = P.dashLen; P.dpow = c; P.dhit = false;
+    P.dx = dx; P.dz = dz; P.ds = (K.DASH_V0 + K.DASH_V1 * c) * (P.g ? P.g.dash : 1); P.dashLen = K.DASH_T0 + K.DASH_T1 * c; P.dash = P.dashLen; P.dpow = c; P.dhit = false;
     P.vx = dx * P.ds; P.vz = dz * P.ds; P.fx = dx; P.fz = dz;
     ev(W, { e: "dash", id: P.id, x: P.x, z: P.z, c, dx, dz });
   }
@@ -231,7 +241,7 @@
       if (Q === P || !Q.alive || Q.inv > 0 || Q.fall || (Q.team && Q.team === P.team && !W.friendly)) continue;
       const dx = Q.x - P.x, dz = Q.z - P.z, d = len(dx, dz); if (d > K.PULSE_R || d < 0.001) continue;
       if ((dx * P.fx + dz * P.fz) / d < K.PULSE_COS) continue;
-      const nx = dx / d, nz = dz / d; let f = K.PULSE_F * (1 + 0.3 * (1 - d / K.PULSE_R));
+      const nx = dx / d, nz = dz / d; let f = K.PULSE_F * (1 + 0.3 * (1 - d / K.PULSE_R)) * (P.g ? P.g.push : 1) / Math.pow(Q.g ? Q.g.m : 1, 0.85);
       if (Q.rec > 0) f *= K.RECV; if (Q.holding) f *= K.BRACE;
       Q.vx += nx * f; Q.vz += nz * f; Q.slide = 0.6; capV(Q, K.VCAP); Q.lastHit = { id: P.id, t: W.t }; Q.stun = Math.max(Q.stun, 0.12); any = true;
       ev(W, { e: "hit", x: (P.x + Q.x) / 2, z: (P.z + Q.z) / 2, p: 0.25, a: P.id, b: Q.id, nx, nz });
@@ -306,10 +316,15 @@
           if (B.dash > 0 && bTo > 0.35) { bonusA = (K.BONUS0 + K.BONUS1 * B.dpow) * bTo; hitB = true; }
           if (hitA && hitB) { const df = (A.dpow + 0.1) - (B.dpow + 0.1); bonusB *= clamp(0.5 + df, 0.15, 1.2); bonusA *= clamp(0.5 - df, 0.15, 1.2); J *= 0.8; }
         }
-        let mA = 1, mB = 1;
+        // les masses. Le plus lourd encaisse moins, et la charge d'un lourd pèse plus
+        const gA = A.g || GAB.moyen, gB = B.g || GAB.moyen; bonusB *= gA.push * Math.pow(gA.m / gB.m, 0.55); bonusA *= gB.push * Math.pow(gB.m / gA.m, 0.55);
+        let mA = 2 * gB.m / (gA.m + gB.m), mB = 2 * gA.m / (gA.m + gB.m);
         if (A.rec > 0) mA *= K.RECV; if (B.rec > 0) mB *= K.RECV; if (A.holding) mA *= K.BRACE; if (B.holding) mB *= K.BRACE;
         const jA = J * mA + bonusA * mA, jB = J * mB + bonusB * mB;
         A.vx += nx * jA; A.vz += nz * jA; B.vx -= nx * jB; B.vz -= nz * jB; A.slide = 0.6; B.slide = 0.6;
+        // le caoutchouc renvoie une partie de la charge à celui qui l'a lancée
+        if (hitA && gB.bounce > 0 && !friend) { const r = bonusB * gB.bounce * 0.75 / gA.m; A.vx += nx * r; A.vz += nz * r; A.stun = Math.max(A.stun, 0.15); }
+        if (hitB && gA.bounce > 0 && !friend) { const r = bonusA * gA.bounce * 0.75 / gB.m; B.vx -= nx * r; B.vz -= nz * r; B.stun = Math.max(B.stun, 0.15); }
         // celui qui frappe perd de l'élan
         if (hitA && !friend) { A.vx *= 0.7; A.vz *= 0.7; A.dhit = true; B.stun = Math.max(B.stun, 0.12 + K.STUN_K * bonusB * 8); B.lastHit = { id: A.id, t: W.t }; }
         if (hitB && !friend) { B.vx *= 0.7; B.vz *= 0.7; B.dhit = true; A.stun = Math.max(A.stun, 0.12 + K.STUN_K * bonusA * 8); A.lastHit = { id: B.id, t: W.t }; }
@@ -333,5 +348,5 @@
   }
   function drain(W) { const e = W.events; W.events = []; return e; }
 
-  return { DT, RAD, K, clamp, len, ramp, dramp, newPlayer, makeWorld, prepare, stepPlayer, stepWorld, surfaceAt, zoneAt, windAt, windState, surfState, sliderBox, sliderPos, barSeg, barAngle, zonePos, clipRadius, tileOn, drain, doPulse };
+  return { GAB, GAB_IDS, gabOf, setGab, DT, RAD, K, clamp, len, ramp, dramp, newPlayer, makeWorld, prepare, stepPlayer, stepWorld, surfaceAt, zoneAt, windAt, windState, surfState, sliderBox, sliderPos, barSeg, barAngle, zonePos, clipRadius, tileOn, drain, doPulse };
 });

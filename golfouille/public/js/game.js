@@ -29,6 +29,7 @@
   function buildGame() {
     const sc = $("#screen-game"); sc.innerHTML = "";
     sc.appendChild(el("div", { id: "gl-host" }));
+    sc.appendChild(el("div", { id: "sling", class: "sling hidden", html: '<svg width="100%" height="100%"><line class="sling__band" x1="0" y1="0" x2="0" y2="0"/><line class="sling__band sling__band--b" x1="0" y1="0" x2="0" y2="0"/><circle class="sling__grip" r="14" cx="0" cy="0"/></svg><div class="sling__pct"></div>' }));
     sc.appendChild(el("div", { id: "fx-fog", class: "overlay-fx overlay-fx--fog" }));
     sc.appendChild(el("div", { id: "fx-ice", class: "overlay-fx overlay-fx--ice" }));
     const hud = el("div", { class: "hud", id: "hud" }, [
@@ -324,15 +325,15 @@
 
   // ---------- petit tutoriel du premier coup ----------
   function showTuto(force) {
-    if (!force && store.get("golf.tuto", "")) return; if ($("#tuto")) return;
+    if (!force && store.get("golf.tuto2", "")) return; if ($("#tuto")) return;
     const step = (n, t, d) => el("div", { class: "tuto__step" }, [el("i", { text: String(n) }), el("div", {}, [el("b", { text: t }), el("p", { class: "small", text: d })])]);
     const box = el("div", { id: "tuto", class: "tuto" }, [el("div", { class: "card" }, [
       el("h2", { text: "Comment taper" }),
-      step(1, "Vise", "Touche le terrain à l'endroit où tu veux que la balle s'arrête. Le jeu choisit le club et la force pour toi. Tu peux aussi glisser pour tourner. La carte en haut à gauche marche pareil."),
-      step(2, "Regarde la zone", "L'arc blanc est le vol de la balle jusqu'à son atterrissage, et le grand cercle montre où elle devrait finir en roulant. Ce n'est pas exact, le vent, le sol et ton erreur de frappe jouent. L'hôte peut changer cette aide dans les réglages."),
-      step(3, "Choisis ton club", "La colonne de clubs sur le côté va du plus puissant en haut au moins puissant en bas, avec la portée en mètres. Il y a cinq clubs et chacun a sa personnalité, la fiche du club s'affiche à côté. Les boutons plus et moins règlent la force."),
-      step(4, "Tape", "Appuie sur Taper, ou sur espace. Le bouton boussole fait viser le caddie, et le premier arrivé dans le trou marque le plus de points."),
-      el("button", { class: "btn btn--accent btn--big", text: "Compris, c'est parti", onclick: () => { store.set("golf.tuto", "1"); $("#tuto").remove(); } }),
+      step(1, "Tire au lance-pierre", "Clique sur ta balle (ou pose le doigt dessus), tire vers l'arrière puis lâche. Plus tu tires loin, plus tu tapes fort. Tire un peu à gauche pour envoyer la balle à droite, et inversement. Clic droit ou Échap pour annuler."),
+      step(2, "Choisis ton club", "La colonne de clubs sur le côté va du plus puissant en haut au moins puissant en bas, avec la portée en mètres. Le driver part loin et bas, la cale monte haut et court, le putter roule au sol."),
+      step(3, "Regarde la zone", "Pendant que tu tires, l'arc blanc montre le vol de la balle et le cercle où elle devrait finir. Le vent, le sol et ton erreur de frappe jouent quand même."),
+      step(4, "Autre façon de viser", "Tu peux aussi toucher le terrain pour viser un point, le jeu choisit alors le club et la force, puis appuyer sur Taper ou sur espace. Le bouton boussole fait viser le caddie."),
+      el("button", { class: "btn btn--accent btn--big", text: "Compris, c'est parti", onclick: () => { store.set("golf.tuto2", "1"); $("#tuto").remove(); } }),
     ])]);
     $("#screen-game").appendChild(box);
   }
@@ -506,13 +507,50 @@
   function wireInput() {
     const host = $("#gl-host");
     const rot = (dx) => { const me = myState(); const inv = me && me.fx.invert ? -1 : 1; G.yaw -= dx * 0.0055 * inv; if (Math.abs(dx) > 0) G.aimDist = null; };
-    host.addEventListener("pointerdown", (e) => { host.setPointerCapture(e.pointerId); G.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); G.tap = G.pointers.size === 1 ? { id: e.pointerId, t: performance.now(), moved: 0 } : null; if (G.pointers.size === 2) { const a = [...G.pointers.values()]; G.pinch = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); } });
+    // ---- tir au lance-pierre. On attrape sa balle, on tire en arrière, la distance donne la force, le côté donne la direction, on lâche pour taper
+    const sl = { on: false, id: null, bx: 0, by: 0 };
+    const slingEl = $("#sling");
+    const slingDraw = (px, py) => {
+      if (!slingEl) return; const svg = slingEl.firstChild; const [l1, l2, c] = svg.children; const off = 7;
+      l1.setAttribute("x1", sl.bx - off); l1.setAttribute("y1", sl.by); l1.setAttribute("x2", px); l1.setAttribute("y2", py);
+      l2.setAttribute("x1", sl.bx + off); l2.setAttribute("y1", sl.by); l2.setAttribute("x2", px); l2.setAttribute("y2", py);
+      c.setAttribute("cx", px); c.setAttribute("cy", py); const pc = slingEl.querySelector(".sling__pct"); pc.textContent = Math.round(G.power * 100) + " %"; pc.style.left = px + "px"; pc.style.top = py + "px";
+      slingEl.style.setProperty("--pw", G.power.toFixed(2)); slingEl.classList.toggle("sling--weak", sl.weak);
+    };
+    const slingStart = (e) => {
+      if (!canAct() || G.top) return false; const me = myState(); const bp = V.ballPos(me.id) || me; const sp = V.project(bp.x, bp.y + 0.1, bp.z); const r = host.getBoundingClientRect();
+      const bx = sp.x, by = sp.y; if (Math.hypot(e.clientX - r.left - bx, e.clientY - r.top - by) > Math.max(60, Math.min(r.width, r.height) * 0.09)) return false;
+      sl.on = true; document.body.classList.add("slinging"); sl.id = e.pointerId; sl.bx = bx; sl.by = by; sl.r = r; sl.weak = true; sl.yaw0 = G.yaw; sl.p0 = G.power; slingEl.classList.remove("hidden"); slingDraw(bx, by); return true;
+    };
+    const slingMove = (e) => {
+      const r = sl.r; const px = e.clientX - r.left, py = e.clientY - r.top; const dist = Math.hypot(px - sl.bx, py - sl.by); const full = Math.max(120, Math.min(r.width, r.height) * 0.24);
+      sl.weak = dist < 14; G.power = clamp(dist / full, 0.05, 1); const me = myState();
+      const pt = V.pick(e.clientX, e.clientY); const bp = V.ballPos(me.id) || me;
+      if (pt && Math.hypot(bp.x - pt.x, bp.z - pt.z) > 0.15) { let yaw = Math.atan2(bp.x - pt.x, bp.z - pt.z); if (me.fx.invert) { const cy = V.camState().yaw; yaw = cy - (yaw - cy); } G.yaw = yaw; }
+      G.aimDist = null; slingDraw(sl.bx + (px - sl.bx) * Math.min(1, full * 1.15 / Math.max(1, dist)), sl.by + (py - sl.by) * Math.min(1, full * 1.15 / Math.max(1, dist)));
+    };
+    const slingEnd = (shoot) => { if (!sl.on) return; sl.on = false; document.body.classList.remove("slinging"); slingEl.classList.add("hidden"); if (shoot && !sl.weak) { sound.click(); fire(G.power); } else { G.yaw = sl.yaw0; G.power = sl.p0; } };
+    G.slingCancel = () => slingEnd(false); G.slingOn = () => sl.on;
+    host.addEventListener("contextmenu", (e) => { if (sl.on) { e.preventDefault(); slingEnd(false); } });
+    // on écoute avant tout le reste, pour pouvoir attraper la balle même sous une étiquette ou une bulle d'aide
+    window.addEventListener("pointerdown", (e) => {
+      if (document.body.dataset.screen !== "game") return;
+      if (sl.on) { if (e.button === 2) { e.preventDefault(); slingEnd(false); } return; }
+      const t = e.target; if (e.button !== 0 || (t && t.closest && t.closest("button, input, select, textarea, a, .clubrail, .shootrow, .clubcard, #hud-mini, .modal, .tuto, .kit-chat, [role=dialog]"))) return;
+      if (slingStart(e)) { e.preventDefault(); e.stopPropagation(); }
+    }, true);
+    window.addEventListener("pointermove", (e) => { if (sl.on && e.pointerId === sl.id) slingMove(e); }, true);
+    window.addEventListener("pointerup", (e) => { if (sl.on && e.pointerId === sl.id) { e.stopPropagation(); slingEnd(true); } }, true);
+    window.addEventListener("pointercancel", (e) => { if (sl.on && e.pointerId === sl.id) slingEnd(false); }, true);
+    host.addEventListener("pointerdown", (e) => { if (sl.on) return; host.setPointerCapture(e.pointerId); G.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); G.tap = G.pointers.size === 1 ? { id: e.pointerId, t: performance.now(), moved: 0 } : null; if (G.pointers.size === 2) { const a = [...G.pointers.values()]; G.pinch = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); } });
     host.addEventListener("pointermove", (e) => {
+      if (sl.on) return;
       const p = G.pointers.get(e.pointerId); if (!p) return; const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY; if (G.tap) G.tap.moved += Math.abs(dx) + Math.abs(dy);
       if (G.pointers.size === 2) { const a = [...G.pointers.values()]; const d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); const cs = V.camState(); V.setCam({ dist: cs.dist * (G.pinch / Math.max(20, d)) }); G.pinch = d; return; }
       rot(dx); const cs = V.camState(); V.setCam({ pitch: cs.pitch + dy * 0.004 });
     });
     const up = (e) => {
+      if (sl.on) return;
       const tp = G.tap; G.pointers.delete(e.pointerId);
       // un simple toucher sur le terrain vise ce point
       if (tp && tp.id === e.pointerId && tp.moved < 9 && performance.now() - tp.t < 500 && e.type === "pointerup" && canAct()) { const pt = V.pick(e.clientX, e.clientY); if (pt) { aimAtPoint(pt.x, pt.z); sound.click(); } }
@@ -550,7 +588,7 @@
       else if (k === "f" || k === "pagedown") { e.preventDefault(); setHeight(G.height - 1); }
       else if (k === "v") { if (G.toggleTop) G.toggleTop(); }
       else if (k === "c") { if (G.caddie) G.caddie(); }
-      else if (k === "escape") { $("#hud-pick").classList.add("hidden"); }
+      else if (k === "escape") { $("#hud-pick").classList.add("hidden"); if (G.slingCancel) G.slingCancel(); }
     });
     window.addEventListener("keyup", (e) => {
       const k = e.key.toLowerCase(); G.keys[k] = false;
@@ -606,7 +644,7 @@
     if (G.charging) { const held = performance.now() - G.chargeAt; if (held > 220) G.power = clamp((held - 220) / 1500, 0.03, 1); }
     // caméra
     const animating = fid && V.isAnimating(fid);
-    if (fid === (me && me.id) && !animating) V.setCam({ yaw: G.yaw });
+    if (fid === (me && me.id) && !animating && !(G.slingOn && G.slingOn())) V.setCam({ yaw: G.yaw });
     else if (!animating && fid !== (me && me.id)) { /* le spectateur tourne la caméra en glissant */ V.setCam({ yaw: G.yaw }); }
     // visée
     const showAim = !!(me && G.st.phase === "play" && !me.finished && !me.moving && !animating && fid === me.id);
