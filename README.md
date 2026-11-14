@@ -1217,3 +1217,41 @@ Chaque jeu a été regardé seul, accueil, salon et partie. Le but n'était pas 
 
 ### Ce qu'il faut déposer sur GitHub
 - Les dossiers golfouille, goliathicus et bouskaille, et le fichier README.md.
+
+## Quarante-sixième mise à jour, lot 3 de la grande refonte, Main Morte
+
+### La table à la première personne
+- Pendant une épreuve, la caméra quitte le plan large et s'assoit à ta place. Une table ronde trône au centre, les autres joueurs sont assis en face derrière leur pupitre, avec leur chapeau à leur couleur et leurs mains posées devant eux. Le présentateur se tient au fond.
+- Chaque épreuve pose ses accessoires sur la table, et presque tout se clique directement sur la table. Le panneau du bas garde les mêmes commandes, plus petites, pour ceux qui préfèrent les boutons ou qui n'ont pas la 3D.
+- Quand un joueur agit, sa main part de son pupitre et va toucher l'objet sur la table.
+
+### Les épreuves retravaillées
+- Crocodile dentiste. Une vraie mâchoire en 3D tournée vers toi, douze dents numérotées. La mâchoire tremble de plus en plus fort à mesure que les dents tombent, et claque pour de bon sur la dent piégée.
+- Collision. Chacun pose sa main sur une case numérotée de la table. À la fin, toutes les mains arrivent en même temps, et la main géante du présentateur écrase les cases où plusieurs mains se sont posées.
+- Le Simon des ténèbres. La lumière s'éteint, quatre clochettes s'allument dans le noir avec chacune sa note. On les touche sur la table, dans le panneau ou avec les touches 1 à 4.
+- Réflexes. La main géante du présentateur plane au-dessus de la table, fait des feintes, puis frappe. Il faut retirer sa main à temps, avec la barre d'espace, le bouton ou en cliquant sur sa main. La retirer avant la frappe coûte une main.
+- La main chaude. La grille est posée sur la table et la main géante écrase chaque case qui refroidit.
+- Le coffre. Un vrai coffre avec son écran, et chacun voit en direct le code que les autres sont en train de composer, au-dessus de leur pupitre et dans le panneau.
+- L'imposteur. Pendant le vote, tout le monde voit sur qui chacun hésite, de petits yeux colorés apparaissent à côté des noms survolés.
+- La bombe. Une vraie mèche brûle sur la table. Elle disparaît ensuite dans la bombe, si bien que personne ne sait combien de temps il reste. Le grésillement accélère jusqu'à l'explosion.
+- Les doigts et le duel des mains. Les mains des joueurs se dressent sur la table, poings fermés, et se révèlent toutes ensemble à la fin.
+- Calcul éclair disparaît. À sa place, Coup d'œil. Des mains surgissent sur la table une fraction de seconde et il faut compter les doigts levés. Trois manches, de plus en plus rapides.
+
+### Cinq nouvelles épreuves
+- Le couteau entre les doigts. Ta main à plat, quatre espaces entre les doigts. L'espace qui s'allume est la cible, un cercle se referme dessus au rythme et un petit métronome bat la mesure. On frappe avec les touches 1 à 4, les boutons ou directement sur la table. Le rythme accélère, une faute et le doigt saute. Le premier qui se trompe perd une main.
+- L'étau. Tout le monde maintient le bouton ou la barre d'espace pour garder sa main dans l'étau. Il se resserre cran par cran, et chaque main qui sort le fait aller plus vite. Le premier qui lâche perd une main, mais tous ceux qui restent quand il se ferme sont écrasés.
+- Les gants. Six gants de couleurs, de matières et de mains différentes, un seul cache un piège. Chacun à son tour en enfile un. Un indice tombe au début et après chaque gant sans danger, et chacun peut passer son tour une seule fois.
+- La boîte noire. Chacun sent en secret ce que contient une boîte, mou, gluant, poilu, lisse ou dur et pointu, parfois avec quelque chose qui bouge. Puis chacun annonce sans danger, méfiance ou ça mord, vrai ou faux. Enfin chacun à son tour plonge la main dans une autre boîte que la sienne. L'une d'elles mord. Le contenu de toutes les boîtes est révélé à la fin.
+- Le bistouri. Un patient en carton avec trois objets à retirer. On attrape un objet et on le fait glisser le long de son passage jusqu'au plateau, sans toucher les bords. Un contact fait hurler le patient, son nez s'allume, l'objet retombe et compte comme une faute. Trois fautes et on est exclu.
+- Les robots savent jouer à toutes les nouvelles épreuves, avec trois niveaux. Le vétéran de la bombe et de l'étau attend qu'un autre cède avant de partir.
+
+### Le son et la mise en scène
+- Un fond sonore de plateau télé, ronflement de néon, public lointain et nappe grave, dès qu'on est sur le plateau.
+- Un cœur bat quand ta main est en jeu, et accélère avec la tension, ton tour au crocodile, la mèche qui raccourcit, l'étau qui serre, le couteau qui accélère.
+- Juste avant le verdict, silence total une seconde, puis le verdict tombe.
+- La perte d'une main est mise en scène. La caméra se tourne vers le pupitre, une lumière rouge tombe dessus, coupure noire, et la main est désormais cachée sous un drap taché.
+- Le présentateur parle enfin. Ses répliques s'écrivent pour chaque épreuve et chaque situation, et il les prononce avec un charabia grave et déformé. Dans le menu ⚙️, on peut choisir à la place une voix de synthèse grave, ou le faire taire.
+- Les fantômes sont assis à leur place, en drap translucide qui flotte, et s'avancent vers la table quand ils agissent. Leurs mains sur la table sont translucides elles aussi.
+
+### Ce qu'il faut déposer sur GitHub
+- Le dossier hands-over, et le fichier README.md.

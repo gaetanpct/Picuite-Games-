@@ -53,8 +53,8 @@ function tick(room) {
   if (g.phase === "count") { if (now >= g.until) startPlay(room); return; }
   if (g.phase === "play") {
     const mod = D[g.ch.id]; const c = g.c; let ch = false;
-    room.players.forEach((p) => { if (!autoCtl(p) || !c.part.includes(p.id)) return; const m = g.mem[p.id] || (g.mem[p.id] = {}); const a = mod.bot(c, p.id, p.isBot ? p.level : "candidat", m, now); if (a && mod.act(c, p.id, a, now)) ch = true; });
-    if (mod.tick(c, now)) ch = true;
+    room.players.forEach((p) => { if (!autoCtl(p) || !c.part.includes(p.id)) return; const m = g.mem[p.id] || (g.mem[p.id] = {}); const a = mod.bot(c, p.id, p.isBot ? p.level : "candidat", m, now); if (a && mod.act(c, p.id, a, now)) { ch = true; fx(room, p.id); } });
+    if (mod.tick(c, now)) ch = true; if (g.hoverDirty) { g.hoverDirty = false; ch = true; }
     if (mod.isDone(c, now)) return judge(room);
     if (ch || now - g.lastChange > 700) { g.lastChange = now; emitAll(room); } return;
   }
@@ -70,6 +70,8 @@ function tick(room) {
 function pickChallenge(room) {
   const g = room.g, s = g.s; const nA = aliveIds(room).length, nG = ghostIds(room).length;
   let pool = IDS.filter((id) => s.families.includes(D[id].family) && D[id].min <= nA + (D[id].ghostOk && s.ghosts ? nG : 0) && (nA >= 2 || id === "simon"));
+  // HO_ONLY sert seulement aux essais en local, pour forcer certaines épreuves
+  const only = String(process.env.HO_ONLY || "").split(",").filter((id) => D[id] && D[id].min <= nA + nG); if (only.length) pool = only;
   if (!pool.length) pool = IDS.filter((id) => D[id].min <= nA);
   const fresh = pool.filter((id) => !g.used.slice(-3).includes(id)); return pickOne(fresh.length ? fresh : pool);
 }
@@ -85,7 +87,7 @@ function nextRound(room) {
   g.pre = {}; if (id === "croco") g.pre.variant = s.croco && s.croco !== "mixte" ? s.croco : pickOne(["classique", "deux", "chaud", "mobile", "chrono"]);
   if (id === "reflex") g.pre.chair = rng() < 0.4 && aliveIds(room).length + (s.ghosts ? ghostIds(room).length : 0) >= 3;
   const speed = s.speed * (g.mod === "vitesse" ? 0.7 : 1);
-  g.speed = speed; g.phase = "brief"; g.quip = pick(HOST.next); g.c = null; g.alarm = false;
+  g.speed = speed; g.phase = "brief"; g.quip = pick(HOST.trial[id] && rng() < 0.8 ? HOST.trial[id] : HOST.next); g.c = null; g.alarm = false;
   const B = BRIEF[id] || { goal: "", cmds: [], lose: "", tip: "" }; const text = [def.rules, B.goal, B.lose, B.tip, briefExtra(id, g.pre)].concat((B.cmds || []).map((x) => x[1])).join(" ");
   const words = text.split(/\s+/).length; const minMs = Math.min(26000, Math.max(10000, 4500 + words * 300));
   g.briefMin = 0; g.until = 0; g.total = 0; g.briefMinMs = 0;
@@ -97,7 +99,7 @@ function leaveBrief(room) {
   if (useful && aliveIds(room).length >= 1) { g.phase = "prep"; g.total = 0; g.until = 0; emitAll(room); }
   else startCount(room);
 }
-function startCount(room) { const g = room.g; g.phase = "count"; g.until = Date.now() + 3300 * TS; emitAll(room); }
+function startCount(room) { const g = room.g; g.phase = "count"; g.until = Date.now() + 3300 * TS; g.quip = pick(HOST.count); emitAll(room); }
 function botBrief(room, now) {
   const g = room.g; present(room).forEach((p) => { if (!autoCtl(p)) return; const P = g.P[p.id]; if (!P || P.briefOk) return; const m = g.mem[p.id] || (g.mem[p.id] = {}); if (!m.briefAt) m.briefAt = now + (3000 + rng() * 9000) * TS; if (now >= m.briefAt) { P.briefOk = true; emitAll(room); } });
 }
@@ -164,11 +166,13 @@ function judge(room) {
   const outs = {}; al.forEach((id) => { outs[id] = { before: before[id], after: g.P[id].hands, loss: loss[id] || 0, safe: !(loss[id] > 0) }; });
   g.judged = { id: g.ch.id, losers, pev, revived: ghostWin && g.P[ghostWin].alive ? ghostWin : null, loss: outs, scores: res.scores, reveal: res.reveal, notes: g.notes.slice(), best: bestId || null, ghostWin };
   g.history.push({ round: g.round, id: g.ch.id, name: g.ch.name, losers: losers.map((x) => nm(room, x)), best: bestId ? nm(room, bestId) : null });
-  const anyDown = dead.length && !s.points; g.quip = anyDown ? pick(HOST.ghost) : losers.length ? pick(HOST.lose) : pick(HOST.none);
+  const anyDown = dead.length && !s.points; g.quip = anyDown ? pick(HOST.ghost) : losers.length ? pick(HOST.after[g.ch.id] && rng() < 0.6 ? HOST.after[g.ch.id] : HOST.lose) : pick(HOST.none);
   const lines = losers.length + g.notes.length + pev.length + (bestId ? 1 : 0); g.total = Math.min(45000, Math.max(16000, 9000 + lines * 3200)) * TS;
   Object.values(g.P).forEach((Q) => { Q.briefOk = false; }); g.mem = {};
   g.phase = "judge"; g.until = 0; g.total = 0; emitAll(room);
 }
+// petit signal visuel quand quelqu'un agit, pour que sa main ou son fantôme bouge sur le plateau
+function fx(room, id) { const g = room.g; const now = Date.now(); g.fxAt = g.fxAt || {}; if (now - (g.fxAt[id] || 0) < 140) return; g.fxAt[id] = now; g.api.emitAll(room, "ho:fx", { a: id }); }
 function nm(room, id) { const p = byId(room, id); return p ? p.name : "?"; }
 function afterJudge(room) {
   const g = room.g; g.judged = null; g.c = null; if (over(room) || g.round >= g.rounds) return finish(room, false);
@@ -281,7 +285,13 @@ function bind(socket, helpers, api) {
   const cur = () => { const room = ctx.room; const p = me(); return room && room.g && p ? { room, g: room.g, p } : null; };
   socket.on("ho:act", safe((d) => {
     const c = cur(); if (!c || c.g.phase !== "play" || !c.g.c || !d || typeof d !== "object") return; const def = D[c.g.ch.id];
-    if (def.act(c.g.c, c.p.id, d, Date.now())) emitAll(c.room);
+    if (def.act(c.g.c, c.p.id, d, Date.now())) { emitAll(c.room); fx(c.room, c.p.id); }
+  }));
+  // hésitations visibles, le code qu'on compose ou le joueur qu'on survole
+  socket.on("ho:hover", safe((d) => {
+    const c = cur(); if (!c || c.g.phase !== "play" || !c.g.c || !d || typeof d !== "object") return; const def = D[c.g.ch.id]; if (!def.hover) return;
+    const now = Date.now(); if (!def.hover(c.g.c, c.p.id, d, now)) return;
+    if (now - (c.g.hoverAt || 0) > 120) { c.g.hoverAt = now; emitAll(c.room); } else c.g.hoverDirty = true;
   }));
   socket.on("ho:card", safe((d) => { const c = cur(); if (!c) return; const err = playCard(c.room, c.p.id, +(d && d.i), d && d.target); if (err) toast(err); emitAll(c.room); }));
   socket.on("ho:pact", safe((d) => {

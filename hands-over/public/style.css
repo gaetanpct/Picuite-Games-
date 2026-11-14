@@ -221,3 +221,85 @@
   .ho-brief__name { font-size: 1.3rem !important; }
 }
 @media (max-height: 560px) { .ho-card { padding: 0.45rem 0.7rem; } .ho-main { padding-top: 0.15rem; gap: 0.4rem; } }
+
+/* Lot 3, la table à la première personne. Pendant l'épreuve la table prend le haut de l'écran, le panneau reste en bas */
+.ho-ui.ho-ph-play .ho-stage-top, .ho-ui.ho-ph-count .ho-stage-top { flex: 0 0 50%; min-height: 160px; }
+.ho-ui.ho-ph-judge .ho-stage-top { flex-basis: 34%; min-height: 120px; }
+.ho-ui.ho-ph-play.ho-tallpanel .ho-stage-top { flex-basis: 20%; min-height: 80px; }
+.ho-ui.ho-ph-play .ho-main, .ho-ui.ho-ph-count .ho-main { background: linear-gradient(180deg, rgba(10, 2, 6, 0), rgba(10, 2, 6, 0.6) 30px); padding-top: 0.2rem; gap: 0.4rem; }
+.ho-ui.ho-ph-count .ho-countcard { padding: 0.5rem 1rem; background: rgba(18, 6, 10, 0.7); }
+.ho-ui.ho-ph-count .ho-count { font-size: 5rem; }
+.ho-playhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; padding: 0.15rem 0.3rem; font-size: 0.85rem; color: rgba(255, 255, 255, 0.85); }
+.ho-playhead b { font-family: var(--font-title); font-weight: 400; font-size: 1.1rem; color: #ffd23f; }
+.ho-card--play { padding: 0.55rem 0.8rem; background: rgba(18, 6, 10, 0.86); }
+.ho-card--play .ho-big { padding: 1.1rem 0.5rem; font-size: 1.5rem; }
+.ho-teeth--flat { grid-template-columns: repeat(12, 1fr); gap: 0.25rem; margin: 0.3rem 0; }
+.ho-teeth--flat .ho-tooth { aspect-ratio: 0.75; font-size: 0.68rem; padding: 0; }
+.ho-teeth--flat .ho-tooth--down { transform: translateY(6px) scale(0.92); }
+.ho-seat--turn { outline: 2px solid #ffd23f; border-radius: 99px; padding: 0 0.2rem; }
+.ho-pad span { color: #1a0d12; font-family: var(--font-title); font-size: 1.1rem; }
+.ho-pads { grid-template-columns: repeat(4, 1fr); max-width: 460px; }
+.ho-pad { aspect-ratio: 1.1; }
+.ho-verdict { text-align: center; padding: 1.4rem 1rem; background: rgba(0, 0, 0, 0.85); border-color: #000; }
+.ho-verdict h2 { font-size: 2rem !important; letter-spacing: 0.06em; animation: hopop 1s ease-out; }
+.ho-cut { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 7; background: #000; opacity: 0; pointer-events: none; }
+.ho-cut--on { animation: hocut 0.42s steps(1, end); }
+@keyframes hocut { 0% { opacity: 1; } 100% { opacity: 0; } }
+.ho-voice { display: flex; gap: 0.3rem; flex-wrap: wrap; justify-content: flex-end; }
+/* hésitations visibles */
+.ho-hesit { display: flex; flex-wrap: wrap; gap: 0.3rem 0.7rem; align-items: center; font-size: 0.85rem; padding: 0.3rem 0.5rem; margin: 0.2rem 0 0.4rem; border-radius: 10px; background: rgba(255, 255, 255, 0.06); }
+.ho-hesit small { width: 100%; color: #ffd23f; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.ho-hesit__one { font-family: var(--font-title); letter-spacing: 0.15em; }
+.ho-voterow { transition: background 0.15s; }
+.ho-voterow--hv { background: rgba(255, 210, 63, 0.18); }
+.ho-eyes { display: inline-flex; gap: 0.2rem; margin-left: auto; }
+.ho-eye { width: 0.8rem; height: 0.8rem; border-radius: 50%; border: 2px solid #fff; animation: kbob 0.9s ease-in-out infinite; }
+.ho-voterow .ho-pill { margin-left: 0.4rem; }
+/* bombe */
+.ho-fusebar { position: relative; height: 16px; border-radius: 8px; background: rgba(255, 255, 255, 0.08); margin: 0.3rem 1.8rem 0.5rem 0; }
+.ho-fusebar i { position: absolute; left: 0; top: 5px; height: 6px; width: 100%; border-radius: 4px; background: repeating-linear-gradient(90deg, #c9a46a 0 8px, #9a7a48 8px 12px); }
+.ho-fusebar span { position: absolute; right: -1.8rem; top: -0.5rem; font-size: 1.4rem; }
+/* coup d'œil, mains dessinées seulement sans 3D */
+.ho-flash { display: none; justify-content: center; gap: 0.3rem; flex-wrap: wrap; min-height: 60px; }
+.ho-flash--on { display: flex; }
+/* couteau */
+.ho-gaps { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; max-width: 420px; margin: 0.4rem auto; }
+.ho-gapbtn { padding: 1rem 0; border-radius: 16px; border: 3px solid rgba(255, 255, 255, 0.25); background: rgba(90, 32, 48, 0.6); color: #fff; font-family: var(--font-title); font-size: 1.6rem; cursor: pointer; touch-action: manipulation; }
+.ho-gapbtn--on { border-color: #ffd23f; background: rgba(255, 210, 63, 0.3); box-shadow: 0 0 18px rgba(255, 210, 63, 0.6); }
+.ho-beatring { position: absolute; left: 50%; top: -14px; width: 18px; height: 18px; margin-left: -9px; border-radius: 50%; border: 3px solid #ffd23f; pointer-events: none; }
+/* étau */
+.ho-pressbar { position: relative; height: 22px; border-radius: 11px; background: rgba(255, 255, 255, 0.08); overflow: hidden; margin: 0.3rem 0 0.5rem; }
+.ho-pressbar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #5b616e, #c0404c); }
+.ho-pressbar span { position: relative; display: block; text-align: center; font-size: 0.75rem; line-height: 22px; color: #fff; text-shadow: 0 1px 2px #000; }
+.ho-hold { user-select: none; -webkit-user-select: none; touch-action: none; }
+/* gants */
+.ho-clue-list { display: flex; flex-direction: column; gap: 0.2rem; margin: 0.2rem 0 0.4rem; }
+.ho-clue { margin: 0; padding: 0.25rem 0.5rem; border-radius: 10px; background: rgba(255, 210, 63, 0.12); border-left: 4px solid #ffd23f; font-size: 0.88rem; }
+.ho-gloves { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
+.ho-glove { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; padding: 0.45rem 0.2rem; border-radius: 14px; border: 2px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.06); color: #fff; font: inherit; cursor: pointer; }
+.ho-glove small { font-size: 0.72rem; color: rgba(255, 255, 255, 0.75); }
+.ho-glove__sw { width: 1.6rem; height: 1.6rem; border-radius: 50% 50% 40% 40%; border: 2px solid rgba(0, 0, 0, 0.5); }
+.ho-glove--gone { opacity: 0.45; }
+.ho-glove--trap { border-color: #ff3b4e; background: rgba(255, 59, 78, 0.25); opacity: 1; }
+/* boîte noire */
+.ho-feel { margin: 0.2rem 0 0.4rem; padding: 0.45rem 0.6rem; border-radius: 12px; background: rgba(165, 107, 255, 0.16); border: 2px solid #a56bff; font-size: 0.95rem; }
+.ho-claims { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; }
+.ho-claim--0 { color: #7ef0a8; } .ho-claim--1 { color: #ffc35a; } .ho-claim--2 { color: #ff7a85; }
+.ho-pill.ho-claim--0 { border-color: #2fe0a8; } .ho-pill.ho-claim--1 { border-color: #f7a400; } .ho-pill.ho-claim--2 { border-color: #ff3b4e; }
+.ho-boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 0.4rem; }
+.ho-boxbtn { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; padding: 0.4rem 0.2rem; border-radius: 14px; border: 2px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.06); color: #fff; font: inherit; cursor: pointer; }
+.ho-boxbtn small { font-size: 0.72rem; }
+.ho-boxbtn--taken { opacity: 0.6; }
+.ho-boxbtn--trap { border-color: #ff3b4e; background: rgba(255, 59, 78, 0.25); opacity: 1; }
+.ho-content { color: #ffd9d0; }
+/* bistouri */
+.ho-bis { display: block; width: 100%; max-width: 620px; margin: 0.3rem auto; border-radius: 14px; border: 3px solid #7a4a2a; touch-action: none; cursor: grab; }
+@media (max-width: 520px) {
+  .ho-ui.ho-ph-play .ho-stage-top, .ho-ui.ho-ph-count .ho-stage-top { flex-basis: 40%; min-height: 130px; }
+  .ho-teeth--flat { grid-template-columns: repeat(6, 1fr); }
+  .ho-gloves { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-height: 560px) {
+  .ho-ui.ho-ph-play .ho-stage-top, .ho-ui.ho-ph-count .ho-stage-top { flex-basis: 38%; min-height: 100px; }
+  .ho-card--play .ho-big { padding: 0.6rem 0.5rem; font-size: 1.2rem; }
+}
