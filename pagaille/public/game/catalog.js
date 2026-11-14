@@ -10,9 +10,9 @@
       controls: ["Haut accélère, bas freine, gauche et droite tournent", "Espace donne un coup de turbo, il se recharge"],
       rules: ["Une voiture porte la bombe et sa mèche brûle.", "Touche une autre voiture pour lui passer la bombe, puis fuis.", "Gare aux trous du sol, la bombe et le vide éliminent."],
       scoring: "Le dernier survivant gagne. Les autres sont classés dans l'ordre de leur élimination." },
-    { id: "parcours", fam: "move", name: "Course des fous", icon: "🏁", min: 2, max: 8, ideal: "3 à 8", secs: 95, maxSecs: 170, kind: "Course", skills: ["Adresse", "Réflexes"], move: true, view: "3d", hold: 3000, theme: "#3ddc97",
-      controls: ["Flèches ou ZQSD pour courir", "Espace ou X pour sauter, une seconde fois en l'air pour un double saut", "Maj, E ou C pour plonger en avant"],
-      rules: ["Franchis des plateformes mobiles, des balanciers et des trous.", "Si tu tombes, tu repars du dernier drapeau.", "Le premier à la ligne d'arrivée gagne."],
+    { id: "parcours", fam: "move", name: "Course des fous", icon: "🏁", min: 2, max: 8, ideal: "3 à 8", secs: 95, maxSecs: 190, kind: "Course", skills: ["Adresse", "Réflexes"], move: true, view: "3d", hold: 3000, theme: "#3ddc97",
+      controls: ["Flèches ou ZQSD pour courir, toujours dans le sens de la caméra", "Espace ou X pour sauter, une seconde fois en l'air pour un double saut", "Maj ou E pour plonger en avant, C pour t'agripper au coureur devant toi", "F et H tournent la caméra, T et G la montent ou la baissent"],
+      rules: ["Le parcours tourne, monte et se divise parfois en deux chemins, l'un sûr, l'autre rapide.", "Portes à deviner, rouleaux géants, tapis roulant, ventilateurs, marteaux et dalles qui disparaissent.", "Si tu tombes, tu repars du dernier drapeau.", "Les places sont limitées, les derniers sont éliminés."],
       scoring: "Classement selon l'ordre d'arrivée, puis la distance parcourue. Un bonus pour qui n'est jamais tombé." },
     { id: "sumo", fam: "strat", name: "Sumo glissant", icon: "🧊", min: 2, max: 8, ideal: "3 à 6", secs: 90, maxSecs: 160, kind: "Stratégie physique", skills: ["Anticipation", "Stratégie"], move: false, view: "3d", hold: 2800, theme: "#6cc7ff",
       controls: ["Gauche et droite tournent la flèche", "Haut et bas règlent la puissance", "Espace valide, la souris peut aussi viser"],
@@ -74,6 +74,10 @@
       controls: ["Clique sur ta réponse dans le panneau"],
       rules: ["Une suite de nombres, de lettres ou de dessins s'affiche avec un trou.", "Trouve ce qui manque. Plus tu es rapide, plus tu gagnes de points.", "Une erreur te bloque quelques secondes. Les suites deviennent plus fines à chaque manche."],
       scoring: "Le plus de points cumulés gagne. Un bonus pour un sans faute." },
+    { id: "bouee", fam: "move", name: "La Bouée", icon: "🛟", min: 2, max: 8, ideal: "4 à 8", secs: 60, maxSecs: 85, kind: "Équipes et fous rires", skills: ["Coopération", "Chaos"], move: true, view: "3d", hold: 2600, theme: "#4dabf7",
+      controls: ["Flèches ou ZQSD pour pousser la bouée dans une direction", "Espace pour lâcher un pétard qui propulse d'un coup, il se recharge"],
+      rules: ["Une bouée par équipe, à deux ou trois joueurs chacun pilote la sienne.", "Chaque équipier pousse dans la direction de ses flèches, la bouée suit la moyenne. Mettez-vous d'accord.", "Passe les huit portes dans l'ordre en zigzag, la porte suivante est entourée de ta couleur.", "Deux pétards lâchés ensemble dans le même sens propulsent beaucoup plus fort."],
+      scoring: "Classement des équipes selon l'ordre d'arrivée, puis le nombre de portes passées. Tous les membres d'une équipe partagent la même place." },
   ];
   const byId = {}; GAMES.forEach((g) => { byId[g.id] = g; });
   return { GAMES, byId, ids: GAMES.map((g) => g.id) };

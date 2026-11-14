@@ -4,12 +4,12 @@
 // ============================================================
 (function () {
   const { el, $, toast, sound, store } = Kit;
-  const Cat = PgCatalog, PR = PgRules, RD = PgRender, P3 = window.Pg3D || { supported: false };
+  const Cat = PgCatalog, PR = PgRules, RD = PgRender, P3 = window.Pg3D || { supported: false }, PD = window.PgPred || { on: false, reset() {}, setScene() {}, frame() {} };
   const COLORS = [
     { name: "Rouge", hex: "#ef4b4b" }, { name: "Bleu", hex: "#3b82f6" }, { name: "Vert", hex: "#34c36c" }, { name: "Jaune", hex: "#f5c518" },
     { name: "Violet", hex: "#9b5de5" }, { name: "Orange", hex: "#ff8a1f" }, { name: "Rose", hex: "#ff6fb5" }, { name: "Turquoise", hex: "#1fc8c0" },
   ];
-  const G = { st: null, deadline: 0, fr: null, priv: null, scene: null, keys: { l: 0, r: 0, u: 0, d: 0, a: 0, b: 0 }, sent: "", canvas: null, ctx: null, last: 0, phaseKey: "", scale: 1, ox: 0, oy: 0, lastFrameAt: 0, uiKey: "", sceneKey: -1, cdLast: 0, goShown: 0 };
+  const G = { cam: { f: 0, h: 0, t: 0, g: 0 }, st: null, deadline: 0, fr: null, priv: null, scene: null, keys: { l: 0, r: 0, u: 0, d: 0, a: 0, b: 0, c: 0 }, sent: "", canvas: null, ctx: null, last: 0, phaseKey: "", scale: 1, ox: 0, oy: 0, lastFrameAt: 0, uiKey: "", sceneKey: -1, cdLast: 0, goShown: 0 };
   const play = (n) => { try { window.PgSound && PgSound.play(n); } catch (e) { /* rien */ } };
   const myId = () => { const p = Kit.me(); return p ? p.id : null; };
   const hexOf = (k) => COLORS[(k || 0) % COLORS.length].hex;
@@ -37,6 +37,7 @@
             el("div", { id: "pg-target", class: "pg-target hidden" }), el("div", { id: "pg-big", class: "pg-big hidden" }), el("div", { id: "pg-msgs", class: "pg-msgs" }), el("div", { id: "pg-cd", class: "pg-cd hidden" }),
             el("div", { id: "pg-dead", class: "pg-dead hidden" }), el("div", { id: "pg-prog", class: "pg-prog hidden" }), el("div", { id: "pg-banner", class: "pg-banner hidden" }),
             el("div", { id: "pg-bars", class: "pg-bars" }), el("div", { id: "pg-flash", class: "pg-flash" }),
+            el("div", { id: "pg-racehint", class: "pg-racehint hidden", text: "Espace saute deux fois, Maj ou E plonge, C agrippe, F et H tournent la caméra, T et G la montent ou la baissent" }),
           ]),
           el("div", { id: "pg-pad", class: "pg-pad hidden" }),
         ]),
@@ -66,6 +67,9 @@
     };
     pad.appendChild(el("div", { class: "pg-dpad" }, [mk("▲", "u", "up"), mk("◀", "l", "left"), mk("▶", "r", "right"), mk("▼", "d", "down")]));
     pad.appendChild(el("div", { class: "pg-abtns" }, [mk("B", "b", "pb"), mk("A", "a", "pa")]));
+    // touches propres à la course, agripper et tourner la caméra
+    const camBtn = (txt, key) => { const b = el("button", { class: "pg-padbtn pg-padbtn--cam", text: txt }); const on = (e) => { e.preventDefault(); G.cam[key] = 1; }; const off = (e) => { e.preventDefault(); G.cam[key] = 0; }; b.addEventListener("touchstart", on, { passive: false }); b.addEventListener("touchend", off); b.addEventListener("mousedown", on); b.addEventListener("mouseup", off); b.addEventListener("mouseleave", off); return b; };
+    pad.appendChild(el("div", { class: "pg-racebtns" }, [camBtn("⟲", "f"), mk("✊", "c", "pg"), camBtn("⟳", "h")]));
     if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) pad.classList.remove("hidden");
   }
   function resize() {
@@ -88,14 +92,18 @@
   // ---------- touches ----------
   const KEYMAP = { ArrowLeft: "l", ArrowRight: "r", ArrowUp: "u", ArrowDown: "d", q: "l", a: "l", d: "r", z: "u", w: "u", s: "d", " ": "a", Enter: "a", x: "a", X: "a", Shift: "b", e: "b", c: "b", C: "b", Q: "l", A: "l", D: "r", Z: "u", W: "u", S: "d", E: "b" };
   function setKey(k, v) { if (G.keys[k] === v) return; G.keys[k] = v; sendKeys(); }
-  function sendKeys() { const s = JSON.stringify(G.keys); if (s === G.sent) return; G.sent = s; if (Kit.socket) Kit.socket.emit("pg:in", G.keys); }
+  function sendKeys() { const k = Object.assign({}, G.keys); if (isRace() && G.mv) { k.mx = Math.round(G.mv[0] * 100) / 100; k.my = Math.round(G.mv[1] * 100) / 100; } const s = JSON.stringify(k); if (s === G.sent) return; G.sent = s; if (Kit.socket) Kit.socket.emit("pg:in", k); }
   const inGame = () => document.body.dataset.screen === "game" && G.st && G.st.phase === "play";
+  // pendant la Course des fous, F et H tournent la caméra, T et G la montent ou la baissent, C agrippe
+  const isRace = () => !!(G.st && G.st.game && G.st.game.id === "parcours" && PD.on);
+  const CAMK = { f: "f", F: "f", h: "h", H: "h", t: "t", T: "t", g: "g", G: "g" };
   window.addEventListener("keydown", (e) => {
     if (document.body.dataset.screen !== "game") return; const tag = (e.target && e.target.tagName) || ""; if (tag === "INPUT" || tag === "TEXTAREA" || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (isRace()) { if (CAMK[e.key]) { G.cam[CAMK[e.key]] = 1; e.preventDefault(); return; } if (e.key === "c" || e.key === "C") { G.keys.c = 1; e.preventDefault(); return; } }
     const k = KEYMAP[e.key]; if (!k) return; e.preventDefault(); setKey(k, 1);
   });
-  window.addEventListener("keyup", (e) => { const k = KEYMAP[e.key]; if (!k) return; setKey(k, 0); });
-  window.addEventListener("blur", () => { ["l", "r", "u", "d", "a", "b"].forEach((k) => { G.keys[k] = 0; }); sendKeys(); });
+  window.addEventListener("keyup", (e) => { if (CAMK[e.key]) G.cam[CAMK[e.key]] = 0; if (e.key === "c" || e.key === "C") G.keys.c = 0; const k = KEYMAP[e.key]; if (!k) return; setKey(k, 0); });
+  window.addEventListener("blur", () => { ["l", "r", "u", "d", "a", "b", "c"].forEach((k) => { G.keys[k] = 0; }); Object.keys(G.cam).forEach((k) => { G.cam[k] = 0; }); sendKeys(); });
   setInterval(() => { if (inGame()) { G.sent = ""; sendKeys(); } }, 700);
   function onCanvasClick(e) {
     if (!inGame() || (e.target && e.target.closest && e.target.closest(".pg-padbtn"))) return; let x, y; const pz = G.fr && G.fr.hud && G.fr.hud.pickZ || 0;
@@ -112,7 +120,8 @@
     if (key !== G.phaseKey) {
       G.phaseKey = key; G.priv = null; G.uiKey = ""; G.cdLast = 0; G.goShown = 0;
       if (st.phase !== "play" && st.phase !== "result") { G.fr = null; RD.reset(); if (st.phase === "intro" || st.phase === "vote") { G.scene = null; G.sceneApplied = -1; if (P3.ready) P3.clear(); } }
-      if (st.phase === "play") { ["l", "r", "u", "d", "a", "b"].forEach((k) => { G.keys[k] = 0; }); G.sent = ""; }
+      if (st.phase === "play") { ["l", "r", "u", "d", "a", "b", "c"].forEach((k) => { G.keys[k] = 0; }); G.sent = ""; }
+      if (st.phase !== "play" && st.phase !== "result") { PD.reset(); if (P3.ready) P3.camLive = null; }
       if (st.phase === "vote") play("reveal"); if (st.phase === "intro") play("vote");
       if (st.phase === "over") { play("win"); confettiBurst(); }
       if (st.phase === "result") { const mine = st.result && st.result.rows.find((r) => r.id === myId()); play(mine && mine.rank === 1 ? "win" : mine && mine.rank <= Math.ceil(st.members.length / 2) ? "reveal" : "lose"); }
@@ -121,9 +130,10 @@
     const sig = JSON.stringify(Object.assign({}, st, { left: 0 })); if (sig === G.sig) return; G.sig = sig;
     renderTop(); renderOverlay();
   }
-  function onScene(m) { G.scene = m; G.sceneApplied = -1; applyView(true); if (!G.use3d) { /* la vue à plat lit G.scene à chaque image */ } }
+  function onScene(m) { G.scene = m; G.sceneApplied = -1; if (m && m.scene && m.scene.pred && window.PgPred) PD.setScene(m.scene, { jumpAssist: !(Kit.room && Kit.room.settings && Kit.room.settings.jumpAssist === false) }); else PD.reset(); applyView(true); if (!G.use3d) { /* la vue à plat lit G.scene à chaque image */ } }
   function onFrame(m) {
     G.fr = m.f; G.priv = m.p; G.lastFrameAt = performance.now();
+    if (PD.on) { PD.frame(m.f, m.p, myId(), performance.now()); PD.patch(m.f.items, myId()); }
     if (G.use3d) { P3.feed(m.f, m.p, myId()); P3.setPriv(m.p); } else if (m.f.fx) playFlat(m.f.fx);
     renderHud(); renderPriv();
   }
@@ -155,6 +165,8 @@
     else cd.classList.add("hidden");
     const bn = $("#pg-banner"); if (h.end && h.banner) { bn.classList.remove("hidden"); if (bn.textContent !== h.banner) { bn.textContent = h.banner; confettiBurst(true); } } else bn.classList.add("hidden");
     renderProg(h.prog);
+    const rh = $("#pg-racehint"); if (rh) { const show = isRace() && !h.end; rh.classList.toggle("hidden", !show); if (show && !G.hintAt) G.hintAt = performance.now(); rh.classList.toggle("pg-racehint--fade", show && performance.now() - G.hintAt > 12000); }
+    const pad = $("#pg-pad"); if (pad) pad.classList.toggle("pg-pad--race", isRace());
   }
   const fmtT = (t) => { t = Math.max(0, Math.ceil(t)); return t >= 60 ? Math.floor(t / 60) + " min " + (t % 60 < 10 ? "0" : "") + (t % 60) : String(t); };
   function renderProg(pr) {
@@ -198,6 +210,7 @@
     requestAnimationFrame(frameLoop);
     if (document.body.dataset.screen !== "game") return; const dt = Math.min(0.1, (now - (G.last || now)) / 1000); G.last = now;
     if (!G.st) return;
+    if (PD.on && G.fr) raceStep(dt);
     if (G.use3d && P3.ready) { if (G.st.phase === "play" || G.st.phase === "result" || G.st.phase === "intro") P3.render(dt); return; }
     const ctx = G.ctx; if (!ctx) return; const dpr = G.dpr || 1; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, G.canvas.width, G.canvas.height);
     const f = G.fr; if (!f || (G.st.phase !== "play" && G.st.phase !== "result")) return;
@@ -214,6 +227,29 @@
     ctx.save(); if (!sc.cam) { ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.clip(); }
     const kill = new Set(f.kill || []); RD.draw(ctx, { w, h, items: f.items, sceneItems: (sc.items || []).filter((x) => x.id == null || !kill.has(x.id)), privItems: G.priv && G.priv.items || [] }, dt, now / 1000, myId());
     ctx.restore();
+  }
+
+  // ---------- course des fous, notre coureur avance tout de suite ----------
+  const angLerp = (a, b, k) => { let d = b - a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return a + d * k; };
+  const RSND = { jump: "jump", dbl: "jump", dive: "whoosh", land: "land", stun: "squeak", flop: "squeak", void: "scream", bump: "bump" };
+  function raceStep(dt) {
+    const h = (G.fr && G.fr.hud) || {}; const pc = G.priv && G.priv.cam; const now = performance.now();
+    // caméra de dos qui suit les virages, F et H la tournent, T et G changent sa hauteur
+    PD.yawOff = Math.max(-2.6, Math.min(2.6, (PD.yawOff || 0) + ((G.cam.h ? 1 : 0) - (G.cam.f ? 1 : 0)) * dt * 1.9));
+    if (!G.cam.f && !G.cam.h && Math.abs(PD.yawOff) > 0.001 && G.keys.u) PD.yawOff *= Math.exp(-dt * 0.8);
+    PD.hgOff = Math.max(-110, Math.min(240, (PD.hgOff || 0) + ((G.cam.t ? 1 : 0) - (G.cam.g ? 1 : 0)) * dt * 220));
+    const target = (pc && pc.yaw != null ? pc.yaw : -Math.PI / 2) + PD.yawOff;
+    if (!PD.yawInit || PD.snapped) { PD.yaw = target; PD.yawInit = true; PD.snapped = false; } else PD.yaw = angLerp(PD.yaw, target, 1 - Math.exp(-dt * 2.4));
+    const f = [Math.cos(PD.yaw), Math.sin(PD.yaw)], r = [-Math.sin(PD.yaw), Math.cos(PD.yaw)]; const k = G.keys;
+    let mx = f[0] * ((k.u ? 1 : 0) - (k.d ? 1 : 0)) + r[0] * ((k.r ? 1 : 0) - (k.l ? 1 : 0)), my = f[1] * ((k.u ? 1 : 0) - (k.d ? 1 : 0)) + r[1] * ((k.r ? 1 : 0) - (k.l ? 1 : 0));
+    const l = Math.hypot(mx, my); if (l > 1) { mx /= l; my /= l; } if (G.st.mod && G.st.mod.id === "inv") { mx = -mx; my = -my; }
+    G.mv = [mx, my]; if (!G.mvSentAt || now - G.mvSentAt > 120) { G.mvSentAt = now; sendKeys(); }
+    const frozen = G.st.phase !== "play" || !!h.cd || !!h.end;
+    PD.step(dt, { mx, my, a: k.a, b: k.b, gr: k.c, frozen }, now, (pk) => { if (Kit.socket) Kit.socket.emit("pg:pos", pk); });
+    PD.events().forEach((e) => { if (RSND[e]) play(RSND[e]); });
+    PD.patch(G.fr.items, myId());
+    const p = PD.pos(); const tall = window.innerWidth < window.innerHeight; if (P3.ready) P3.camLive = p && !PD.dead ? { m: "follow", t: [p.x, p.y, Math.max(p.z, -60)], yaw: PD.yaw, d: tall ? 520 : 340, hg: (tall ? 320 : 220) + PD.hgOff, la: tall ? 170 : 130 } : null;
+    const hint = $("#pg-racehint"); if (hint) hint.classList.toggle("hidden", !!h.end);
   }
 
   // ---------- confettis ----------
@@ -237,7 +273,10 @@
   function renderOverlay() {
     const st = G.st, ov = $("#pg-overlay"); if (!st) return;
     if (st.phase === "play") { ov.classList.add("hidden"); setPad(true); return; }
-    setPad(false); $("#pg-ui").classList.add("hidden"); $("#pg-side").classList.add("hidden"); ov.classList.remove("hidden"); ov.className = "pg-overlay pg-overlay--" + st.phase; ov.innerHTML = "";
+    setPad(false); $("#pg-ui").classList.add("hidden"); $("#pg-side").classList.add("hidden"); ov.classList.remove("hidden");
+    if (st.phase === "board") { boardOverlay(st, ov); return; }
+    G.bd = null; const okey = st.phase + ":" + st.round; const again = G.ovKey === okey; G.ovKey = okey;
+    ov.className = "pg-overlay pg-overlay--" + st.phase + (again ? " pg-still" : ""); ov.innerHTML = "";
     const me = myId();
     if (st.phase === "vote") {
       const box = el("div", { class: "pg-card pg-card--wide pg-card--vote" }, [el("div", { class: "pg-kicker", text: "Manche " + st.round + " sur " + st.total }), el("h2", { text: "Quel mini-jeu ensuite ?" }), el("p", { class: "pg-sub", text: "Vote pour ton préféré. La plus grosse pile gagne, le sort départage les égalités." })]);
@@ -270,7 +309,7 @@
       box.appendChild(tb); box.appendChild(el("h3", { text: "Classement général" }));
       const gen = el("div", { class: "pg-rank pg-rank--small" }); const maxP = Math.max(1, ...st.standings.map((x) => x.pts));
       st.standings.forEach((x) => gen.appendChild(el("div", { class: "pg-rank__row" + (x.id === me ? " pg-rank__row--me" : ""), style: { "--c": hexOf(x.color) } }, [el("span", { class: "pg-rank__n", text: String(x.rank) }), el("i"), el("b", { text: x.name }), el("span", { class: "pg-rank__bar" }, [el("span", { style: { width: (x.pts / maxP) * 100 + "%" } })]), el("span", { class: "pg-rank__pts pg-rank__pts--gen", text: String(x.pts) })])));
-      box.appendChild(gen); box.appendChild(el("p", { class: "pg-wait", text: st.round >= st.total ? "Résultats finaux dans un instant" : "Manche suivante dans un instant" })); box.appendChild(clockBar(st)); ov.appendChild(box);
+      box.appendChild(gen); if (st.rate) box.appendChild(rateRow(st.rate)); box.appendChild(el("p", { class: "pg-wait", text: st.round >= st.total ? "Résultats finaux dans un instant" : Kit.room && Kit.room.settings && Kit.room.settings.board === false ? "Manche suivante dans un instant" : "Le plateau surprise arrive" })); box.appendChild(clockBar(st)); ov.appendChild(box);
     } else if (st.phase === "over") {
       const top = st.standings; const box = el("div", { class: "pg-card pg-card--wide pg-card--over" }, [el("div", { class: "pg-kicker", text: "Fin de la partie" }), el("h2", { text: top[0] ? "🏆 " + top[0].name + " remporte la partie" : "Fin de la partie" })]);
       if (st.reason) box.appendChild(el("p", { class: "pg-sub", text: st.reason }));
@@ -280,10 +319,78 @@
       if ((st.awards || []).length) box.appendChild(el("div", { class: "pg-awards" }, st.awards.map((a) => el("div", { class: "pg-award", style: { "--c": hexOf(a.color) } }, [el("span", { text: a.icon }), el("div", {}, [el("b", { text: a.title }), el("small", { text: a.name + ", " + a.text })])]))));
       const gen = el("div", { class: "pg-rank pg-rank--small" }); top.forEach((x) => gen.appendChild(el("div", { class: "pg-rank__row" + (x.id === me ? " pg-rank__row--me" : ""), style: { "--c": hexOf(x.color) } }, [el("span", { class: "pg-rank__n", text: String(x.rank) }), el("i"), el("b", { text: (x.bot ? "🤖 " : "") + x.name }), el("span", { class: "pg-rank__note", text: x.wins + " manche" + (x.wins > 1 ? "s" : "") + " gagnée" + (x.wins > 1 ? "s" : "") }), el("span", { class: "pg-rank__pts pg-rank__pts--gen", text: String(x.pts) })])));
       box.appendChild(gen);
+      if ((st.notes || []).length) {
+        const nb = el("div", { class: "pg-notes" }, [el("h3", { text: "Les mini-jeux de la soirée, du moins aimé au plus aimé" })]);
+        st.notes.forEach((x) => nb.appendChild(el("div", { class: "pg-notes__row" }, [el("span", { text: x.icon + " " + x.name }), el("b", { text: "👍 " + x.up + "  👎 " + x.down })])));
+        nb.appendChild(el("small", { class: "muted", text: "Ces avis s'additionnent d'une partie à l'autre, et repartent de zéro quand le serveur s'endort ou est redéployé. Ils aident à repérer les jeux à retravailler ou à décocher dans les réglages." })); box.appendChild(nb);
+      }
       const row = el("div", { class: "pg-actions" });
       if (Kit.isHost()) row.appendChild(el("button", { class: "btn btn--accent btn--big", text: "Retour au salon", onclick: () => Kit.backToLobby() })); else row.appendChild(el("p", { class: "muted", text: "L'hôte peut relancer une partie depuis le salon." }));
       row.appendChild(el("button", { class: "btn btn--ghost", text: "Quitter", onclick: () => Kit.leave() })); box.appendChild(row); ov.appendChild(box);
     }
+  }
+  // ---------- avis sur le mini-jeu ----------
+  function rateRow(r) {
+    const b = (v, ico, n) => el("button", { class: "pg-rate__b" + (r.mine === v ? " pg-rate__b--on" : ""), onclick: () => { play("vote"); Kit.socket.emit("pg:rate", { v: r.mine === v ? 0 : v }); } }, [el("span", { text: ico }), el("small", { text: String(n) })]);
+    return el("div", { class: "pg-rate" }, [el("span", { text: r.mine ? "Merci pour ton avis" : "Ce mini-jeu t'a plu ?" }), b(1, "👍", r.up), b(-1, "👎", r.down)]);
+  }
+
+  // ---------- plateau surprise entre les manches ----------
+  // seize cases sur le bord d'une grille de six sur quatre, dans le sens des aiguilles d'une montre
+  function cellOf(i) { i = ((i % 16) + 16) % 16; if (i < 6) return [i, 0]; if (i < 8) return [5, i - 5]; if (i < 14) return [13 - i, 3]; return [0, 17 - i]; }
+  function boardOverlay(st, ov) {
+    const bd = st.board, me = myId();
+    if (!G.bd || G.bd.round !== bd.round || !ov.querySelector(".pg-bd")) {
+      if (G.bd && G.bd.timers) G.bd.timers.forEach(clearTimeout);
+      ov.className = "pg-overlay pg-overlay--board"; ov.innerHTML = "";
+      const info = {}; (st.standings || []).forEach((x) => { info[x.id] = x; });
+      const B = G.bd = { round: bd.round, timers: [], pos: Object.assign({}, bd.from), score: Object.assign({}, bd.pre), info, pawns: {}, done: false };
+      const card = el("div", { class: "pg-card pg-card--wide pg-card--board" }, [el("div", { class: "pg-kicker", text: "Plateau surprise, après la manche " + bd.round }), el("h2", { text: "On avance selon son rang" })]);
+      const grid = el("div", { class: "pg-bd" }); B.grid = grid;
+      bd.sq.forEach((q, i) => { const [c, r] = cellOf(i); grid.appendChild(el("div", { class: "pg-bd__sq pg-bd__sq--" + q.k, style: { "grid-column": c + 1, "grid-row": r + 1 }, title: q.name, "data-i": String(i) }, [el("span", { text: q.icon || "·" })])); });
+      const mid = el("div", { class: "pg-bd__mid" }, [el("b", { text: "Tout le monde avance" }), el("span", { text: "Premier de la manche, quatre cases. Dernier, une case." })]); B.mid = mid; grid.appendChild(mid);
+      bd.ids.forEach((id) => { const x = info[id] || { color: 0, name: "?" }; const pw = el("div", { class: "pg-bd__pawn" + (id === me ? " pg-bd__pawn--me" : ""), style: { background: hexOf(x.color) }, title: x.name }, [el("small", { text: x.name.slice(0, 2) })]); grid.appendChild(pw); B.pawns[id] = pw; });
+      card.appendChild(grid);
+      const side = el("div", { class: "pg-bd__side" });
+      const rk = el("div", { class: "pg-rank pg-rank--small" }); B.rk = rk; side.appendChild(rk);
+      side.appendChild(el("div", { class: "pg-bd__legend" }, bd.legend.map((l) => el("div", {}, [el("span", { text: l.icon }), el("small", {}, [el("b", { text: l.name + " " }), document.createTextNode(l.desc)])]))));
+      card.appendChild(side);
+      const foot = el("div", { class: "pg-bd__foot" }); B.foot = foot; card.appendChild(foot);
+      ov.appendChild(card); layoutPawns(); drawRank();
+      // les sauts de case, tous en même temps
+      const maxS = Math.max(1, ...bd.ids.map((id) => bd.steps[id] || 1)); const t0 = 700;
+      for (let k = 1; k <= maxS; k++) B.timers.push(setTimeout(() => { bd.ids.forEach((id) => { if ((bd.steps[id] || 0) >= k) B.pos[id] = bd.from[id] + k; }); layoutPawns(); play("tick"); }, t0 + k * bd.hop));
+      let t = t0 + maxS * bd.hop + 500;
+      if (!bd.events.length) B.timers.push(setTimeout(() => { setMid("Que des cases tranquilles", "Personne ne bouge au classement cette fois."); }, t));
+      bd.events.forEach((e) => {
+        B.timers.push(setTimeout(() => {
+          B.pos[e.id] = e.at; layoutPawns(); grid.querySelectorAll(".pg-bd__sq--hot").forEach((n) => n.classList.remove("pg-bd__sq--hot"));
+          const sq = grid.querySelector('[data-i="' + e.sq + '"]'); if (sq) sq.classList.add("pg-bd__sq--hot");
+          setMid((bd.sq[e.sq].icon || "") + " " + e.title, e.text, e.type);
+          Object.keys(e.d || {}).forEach((id) => { B.score[id] = (B.score[id] || 0) + e.d[id]; });
+          drawRank(e.d); play(e.type === "banane" || e.type === "foudre" ? "lose" : e.type === "echange" ? "reveal" : "coin");
+        }, t)); t += bd.ev;
+      });
+      B.timers.push(setTimeout(() => { B.done = true; grid.querySelectorAll(".pg-bd__sq--hot").forEach((n) => n.classList.remove("pg-bd__sq--hot")); bd.ids.forEach((id) => { B.pos[id] = bd.to[id]; }); layoutPawns(); setMid("Classement mis à jour", st.round >= st.total ? "Place aux résultats" : "Prochaine manche juste après"); drawFoot(G.st); }, t + 200));
+    }
+    drawFoot(st);
+  }
+  function setMid(title, text, type) { const B = G.bd; if (!B) return; B.mid.className = "pg-bd__mid pg-bd__mid--pop" + (type ? " pg-bd__mid--" + type : ""); B.mid.innerHTML = ""; B.mid.appendChild(el("b", { text: title })); B.mid.appendChild(el("span", { text: text })); void B.mid.offsetWidth; }
+  function layoutPawns() {
+    const B = G.bd; if (!B) return; const by = {};
+    Object.keys(B.pawns).forEach((id) => { const i = ((B.pos[id] % 16) + 16) % 16; (by[i] = by[i] || []).push(id); });
+    Object.keys(by).forEach((i) => { const list = by[i]; const [c, r] = cellOf(+i); list.forEach((id, k) => { const a = (k / Math.max(1, list.length)) * Math.PI * 2, rr = list.length > 1 ? 1.1 : 0; const pw = B.pawns[id]; pw.style.left = "calc(" + ((c + 0.5) / 6) * 100 + "% + " + Math.cos(a) * rr + "rem)"; pw.style.top = "calc(" + ((r + 0.7) / 4) * 100 + "% + " + Math.sin(a) * rr * 0.5 + "rem)"; pw.style.zIndex = 3 + k; }); });
+  }
+  function drawRank(d) {
+    const B = G.bd; if (!B) return; const me = myId(); B.rk.innerHTML = "";
+    const rows = Object.keys(B.pawns).map((id) => ({ id, pts: B.score[id] || 0, x: B.info[id] || { name: "?", color: 0 } })).sort((a, b) => b.pts - a.pts);
+    rows.forEach((r, i) => { const dv = d && d[r.id]; B.rk.appendChild(el("div", { class: "pg-rank__row" + (r.id === me ? " pg-rank__row--me" : "") + (dv ? " pg-rank__row--flash" : ""), style: { "--c": hexOf(r.x.color) } }, [el("span", { class: "pg-rank__n", text: String(i + 1) }), el("i"), el("b", { text: (r.x.bot ? "🤖 " : "") + r.x.name }), dv ? el("span", { class: "pg-bd__d" + (dv < 0 ? " pg-bd__d--neg" : ""), text: (dv > 0 ? "+" : "") + dv }) : null, el("span", { class: "pg-rank__pts pg-rank__pts--gen", text: String(r.pts) })])); });
+  }
+  function drawFoot(st) {
+    const B = G.bd; if (!B || !st || st.phase !== "board") return; const me = myId(); B.foot.innerHTML = "";
+    if (st.rate) B.foot.appendChild(rateRow(st.rate));
+    B.foot.appendChild(ready3(st)); const ready = (st.ready || []).includes(me);
+    B.foot.appendChild(el("button", { class: "btn btn--big " + (ready ? "btn--ghost" : "btn--green"), disabled: ready, text: ready ? "On attend les autres" : B.done ? "Manche suivante" : "Passer le plateau", onclick: () => { play("vote"); Kit.socket.emit("pg:ready"); } }));
   }
   function setPad(on) { const pad = $("#pg-pad"); if (!pad) return; if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) pad.classList.toggle("hidden", !on); }
 
@@ -301,7 +408,7 @@
     const need = Math.max(0, 8 - r.players.length); for (let i = 0; i < need; i++) Kit.socket.emit("room:addBot", { level });
   }
   Kit.init({
-    id: "pagaille", title: "Pagaille Party", emoji: "🎉", ribbon: "Le party game des copains", tagline: "Des mini-jeux en 3D, un vote à chaque manche et beaucoup de chaos.",
+    id: "pagaille", hero: true, title: "Pagaille Party", emoji: "🎉", ribbon: "Le party game des copains", tagline: "Des mini-jeux en 3D, un vote à chaque manche et beaucoup de chaos.",
     createLabel: "Créer un salon", soloLabel: "Jouer seul avec des bots", startLabel: "Lancer la partie", helpTitle: "Comment jouer",
     floaters: [{ e: "🎉", x: 6 }, { e: "💣", x: 20 }, { e: "🏁", x: 34 }, { e: "🌋", x: 48 }, { e: "🥊", x: 62 }, { e: "⛏️", x: 76 }, { e: "🧊", x: 90 }],
     colors: COLORS, botLevels: [{ id: "facile", label: "Facile" }, { id: "normal", label: "Normal" }, { id: "expert", label: "Expert" }], maxPlayers: 8, minPlayers: 2, schema: PR.SCHEMA,

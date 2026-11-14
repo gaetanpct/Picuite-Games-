@@ -482,7 +482,7 @@ Pagaille Party est un party game en ligne de deux à huit joueurs, pour les soir
 - Un classement est établi à chaque manche. Dix points pour le premier, puis des points décroissants selon le nombre de joueurs, et les égalités se partagent les points.
 - Des bonus récompensent les beaux coups, comme démasquer le meurtrier, éjecter le plus d'adversaires, monter le plus haut ou n'être jamais tombé. Les surprises du mode chaos peuvent doubler les points.
 
-### Les dix-sept mini-jeux
+### Les dix-huit mini-jeux
 
 | Jeu | Joueurs | Principe |
 |---|---|---|
@@ -503,6 +503,7 @@ Pagaille Party est un party game en ligne de deux à huit joueurs, pour les soir
 | Course des cases | 2 à 8 | Un plateau en serpent, une carte de 1 à 6 jouée en secret, les cartes identiques se percutent. |
 | Territoires | 2 à 8 | On repeint le sol en marchant, par équipes tirées au hasard à partir de quatre joueurs, avec éclaboussures et seaux dorés. |
 | Suite logique | 2 à 8 | Suites de nombres, de lettres et de dessins avec un trou, à trouver le plus vite possible. |
+| La Bouée | 2 à 8 | Une bouée par équipe sur un lac, huit portes en zigzag à passer dans l'ordre. On pousse ensemble et deux pétards lâchés en même temps comptent double. |
 
 Le meurtre mystère et Faux semblants ont été retirés. Les nouveautés de la version précédente sont la Course des fous, le Choc au sommet, les Dalles de mémoire et la Ruée vers l'or. Les autres jeux ont été refaits en 3D avec des bots. Un jeu qui ne convient pas au nombre de joueurs présents n'est jamais proposé.
 
@@ -1255,3 +1256,76 @@ Chaque jeu a été regardé seul, accueil, salon et partie. Le but n'était pas 
 
 ### Ce qu'il faut déposer sur GitHub
 - Le dossier hands-over, et le fichier README.md.
+
+## Quarante-septième mise à jour, lot 4, la Course des fous façon Fall Guys
+
+### Ton coureur répond tout de suite
+- Avant, chaque saut partait du serveur, avec un petit retard entre la touche et le saut. Maintenant ton navigateur fait courir ton propre personnage immédiatement, avec exactement la même physique que le serveur, et lui envoie sa position vingt fois par seconde.
+- Le serveur vérifie que la position est plausible, gère les drapeaux, les chutes, les portes, l'arrivée et les bousculades. S'il voit quelque chose d'impossible, il te recale au bon endroit.
+- Les plateformes mobiles, les barres et les marteaux sont prolongés entre deux images du serveur, si bien que tu sautes sur une plateforme à l'endroit où tu la vois.
+
+### Une caméra de dos qui suit les virages
+- La caméra se place derrière toi et suit la direction du parcours dans les virages. Les flèches avancent toujours dans le sens de la caméra.
+- F et H tournent la caméra autour de toi, T et G la montent ou la baissent, comme dans Bouskaille et Vertigogo. Sur téléphone, deux petits boutons tournent la caméra.
+
+### Un parcours qui tourne, monte et se divise
+- Le parcours prend des virages à gauche et à droite, monte par des escaliers et redescend.
+- À partir de la difficulté normale, il se divise une fois en deux chemins qui se rejoignent plus loin. À gauche des pierres rapprochées, plus sûres. À droite une poutre directe, plus rapide mais étroite, avec un marteau en difficulté costaude.
+
+### Six nouveaux obstacles
+- Un mur de portes à deviner. Quelques portes cèdent quand on fonce dedans, les autres sont fausses et renvoient en arrière.
+- Des rouleaux géants qui roulent vers les coureurs, il faut sauter par-dessus.
+- Un tapis roulant qui recule, avec des poteaux à éviter.
+- Des ventilateurs sur les côtés qui soufflent par moments et poussent vers le vide.
+- Des marteaux qui balancent en série au-dessus d'un pont.
+- Un sol de dalles bleues et rouges. Une couleur clignote, puis disparaît un instant, à tour de rôle.
+
+### Bousculades, plongeons et chutes molles
+- Les coureurs se poussent entre eux, humains comme bots, et on peut se faire coincer dans un passage étroit.
+- C pour s'agripper au coureur juste devant, il est ralenti tant qu'on le tient. Les bots experts le font aussi parfois. Sur téléphone, un bouton ✊ apparaît.
+- Maj ou E pour plonger, un rappel des touches s'affiche en bas au début de la course.
+- Un coup de barre, de marteau ou de rouleau fait vaciller le personnage un instant avec un petit cri. Après une grande chute, il rebondit mollement en atterrissant. Tomber dans l'eau arrache un long cri.
+
+### Places limitées
+- À partir de trois joueurs, seules environ six places sur dix sont qualificatives, comme une manche de qualification. La course s'arrête dès qu'elles sont prises, et les derniers sont éliminés. Les places restantes s'affichent en haut.
+
+### Les bots
+- Les bots savent passer tous les nouveaux obstacles. Ils devinent les portes, sautent les rouleaux, attendent les marteaux, luttent contre le vent et sautent quand leur dalle va disparaître. Leur façon de prendre les plateformes mobiles a été revue, ils tombent beaucoup moins.
+
+### Ce qu'il faut déposer sur GitHub
+- Le dossier pagaille, et le fichier README.md.
+
+## Quarante-huitième mise à jour, lot 5, Pagaille Party entre les manches
+
+### Le plateau surprise
+- Après chaque manche, sauf la dernière, un petit plateau de seize cases apparaît. Chacun avance selon son rang à la manche, quatre cases pour le premier et une case pour le dernier.
+- Les cases surprise sont jouées dans l'ordre inverse du classement, les derniers d'abord.
+- 🎁 Cadeau, trois points offerts. 🍌 Peau de banane, trois points perdus.
+- 🔄 Échange, ton score est échangé avec celui du joueur juste devant toi au classement. C'est la case qui renverse le plus de parties.
+- 🦝 Raton voleur, tu voles trois points au premier, ou au deuxième si c'est toi le premier.
+- ⚡ Foudre, le premier du classement perd quatre points, même si c'est lui qui tombe sur la case.
+- 🚀 Tremplin, deux cases de plus et la case d'arrivée compte aussi.
+- 🏁 Chaque tour complet du plateau rapporte cinq points. Le score ne descend jamais sous zéro.
+- Le classement se met à jour case par case sous les yeux des joueurs. Il n'y a pas de compte à rebours affiché, le bouton Passer le plateau permet d'aller plus vite quand tout le monde a cliqué.
+- Le plateau se coupe dans le salon, réglage Plateau surprise entre les manches, dans la partie La partie.
+
+### La Bouée
+- Le mini-jeu repris de Pétard Mouillé, en version courte. Une bouée par équipe, seul jusqu'à trois joueurs, par deux au-delà, avec une équipe de trois si le nombre est impair.
+- Chacun pousse avec les flèches et la bouée suit la moyenne de l'équipe. Si vous tirez dans des sens opposés, elle tangue et n'avance plus.
+- Espace lâche un pétard qui propulse la bouée. Deux pétards lâchés presque en même temps dans le même sens par deux équipiers donnent un double pétard bien plus fort.
+- Huit portes en zigzag autour d'une île, des rochers à éviter, et la porte suivante entourée de la couleur de ton équipe avec une flèche. Après la première arrivée, il reste douze secondes aux autres.
+- Les bots pilotent les bouées et finissent la course, ils savent aussi tenter le double pétard.
+
+### Le tri des mini-jeux
+- À la fin de chaque manche, sur l'écran des résultats et sur le plateau, deux boutons 👍 et 👎 demandent si le mini-jeu a plu. Un seul avis par joueur et par jeu dans une partie, que l'on peut changer.
+- Les avis s'additionnent d'une partie à l'autre. L'écran de fin de partie affiche les jeux de la soirée, du moins aimé au plus aimé.
+- Ces avis sont gardés dans un petit fichier sur le serveur, notes-joueurs.json, créé tout seul. Sur Render, il repart de zéro quand le serveur s'endort ou est redéployé, pense donc à noter les résultats après une soirée.
+- Les dix-huit jeux ont été relancés plusieurs fois avec des bots, de deux à huit joueurs, sans aucune erreur. Ce test vérifie que tout fonctionne, pas que c'est amusant. Le vrai tri se fera avec vos avis après quelques soirées. Un jeu mal aimé peut ensuite être décoché dans Mini-jeux autorisés, ou retravaillé.
+
+### Corrections
+- Les couleurs des joueurs ne s'affichaient pas dans plusieurs écrans, les pastilles du haut, les classements, les avatars et les noms dans le chat. La boîte à outils commune ne posait pas les variables de couleur. C'est réparé pour tous les jeux qui l'utilisent, Pagaille Party et Mauvaises Langues surtout.
+
+### Ce qu'il faut déposer sur GitHub
+- Les dossiers pagaille et common, et le fichier README.md.
+- Ne dépose pas de fichier notes-joueurs.json, il se crée tout seul sur le serveur.
+

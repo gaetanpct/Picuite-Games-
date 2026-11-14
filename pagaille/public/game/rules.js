@@ -14,6 +14,7 @@
         { value: "chaos", label: "Chaotique", icon: "🌪️", desc: "Une surprise tirée au hasard change la manche. Commandes inversées, pieds lourds, vitesse en folie ou points doublés." },
       ] },
       { id: "chaos", label: "Niveau de chaos", type: "chips", default: 1, options: [{ value: 0, label: "Aucune surprise" }, { value: 1, label: "Souvent" }, { value: 2, label: "À chaque manche" }], showIf: (s) => s.mode === "chaos", info: "Règle la fréquence des surprises du mode chaotique. Avec aucune surprise, le mode chaotique ne change rien." },
+      { id: "board", label: "Plateau surprise entre les manches", type: "bool", default: true, info: "Après chaque manche, chacun avance sur un petit plateau selon son rang. Cadeaux, peaux de banane, échange de score, raton voleur ou foudre sur le premier, de quoi renverser le classement. Un tour complet du plateau rapporte cinq points." },
       { id: "lastDouble", label: "Dernière manche à points doubles", type: "bool", default: true, info: "Pour garder du suspense jusqu'au bout. Les points de la dernière manche comptent double." },
     ] },
     { category: "🗳️ Le choix des jeux", rules: [

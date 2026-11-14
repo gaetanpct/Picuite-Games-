@@ -13,7 +13,7 @@
       if (k === "class") n.className = v;
       else if (k === "text") n.textContent = v;
       else if (k === "html") n.innerHTML = v;
-      else if (k === "style" && typeof v === "object") Object.assign(n.style, v);
+      else if (k === "style" && typeof v === "object") Object.keys(v).forEach((sk) => { if (sk.startsWith("--")) n.style.setProperty(sk, v[sk]); else n.style[sk] = v[sk]; });
       else if (k.startsWith("on") && typeof v === "function") n.addEventListener(k.slice(2), v);
       else n.setAttribute(k, v === true ? "" : v);
     });

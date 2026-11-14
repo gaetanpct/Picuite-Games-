@@ -29,6 +29,11 @@
     vote() { tone(600, 0.06, "triangle", 0.08); },
     reveal() { tone(392, 0.12, "triangle", 0.09); tone(523, 0.12, "triangle", 0.09, 0.1); tone(659, 0.22, "triangle", 0.1, 0.2); },
     siren() { tone(600, 0.2, "square", 0.05, 0, 900); tone(900, 0.2, "square", 0.05, 0.2, 600); },
+    prout() { tone(95 + Math.random() * 25, 0.32, "sawtooth", 0.09, 0, 60); noise(0.3, 0.07, 0, 400); },
+    prout2() { tone(80, 0.45, "sawtooth", 0.11, 0, 45); tone(120, 0.4, "square", 0.05, 0.05, 70); noise(0.45, 0.09, 0, 500); },
+    squeak() { tone(900 + Math.random() * 300, 0.09, "square", 0.05, 0, 1500); tone(1300, 0.08, "square", 0.04, 0.08, 700); },
+    scream() { tone(980, 0.7, "sawtooth", 0.05, 0, 260); tone(1010, 0.7, "triangle", 0.04, 0.02, 270); },
+    grab() { noise(0.08, 0.1, 0, 2200); tone(420, 0.08, "triangle", 0.07, 0, 300); },
     stab() { tone(900, 0.08, "sawtooth", 0.09, 0, 200); noise(0.1, 0.08, 0, 2500); },
   };
   window.PgSound = {

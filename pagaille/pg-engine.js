@@ -8,6 +8,7 @@
 const Cat = require("./public/game/catalog.js");
 const Rules = require("./public/game/rules.js");
 const U = require("./pg-util.js");
+const fs = require("fs"), path = require("path");
 
 const MODULES = {};
 Cat.ids.forEach((id) => { try { MODULES[id] = require("./games/" + id + ".js"); } catch (e) { console.error("Mini-jeu ignoré", id, e); } });
@@ -15,6 +16,7 @@ Cat.ids.forEach((id) => { try { MODULES[id] = require("./games/" + id + ".js"); 
 const TICK = 1000 / 30;
 const GO_MS = 3000;          // compte à rebours avant l'action
 const RESULT_MS = 8500;
+const HOP_MS = 230, EV_MS = 1700;  // plateau, durée d'un saut de case et d'une case surprise à l'écran
 const SKILL = { facile: 0.35, normal: 0.65, expert: 0.93 };
 const MODS = [
   { id: "inv", label: "Commandes inversées", desc: "Gauche devient droite et haut devient bas.", move: true },
@@ -23,6 +25,36 @@ const MODS = [
   { id: "lourd", label: "Pieds lourds", desc: "Tout le monde glisse et accélère moins vite.", move: true },
 ];
 const LEN = { court: 0.7, normal: 1, long: 1.5 };
+// ---------- plateau entre les manches ----------
+// seize cases en boucle, on avance selon son rang à la manche, chaque case surprise peut renverser le classement
+const BN = 16, LAP_PTS = 5;
+const SQ = {
+  depart: { icon: "🏁", name: "Départ", desc: "Chaque tour complet du plateau rapporte " + LAP_PTS + " points." },
+  cadeau: { icon: "🎁", name: "Cadeau", desc: "Trois points offerts." },
+  banane: { icon: "🍌", name: "Peau de banane", desc: "Tu perds trois points." },
+  echange: { icon: "🔄", name: "Échange", desc: "Tu échanges ton score avec le joueur juste devant toi au classement." },
+  voleur: { icon: "🦝", name: "Raton voleur", desc: "Tu voles trois points au premier du classement, ou au deuxième si c'est toi le premier." },
+  foudre: { icon: "⚡", name: "Foudre", desc: "La foudre tombe sur le premier du classement, il perd quatre points." },
+  tremplin: { icon: "🚀", name: "Tremplin", desc: "Tu avances de deux cases de plus." },
+  vide: { icon: "", name: "Case tranquille", desc: "Rien ne se passe." },
+};
+function makeBoard(rnd) {
+  const bag = ["cadeau", "cadeau", "cadeau", "banane", "banane", "echange", "voleur", "voleur", "foudre", "foudre", "tremplin", "tremplin", "vide", "vide", "vide"];
+  for (let tries = 0; tries < 40; tries++) {
+    U.shuffle(bag, rnd);
+    // pas de tremplin juste avant le départ ni deux tremplins collés, pour que les sauts restent lisibles
+    const ok = bag.every((k, i) => k !== "tremplin" || (i < bag.length - 2 && bag[i + 1] !== "tremplin" && bag[i + 2] !== "tremplin"));
+    if (ok) break;
+  }
+  return ["depart"].concat(bag);
+}
+// ---------- notes des joueurs sur les mini-jeux ----------
+// 👍 ou 👎 après chaque manche, gardés dans un petit fichier pour faire le tri des jeux les moins aimés
+const NOTES_FILE = path.join(__dirname, "notes-joueurs.json");
+let NOTES = {}; try { NOTES = JSON.parse(fs.readFileSync(NOTES_FILE, "utf8")) || {}; } catch (e) { NOTES = {}; }
+let notesTimer = null;
+function saveNotes() { if (notesTimer) return; notesTimer = setTimeout(() => { notesTimer = null; try { fs.writeFileSync(NOTES_FILE, JSON.stringify(NOTES)); } catch (e) { /* disque en lecture seule, les notes restent en mémoire */ } }, 1500); }
+const noteOf = (id) => NOTES[id] || { up: 0, down: 0 };
 const present = (p) => !!p && !p.left && (p.isBot || p.connected);
 const human = (p) => !!p && !p.isBot && p.connected && !p.left;
 const rd = (v) => {
@@ -37,9 +69,10 @@ function start(room, api) {
   const g = room.g = {
     api, phase: "boot", t: 0, acc: 0, last: Date.now(), round: 0, total: Rules.totalRounds(s), scores: {}, delta: {}, plays: {}, lastGame: null, history: [],
     inputs: {}, edges: {}, botIn: {}, ready: {}, votes: {}, options: [], until: 0, inst: null, meta: null, mod: null, members: [], seed: Math.random().toString(36).slice(2),
-    endReason: "", beat: 0, msgs: [], result: null, over: false, fxq: [], fxId: 0, wins: {}, lasts: {}, tops: {}, voteAt: {}, scene: null, sceneKey: 0, banner: "", rk: null, startedAt: Date.now(),
+    endReason: "", beat: 0, bpos: {}, bsq: null, board: null, rated: {}, msgs: [], result: null, over: false, fxq: [], fxId: 0, wins: {}, lasts: {}, tops: {}, voteAt: {}, scene: null, sceneKey: 0, banner: "", rk: null, startedAt: Date.now(),
   };
-  room.players.forEach((p) => { g.scores[p.id] = 0; g.delta[p.id] = 0; g.wins[p.id] = 0; g.lasts[p.id] = 0; g.tops[p.id] = 0; });
+  room.players.forEach((p) => { g.scores[p.id] = 0; g.delta[p.id] = 0; g.wins[p.id] = 0; g.lasts[p.id] = 0; g.tops[p.id] = 0; g.bpos[p.id] = 0; });
+  g.bsq = makeBoard(Math.random);
   api.sysChat(room, "C'est parti pour " + g.total + " manche" + (g.total > 1 ? "s" : "") + ".");
   g.timer = setInterval(() => { try { const now = Date.now(); step(room, Math.min(250, now - g.last)); g.last = now; } catch (e) { console.error("tick pagaille", e); } }, 33);
   nextRound(room);
@@ -120,7 +153,10 @@ function beginPlay(room) {
       if (g.frozen) return { x: 0, y: 0, a: false, b: false };
       const p = findP(room, pid);
       if (botControlled(room, p)) { const b = g.botIn[pid] || {}; return { x: b.x || 0, y: b.y || 0, a: !!b.a, b: !!b.b }; }
-      const k = g.inputs[pid] || {}; let x = (k.r ? 1 : 0) - (k.l ? 1 : 0), y = (k.d ? 1 : 0) - (k.u ? 1 : 0); if (!human(p)) { x = 0; y = 0; }
+      const k = g.inputs[pid] || {}; let x = (k.r ? 1 : 0) - (k.l ? 1 : 0), y = (k.d ? 1 : 0) - (k.u ? 1 : 0);
+      // la Course des fous envoie une direction déjà tournée selon la caméra du joueur
+      if (k.mx != null) { x = k.mx; y = k.my; }
+      if (!human(p)) { x = 0; y = 0; }
       if (ctx.inv && meta.move) { x = -x; y = -y; } return { x, y, a: !!k.a, b: !!k.b };
     },
     edge(pid) { const e = g.edges[pid] || {}; return { a: !!e.a, b: !!e.b }; },
@@ -175,6 +211,41 @@ function awards(room) {
   pick("lasts", 2, "🍌", "Poisse du jour", (v) => v + " fois dernier");
   return out;
 }
+function beginBoard(room) {
+  const g = room.g; const rows = (g.result && g.result.rows) || []; const n = rows.length;
+  const ids = rows.map((r) => r.id).filter((id) => present(findP(room, id))); if (ids.length < 2) return nextRound(room);
+  const name = (id) => (findP(room, id) || {}).name || "?";
+  const pre = {}; room.players.forEach((p) => { pre[p.id] = g.scores[p.id] || 0; });
+  const from = {}, steps = {}; ids.forEach((id) => { from[id] = g.bpos[id] || 0; });
+  rows.forEach((r) => { if (ids.includes(r.id)) steps[r.id] = Math.max(1, Math.min(4, 4 - Math.floor(((r.rank - 1) * 3) / Math.max(1, n - 1)))); });
+  const events = []; const add = (id, d) => { const before = g.scores[id] || 0; const after = Math.max(0, before + d); g.scores[id] = after; return after - before; };
+  const leader = (but) => { let best = null; ids.forEach((id) => { if (id === but) return; if (!best || g.scores[id] > g.scores[best]) best = id; }); return best; };
+  const above = (id) => { let best = null; ids.forEach((o) => { if (o === id || g.scores[o] <= g.scores[id]) return; if (!best || g.scores[o] < g.scores[best]) best = o; }); return best; };
+  // les déplacements, puis les cases dans l'ordre inverse du classement de la manche, les derniers d'abord
+  const order = rows.map((r) => r.id).filter((id) => ids.includes(id)).reverse();
+  const to = {}; ids.forEach((id) => { to[id] = from[id] + steps[id]; });
+  order.forEach((id) => {
+    let at = to[id]; const laps = Math.floor(at / BN) - Math.floor(from[id] / BN); const d0 = {};
+    if (laps > 0) { d0[id] = add(id, LAP_PTS * laps); events.push({ id, sq: 0, at, type: "depart", title: name(id) + " boucle un tour", text: "+" + LAP_PTS + " points pour le tour complet.", d: d0 }); }
+    let type = g.bsq[at % BN]; let chain = 0;
+    while (true) {
+      const d = {}; let title = "", text = "", hop = 0;
+      if (type === "cadeau") { d[id] = add(id, 3); title = name(id) + " ouvre un cadeau"; text = "+3 points."; }
+      else if (type === "banane") { d[id] = add(id, -3); title = name(id) + " glisse sur une banane"; text = d[id] ? d[id] + " points." : "Pas de points à perdre, ouf."; }
+      else if (type === "echange") { const o = above(id); if (o) { const a = g.scores[id], b = g.scores[o]; d[id] = add(id, b - a); d[o] = add(o, a - b); title = name(id) + " échange son score avec " + name(o); text = name(id) + " passe à " + b + " points et " + name(o) + " tombe à " + a + "."; } else { d[id] = add(id, 2); title = name(id) + " voulait échanger"; text = "Personne devant, alors +2 points de consolation."; } }
+      else if (type === "voleur") { const o = leader(id); const took = o ? -add(o, -3) : 0; d[id] = add(id, took); if (o) d[o] = -took; title = name(id) + " fait les poches de " + (o ? name(o) : "personne"); text = took ? took + " points volés." : "Les poches étaient vides."; }
+      else if (type === "foudre") { const o = leader(null); d[o] = add(o, -4); title = "La foudre tombe sur " + name(o); text = !d[o] ? "Il n'avait aucun point à perdre." : o === id ? name(o) + " s'est foudroyé tout seul, " + d[o] + " points." : d[o] + " points pour le premier."; }
+      else if (type === "tremplin" && chain === 0) { hop = 2; title = name(id) + " rebondit sur un tremplin"; text = "Deux cases de plus."; }
+      if (title) events.push({ id, sq: at % BN, at, type, title, text, d, hop });
+      if (hop) { const nAt = at + hop; const l2 = Math.floor(nAt / BN) - Math.floor(at / BN); at = nAt; to[id] = at; if (l2 > 0) { const dd = {}; dd[id] = add(id, LAP_PTS); events.push({ id, sq: 0, at, type: "depart", title: name(id) + " boucle un tour", text: "+" + LAP_PTS + " points pour le tour complet.", d: dd }); } type = g.bsq[at % BN]; chain++; if (type === "tremplin") break; continue; }
+      break;
+    }
+  });
+  ids.forEach((id) => { g.bpos[id] = to[id]; });
+  g.board = { sq: g.bsq.map((k) => ({ k, icon: SQ[k].icon, name: SQ[k].name })), legend: Object.keys(SQ).filter((k) => k !== "vide").map((k) => ({ icon: SQ[k].icon, name: SQ[k].name, desc: SQ[k].desc })), pre, from, steps, to, events, ids, hop: HOP_MS, ev: EV_MS, round: g.round };
+  g.ready = {}; g.phase = "board";
+  const anim = 1200 + 4 * HOP_MS + events.length * EV_MS + 2600; g.boardMin = g.t + 1200; g.until = g.t + anim + 3500; g.span = 0; push(room);
+}
 function finish(room, reason) {
   const g = room.g; g.phase = "over"; g.over = true; g.endReason = reason; g.until = 0; g.inst = null; g.frozen = true;
   if (g.timer) { clearInterval(g.timer); g.timer = null; }
@@ -224,6 +295,10 @@ function tick(room) {
     else if (g.beat % 2 === 0) sendFrames(room);
   } else if (g.phase === "result") {
     runInst(room, TICK / 1000); if (g.beat % 2 === 0) sendFrames(room);
+    if (g.t >= g.until) { if (room.settings.board !== false && g.round < g.total) beginBoard(room); else nextRound(room); }
+  } else if (g.phase === "board") {
+    const mem = members(room); const all = mem.length > 0 && mem.every((p) => g.ready[p.id] || p.isBot);
+    if (all && g.t >= g.boardMin && g.until - g.t > 500) { g.until = g.t + 500; push(room); }
     if (g.t >= g.until) nextRound(room);
   }
   if (g.beat % 30 === 0 && g.phase !== "play") push(room);
@@ -244,10 +319,18 @@ function stateMsg(room, pid) {
     phase: g.phase, left: Math.max(0, g.until - g.t), span: g.span || 0, round: g.round, total: g.total, mode: room.settings.mode, standings: standings(room), reason: g.endReason,
     vote: g.phase === "vote" ? { options: g.options, counts, mine: g.votes[pid] || null, voted: Object.keys(g.votes), tie: !!g.voteTie } : null,
     game: meta && g.phase !== "vote" ? meta : null, mod: g.mod, ready: Object.keys(g.ready), members: g.members.map((m) => m.id), memberInfo: g.members,
-    result: g.phase === "result" ? g.result : null, history: g.phase === "over" ? g.history : null, awards: g.phase === "over" ? awards(room) : null,
+    result: g.phase === "result" ? g.result : null, board: g.phase === "board" ? g.board : null, rate: rateMsg(g, pid), notes: g.phase === "over" ? playedNotes(g) : null, history: g.phase === "over" ? g.history : null, awards: g.phase === "over" ? awards(room) : null,
     goIn: g.phase === "play" ? Math.max(0, g.go - g.t) : 0, sceneKey: g.sceneKey, banner: g.banner, demo: !!room.settings.demo, view: meta ? (meta.view || "3d") : "3d",
   };
   return out;
+}
+function rateMsg(g, pid) {
+  if ((g.phase !== "result" && g.phase !== "board") || !g.meta) return null; const id = g.meta.id; const n = noteOf(id);
+  return { id, name: g.meta.name, up: n.up, down: n.down, mine: (g.rated[pid] || {})[id] || 0 };
+}
+function playedNotes(g) {
+  const seen = []; g.history.forEach((h) => { if (!seen.includes(h.game)) seen.push(h.game); });
+  return seen.map((id) => { const m = Cat.GAMES.find((x) => x.id === id) || { name: id, icon: "" }; const n = noteOf(id); return { id, name: m.name, icon: m.icon, up: n.up, down: n.down }; }).sort((a, b) => (a.up - a.down) - (b.up - b.down));
 }
 function push(room) {
   const g = room.g; room.players.forEach((p) => { if (p.isBot || !p.socketId) return; g.api.io.to(p.socketId).emit("pg:state", stateMsg(room, p.id)); });
@@ -288,13 +371,28 @@ function bind(socket, helpers, api) {
     g.votes[p.id] = id; push(ctx.room);
   }));
   socket.on("pg:ready", safe(() => {
-    if (!inGame() || !ok()) return; const g = ctx.room.g; const p = me(); if (g.phase !== "intro" || !p) return; g.ready[p.id] = true; push(ctx.room);
+    if (!inGame() || !ok()) return; const g = ctx.room.g; const p = me(); if ((g.phase !== "intro" && g.phase !== "board") || !p) return; g.ready[p.id] = true; push(ctx.room);
+  }));
+  // un pouce levé ou baissé pour le mini-jeu qui vient d'être joué, un seul avis par joueur et par jeu dans la partie
+  socket.on("pg:rate", safe((m) => {
+    if (!inGame() || !ok() || !m) return; const g = ctx.room.g; const p = me(); if (!p || p.isBot || (g.phase !== "result" && g.phase !== "board") || !g.meta) return;
+    const v = m.v > 0 ? 1 : m.v < 0 ? -1 : 0; const id = g.meta.id; const mine = g.rated[p.id] || (g.rated[p.id] = {}); const old = mine[id] || 0; if (old === v) return;
+    const n = NOTES[id] || (NOTES[id] = { up: 0, down: 0 }); if (old > 0) n.up--; if (old < 0) n.down--; if (v > 0) n.up++; if (v < 0) n.down++; mine[id] = v; saveNotes(); push(ctx.room);
   }));
   socket.on("pg:in", safe((k) => {
     if (!inGame() || !k || typeof k !== "object") return; const g = ctx.room.g; const p = me(); if (!p) return;
     const nk = { l: k.l ? 1 : 0, r: k.r ? 1 : 0, u: k.u ? 1 : 0, d: k.d ? 1 : 0, a: k.a ? 1 : 0, b: k.b ? 1 : 0 };
+    if (typeof k.mx === "number" && typeof k.my === "number" && isFinite(k.mx) && isFinite(k.my)) { nk.mx = U.clamp(k.mx, -1, 1); nk.my = U.clamp(k.my, -1, 1); }
     const old = g.inputs[p.id] || {}; const e = g.edges[p.id] || { a: false, b: false };
     if (nk.a && !old.a) e.a = true; if (nk.b && !old.b) e.b = true; g.edges[p.id] = e; g.inputs[p.id] = nk;
+  }));
+  // la position que le navigateur a calculée pour son propre coureur, vérifiée par le jeu
+  const prate = { n: 0, t: 0 };
+  socket.on("pg:pos", safe((m) => {
+    if (!inGame() || !m || typeof m !== "object") return; const now = Date.now(); if (now - prate.t > 1000) { prate.t = now; prate.n = 0; } if (++prate.n > 45) return;
+    const g = ctx.room.g; const p = me(); if (!p || g.phase !== "play" || !g.inst || !g.inst.onPos || g.t < g.go) return;
+    const num = (v) => (typeof v === "number" && isFinite(v) ? v : 0);
+    g.inst.onPos(p.id, { x: num(m.x), y: num(m.y), z: num(m.z), vx: num(m.vx), vy: num(m.vy), vz: num(m.vz), g: !!m.g, f: num(m.f), dv: num(m.dv), st: num(m.st), sp: num(m.sp), gr: !!m.gr });
   }));
   socket.on("pg:act", safe((m) => {
     if (!inGame() || !m || typeof m !== "object" || !ok()) return; const g = ctx.room.g; const p = me(); if (!p || g.phase !== "play" || !g.inst || !g.inst.onAct) return;

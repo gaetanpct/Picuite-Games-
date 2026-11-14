@@ -158,6 +158,13 @@
   B.coin = function (it) {
     const m = new T.Mesh(G.cyl, mat("metal", it.c || "#ffcf33")); m.scale.set(0.5, 0.09, 0.5); m.rotation.x = Math.PI / 2; const g = new T.Group(); g.add(m); shadowOn(m, true, false); g.userData.kind = "coin"; g.userData.inner = m; return g;
   };
+  // un rouleau couché, son axe suit la largeur de la boîte, il tourne en roulant
+  B.log = function (it) {
+    if (!G.logGeo) { G.logGeo = new T.CylinderGeometry(1, 1, 1, 20); G.logGeo.rotateZ(Math.PI / 2); G.logGeo.userData = { shared: true }; }
+    const g = new T.Group(); const inner = new T.Group(); g.add(inner); const m = new T.Mesh(G.logGeo, mat("", pc(it))); shadowOn(m, true, false); inner.add(m);
+    [-0.35, 0, 0.35].forEach((x) => { const r = new T.Mesh(G.torus, mat("", "#5a3414")); r.rotation.y = Math.PI / 2; r.position.x = x; r.scale.set(1.01, 1.01, 1.01); inner.add(r); r.userData.band = x; });
+    g.userData = { kind: "log", inner }; return g;
+  };
   B.flag = function (it) {
     const g = new T.Group(); const pole = new T.Mesh(G.cyl8, mat("", "#e9e9f2")); pole.scale.set(0.05, 1.6, 0.05); pole.position.y = 0.8; const cloth = new T.Mesh(G.box, mat("", pc(it))); cloth.scale.set(0.8, 0.5, 0.05); cloth.position.set(0.42, 1.35, 0);
     g.add(pole); g.add(cloth); shadowOn(pole, true, false); shadowOn(cloth, true, false); g.userData = { kind: "flag", cloth }; return g;
@@ -172,8 +179,32 @@
     else if (k === "lamp") { add(G.cyl8, mat("", "#40424f"), 0, 1.0, 0, 0.07, 2.0, 0.07); add(G.sph, mat("neon", it.c || "#ffe9a0"), 0, 2.1, 0, 0.22, 0.22, 0.22); }
     else if (k === "cloud") { [[0, 0, 0, 1.2], [1.0, -0.1, 0.2, 0.9], [-1.0, -0.15, -0.1, 0.85], [0.4, 0.45, 0, 0.8]].forEach((q) => { add(G.sphLow, mat("neon", "#ffffff", 0.9), q[0], q[1], q[2], q[3], q[3] * 0.75, q[3]); }); g.children.forEach((c) => { c.castShadow = false; }); g.userData.drift = true; }
     else if (k === "banner") { add(G.cyl8, mat("", "#dcdce6"), -1.8, 1.2, 0, 0.1, 2.4, 0.1); add(G.cyl8, mat("", "#dcdce6"), 1.8, 1.2, 0, 0.1, 2.4, 0.1); const b = add(G.box, mat("", it.c || "#ff4d6d"), 0, 2.3, 0, 3.9, 0.55, 0.08); b.userData.noscale = true; }
+    if (k === "tree" || k === "pine" || k === "rock") modelize(g, it);
     g.scale.set(s, s, s); g.userData.rot = it.rot || 0; return g;
   };
+  // vrais petits modèles pour les arbres et les rochers (Kenney Nature Kit, CC0), les formes simples restent en secours
+  const DECO_FILES = { tree: ["tree_default"], pine: ["tree_pineTallA"], rock: ["stone_tallC", "rock_tallA"] };
+  const DECO_H = { tree: 2.7, pine: 3.1, rock: 1.4 };
+  const decoCache = {};
+  function decoModel(file) {
+    if (decoCache[file]) return decoCache[file];
+    return (decoCache[file] = fetch("/pagaille/assets/deco/" + file + ".glb").then((r) => { if (!r.ok) throw new Error("deco"); return r.arrayBuffer(); }).then((b) => new Promise((ok, ko) => new T.GLTFLoader().parse(b, "", ok, ko))).then((gl) => { const seen = new Set(); gl.scene.traverse((m) => { if (m.isMesh && m.material && !seen.has(m.material)) { seen.add(m.material); if (m.material.metalness !== undefined) { m.material.metalness = 0; m.material.roughness = 0.9; } } }); return gl; }).catch(() => null));
+  }
+  function modelize(g, it) {
+    try {
+      if (!T.GLTFLoader || (window.PicuiteGL && PicuiteGL.compat && PicuiteGL.compat())) return;
+      const list = DECO_FILES[it.kind]; const file = list[Math.abs(Math.round((it.x || 0) * 7 + (it.y || 0) * 3)) % list.length];
+      decoModel(file).then((gl) => {
+        if (!gl || !g.parent && g.userData.dead) return;
+        const n = gl.scene.clone(true); const b = new T.Box3().setFromObject(n); const h = b.max.y - b.min.y; if (!(h > 0)) return;
+        const k = (DECO_H[it.kind] || 2) / h; n.scale.multiplyScalar(k); const b2 = new T.Box3().setFromObject(n); n.position.set(-(b2.min.x + b2.max.x) / 2, -b2.min.y, -(b2.min.z + b2.max.z) / 2);
+        // couleurs reprises de la palette de Pagaille, pour que les modèles s'accordent aux formes rondes du reste
+        const pal = (name) => /leafs/i.test(name) ? (it.c || (it.kind === "pine" ? "#2f8a52" : "#3fa34d")) : /wood|bark/i.test(name) ? "#8a5a2b" : /grass|dirt|stone|rock/i.test(name) ? (it.kind === "rock" ? (it.c || "#8d95a3") : /grass/i.test(name) ? "#6bbf5e" : "#8d95a3") : null;
+        n.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = false; const c = m.material && pal(m.material.name || ""); if (c) m.material = mat("", c); } });
+        while (g.children.length) g.remove(g.children[0]); g.add(n);
+      });
+    } catch (e) { /* on garde les formes simples */ }
+  }
   // le pion, un petit personnage rond avec un chapeau différent par couleur
   B.pawn = function (it) {
     const g = new T.Group(); const col = pc(it); const body = new T.Group(); g.add(body);
@@ -271,6 +302,12 @@
     if (o.userData.drift) { const dr = (R.t * 0.25 + it.x * 0.01) % 1; o.position.x = it.x * S + Math.sin(R.t * 0.1 + it.y) * 3; }
     o.scale.set(s, s, s); o.traverse((m) => { if (m.userData && m.userData.noscale) { /* rien */ } });
   };
+  U_.log = function (en, it, dt) {
+    const o = en.obj; const c = applyTransform(en, it, dt, en.fresh); const r = ((it.d || 46) / 2) * S; const L = (it.w || 300) * S; const u = o.userData;
+    o.position.y = c.y + r; o.rotation.y = -(it.rot || 0); u.inner.children.forEach((ch) => { if (ch.userData.band != null) { ch.position.x = ch.userData.band * L; ch.scale.set(r * 1.02, r * 1.02, r * 1.02); } else ch.scale.set(L, r, r); });
+    const f = [Math.cos((it.rot || 0) - Math.PI / 2), Math.sin((it.rot || 0) - Math.PI / 2)]; const v = (cur2(c).vx * f[0] + cur2(c).vz * f[1]) / S; en.roll = (en.roll || 0) + (v * dt * S) / Math.max(0.01, r); u.inner.rotation.x = en.roll;
+  };
+  const cur2 = (c) => c;
   U_.chest = function (en, it, dt) { const o = en.obj; applyTransform(en, it, dt, en.fresh); const s = (it.s || 1) * 0.9; o.scale.set(s, s, s); o.rotation.y = -(it.rot || 0); };
   U_.pawn = function (en, it, dt) {
     const o = en.obj; const u = o.userData; const first = en.fresh; const cur = applyTransform(en, it, dt, first); const sp = cur.speed || 0; const s0 = (it.r || 18) / 18 * 1.55;
@@ -436,7 +473,7 @@
 
   // ---------- caméra ----------
   function updateCamera(dt) {
-    const cam = R.cam || {}; const cur = R.camCur || (R.camCur = { px: 0, py: 10, pz: 10, tx: 0, ty: 0, tz: 0, fov: 38 });
+    const cam = R.camLive || R.cam || {}; const cur = R.camCur || (R.camCur = { px: 0, py: 10, pz: 10, tx: 0, ty: 0, tz: 0, fov: 38 });
     let px, py, pz, tx, ty, tz, fov = cam.fov || 38; const aspect = (R.w || 1) / (R.h || 1);
     if (cam.m === "follow") {
       const t = cam.t || [0, 0, 0]; const yaw = cam.yaw == null ? -Math.PI / 2 : cam.yaw; const d = (cam.d || 330) * S, hg = (cam.hg || 210) * S, la = (cam.la || 120) * S;
@@ -490,7 +527,7 @@
     // appelée à chaque image pour que les mouvements restent fluides même si le serveur envoie moins souvent
     const f = R.lastFrame; if (!f) return; const items = f.items || [];
     const mine = R.lastPriv && R.lastPriv.items ? R.lastPriv.items : []; const all = items.concat(mine); const counts = {};
-    all.forEach((it) => { if (!it || !B[it.t]) return; counts[it.t] = (counts[it.t] || 0) + 1; const key = "d" + (it.id != null ? "i" + it.id : it.t + "#" + counts[it.t]); const en = R.dyn[key]; if (en && U_[it.t] && (it.t === "pawn" || it.t === "car" || it.t === "coin" || it.t === "box" || it.t === "cyl")) U_[it.t](en, it, dt); });
+    all.forEach((it) => { if (!it || !B[it.t]) return; counts[it.t] = (counts[it.t] || 0) + 1; const key = "d" + (it.id != null ? "i" + it.id : it.t + "#" + counts[it.t]); const en = R.dyn[key]; if (en && U_[it.t] && (it.t === "pawn" || it.t === "car" || it.t === "coin" || it.t === "box" || it.t === "cyl" || it.t === "log")) U_[it.t](en, it, dt); });
     // éléments fixes animés (lave, eau, nuages)
     Object.keys(R.stat).forEach((k) => { const en = R.stat[k]; if (en.obj.userData && en.obj.userData.drift) { en.obj.position.x += dt * 0.25; } if (en.obj.material && en.obj.material.map && en.obj.userData.kind) animSurface(en.obj.material); });
     if (R.groundMesh && R.groundMesh.material.map) animSurface(R.groundMesh.material);
