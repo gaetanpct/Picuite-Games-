@@ -1524,3 +1524,10 @@ Chaque jeu a été regardé seul, accueil, salon et partie. Le but n'était pas 
 
 ### Ce qu'il faut déposer sur GitHub
 - Les dossiers hands-over, golfouille et goliathicus, et le fichier README.md.
+
+## Cinquante-cinquième mise à jour, petite retouche de Vertigogo
+- Les îlots flottants, grues, immeubles, engrenages, ballons et autres éléments du décor ne viennent plus se placer au milieu du parcours. Le jeu mesure la taille réelle de chaque parcours et retire tout ce qui s'approche de la spirale ou de la caméra. Les îlots restent visibles au loin, autour de la tour.
+- Les plateformes, obstacles et objets du parcours ne changent pas.
+
+### Ce qu'il faut déposer sur GitHub
+- Le dossier vertigogo et le fichier README.md.

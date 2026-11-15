@@ -190,7 +190,7 @@
     const topM = M.top.clone(); topM.map = M.top.map.clone(); topM.map.repeat.set(2, 2); topM.map.needsUpdate = true; const sideM = M.side.clone(); sideM.map = M.side.map.clone(); sideM.map.repeat.set(3, 1); sideM.map.needsUpdate = true;
     g.userData.bob = []; const N = 11;
     for (let i = 0; i < N; i++) {
-      const isle = new T.Group(); const a = (i / N) * TAU + R() * 0.5, r = 38 + R() * 30; const k = 2 + Math.floor(R() * 2); let rad = 4;
+      const isle = new T.Group(); const a = (i / N) * TAU + R() * 0.5, r = 112 + R() * 26; const k = 2 + Math.floor(R() * 2); let rad = 4;
       const props = []; for (let j = 0; j < k; j++) { const e = list[Math.floor(R() * list.length)]; const m = P3.model(e[0], e[1] * (0.85 + R() * 0.3), sh); if (m) { props.push(m); rad = Math.max(rad, m.userData.r * 1.1 + 1.6); } }
       if (cloudy) { for (let c = 0; c < 7; c++) { const sp = new T.Mesh(new T.SphereGeometry(1, 12, 8), lam(0xffffff, { emissive: 0x28364f })); const q = rad * 0.7; sp.position.set((R() - 0.5) * q * 1.6, -R() * 0.8, (R() - 0.5) * q * 1.6); sp.scale.set(rad * (0.45 + R() * 0.3), 1.3 + R(), rad * (0.45 + R() * 0.3)); isle.add(sp); } }
       else {
@@ -200,6 +200,13 @@
       props.forEach((m, j) => { const aa = (j / props.length) * TAU + R(); const rr = props.length === 1 ? 0 : rad * 0.45; m.position.set(Math.cos(aa) * rr, 0, Math.sin(aa) * rr); m.rotation.y = R() * TAU; isle.add(m); });
       isle.position.set(Math.cos(a) * r, y0 - 6 + R() * (y1 - y0 + 6), Math.sin(a) * r); g.add(isle); g.userData.bob.push([isle, isle.position.y, R() * TAU]);
     }
+  }
+
+  // le décor reste loin du parcours, tout ce qui s'approche de la spirale ou de la caméra est retiré
+  const _bb = new T.Box3();
+  function clearCourse(g, far) {
+    g.updateMatrixWorld(true);
+    g.children.slice().forEach((o) => { _bb.setFromObject(o); if (_bb.isEmpty()) return; const dx = _bb.min.x > 0 ? _bb.min.x : _bb.max.x < 0 ? -_bb.max.x : 0; const dz = _bb.min.z > 0 ? _bb.min.z : _bb.max.z < 0 ? -_bb.max.z : 0; if (Math.hypot(dx, dz) < far) g.remove(o); });
   }
 
   // texte flottant
@@ -262,10 +269,12 @@
       const sb = C.boxes[C.summit]; const sg = new T.Group(); const pole = cyl(0.14, 0.14, 8, 0xffffff, 8); pole.position.y = 4; const fl = new T.Mesh(new T.PlaneGeometry(3.4, 2), new T.MeshBasicMaterial({ color: 0xffd23d, side: T.DoubleSide })); fl.position.set(1.8, 7, 0); const beam = new T.Mesh(new T.CylinderGeometry(1.4, 1.4, 120, 16, 1, true), new T.MeshBasicMaterial({ color: 0xffe9a0, transparent: true, opacity: 0.18, depthWrite: false, side: T.DoubleSide, blending: T.AdditiveBlending, fog: false })); beam.position.y = 60; sg.add(pole, fl, beam); sg.position.set((sb.x0 + sb.x1) / 2, sb.y1, (sb.z0 + sb.z1) / 2); this.root.add(sg); this.summitFlag = fl; const sl = label("Sommet", "#ffe14d", 1.6); sl.position.set(sg.position.x, sb.y1 + 10.5, sg.position.z); this.root.add(sl);
       const st = C.boxes[C.startBox]; const dep = label("Départ", "#9be3ff", 1.2); dep.position.set((st.x0 + st.x1) / 2, st.y1 + 4.6, (st.z0 + st.z1) / 2); this.root.add(dep);
       // noyau central par monde et décor lointain
+      let courseR = 0; C.boxes.forEach((b) => { for (const x of [b.x0, b.x1]) for (const zz of [b.z0, b.z1]) courseR = Math.max(courseR, Math.hypot(x, zz)); });
       C.zones.forEach((z, zi) => {
         const th = THEMES[z.id]; const y0 = z.y0 - 2, y1 = (zi + 1 < C.zones.length ? C.zones[zi + 1].y0 : z.y1) + 1; const cm = lam({ map: sideTex(th.side[0], th.side[1], th.side[2]).clone() }); cm.map.needsUpdate = true; cm.map.repeat.set(4, (y1 - y0) / 6); const core = new T.Mesh(new T.BoxGeometry(2 * (C.half - 5), y1 - y0, 2 * (C.half - 5)), cm); core.position.set(0, (y0 + y1) / 2, 0); this.root.add(core);
         const g = new T.Group(); const rr = (() => { let a = (zi + 3) * 99991; return () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; }; })();
         if (P3 && P3.ok()) { buildIsles(g, zi, rr, z.y0, y1, z.id, P3, false); if (z.id === 2) DECOR[0](g, zi, rr, z.y0, y1); } else DECOR[FALLBACK[z.id]](g, zi, rr, z.y0, y1);
+        clearCourse(g, courseR + 32);
         this.root.add(g); this.decor.push({ g, z, id: z.id, zi });
       });
       // étoiles pour les mondes de nuit
