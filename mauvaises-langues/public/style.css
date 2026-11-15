@@ -95,3 +95,18 @@
 .ml-tbl .dotc, .ml-theme .dotc, .ml-award .dotc { margin-right: 0.35rem; }
 .ml-menu { background: rgba(255, 255, 255, 0.14); border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 50%; color: #fff; padding: 0; cursor: pointer; }
 .ml-stage { padding-bottom: 6.5rem; }
+
+/* classement au doigt */
+.ml-drag { touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.ml-grip { opacity: 0.45; font-size: 0.9em; margin-right: 0.15rem; }
+.ml-drag--src { opacity: 0.35; }
+.ml-ghost { position: fixed; z-index: 999; pointer-events: none; transform: rotate(-2deg) scale(1.04); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45); opacity: 0.95; }
+.ml-rkrow--gap { box-shadow: 0 -4px 0 0 #ffe14a; }
+.ml-rk__list--over { outline: 2px dashed rgba(255, 225, 74, 0.6); outline-offset: 4px; border-radius: 12px; }
+/* dévoilement du dernier au premier */
+.ml-rkrow--flip { animation: mlFlip 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) both; animation-delay: var(--fd, 0s); transform-origin: 50% 50%; }
+@keyframes mlFlip { 0% { transform: perspective(500px) rotateX(90deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
+.ml-rkrow--flip.ml-rkrow--first { animation-name: mlFlipTop; animation-duration: 0.8s; }
+@keyframes mlFlipTop { 0% { transform: perspective(500px) rotateX(90deg) scale(0.9); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: none; } }
+.ml-opts--who { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.5rem; }
+.ml-opts--who .ml-opt { display: flex; align-items: center; gap: 0.5rem; }

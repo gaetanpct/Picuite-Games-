@@ -18,6 +18,7 @@
   const dot = (id) => el("i", { class: "dotc", style: { background: hexOf(id) } });
   const flames = (h) => "🌶️".repeat(Math.max(1, Math.min(3, h || 1)));
   const pick = (arr, k) => arr[Math.abs(k) % arr.length];
+  const qui = () => G.st && G.st.variant === "qui";
 
   // ---------- squelette ----------
   function build() {
@@ -35,7 +36,7 @@
     Kit.showModal("Menu", [
       el("div", { class: "menu-row" }, [el("div", {}, [el("b", { text: "Sons" }), el("p", { class: "small muted", text: "Les petits bruitages du jeu." })]), sbtn]),
       el("h3", { text: "Comment ça marche", style: { marginTop: "0.8rem" } }),
-      el("p", { class: "small", text: "À chaque manche, un joueur reçoit une question secrète et classe tout le monde, lui compris. Les autres voient le classement et doivent deviner quelle question parmi quatre a servi à le faire." }),
+      el("p", { class: "small", text: qui() ? "Variante Qui a classé. Tout le monde classe la même question en secret, puis un des classements est montré. Il faut deviner qui l'a fait, son auteur marque pour chaque joueur trompé." : "À chaque manche, un joueur reçoit une question secrète et classe tout le monde, lui compris. Les autres voient le classement et doivent deviner quelle question parmi quatre a servi à le faire." }),
       el("button", { class: "btn btn--danger btn--small", style: { marginTop: "0.8rem" }, text: "Quitter la partie", onclick: () => Kit.confirm("Quitter la partie et revenir à l'accueil ?", () => { $("#modal").classList.add("hidden"); Kit.leave(); }) }),
     ]);
   }
@@ -46,7 +47,7 @@
     const key = s.phase + "|" + s.idx;
     if (key !== G.phaseKey) {
       G.phaseKey = key; G.phaseTotal = Math.max(1000, s.phaseUntil - snow());
-      if (s.phase === "rank") { G.ranking = []; G.sentRank = false; G.myVote = null; if (s.rankerId !== myId()) G.q = null; }
+      if (s.phase === "rank") { G.ranking = []; G.sentRank = false; G.myVote = null; G.doneIdx = -1; G.author = null; if (s.rankerId !== myId() && s.variant !== "qui") G.q = null; }
       if (s.phase === "guess") { G.myVote = null; sound.tone(520, 0.1, "triangle", 0.09); sound.tone(780, 0.12, "triangle", 0.09, 0.09); }
       if (s.phase === "reveal") { sound.tone(392, 0.12, "sawtooth", 0.06); sound.tone(523, 0.12, "sawtooth", 0.06, 0.1); sound.tone(784, 0.25, "triangle", 0.1, 0.2); }
       if (s.phase === "rank" && s.rankerId === myId()) { sound.tone(660, 0.12, "triangle", 0.1); sound.tone(880, 0.16, "triangle", 0.1, 0.12); }
@@ -60,8 +61,9 @@
   function render() {
     const s = G.st; if (!s || !Kit.room) return;
     renderTop();
-    const role = s.phase === "over" ? "over" : s.rankerId === myId() ? "ranker" : (s.pids || []).includes(myId()) ? "voter" : "watch";
-    const sig = s.phase + "|" + s.idx + "|" + role + "|" + (s.phase === "over" ? (G.over ? 1 : 0) : 1);
+    const inGame = (s.pids || []).includes(myId());
+    const role = s.phase === "over" ? "over" : s.variant === "qui" && s.phase === "rank" ? (!inGame ? "watch" : G.doneIdx === s.idx ? "rankdone" : "ranker") : s.variant === "qui" && inGame && s.phase === "guess" ? "voter" : s.rankerId === myId() ? "ranker" : inGame ? "voter" : "watch";
+    const sig = s.phase + "|" + s.idx + "|" + role + "|" + (s.phase === "over" ? (G.over ? 1 : 0) : 1) + "|" + (G.author && G.author.idx === s.idx ? (G.author.you ? "a" : "b") : "");
     if (sig !== G.sig) { G.sig = sig; buildStage(role); }
     else updateDynamic();
     $("#ml-react-bar").classList.toggle("hidden", !(s.phase === "reveal" && Kit.room.settings.reactions));
@@ -88,14 +90,15 @@
   function buildStage(role) {
     const s = G.st; const st = $("#ml-stage"); st.innerHTML = ""; st.scrollTop = 0;
     if (s.phase === "over") return buildOver(st);
-    if (s.phase === "rank") return role === "ranker" ? buildRanker(st) : buildWaitRank(st);
+    if (s.phase === "rank") return role === "ranker" ? buildRanker(st) : role === "rankdone" ? buildRankDone(st) : buildWaitRank(st);
     if (s.phase === "guess") return buildGuess(st, role);
     if (s.phase === "reveal") return buildReveal(st);
   }
   function updateDynamic() {
     const s = G.st;
+    if (s.phase === "rank" && s.variant === "qui") { const box = $("#ml-voted"); if (box) { box.innerHTML = ""; s.pids.forEach((id) => box.appendChild(el("span", { class: "ml-vd" + (s.ranked.includes(id) ? " ml-vd--ok" : ""), title: nameOf(id) }, [dot(id), s.ranked.includes(id) ? "✓" : "…"]))); const c = $("#ml-voted-txt"); if (c) c.textContent = s.ranked.length + " sur " + s.pids.length + " ont classé"; } }
     if (s.phase === "guess") {
-      const box = $("#ml-voted"); if (box) { box.innerHTML = ""; const need = (s.pids || []).filter((id) => id !== s.rankerId); need.forEach((id) => box.appendChild(el("span", { class: "ml-vd" + (s.voted.includes(id) ? " ml-vd--ok" : "") , title: nameOf(id) }, [dot(id), s.voted.includes(id) ? "✓" : "…"]))); const c = $("#ml-voted-txt"); if (c) c.textContent = s.voted.length + " sur " + need.length + " ont voté"; }
+      const box = $("#ml-voted"); if (box) { box.innerHTML = ""; const need = (s.pids || []).filter((id) => s.variant === "qui" || id !== s.rankerId); need.forEach((id) => box.appendChild(el("span", { class: "ml-vd" + (s.voted.includes(id) ? " ml-vd--ok" : "") , title: nameOf(id) }, [dot(id), s.voted.includes(id) ? "✓" : "…"]))); const c = $("#ml-voted-txt"); if (c) c.textContent = s.voted.length + " sur " + need.length + " ont voté"; }
     }
   }
 
@@ -103,13 +106,13 @@
   function buildRanker(st) {
     const s = G.st;
     st.appendChild(el("div", { class: "ml-card ml-qcard", id: "ml-qcard" }));
-    st.appendChild(el("p", { class: "ml-hint", text: "Classe tout le monde, toi compris, du plus au moins. Seul toi vois cette question. Les autres devront la deviner." }));
+    st.appendChild(el("p", { class: "ml-hint", text: qui() ? "Tout le monde a cette question et classe en secret, toi compris. Ensuite on montre un des classements, il faudra deviner qui l'a fait." : "Classe tout le monde, toi compris, du plus au moins. Seul toi vois cette question. Les autres devront la deviner." }));
     st.appendChild(el("div", { class: "ml-rk" }, [
       el("div", { class: "ml-rk__end", text: "👆 Le plus" }),
       el("div", { id: "rk-list", class: "ml-rk__list" }),
       el("div", { class: "ml-rk__end", text: "👇 Le moins" }),
     ]));
-    st.appendChild(el("div", { class: "ml-pool-title", text: "Touche un nom pour le placer dans l'ordre" }));
+    st.appendChild(el("div", { class: "ml-pool-title", text: "Glisse les pastilles dans la liste, ou touche un nom pour l'ajouter à la suite" }));
     st.appendChild(el("div", { id: "rk-pool", class: "ml-pool" }));
     st.appendChild(el("div", { class: "ml-actions" }, [
       el("button", { id: "rk-clear", class: "btn btn--ghost btn--small", text: "Tout effacer", onclick: () => { G.ranking = []; drawRanking(); } }),
@@ -124,14 +127,14 @@
     card.appendChild(el("div", { class: "ml-qmeta" }, [el("span", { class: "ml-tag", text: th.icon + " " + th.label }), el("span", { class: "ml-tag ml-tag--heat", text: flames(q.q.heat) + " " + R.HEAT_NAMES[q.q.heat] })]));
     card.appendChild(el("p", { class: "ml-q", text: q.q.text }));
     const left = q.swapsLeft;
-    if (Kit.room.settings.swaps > 0) card.appendChild(el("button", { class: "btn btn--ghost btn--small", disabled: left <= 0, text: left > 0 ? "Changer de question (" + left + " restant" + (left > 1 ? "s" : "") + ")" : "Plus de changement possible", onclick: () => { G.ranking = []; drawRanking(); Kit.socket.emit("ml:swap"); } }));
+    if (Kit.room.settings.swaps > 0 && !q.all) card.appendChild(el("button", { class: "btn btn--ghost btn--small", disabled: left <= 0, text: left > 0 ? "Changer de question (" + left + " restant" + (left > 1 ? "s" : "") + ")" : "Plus de changement possible", onclick: () => { G.ranking = []; drawRanking(); Kit.socket.emit("ml:swap"); } }));
   }
   function drawRanking() {
     const s = G.st; if (!s) return; const list = $("#rk-list"), pool = $("#rk-pool"); if (!list || !pool) return;
     list.innerHTML = ""; pool.innerHTML = "";
     G.ranking.forEach((id, i) => {
-      list.appendChild(el("div", { class: "ml-rkrow", style: { "--hc": hexOf(id) } }, [
-        el("b", { class: "ml-rkn", text: String(i + 1) }), dot(id), el("span", { class: "nm", text: nameOf(id) + (id === myId() ? " (toi)" : "") }),
+      list.appendChild(el("div", { class: "ml-rkrow ml-drag", "data-id": id, style: { "--hc": hexOf(id) } }, [
+        el("b", { class: "ml-rkn", text: String(i + 1) }), el("span", { class: "ml-grip", text: "⠿" }), dot(id), el("span", { class: "nm", text: nameOf(id) + (id === myId() ? " (toi)" : "") }),
         el("button", { class: "ml-mv", title: "Monter", text: "▲", disabled: i === 0, onclick: () => { move(i, -1); } }),
         el("button", { class: "ml-mv", title: "Descendre", text: "▼", disabled: i === G.ranking.length - 1, onclick: () => { move(i, 1); } }),
         el("button", { class: "ml-mv ml-mv--x", title: "Retirer", text: "✕", onclick: () => { G.ranking.splice(i, 1); drawRanking(); } }),
@@ -139,9 +142,41 @@
     });
     if (!G.ranking.length) list.appendChild(el("div", { class: "ml-empty", text: "Personne n'est encore placé" }));
     const rest = s.pids.filter((id) => !G.ranking.includes(id));
-    rest.forEach((id) => pool.appendChild(el("button", { class: "ml-pchip", style: { "--hc": hexOf(id) }, onclick: () => { sound.click(); G.ranking.push(id); drawRanking(); } }, [dot(id), nameOf(id) + (id === myId() ? " (toi)" : "")])));
+    rest.forEach((id) => pool.appendChild(el("button", { class: "ml-pchip ml-drag", "data-id": id, style: { "--hc": hexOf(id) }, onclick: () => { if (G.dragged) return; sound.click(); G.ranking.push(id); drawRanking(); } }, [dot(id), nameOf(id) + (id === myId() ? " (toi)" : "")])));
     if (!rest.length) pool.appendChild(el("div", { class: "ml-empty", text: "Tout le monde est placé, tu peux valider" }));
     const ok = $("#rk-ok"); if (ok) ok.disabled = rest.length > 0 || G.sentRank;
+  }
+  // classement au doigt, on attrape une pastille ou une ligne et on la lâche à sa place
+  function dragStart(e) {
+    const it = e.target.closest(".ml-drag"); if (!it || e.target.closest(".ml-mv") || e.button > 0) return;
+    const id = it.dataset.id; const from = G.ranking.indexOf(id); const r0 = it.getBoundingClientRect();
+    const D = { id, from, x0: e.clientX, y0: e.clientY, on: false, ghost: null, dx: e.clientX - r0.left, dy: e.clientY - r0.top, w: r0.width, src: it };
+    G.dragged = false;
+    const moveH = (ev) => {
+      if (!D.on) { if (Math.hypot(ev.clientX - D.x0, ev.clientY - D.y0) < 8) return; D.on = true; G.dragged = true; D.ghost = it.cloneNode(true); D.ghost.classList.add("ml-ghost"); D.ghost.style.width = D.w + "px"; document.body.appendChild(D.ghost); it.classList.add("ml-drag--src"); }
+      ev.preventDefault(); D.ghost.style.left = ev.clientX - D.dx + "px"; D.ghost.style.top = ev.clientY - D.dy + "px";
+      const at = slotAt(ev.clientY, ev.clientX); document.querySelectorAll(".ml-rkrow").forEach((r, k) => r.classList.toggle("ml-rkrow--gap", at != null && k === at));
+      const list = $("#rk-list"); if (list) list.classList.toggle("ml-rk__list--over", at != null);
+    };
+    const upH = (ev) => {
+      window.removeEventListener("pointermove", moveH); window.removeEventListener("pointerup", upH); window.removeEventListener("pointercancel", upH);
+      if (!D.on) return; if (D.ghost) D.ghost.remove();
+      const at = slotAt(ev.clientY, ev.clientX); const cur = G.ranking.slice(); const k = cur.indexOf(D.id); if (k >= 0) cur.splice(k, 1);
+      if (at != null) { let to = at; if (k >= 0 && k < at) to--; cur.splice(Math.max(0, Math.min(cur.length, to)), 0, D.id); }
+      G.ranking = cur; sound.click(); drawRanking(); setTimeout(() => { G.dragged = false; }, 50);
+    };
+    window.addEventListener("pointermove", moveH, { passive: false }); window.addEventListener("pointerup", upH); window.addEventListener("pointercancel", upH);
+  }
+  // indice d'insertion dans la liste sous le doigt, ou rien si on est hors de la liste
+  function slotAt(y, x) {
+    const list = $("#rk-list"); if (!list) return null; const lr = list.getBoundingClientRect(); if (x < lr.left - 30 || x > lr.right + 30 || y < lr.top - 40 || y > lr.bottom + 40) return null;
+    const rows = [...list.querySelectorAll(".ml-rkrow")]; for (let k = 0; k < rows.length; k++) { const r = rows[k].getBoundingClientRect(); if (y < r.top + r.height / 2) return k; } return rows.length;
+  }
+  document.addEventListener("pointerdown", (e) => { if (G.st && G.st.phase === "rank" && e.target.closest && e.target.closest("#rk-list, #rk-pool")) dragStart(e); });
+  function buildRankDone(st) {
+    st.appendChild(el("div", { class: "ml-card ml-wait" }, [el("div", { class: "ml-bigemoji", text: "🤐" }), el("h2", { text: "Classement envoyé" }), el("p", { class: "muted", text: "On attend que tout le monde ait classé. Garde un air innocent." })]));
+    st.appendChild(el("div", { class: "ml-votedbox" }, [el("div", { id: "ml-voted", class: "ml-voted" }), el("span", { id: "ml-voted-txt", class: "small muted" })]));
+    updateDynamic();
   }
   function move(i, d) { const j = i + d; if (j < 0 || j >= G.ranking.length) return; const t = G.ranking[i]; G.ranking[i] = G.ranking[j]; G.ranking[j] = t; sound.click(); drawRanking(); }
   function submitRank() { if (G.sentRank) return; G.sentRank = true; Kit.socket.emit("ml:rank", { order: G.ranking.slice() }); setTimeout(() => { G.sentRank = false; drawRanking(); }, 2500); drawRanking(); }
@@ -149,7 +184,7 @@
   // ---------- attente pendant que quelqu'un classe ----------
   const WAIT_LINES = ["réfléchit à qui sera tout en bas", "pèse chaque nom avec beaucoup de mauvaise foi", "hésite entre l'amitié et la vérité", "se prépare à se faire des ennemis", "classe tout le monde sans pitié", "sourit déjà en pensant au dernier"];
   function buildWaitRank(st) {
-    const s = G.st; const n = nameOf(s.rankerId);
+    const s = G.st; const n = s.rankerId ? nameOf(s.rankerId) : "Tout le monde";
     st.appendChild(el("div", { class: "ml-card ml-wait" }, [
       el("div", { class: "ml-bigemoji", text: "🤫" }),
       el("h2", { text: n + " classe tout le monde" }),
@@ -160,9 +195,11 @@
 
   // ---------- vote ----------
   function rankingView(s, opts) {
-    opts = opts || {}; const n = s.ranking.length;
+    opts = opts || {}; const n = s.ranking.length; const fm = s.flipMs || 650;
     const box = el("div", { class: "ml-rk ml-rk--view" }, [el("div", { class: "ml-rk__end", text: "👆 Le plus" })]);
-    s.ranking.forEach((id, i) => box.appendChild(el("div", { class: "ml-rkrow ml-rkrow--v" + (i === 0 ? " ml-rkrow--first" : "") + (i === n - 1 && n > 1 ? " ml-rkrow--last" : ""), style: { "--hc": hexOf(id), "--i": i } }, [
+    // dévoilement, les rangs se retournent du dernier au premier
+    if (opts.flip) for (let i = n - 1; i >= 0; i--) { const k = n - 1 - i; setTimeout(() => { if (i === 0) { sound.tone(523, 0.12, "triangle", 0.1); sound.tone(784, 0.2, "triangle", 0.1, 0.1); sound.tone(1046, 0.3, "triangle", 0.09, 0.2); } else sound.tone(300 + k * 40, 0.08, "triangle", 0.07); }, 250 + k * fm); }
+    s.ranking.forEach((id, i) => box.appendChild(el("div", { class: "ml-rkrow ml-rkrow--v" + (opts.flip ? " ml-rkrow--flip" : "") + (i === 0 ? " ml-rkrow--first" : "") + (i === n - 1 && n > 1 ? " ml-rkrow--last" : ""), style: { "--hc": hexOf(id), "--i": i, "--fd": (0.25 + (n - 1 - i) * fm / 1000) + "s" } }, [
       el("b", { class: "ml-rkn", text: i === 0 ? "👑" : i === n - 1 && n > 1 ? "💀" : String(i + 1) }), dot(id), el("span", { class: "nm", text: nameOf(id) + (id === myId() ? " (toi)" : "") }),
       opts.gains && opts.gains[id] ? el("span", { class: "ml-gain", text: "+" + opts.gains[id] }) : null,
     ])));
@@ -171,7 +208,8 @@
   }
   function buildGuess(st, role) {
     const s = G.st; const rk = nameOf(s.rankerId);
-    st.appendChild(el("div", { class: "ml-card" }, [el("h2", { text: "Le classement de " + rk }), rankingView(s)]));
+    if (s.variant === "qui") return buildGuessQui(st, role);
+    st.appendChild(el("div", { class: "ml-card" }, [el("h2", { text: "Le classement de " + rk }), rankingView(s, { flip: true })]));
     if (role === "ranker") {
       st.appendChild(el("div", { class: "ml-card ml-wait" }, [el("div", { class: "ml-bigemoji", text: "😏" }), el("h2", { text: "Les autres cherchent ta question" }), el("p", { class: "muted", text: "Tu as classé honnêtement, non ? Tu marques des points pour chaque joueur qui trouve." })]));
     } else if (role === "watch") {
@@ -180,6 +218,21 @@
       st.appendChild(el("h3", { class: "ml-ask", text: "À ton avis, quelle question " + rk + " a eue ?" }));
       const box = el("div", { class: "ml-opts", id: "ml-opts" });
       s.options.forEach((o, i) => box.appendChild(el("button", { class: "ml-opt" + (G.myVote === o.id ? " ml-opt--on" : ""), "data-o": o.id, onclick: () => vote(o.id) }, [el("b", { text: String.fromCharCode(65 + i) }), el("span", { text: o.text })])));
+      st.appendChild(box);
+    }
+    st.appendChild(el("div", { class: "ml-votedbox" }, [el("div", { id: "ml-voted", class: "ml-voted" }), el("span", { id: "ml-voted-txt", class: "small muted" })]));
+    updateDynamic();
+  }
+  // variante, la question est connue, il faut trouver l'auteur du classement
+  function buildGuessQui(st, role) {
+    const s = G.st; const q = G.q && G.q.idx === s.idx ? G.q.q : null; const isAuthor = G.author && G.author.idx === s.idx && G.author.you;
+    if (q) st.appendChild(el("div", { class: "ml-card ml-qcard" }, [el("p", { class: "ml-q", text: q.text })]));
+    st.appendChild(el("div", { class: "ml-card" }, [el("h2", { text: isAuthor ? "C'est ton classement qui est montré" : "Qui a fait ce classement ?" }), rankingView(s, { flip: true })]));
+    if (role === "watch") st.appendChild(el("p", { class: "ml-hint", text: "Tu n'étais pas là au début de la manche, tu regardes les autres deviner." }));
+    else {
+      st.appendChild(el("h3", { class: "ml-ask", text: isAuthor ? "Vote quand même pour quelqu'un, pour brouiller les pistes. Tu marques pour chaque joueur trompé." : "À ton avis, qui a classé comme ça ?" }));
+      const box = el("div", { class: "ml-opts ml-opts--who", id: "ml-opts" });
+      s.options.forEach((o) => { const self = o.pid === myId(); box.appendChild(el("button", { class: "ml-opt" + (G.myVote === o.id ? " ml-opt--on" : ""), "data-o": o.id, disabled: self && !isAuthor, onclick: () => vote(o.id) }, [dot(o.pid), el("span", { text: o.text + (self ? " (toi)" : "") })])); });
       st.appendChild(box);
     }
     st.appendChild(el("div", { class: "ml-votedbox" }, [el("div", { id: "ml-voted", class: "ml-voted" }), el("span", { id: "ml-voted-txt", class: "small muted" })]));
@@ -208,10 +261,11 @@
       st.appendChild(el("div", { class: "ml-card ml-wait" }, [el("div", { class: "ml-bigemoji", text: "🦗" }), el("h2", { text: "Manche annulée" }), el("p", { class: "muted", text: rv.why || "Personne ne marque cette fois." })]));
       return;
     }
+    if (rv.qui) st.appendChild(el("div", { class: "ml-card ml-wait" }, [el("div", { class: "ml-bigemoji", text: "🕵️" }), el("h2", { text: "C'était le classement de " + nameOf(rv.author) })]));
     st.appendChild(el("div", { class: "ml-card ml-qcard ml-qcard--real" }, [
       el("div", { class: "ml-qmeta" }, [el("span", { class: "ml-tag", text: th.icon + " " + th.label }), el("span", { class: "ml-tag ml-tag--heat", text: flames(rv.q.heat) + " " + R.HEAT_NAMES[rv.q.heat] })]),
       el("p", { class: "ml-q", text: rv.q.text }),
-      el("p", { class: "small muted", text: "La vraie question de " + nameOf(s.rankerId) }),
+      el("p", { class: "small muted", text: rv.qui ? "La question posée à tout le monde" : "La vraie question de " + nameOf(s.rankerId) }),
     ]));
     st.appendChild(el("div", { class: "ml-card" }, [el("h2", { text: "Le classement" }), rankingView(s, { gains: null })]));
     const lines = roast(s); st.appendChild(el("div", { class: "ml-roast" }, lines.map((l, i) => el("p", { style: { "--d": (0.4 + i * 0.5) + "s" }, text: l }))));
@@ -221,7 +275,7 @@
       const good = o.id === rv.correct; const voters = rv.votes ? Object.keys(rv.votes).filter((id) => rv.votes[id] === o.id) : [];
       const cnt = rv.counts[o.id] || 0;
       box.appendChild(el("div", { class: "ml-opt ml-opt--rev" + (good ? " ml-opt--good" : G.myVote === o.id ? " ml-opt--bad" : ""), style: { "--d": (i * 0.12) + "s" } }, [
-        el("b", { text: good ? "✅" : String.fromCharCode(65 + i) }), el("div", { class: "ml-optbody" }, [el("span", { text: o.text }),
+        el("b", { text: good ? "✅" : rv.qui ? "👤" : String.fromCharCode(65 + i) }), el("div", { class: "ml-optbody" }, [el("span", { text: o.text }),
           el("div", { class: "ml-vwho" }, voters.length ? voters.map((id) => el("span", { class: "ml-vtag", style: { "--hc": hexOf(id) } }, [dot(id), nameOf(id)])) : (cnt ? [el("span", { class: "small muted", text: cnt + " vote" + (cnt > 1 ? "s" : "") })] : [el("span", { class: "small muted", text: "Aucun vote" })]))]),
       ]));
     });
@@ -265,7 +319,10 @@
   function attach() {
     const so = Kit.socket; if (!so || G.attached) return; G.attached = true;
     so.on("ml:state", onState); so.on("ml:question", onQuestion); so.on("ml:voted", (m) => { G.myVote = m.opt; document.querySelectorAll(".ml-opt").forEach((b) => b.classList.toggle("ml-opt--on", b.dataset.o === m.opt)); }); so.on("ml:over", onOver); so.on("ml:react", onReact);
+    so.on("ml:ranked", (m) => { G.doneIdx = m.idx; render(); });
+    so.on("ml:author", (m) => { G.author = m; render(); });
   }
+  window.MLdbg = () => G.st;
   Kit.on("reset", () => { G.st = null; G.q = null; G.sig = ""; G.topSig = ""; G.phaseKey = ""; G.over = null; });
   Kit.on("room", (r) => { if (r.status === "lobby") { G.st = null; G.sig = ""; G.topSig = ""; G.phaseKey = ""; G.over = null; } else if (G.st) { G.topSig = ""; renderTop(); } });
 
@@ -278,6 +335,8 @@
       { title: "Le principe", text: "À chaque manche, un joueur reçoit en secret une question du genre qui est le plus susceptible de finir riche. Il classe tout le monde, lui compris, du plus au moins. Les autres voient ce classement et doivent deviner quelle question, parmi quatre, a servi à le faire." },
       { title: "Classer", text: "Quand c'est ton tour, touche les noms dans l'ordre. Le premier est le plus concerné par la question, le dernier le moins. Tu peux changer de question si elle te met mal à l'aise, selon le réglage de l'hôte. Sois honnête, c'est plus drôle et tu marques des points quand on te devine." },
       { title: "Deviner", text: "Observe qui est en haut et qui est en bas. Une seule des quatre questions explique ce classement. Si tu trouves, tu gagnes des points, et le joueur qui a classé aussi. À la fin de chaque manche, on voit qui a voté pour quoi." },
+      { title: "Qui a classé ?", text: "Une autre façon de jouer. Tout le monde reçoit la même question et classe en secret. On montre un des classements avec la question, et il faut deviner qui l'a fait. Celui qui l'a fait vote aussi pour brouiller les pistes, et marque pour chaque joueur trompé." },
+      { title: "Les ambiances", text: "Trois ambiances prêtes à lancer règlent tout d'un coup. Soirée tranquille, Entre potes et Sans filtre. Sur mesure rouvre tous les réglages détaillés." },
       { title: "Les points et les titres", text: "Chaque bonne réponse rapporte des points réglables par l'hôte. À la fin, des titres sont distribués, le chouchou, le bouc émissaire, le meilleur détective, l'énigme, le livre ouvert, et le champion de chaque thème." },
       { title: "Pour adultes", text: "Les questions sont déplacées, elles parlent de sexualité, de bêtises, d'argent, de soirées et d'ego. L'hôte règle le niveau de piment et les thèmes autorisés. Jouez entre amis qui se connaissent bien, et rappelez-vous que tout ça reste un jeu." },
     ],

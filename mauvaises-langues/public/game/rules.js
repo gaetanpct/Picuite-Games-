@@ -30,23 +30,42 @@
   const SPICE = { doux: [6, 2, 0], equilibre: [3, 5, 2], epice: [1, 4, 6], infernal: [0, 1, 8] };
   const HEAT_NAMES = ["", "Taquin", "Épicé", "Déplacé"];
   const EMOJIS = ["😂", "💀", "🔥", "😱", "🫣", "👀"];
+  // trois ambiances prêtes à lancer, le réglage perso rouvre tous les détails
+  const AMBIANCES = {
+    tranquille: { spice: "doux", decoys: "hasard", swaps: 2, rankTime: 90, voteTime: 40, revealTime: 25, showVoters: false, scoreGuess: 2, scoreRanker: 1, reactions: true },
+    potes: { spice: "epice", decoys: "mixte", swaps: 1, rankTime: 60, voteTime: 25, revealTime: 15, showVoters: true, scoreGuess: 2, scoreRanker: 1, reactions: true },
+    sansfiltre: { spice: "infernal", decoys: "theme", swaps: 0, rankTime: 60, voteTime: 25, revealTime: 15, showVoters: true, scoreGuess: 3, scoreRanker: 1, reactions: true },
+  };
+  const PERSO = { ambiance: "perso" };
   const SCHEMA = [
+    { category: "✨ L'ambiance", rules: [
+      { id: "ambiance", label: "Ambiance", type: "cards", default: "potes", options: [
+        { value: "tranquille", label: "Soirée tranquille", icon: "🍵", desc: "Questions taquines, plus de temps pour classer, votes anonymes. Pour une première partie." },
+        { value: "potes", label: "Entre potes", icon: "🍻", desc: "Questions épicées, votes à découvert. Le réglage conseillé." },
+        { value: "sansfiltre", label: "Sans filtre", icon: "😈", desc: "Presque que du déplacé, leurres du même thème, impossible de changer de question." },
+        { value: "perso", label: "Sur mesure", icon: "🛠️", desc: "Ouvre tous les réglages détaillés." },
+      ], info: "Une ambiance règle tout d'un coup, on lance en dix secondes. Sur mesure affiche chaque réglage." },
+      { id: "variant", label: "Façon de jouer", type: "cards", default: "question", options: [
+        { value: "question", label: "Devine la question", icon: "❓", desc: "Un joueur classe tout le monde, les autres devinent sa question parmi quatre." },
+        { value: "qui", label: "Qui a classé ?", icon: "🕵️", desc: "Tout le monde classe la même question en secret. On montre un classement, il faut deviner qui l'a fait." },
+      ] },
+    ] },
     { category: "🎲 La partie", rules: [
       { id: "cycles", label: "Tours par joueur", type: "range", min: 1, max: 4, step: 1, default: 2, info: "À chaque manche, un joueur classe tout le monde en secret. Avec 2 tours, chaque joueur passe deux fois au classement. Avec 6 joueurs, comptez environ 25 minutes." },
-      { id: "rankTime", label: "Temps pour classer", type: "chips", default: 60, options: [{ value: 40, label: "40 s" }, { value: 60, label: "1 min" }, { value: 90, label: "1 min 30" }, { value: 120, label: "2 min" }], info: "Si le joueur n'a pas fini, la manche est annulée et personne ne marque." },
-      { id: "voteTime", label: "Temps pour voter", type: "chips", default: 25, options: [{ value: 15, label: "15 s" }, { value: 25, label: "25 s" }, { value: 40, label: "40 s" }, { value: 60, label: "1 min" }], info: "La manche passe plus vite quand tout le monde a voté." },
-      { id: "revealTime", label: "Durée du dévoilement", type: "chips", default: 15, options: [{ value: 10, label: "10 s" }, { value: 15, label: "15 s" }, { value: 25, label: "25 s" }, { value: 40, label: "40 s" }], info: "Le temps de rire, de s'indigner et de lire les votes avant la manche suivante. L'hôte peut passer plus vite." },
+      { id: "rankTime", showIf: PERSO, label: "Temps pour classer", type: "chips", default: 60, options: [{ value: 40, label: "40 s" }, { value: 60, label: "1 min" }, { value: 90, label: "1 min 30" }, { value: 120, label: "2 min" }], info: "Si le joueur n'a pas fini, la manche est annulée et personne ne marque." },
+      { id: "voteTime", showIf: PERSO, label: "Temps pour voter", type: "chips", default: 25, options: [{ value: 15, label: "15 s" }, { value: 25, label: "25 s" }, { value: 40, label: "40 s" }, { value: 60, label: "1 min" }], info: "La manche passe plus vite quand tout le monde a voté." },
+      { id: "revealTime", showIf: PERSO, label: "Durée du dévoilement", type: "chips", default: 15, options: [{ value: 10, label: "10 s" }, { value: 15, label: "15 s" }, { value: 25, label: "25 s" }, { value: 40, label: "40 s" }], info: "Le temps de rire, de s'indigner et de lire les votes avant la manche suivante. L'hôte peut passer plus vite." },
     ] },
-    { category: "🌶️ Les questions", rules: [
-      { id: "spice", label: "Niveau de piment", type: "cards", default: "epice", options: [
+    { category: "🌶️ Les questions", showIf: PERSO, rules: [
+      { id: "spice", showIf: PERSO, label: "Niveau de piment", type: "cards", default: "epice", options: [
         { value: "doux", label: "Doux", icon: "🙂", desc: "Surtout des taquineries. Presque rien de gênant, pour une première soirée." },
         { value: "equilibre", label: "Équilibré", icon: "🌶️", desc: "Un mélange de tout, avec quelques questions qui piquent." },
         { value: "epice", label: "Épicé", icon: "🔥", desc: "Surtout des questions qui font rougir. Le réglage conseillé." },
         { value: "infernal", label: "Infernal", icon: "😈", desc: "Presque uniquement du déplacé. Ça finit en dispute ou en fou rire." },
       ] },
-      { id: "themes", label: "Thèmes autorisés", type: "multi", default: THEME_IDS.slice(), options: NORMAL_THEMES.map((t) => ({ value: t.id, label: t.label, icon: t.icon })), info: "Décoche un thème pour ne plus jamais le voir, ni dans les questions ni dans les leurres. Il en faut au moins un." },
-      { id: "swaps", label: "Changements de question par manche", type: "chips", default: 1, options: [0, 1, 2, 3], info: "Le joueur qui classe voit sa question en secret. Il peut la remplacer s'il ne veut pas y répondre. Zéro signifie qu'il faut assumer." },
-      { id: "decoys", label: "Questions leurres", type: "cards", default: "mixte", options: [
+      { id: "themes", showIf: PERSO, label: "Thèmes autorisés", type: "multi", default: THEME_IDS.slice(), options: NORMAL_THEMES.map((t) => ({ value: t.id, label: t.label, icon: t.icon })), info: "Décoche un thème pour ne plus jamais le voir, ni dans les questions ni dans les leurres. Il en faut au moins un." },
+      { id: "swaps", showIf: { ambiance: "perso", variant: "question" }, label: "Changements de question par manche", type: "chips", default: 1, options: [0, 1, 2, 3], info: "Le joueur qui classe voit sa question en secret. Il peut la remplacer s'il ne veut pas y répondre. Zéro signifie qu'il faut assumer." },
+      { id: "decoys", showIf: { ambiance: "perso", variant: "question" }, label: "Questions leurres", type: "cards", default: "mixte", options: [
         { value: "mixte", label: "Mélangées", icon: "🎭", desc: "Deux leurres du même thème que la vraie question et un d'un autre thème." },
         { value: "theme", label: "Même thème", icon: "🎯", desc: "Les quatre questions parlent du même sujet. Beaucoup plus difficile." },
         { value: "hasard", label: "Au hasard", icon: "🎲", desc: "Les leurres viennent de partout. Plus facile à deviner." },
@@ -57,10 +76,10 @@
       { id: "adultMix", label: "Fréquence des questions interdites", type: "chips", default: "souvent", showIf: { adult: true }, options: [{ value: "rare", label: "De temps en temps" }, { value: "souvent", label: "Souvent" }, { value: "toujours", label: "Presque que ça" }], info: "De temps en temps = elles se glissent parmi les autres thèmes. Souvent = environ une question sur trois. Presque que ça = toutes les questions viennent de la Zone interdite, y compris les leurres." },
     ] },
     { category: "🏆 Les points", rules: [
-      { id: "scoreGuess", label: "Points pour une bonne réponse", type: "chips", default: 2, options: [1, 2, 3, 5], info: "Gagnés par chaque joueur qui devine la vraie question." },
-      { id: "scoreRanker", label: "Points du classeur par joueur qui devine", type: "chips", default: 1, options: [0, 1, 2], info: "Le joueur qui classe gagne ces points pour chaque joueur qui trouve la vraie question. Il a donc intérêt à être honnête et lisible. Zéro le laisse sans enjeu." },
-      { id: "showVoters", label: "Montrer qui a voté pour quoi", type: "bool", default: true, info: "Au dévoilement, chaque vote apparaît avec le nom du joueur. C'est là que les egos se touchent. Décoché, seuls les totaux sont visibles." },
-      { id: "reactions", label: "Réactions en emojis", type: "bool", default: true, info: "Des emojis à envoyer pendant le dévoilement pour réagir au classement." },
+      { id: "scoreGuess", showIf: PERSO, label: "Points pour une bonne réponse", type: "chips", default: 2, options: [1, 2, 3, 5], info: "Gagnés par chaque joueur qui devine la vraie question." },
+      { id: "scoreRanker", showIf: PERSO, label: "Points du classeur par joueur qui devine", type: "chips", default: 1, options: [0, 1, 2], info: "Le joueur qui classe gagne ces points pour chaque joueur qui trouve la vraie question. Il a donc intérêt à être honnête et lisible. Zéro le laisse sans enjeu." },
+      { id: "showVoters", showIf: PERSO, label: "Montrer qui a voté pour quoi", type: "bool", default: true, info: "Au dévoilement, chaque vote apparaît avec le nom du joueur. C'est là que les egos se touchent. Décoché, seuls les totaux sont visibles." },
+      { id: "reactions", showIf: PERSO, label: "Réactions en emojis", type: "bool", default: true, info: "Des emojis à envoyer pendant le dévoilement pour réagir au classement." },
     ] },
   ];
   const allRules = () => SCHEMA.reduce((a, c) => a.concat(c.rules), []);
@@ -76,7 +95,8 @@
       else { const ok = valuesOf(r); const want = typeof ok[0] === "number" ? Number(v) : v; if (ok.includes(want)) out[r.id] = want; }
     });
     if (!out.themes.length) out.themes = THEME_IDS.slice(0, 1);
+    if (AMBIANCES[out.ambiance]) { Object.assign(out, AMBIANCES[out.ambiance]); out.themes = THEME_IDS.slice(); }
     return out;
   }
-  return { THEMES, NORMAL_THEMES, THEME_IDS, themeOf, SPICE, HEAT_NAMES, EMOJIS, SCHEMA, defaults, normalize, allRules };
+  return { AMBIANCES, THEMES, NORMAL_THEMES, THEME_IDS, themeOf, SPICE, HEAT_NAMES, EMOJIS, SCHEMA, defaults, normalize, allRules };
 });

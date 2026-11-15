@@ -8,6 +8,8 @@ const Q = require("./questions/index.js");
 const TS = Math.max(0.001, Number(process.env.ML_TIME_SCALE) || 1);
 const rng = Math.random;
 const SKIP_MS = 6000 * TS;
+const FLIP_MS = 650; // dévoilement des rangs, du dernier au premier
+const isQui = (room) => room.settings.variant === "qui";
 const shuffle = (a) => { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
 const defOf = (room, id) => room.players.find((p) => p.id === id);
 const present = (room) => room.players.filter((p) => !p.left);
@@ -81,13 +83,32 @@ function nextRound(room) {
   }
   g.rankerId = g.order[g.idx]; g.pids = present(room).map((p) => p.id);
   g.q = drawQuestion(room); g.used.add(g.q.id); g.lastTheme = g.q.theme; g.swapsLeft = s.swaps;
-  g.ranking = null; g.options = null; g.correctOpt = null; g.votes = {}; g.reveal = null;
+  g.ranking = null; g.options = null; g.correctOpt = null; g.votes = {}; g.reveal = null; g.rankings = {};
+  if (isQui(room)) g.swapsLeft = 0;
   g.phase = "rank"; g.phaseUntil = Date.now() + s.rankTime * 1000 * TS;
   emitState(room); sendQuestion(room);
 }
-function sendQuestion(room) {
-  const g = room.g; const d = defOf(room, g.rankerId); if (!d || !d.socketId) return;
-  g.api.io.to(d.socketId).emit("ml:question", { q: { text: g.q.text, theme: g.q.theme, heat: g.q.heat }, swapsLeft: g.swapsLeft, idx: g.idx });
+function sendQuestion(room, only) {
+  const g = room.g; const msg = { q: { text: g.q.text, theme: g.q.theme, heat: g.q.heat }, swapsLeft: g.swapsLeft, idx: g.idx, all: isQui(room) };
+  // variante Qui a classé, tout le monde a la même question
+  const targets = isQui(room) ? g.pids.map((id) => defOf(room, id)).filter((d) => d && !d.left) : [defOf(room, g.rankerId)];
+  targets.forEach((d) => { if (d && d.socketId && (!only || only === d.id)) g.api.io.to(d.socketId).emit("ml:question", msg); });
+}
+// dans la variante, le joueur dont le classement est montré le sait, les autres non
+function sendAuthor(room, only) {
+  const g = room.g; if (!isQui(room)) return;
+  g.pids.forEach((id) => { const d = defOf(room, id); if (d && d.socketId && (!only || only === id)) g.api.io.to(d.socketId).emit("ml:author", { idx: g.idx, you: id === g.rankerId }); });
+}
+function startGuessQui(room) {
+  const g = room.g; const done = Object.keys(g.rankings);
+  if (!done.length) return startReveal(room, true, "Personne n'a classé à temps.");
+  // le classement montré est celui du joueur prévu, ou d'un autre s'il n'a pas fini
+  if (!g.rankings[g.rankerId]) g.rankerId = done[Math.floor(rng() * done.length)];
+  g.ranking = g.rankings[g.rankerId];
+  g.options = g.pids.filter((id) => { const d = defOf(room, id); return d && !d.left; }).map((id) => ({ id: "p:" + id, pid: id, text: (defOf(room, id) || {}).name || "?" }));
+  g.correctOpt = "p:" + g.rankerId;
+  g.votes = {}; g.phase = "guess"; g.phaseUntil = Date.now() + room.settings.voteTime * 1000 * TS + g.ranking.length * FLIP_MS;
+  emitState(room); sendAuthor(room);
 }
 function startGuess(room, order) {
   const g = room.g, s = room.settings;
@@ -97,7 +118,7 @@ function startGuess(room, order) {
   const opts = shuffle([real].concat(decoys.map((d, i) => ({ id: "d" + i, text: d.text, theme: d.theme, heat: d.heat }))));
   g.options = opts.map((o, i) => ({ id: "o" + i, text: o.text, theme: o.theme }));
   g.correctOpt = g.options[opts.indexOf(real)].id;
-  g.votes = {}; g.phase = "guess"; g.phaseUntil = Date.now() + s.voteTime * 1000 * TS;
+  g.votes = {}; g.phase = "guess"; g.phaseUntil = Date.now() + s.voteTime * 1000 * TS + order.length * FLIP_MS;
   emitState(room);
 }
 function eligible(room) { const g = room.g; return g.pids.filter((id) => id !== g.rankerId).filter((id) => { const d = defOf(room, id); return d && !d.left; }); }
@@ -105,14 +126,18 @@ function startReveal(room, skipped, why) {
   const g = room.g, s = room.settings; const gains = {}; const entry = { idx: g.idx, rankerId: g.rankerId, q: g.q.text, theme: g.q.theme, heat: g.q.heat, skipped: !!skipped };
   g.pids.forEach((id) => { gains[id] = 0; });
   if (!skipped) {
+    // dans la variante, le vote de l'auteur ne sert qu'à brouiller les pistes
+    if (isQui(room)) delete g.votes[g.rankerId];
     const correct = Object.keys(g.votes).filter((id) => g.votes[id] === g.correctOpt);
     correct.forEach((id) => { gains[id] += s.scoreGuess; g.correctCount[id] = (g.correctCount[id] || 0) + 1; });
-    gains[g.rankerId] += correct.length * s.scoreRanker;
+    // l'auteur caché marque pour chaque joueur qu'il a trompé
+    if (isQui(room)) gains[g.rankerId] += (Object.keys(g.votes).length - correct.length) * Math.max(1, s.scoreRanker);
+    else gains[g.rankerId] += correct.length * s.scoreRanker;
     Object.keys(gains).forEach((id) => { g.scores[id] = (g.scores[id] || 0) + gains[id]; });
     Object.assign(entry, { ranking: g.ranking.slice(), voters: eligible(room).length, correct: correct.length, votes: Object.assign({}, g.votes) });
   }
   g.history.push(entry);
-  g.reveal = { q: { text: g.q.text, theme: g.q.theme, heat: g.q.heat }, correct: g.correctOpt, votes: s.showVoters ? Object.assign({}, g.votes) : null, counts: countVotes(g), gains, skipped: !!skipped, why: why || "" };
+  g.reveal = { qui: isQui(room), author: g.rankerId, q: { text: g.q.text, theme: g.q.theme, heat: g.q.heat }, correct: g.correctOpt, votes: s.showVoters ? Object.assign({}, g.votes) : null, counts: countVotes(g), gains, skipped: !!skipped, why: why || "" };
   g.phase = "reveal"; g.phaseUntil = Date.now() + (skipped ? SKIP_MS : s.revealTime * 1000 * TS);
   emitState(room);
 }
@@ -120,12 +145,15 @@ function countVotes(g) { const c = {}; Object.values(g.votes).forEach((o) => { c
 
 function tick(room) {
   const g = room.g; if (!g || g.over) return; const now = Date.now();
-  if (g.phase === "rank") {
+  if (g.phase === "rank" && isQui(room)) {
+    const live = g.pids.filter((id) => { const d = defOf(room, id); return d && !d.left && d.connected; });
+    if (now >= g.phaseUntil || (live.length && live.every((id) => g.rankings[id]))) return startGuessQui(room);
+  } else if (g.phase === "rank") {
     const d = defOf(room, g.rankerId);
     if (!d || d.left) { room.g.api.sysChat(room, "Le joueur qui classait est parti, on passe à la suite."); return startReveal(room, true, "Le joueur a quitté la partie."); }
     if (now >= g.phaseUntil) { g.api.sysChat(room, d.name + " n'a pas fini son classement, manche annulée."); return startReveal(room, true, d.name + " n'a pas classé à temps."); }
   } else if (g.phase === "guess") {
-    const el = eligible(room); const live = el.filter((id) => { const d = defOf(room, id); return d.connected; });
+    const el = isQui(room) ? g.pids.filter((id) => { const d = defOf(room, id); return d && !d.left; }) : eligible(room); const live = el.filter((id) => { const d = defOf(room, id); return d.connected; });
     const all = live.length && live.every((id) => g.votes[id]);
     if (now >= g.phaseUntil || all) startReveal(room, false);
   } else if (g.phase === "reveal") {
@@ -177,7 +205,8 @@ function sendOver(room, socket) { const m = overMsg(room); if (socket) socket.em
 // ---------- état envoyé aux joueurs ----------
 function publicState(room) {
   const g = room.g; const s = room.settings;
-  const st = { phase: g.phase, idx: g.idx, total: g.total, rankerId: g.rankerId, pids: g.pids, phaseUntil: g.phaseUntil, now: Date.now(), scores: g.scores, voted: Object.keys(g.votes), theme: g.q ? g.q.theme : null, heat: g.q ? g.q.heat : null, swapsLeft: g.swapsLeft };
+  const hide = isQui(room) && (g.phase === "rank" || g.phase === "guess");
+  const st = { variant: s.variant, ranked: hide && g.phase === "rank" ? Object.keys(g.rankings || {}) : [], flipMs: FLIP_MS, phase: g.phase, idx: g.idx, total: g.total, rankerId: hide ? null : g.rankerId, pids: g.pids, phaseUntil: g.phaseUntil, now: Date.now(), scores: g.scores, voted: Object.keys(g.votes), theme: g.q ? g.q.theme : null, heat: g.q ? g.q.heat : null, swapsLeft: g.swapsLeft };
   if (g.phase === "guess" || g.phase === "reveal") { st.ranking = g.ranking; st.options = g.options; }
   if (g.phase === "reveal") st.reveal = g.reveal;
   st.showVoters = s.showVoters;
@@ -187,7 +216,8 @@ function emitState(room) { const g = room.g; if (g) g.api.emitAll(room, "ml:stat
 function sendTo(room, socket, p) {
   const g = room.g; if (!g) return;
   socket.emit("ml:state", publicState(room));
-  if (g.phase === "rank" && p.id === g.rankerId) sendQuestion(room);
+  if (g.phase === "rank" && (p.id === g.rankerId || isQui(room))) sendQuestion(room, p.id);
+  if (g.phase === "guess") sendAuthor(room, p.id);
   if (g.phase === "guess" && g.votes[p.id]) socket.emit("ml:voted", { opt: g.votes[p.id] });
   if (g.phase === "over") sendOver(room, socket);
 }
@@ -196,22 +226,25 @@ function bind(socket, helpers, api) {
   const { ctx, me, safe, toast } = helpers;
   const cur = () => { const room = ctx.room; const p = me(); return room && room.g && p ? { room, g: room.g, p } : null; };
   socket.on("ml:swap", safe(() => {
-    const c = cur(); if (!c || c.g.phase !== "rank" || c.p.id !== c.g.rankerId) return;
+    const c = cur(); if (!c || c.g.phase !== "rank" || c.p.id !== c.g.rankerId || isQui(c.room)) return;
     if (c.g.swapsLeft <= 0) return toast("Plus aucun changement possible pour cette manche.");
     const q = drawQuestion(c.room, new Set([c.g.q.id])); if (!q) return;
     c.g.swapsLeft--; c.g.q = q; c.g.used.add(q.id); c.g.lastTheme = q.theme; emitState(c.room); sendQuestion(c.room);
   }));
   socket.on("ml:rank", safe((d) => {
-    const c = cur(); if (!c || c.g.phase !== "rank" || c.p.id !== c.g.rankerId) return;
+    const c = cur(); if (!c || c.g.phase !== "rank") return;
+    if (!(isQui(c.room) ? c.g.pids.includes(c.p.id) : c.p.id === c.g.rankerId)) return;
     const order = Array.isArray(d && d.order) ? d.order.map(String) : [];
     const want = c.g.pids.filter((id) => { const x = defOf(c.room, id); return x && !x.left; });
     if (order.length !== want.length || new Set(order).size !== order.length || !order.every((id) => want.includes(id))) return toast("Classement invalide, il faut placer tout le monde, toi compris.");
+    if (isQui(c.room)) { c.g.rankings[c.p.id] = order; socket.emit("ml:ranked", { idx: c.g.idx }); emitState(c.room); return; }
     startGuess(c.room, order);
   }));
   socket.on("ml:vote", safe((d) => {
     const c = cur(); if (!c || c.g.phase !== "guess") return;
-    if (c.p.id === c.g.rankerId || !c.g.pids.includes(c.p.id)) return;
+    if ((c.p.id === c.g.rankerId && !isQui(c.room)) || !c.g.pids.includes(c.p.id)) return;
     const opt = String(d && d.opt); if (!c.g.options.some((o) => o.id === opt)) return;
+    if (isQui(c.room) && opt === "p:" + c.p.id && c.p.id !== c.g.rankerId) return toast("Tu sais bien que ce n'est pas toi.");
     c.g.votes[c.p.id] = opt; socket.emit("ml:voted", { opt }); emitState(c.room);
   }));
   socket.on("ml:next", safe(() => {

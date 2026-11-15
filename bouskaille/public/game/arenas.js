@@ -34,25 +34,6 @@
     return A;
   });
 
-  // ---------- 2. L'Usine à jouets ----------
-  reg("usine", "L'Usine à jouets", "factory", "Des tapis roulants, des pistons qui sortent des murs et un engrenage géant au milieu.", (seed) => {
-    const r = rng(seed); const A = empty("usine", "L'Usine à jouets", "factory", 17); const W = 22, D = 19 + Math.floor(r() * 3);
-    const flip = sgn(r), sp = 1.2 + r() * 0.7, lanes = r() < 0.5 ? [-1, 1] : [-1, 0, 1];
-    lanes.forEach((l, i) => A.surfaces.push(rect(0, l * (D / 2 - 3.2) * (lanes.length === 2 ? 0.95 : 1), W, 3.2, { belt: { x: flip * (i % 2 ? -1 : 1) * sp, z: 0 } })));
-    A.surfaces.push(rect(0, 0, W, D));
-    const np = 2 + Math.floor(r() * 3);
-    for (let i = 0; i < np; i++) { const side = i % 2 ? 1 : -1; const zz = (i < 2 ? (i === 0 ? -4.2 : 4.2) : (r() - 0.5) * 8); A.sliders.push({ kind: "piston", x: side * (W / 2 + 0.7), z: zz, hw: 0.8, hd: 1.5, ax: -side, az: 0, travel: 6.8 + r() * 1.4, period: 6.2 + r() * 1.5, ph: r() * 5 }); }
-    A.pegs.push({ x: 0, z: 0, r: 1.25, i: 0 });
-    A.bars.push({ x: 0, z: 0, len: 3.9 + r() * 0.8, w: sgn(r) * (1.0 + r() * 0.5), ph: r() * TAU, both: true, th: 0.28 });
-    if (r() < 0.5) A.pegs.push({ x: (r() < 0.5 ? -1 : 1) * (W / 2 - 1.6), z: (r() < 0.5 ? -1 : 1) * (D / 2 - 1.6), r: 0.9, i: 1 });
-    ringSpawns(A, 6.3, 0.2 + r() * 0.2);
-    { const belts = A.surfaces.filter((q) => q.belt); const onBelt = (z) => belts.some((q) => Math.abs(z - q.z) < q.d / 2 + 0.7);
-      A.spawns.forEach((q) => { if (!onBelt(q.z)) return; let best = null; belts.forEach((b) => [b.z - b.d / 2 - 1.3, b.z + b.d / 2 + 1.3].forEach((z) => { if (!onBelt(z) && Math.abs(z) < D / 2 - 1.2 && (best === null || Math.abs(z - q.z) < Math.abs(best - q.z))) best = z; })); if (best !== null) { const z0 = q.z; q.z = best; const c = arenaCheck(A); if (!c.ok && c.probs.some((m) => /apparition/.test(m))) q.z = z0; } }); }
-    A.crown.push({ x: 0, z: 5.4 }, { x: 0, z: -5.4 }, { x: -1.1, z: 3.1 }, { x: 1.1, z: -3.1 }); A.shrink = { R0: 16, Rmin: 3.8, start: 50, dur: 40 };
-    A.rectBounds = { w: W, d: D }; A.info = "Les pistons clignotent avant de sortir.";
-    return A;
-  });
-
   // ---------- 3. Le Manège ----------
   reg("manege", "Le Manège", "carousel", "Deux plateaux qui tournent en sens inverse, et des bras qui balayent.", (seed) => {
     const r = rng(seed); const A = empty("manege", "Le Manège", "carousel", 12); const d = sgn(r);
