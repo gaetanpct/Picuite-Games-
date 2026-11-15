@@ -50,7 +50,7 @@
         el("div", { id: "hud-tip", class: "tip nopoint" }),
         el("div", { id: "hud-powers", class: "powers" }),
         el("div", { id: "hud-aim", class: "aiminfo nopoint" }),
-        el("div", { id: "spinbox", class: "spinbox" }, [el("button", { id: "spin-l", class: "round-btn round-btn--small", title: "Effet vers la gauche (touche Q)", text: "↶" }), el("span", { id: "spin-txt", class: "spin__txt", text: "Sans effet" }), el("button", { id: "spin-r", class: "round-btn round-btn--small", title: "Effet vers la droite (touche E)", text: "↷" })]),
+        el("div", { id: "spinbox", class: "spinbox" }, [el("button", { id: "spin-l", class: "round-btn round-btn--small", title: "Effet vers la gauche (touche Q, ou Espace pendant le tir)", text: "↶" }), el("span", { id: "spin-txt", class: "spin__txt", title: "Pendant le lance-pierre, garde Espace enfoncé et déplace le curseur à droite ou à gauche", text: "Sans effet" }), el("button", { id: "spin-r", class: "round-btn round-btn--small", title: "Effet vers la droite (touche E)", text: "↷" })]),
         el("div", { class: "shootrow" }, [
           el("button", { id: "pw-minus", class: "round-btn round-btn--small", title: "Moins fort", text: "−" }),
           el("div", { id: "power", class: "power", title: "Force du coup, touche la jauge ou glisse dessus" }, [el("div", { id: "power-fill", class: "power__fill" }), el("div", { class: "power__ticks" }), el("div", { id: "power-txt", class: "power__txt" })]),
@@ -60,7 +60,6 @@
       ]),
       el("div", { id: "hud-clubs", class: "clubrail" }),
       el("div", { id: "hud-height", class: "heightbox" }),
-      el("div", { id: "hud-clubcard", class: "clubcard" }),
       el("div", { id: "hud-cup", class: "cupmark nopoint hidden" }, [el("span", { class: "cupmark__arr", text: "▲" }), el("b", { id: "cupmark-txt" })]),
       el("div", { id: "hud-pick", class: "pill pick hidden" }),
     ]);
@@ -490,9 +489,10 @@
       else l2 = "Après l'atterrissage elle " + rollWord(pred.roll) + ", il resterait environ " + fuzzy(pred.toCup) + " m du trou.";
       l3 = club.fly + " " + lieNow(me) + " Le cercle montre où elle devrait finir.";
     } else if (me) { l1 = club.icon + " " + club.name + hname + " à " + Math.round(G.power * 100) + " pour cent"; l3 = club.fly + " " + lieNow(me); }
-    const key = l1 + "|" + l2 + "|" + l3 + "|" + bad; if (key === G.lastInfo) return; G.lastInfo = key;
-    box.innerHTML = ""; if (!l1) { box.classList.add("hidden"); return; } box.classList.remove("hidden"); box.classList.toggle("aiminfo--bad", bad);
-    box.appendChild(el("b", { text: l1 })); if (l2) box.appendChild(el("span", { class: "aiminfo__warn", text: l2 })); if (l3) box.appendChild(el("span", { class: "small muted", text: l3 }));
+    // le texte ne cache plus la balle, il ne reste qu'un court avertissement en haut quand un danger guette
+    void l3; const key = l2 + "|" + bad; if (key === G.lastInfo) return; G.lastInfo = key;
+    box.innerHTML = ""; if (!bad || !l2) { box.classList.add("hidden"); return; } box.classList.remove("hidden"); box.classList.add("aiminfo--bad");
+    box.appendChild(el("b", { text: "⚠️ " + l2 }));
   }
   function renderPowers() {
     const box = $("#hud-powers"); if (!box) return; const me = myState();
@@ -547,24 +547,26 @@
       if (!slingEl) return; const svg = slingEl.firstChild; const [l1, l2, c] = svg.children; const off = 7;
       l1.setAttribute("x1", sl.bx - off); l1.setAttribute("y1", sl.by); l1.setAttribute("x2", px); l1.setAttribute("y2", py);
       l2.setAttribute("x1", sl.bx + off); l2.setAttribute("y1", sl.by); l2.setAttribute("x2", px); l2.setAttribute("y2", py);
-      c.setAttribute("cx", px); c.setAttribute("cy", py); const pc = slingEl.querySelector(".sling__pct"); pc.textContent = Math.round(G.power * 100) + " %" + (G.spin ? (G.spin < 0 ? " ↶" : " ↷") : ""); pc.style.left = px + "px"; pc.style.top = py + "px";
+      c.setAttribute("cx", px); c.setAttribute("cy", py); const pc = slingEl.querySelector(".sling__pct"); pc.textContent = (sl.lock ? "🔒 " : "") + Math.round(G.power * 100) + " %" + (G.spin ? (G.spin < 0 ? " ↶ " : " ↷ ") + Math.abs(Math.round(G.spin * 100)) + " %" : ""); pc.style.left = px + "px"; pc.style.top = py + "px";
       slingEl.style.setProperty("--pw", G.power.toFixed(2)); slingEl.classList.toggle("sling--weak", sl.weak);
     };
     const slingStart = (e) => {
       if (!canAct() || G.top) return false; const me = myState(); const bp = V.ballPos(me.id) || me; const sp = V.project(bp.x, bp.y + 0.1, bp.z); const r = host.getBoundingClientRect();
       const bx = sp.x, by = sp.y; if (Math.hypot(e.clientX - r.left - bx, e.clientY - r.top - by) > Math.max(60, Math.min(r.width, r.height) * 0.09)) return false;
-      sl.on = true; document.body.classList.add("slinging"); sl.id = e.pointerId; sl.bx = bx; sl.by = by; sl.r = r; sl.weak = true; sl.yaw0 = G.yaw; sl.p0 = G.power; sl.s0 = G.spin; sl.pts = []; slingEl.classList.remove("hidden"); slingDraw(bx, by); return true;
+      sl.on = true; document.body.classList.add("slinging"); sl.id = e.pointerId; sl.bx = bx; sl.by = by; sl.r = r; sl.weak = true; sl.yaw0 = G.yaw; sl.p0 = G.power; sl.s0 = G.spin; sl.lock = null; slingEl.classList.remove("hidden"); slingDraw(bx, by); return true;
     };
     const slingMove = (e) => {
-      const r = sl.r; const px = e.clientX - r.left, py = e.clientY - r.top; const dist = Math.hypot(px - sl.bx, py - sl.by); const full = Math.max(120, Math.min(r.width, r.height) * 0.24);
+      const r = sl.r; const px = e.clientX - r.left, py = e.clientY - r.top; sl.px = px; sl.py = py;
+      // tir bloqué avec Espace, la direction et la force ne bougent plus, le curseur vers la droite ou la gauche donne l'effet
+      if (sl.lock) { if (S().spin !== false && sl.lock.key) { const sp = clamp(Math.round(((px - sl.lock.x) / 90) * 4) / 4, -1, 1); if (sp !== G.spin) { G.spin = sp; G.pred = null; renderSpin(); sound.click(); } } slingDraw(sl.lock.dx, sl.lock.dy); return; } const dist = Math.hypot(px - sl.bx, py - sl.by); const full = Math.max(120, Math.min(r.width, r.height) * 0.24);
       sl.weak = dist < 14; G.power = clamp(dist / full, 0.05, 1); const me = myState();
       const pt = V.pick(e.clientX, e.clientY); const bp = V.ballPos(me.id) || me;
       if (pt && Math.hypot(bp.x - pt.x, bp.z - pt.z) > 0.15) { let yaw = Math.atan2(bp.x - pt.x, bp.z - pt.z); if (me.fx.invert) { const cy = V.camState().yaw; yaw = cy - (yaw - cy); } G.yaw = yaw; }
-      // effet, le tirage fait en arc de cercle se mesure par l'écart du chemin à la ligne droite
-      if (S().spin !== false) { sl.pts.push([px, py]); if (sl.pts.length > 60) sl.pts.shift(); if (dist > 40) { const ux = (sl.bx - px) / dist, uy = (sl.by - py) / dist; const rx = -uy, ry = ux; let dev = 0; sl.pts.forEach(([qx, qy]) => { const along = (qx - sl.bx) * -ux + (qy - sl.by) * -uy; if (along < dist * 0.15 || along > dist * 0.9) return; const d = (qx - sl.bx) * rx + (qy - sl.by) * ry; if (Math.abs(d) > Math.abs(dev)) dev = d; }); const sp = clamp(Math.round((dev / (dist * 0.35)) * 4) / 4, -1, 1); if (sp !== G.spin && Math.abs(dev) > 12) { G.spin = sp; G.pred = null; renderSpin(); } else if (Math.abs(dev) <= 12 && G.spin !== sl.s0) { G.spin = sl.s0; G.pred = null; renderSpin(); } } }
-      G.aimDist = null; slingDraw(sl.bx + (px - sl.bx) * Math.min(1, full * 1.15 / Math.max(1, dist)), sl.by + (py - sl.by) * Math.min(1, full * 1.15 / Math.max(1, dist)));
+      G.aimDist = null; sl.dx = sl.bx + (px - sl.bx) * Math.min(1, full * 1.15 / Math.max(1, dist)); sl.dy = sl.by + (py - sl.by) * Math.min(1, full * 1.15 / Math.max(1, dist)); slingDraw(sl.dx, sl.dy);
     };
-    const slingEnd = (shoot) => { if (!sl.on) return; sl.on = false; document.body.classList.remove("slinging"); slingEl.classList.add("hidden"); if (shoot && !sl.weak) { sound.click(); fire(G.power); } else { G.yaw = sl.yaw0; G.power = sl.p0; G.spin = sl.s0 || 0; renderSpin(); } };
+    // Espace pendant le tir, on bloque la visée pour régler l'effet
+    G.slingLock = (down) => { if (!sl.on || sl.weak) return false; if (down) { if (!sl.lock) sl.lock = { x: sl.px != null ? sl.px : sl.bx, dx: sl.dx != null ? sl.dx : sl.bx, dy: sl.dy != null ? sl.dy : sl.by, key: true }; else { sl.lock.key = true; sl.lock.x = (sl.px != null ? sl.px : sl.lock.x) - (G.spin * 90); } } else if (sl.lock) sl.lock.key = false; slingDraw(sl.lock.dx, sl.lock.dy); return true; };
+    const slingEnd = (shoot) => { if (!sl.on) return; sl.on = false; sl.lock = null; document.body.classList.remove("slinging"); slingEl.classList.add("hidden"); if (shoot && !sl.weak) { sound.click(); fire(G.power); } else { G.yaw = sl.yaw0; G.power = sl.p0; G.spin = sl.s0 || 0; renderSpin(); } };
     G.slingCancel = () => slingEnd(false); G.slingOn = () => sl.on;
     host.addEventListener("contextmenu", (e) => { if (sl.on) { e.preventDefault(); slingEnd(false); } });
     // on écoute avant tout le reste, pour pouvoir attraper la balle même sous une étiquette ou une bulle d'aide
@@ -616,6 +618,7 @@
     window.addEventListener("keydown", (e) => {
       if (document.body.dataset.screen !== "game") return; if (/INPUT|TEXTAREA|SELECT/.test((e.target.tagName || ""))) return;
       const k = e.key.toLowerCase(); G.keys[k] = true;
+      if (k === " " && G.slingOn && G.slingOn()) { e.preventDefault(); if (!e.repeat) G.slingLock(true); return; }
       if (k === " " || k === "enter") { e.preventDefault(); if (!G.charging && !e.repeat) { G.charging = true; G.chargeAt = performance.now(); G.chargeBase = G.power; } }
       else if (/^[1-5]$/.test(k)) { const list = GR.CLUB_ORDER.filter((c) => S().clubs.includes(c)); const id = list[+k - 1]; if (id) { const me = myState(); if (!(GR.CLUBS[id].limited && me && me.rocketUsed)) setClub(id); } }
       else if (k === "arrowup" || k === "z" || k === "w") { e.preventDefault(); G.power = clamp(G.power + (e.shiftKey ? 0.1 : 0.02), 0.05, 1); G.aimDist = null; }
@@ -630,6 +633,7 @@
     });
     window.addEventListener("keyup", (e) => {
       const k = e.key.toLowerCase(); G.keys[k] = false;
+      if (k === " " && G.slingOn && G.slingOn()) { G.slingLock(false); return; }
       if ((k === " " || k === "enter") && G.charging) { const held = performance.now() - G.chargeAt; G.charging = false; fire(held <= 220 ? G.chargeBase : G.power); }
     });
   }
@@ -796,7 +800,7 @@
       { title: "Les cinq clubs", text: "Le driver est le grand frappeur, il va très loin et roule longtemps mais dévie facilement. Le fer est le régulier, bon partout. La cale monte haut, passe les arbres, retombe et s'arrête net, et c'est la seule qui sort du sable et de l'herbe haute sans perdre de puissance. Le ricochet est un tir rasant qui saute sur l'eau et que le vent ne gêne presque pas. Le putter roule au sol, le plus précis, parfait sur le green. Dans le sable, la boue et l'herbe haute, les clubs perdent de la puissance et dévient plus, sauf la cale. Le jeu conseille un club, mais tu choisis." },
       { title: "Les orbes et les pouvoirs", text: "Roule sur une orbe dorée pour gagner un pouvoir au hasard. Certains aident ta balle, d'autres embêtent un adversaire. Ils se lancent à tout moment, même pendant que la balle des autres roule." },
       { title: "Les pièges", text: "Eau, lave et sortie de terrain coûtent un coup. Le sable et la boue freinent, la glace fait glisser, la gelée fait rebondir. Les moulins, barrières, trampolines et portails sont des animations du terrain que l'hôte peut régler." },
-      { title: "L'effet", text: "Tire le lance-pierre en arc de cercle plutôt qu'en ligne droite, la balle s'incurve du côté de l'arc pour contourner un obstacle. Les boutons d'effet sous le tableau, ou Q et E au clavier, le règlent aussi. L'aide à la visée montre la courbe." },
+      { title: "L'effet", text: "Pendant le lance-pierre, appuie sur Espace pour bloquer ta direction et ta force. Tant que tu gardes Espace enfoncé, déplace le curseur vers la droite ou la gauche pour donner de l'effet, la balle s'incurvera de ce côté. Lâche Espace puis la souris pour taper. Sur téléphone, les boutons d'effet sous le tableau font la même chose, et Q et E aussi au clavier. L'aide à la visée montre la courbe." },
       { title: "Balles qui se cognent", text: "Une balle qui en touche une autre la pousse. On peut chasser un adversaire du green. Une balle poussée dans l'eau ou hors du terrain revient sans pénalité." },
       { title: "Trous signés", text: "Certains trous ont une astuce posée à la main, annoncée dans le chat au début du trou. Un passage secret sous un moulin, une rivière à franchir d'un bond, un portail caché dans l'herbe haute, une couronne de bumpers autour du trou, un entonnoir turbo." },
       { title: "Les modes", text: "Course, tout le monde tape en même temps. Tour par tour, le plus loin joue. Trou en un, un seul coup par joueur sur des trous courts et piégés, dans le trou rapporte 10 points et sinon le plus près marque. Équipe à deux, les joueurs vont par paires dans l'ordre du salon et partagent une balle, chacun joue un coup sur deux." },

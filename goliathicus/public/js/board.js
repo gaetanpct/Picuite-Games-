@@ -317,7 +317,7 @@
     const a = ev.attacker, d = ev.defender;
     const mineA = state.players[a.owner].team === state.players[state.you].team;
     const mineD = state.players[d.owner].team === state.players[state.you].team;
-    const total = Math.round(1700 * speed);
+    const total = Math.round(3200 * speed);
     const ga = ghost(a.owner, a.type, a.from.r, a.from.c, state, mineA);
     const gd = ghost(d.owner, d.type, d.at.r, d.at.c, state, mineD);
     const T = (ms, fn) => setTimeout(fn, ms * speed);
@@ -328,7 +328,7 @@
       const off = (cell - Math.round(cell * 0.88)) / 2;
       ga.style.transform = `translate(${v.c * cell + off + dx}px, ${v.r * cell + off + dy}px)`;
     });
-    T(380, () => {
+    T(900, () => {
       setPieceFace(ga, a.type);
       if (d.type) setPieceFace(gd, d.type);
       const big = ev.result === "exploded" || ev.result === "blast";
@@ -336,7 +336,7 @@
       puff(d.at.r, d.at.c, big ? "💥" : "✨", "puff--hit");
       (ev.splash || []).forEach((x) => puff(x.at.r, x.at.c, "💥", "puff--hit"));
     });
-    T(1050, () => {
+    T(2000, () => {
       const loseA = ["exploded", "defWins", "ratGuard", "tie", "blast"].includes(ev.result);
       const loseD = ["defused", "flag", "ratKing", "attWins", "tie", "blast"].includes(ev.result);
       if (loseA) ga.classList.add("piece--dying");
@@ -345,8 +345,8 @@
       if (ev.jester) puff(d.at.r, d.at.c, "🤡", "puff--small");
       (ev.rebirth || []).forEach((x) => puff(x.to.r, x.to.c, "🐦‍🔥", "puff--small"));
     });
-    T(1650, () => { ga.remove(); gd.remove(); });
-    try { stage(ev, ga, gd, T); } catch (e) { /* l'animation du plateau suffit */ }
+    T(3150, () => { ga.remove(); gd.remove(); });
+    try { stage(ev, ga, gd, T, state); } catch (e) { /* l'animation du plateau suffit */ }
     lockPieces([a.id, d.id], total);
     setTimeout(() => { if (current) renderPieces(current.view); }, total + 30);
     return total;
@@ -355,7 +355,7 @@
   // Grand duel au centre de l'écran. Les deux pièces quittent le plateau, grossissent face à face,
   // se retournent, s'entrechoquent, puis le perdant disparaît à sa façon et la case clignote.
   const DEATH = { tarte: "splat", dragon: "fire", phenix: "fire", golem: "crumble", troll: "crumble", fantome: "fade", reflet: "fade", chauvesouris: "fade", escargot: "melt", bouffon: "spin", oeuf: "crack" };
-  function stage(ev, ga, gd, T) {
+  function stage(ev, ga, gd, T, cur) {
     if (document.body.classList.contains("no-duel-fx")) return;
     const a = ev.attacker, d = ev.defender;
     const big = ev.result === "exploded" || ev.result === "blast";
@@ -364,24 +364,31 @@
     const ov = el("div", { class: "clash" }); const flash = el("div", { class: "clash__flash" }); ov.appendChild(flash);
     const mk = (g, side) => { const r = g.getBoundingClientRect(); const c = g.cloneNode(true); c.classList.remove("piece--ghost", "piece--dying"); c.classList.add("clash__piece", "clash__piece--" + side); c.style.transition = "none"; c.style.transform = "none"; c.style.left = r.left + "px"; c.style.top = r.top + "px"; c.style.width = r.width + "px"; c.style.height = r.height + "px"; ov.appendChild(c); return c; };
     const ca = mk(ga, "a"), cd = mk(gd, "d");
+    // une étiquette aux couleurs de la maison sous chaque pièce, pour savoir à qui elle est
+    const tag = (pc, side) => { const pl = cur.players[pc.owner] || {}; const h = HOUSES[(pl.house || 0) % HOUSES.length]; const you = pc.owner === cur.you;
+      const t = el("div", { class: "clash__tag clash__tag--" + side, style: { "--hc": h.color, "--hd": h.dark } }, [el("span", { class: "clash__crest", text: h.icon }), el("b", { text: you ? "Toi" : (pl.name || "?") }), el("small", { text: side === "a" ? "attaque" : "défend" })]);
+      const halo = el("div", { class: "clash__halo", style: { "--hc": h.color } }); ov.appendChild(halo); ov.appendChild(t); t._halo = halo; t._h = h; t._who = you ? "toi" : (pl.name || "?"); return t; };
+    const ta = tag(a, "a"), td = tag(d, "d");
     const verdict = el("div", { class: "clash__verdict" }); ov.appendChild(verdict);
     document.body.appendChild(ov);
     const place = (c, side) => { const vw = window.innerWidth, vh = window.innerHeight; const size = Math.min(150, Math.max(96, Math.min(vw, vh) * 0.2)); const r = c.getBoundingClientRect(); const cx = vw / 2 + (side === "a" ? -1 : 1) * size * 0.72, cy = vh * 0.44; const k = size / Math.max(1, r.width);
+      const t = side === "a" ? ta : td; t.style.left = cx + "px"; t.style.top = (cy - size / 2 - 16) + "px"; const hs = Math.round(size * 1.22); Object.assign(t._halo.style, { left: cx + "px", top: cy + "px", width: hs + "px", height: hs + "px" });
       c.style.transition = `transform ${0.32 * speed}s cubic-bezier(.2,.9,.3,1.2)`; c.style.transform = `translate(${cx - (r.left + r.width / 2)}px, ${cy - (r.top + r.height / 2)}px) scale(${k})`; };
     requestAnimationFrame(() => { ov.classList.add("clash--on"); place(ca, "a"); place(cd, "d"); });
-    T(380, () => {
+    T(900, () => {
       setPieceFace(ca, a.type); if (d.type) setPieceFace(cd, d.type);
       ca.classList.add("clash__piece--hit"); cd.classList.add("clash__piece--hit"); flash.classList.add("clash__flash--on"); ov.classList.add(big ? "clash--boom" : "clash--hit");
       const nm = (t) => (t && PIECES[t] ? PIECES[t].short || PIECES[t].name : "Pièce cachée"); const rk = (t) => (t && PIECES[t] && !PIECES[t].bomb && t !== "oeuf" ? " " + PIECES[t].rank : "");
-      verdict.innerHTML = `<b>${nm(a.type)}${rk(a.type)}</b><i>contre</i><b>${nm(d.type)}${rk(d.type)}</b>`;
+      const chip = (t, x) => `<b style="--hc:${x._h.color};--hd:${x._h.dark}">${x._h.icon} ${nm(t)}${rk(t)}</b>`;
+      verdict.innerHTML = `${chip(a.type, ta)}<i>contre</i>${chip(d.type, td)}`;
     });
-    T(1000, () => {
+    T(1900, () => {
       const die = (c, t) => { c.classList.add("clash__piece--die", "die--" + (big ? "boom" : DEATH[t] || "crunch")); };
       if (loseA) die(ca, a.type); if (loseD) die(cd, d.type); if (!loseA && !loseD) { ca.classList.add("clash__piece--win"); cd.classList.add("clash__piece--win"); }
       else { if (!loseA) ca.classList.add("clash__piece--win"); if (!loseD) cd.classList.add("clash__piece--win"); }
     });
-    T(1700, () => { ov.classList.add("clash--out"); });
-    T(1950, () => { ov.remove(); const v = vt.map(d.at.r, d.at.c); const f = el("div", { class: "cellflash" }); f.style.left = v.c * cell + "px"; f.style.top = v.r * cell + "px"; f.style.width = cell + "px"; f.style.height = cell + "px"; fxEl.appendChild(f); setTimeout(() => f.remove(), 1300 * speed); });
+    T(3200, () => { ov.classList.add("clash--out"); });
+    T(3450, () => { ov.remove(); const v = vt.map(d.at.r, d.at.c); const f = el("div", { class: "cellflash" }); f.style.left = v.c * cell + "px"; f.style.top = v.r * cell + "px"; f.style.width = cell + "px"; f.style.height = cell + "px"; fxEl.appendChild(f); setTimeout(() => f.remove(), 1300 * speed); });
   }
 
   function playPower(ev, state) {

@@ -303,3 +303,33 @@
   .ho-ui.ho-ph-play .ho-stage-top, .ho-ui.ho-ph-count .ho-stage-top { flex-basis: 38%; min-height: 100px; }
   .ho-card--play .ho-big { padding: 0.6rem 0.5rem; font-size: 1.2rem; }
 }
+
+/* lot 11, si la carte de jeu ne tient toujours pas, la table en 3D cède un peu de hauteur */
+.ho-ui.ho-ph-play.ho-fitstage .ho-stage-top { flex-basis: 30%; min-height: 90px; }
+@media (max-height: 560px) { .ho-ui.ho-ph-play.ho-fitstage .ho-stage-top { flex-basis: 26%; min-height: 70px; } }
+.ho-ui.ho-ph-play .ho-main { padding-bottom: 0.3rem; }
+/* lot 11, grilles plus larges que hautes sur les écrans en largeur, et un bandeau du haut réduit pendant le jeu */
+.ho-gloves { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+@media (max-height: 560px) {
+  .ho-ph-play .ho-quip { display: none; }
+  .ho-ph-play .ho-round { font-size: 0.8rem; }
+  .ho-ph-play .ho-chip { padding-top: 0.05rem; padding-bottom: 0.05rem; font-size: 0.78rem; }
+  .ho-ph-play .ho-timer { margin-top: 0.05rem; height: 7px; }
+}
+
+/* le règlement de comptes */
+.ho-duel__head { display: flex; align-items: center; gap: 0.7rem; }
+.ho-duel__icon { font-size: 2.6rem; }
+.ho-duel__head h2 { margin: 0; }
+.ho-draw { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem; width: 100%; min-height: 120px; margin: 0.4rem 0; border-radius: 22px; border: 4px solid rgba(255, 255, 255, 0.3); color: #fff; font: inherit; font-size: 1.3rem; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.ho-draw span { font-size: 2.4rem; }
+.ho-draw--wait { background: #5a1420; }
+.ho-draw--go { background: #1f9a4a; border-color: #b8ffcf; animation: hopop 0.25s ease-out; }
+.ho-draw--done { opacity: 0.75; }
+.ho-draw:disabled { cursor: default; }
+.ho-duel__tbl td, .ho-duel__tbl th { padding: 0.2rem 0.3rem; }
+.ho-duel__tbl td.r { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ho-duel__tbl td:first-child { overflow-wrap: anywhere; }
+.ho-me td { color: #ffd23f; }
+.ho-duel__res { margin-top: 0.4rem; }
+@media (max-height: 560px) { .ho-draw { min-height: 80px; } .ho-duel__icon { font-size: 1.8rem; } }

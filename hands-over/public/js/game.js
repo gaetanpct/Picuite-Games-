@@ -76,6 +76,7 @@
     if (s.quip !== G.prevQuip) { G.prevQuip = s.quip; const wait = Math.max(0, G.verdictAt - performance.now()); setTimeout(() => speak(s.quip), wait + (s.phase === "brief" ? 400 : 0)); }
     if (S.ready) S.setPlayers(s.players.map((p) => ({ id: p.id, color: (pl(p.id) || { color: 0 }).color, hex: hexOf(p.id), hands: p.hands, max: p.max, alive: p.alive, name: nameOf(p.id) })), s.you);
     if (s.phase === "play" && prev && prev.phase === "play" && prev.view && s.view) diffSounds(prev, s);
+    if (s.phase === "duel") duelSignal(s);
     renderAll();
   }
   function speak(q) { if (!q || !G.st || G.st.quip !== q) return; const d = sfxOn() && sound.enabled ? A.say(q) : 0; if (S.ready) S.talk(d || Math.min(4, 0.8 + q.length * 0.03)); }
@@ -108,6 +109,13 @@
     }
   }
   function cut() { const c = $("#ho-cut"); if (!c) return; c.classList.remove("ho-cut--on"); void c.offsetWidth; c.classList.add("ho-cut--on"); }
+  function duelSignal(st) {
+    const d = st.duel; if (!d) return; const key = d.gi + ":" + d.draw + ":" + d.step;
+    if (key === G.duelKey) return; G.duelKey = key;
+    if (d.step === "fire") { G.duelSeen = performance.now(); sfx(() => { sound.tone(1320, 0.35, "triangle", 0.16); sound.tone(1760, 0.3, "sine", 0.1, 0.02); }); }
+    else if (d.step === "wait") sfx(() => sound.tone(220, 0.25, "sine", 0.05));
+    else if (d.step === "intro" && d.draw === 0) sfx(() => { [196, 247, 294].forEach((f, i) => sound.tone(f, 0.25, "sawtooth", 0.06, i * 0.18)); });
+  }
   function onOver(m) { G.over = m; G.lastKey = ""; if (S.ready) { S.hold(false); S.clearTrial(); S.setView("wide"); } sfx(() => sound.win()); renderAll(); }
   // petits sons quand l'état change pendant une épreuve
   function diffSounds(a, b) {
@@ -248,10 +256,10 @@
     const st = G.st; if (!st) return; const top = $("#ho-top"), main = $("#ho-main"); if (!top || !main) return;
     renderTop(st, top);
     const waitV = st.phase === "judge" && performance.now() < G.verdictAt;
-    const sig = JSON.stringify([st.phase, st.round, st.players, st.me, st.view ? Object.assign({}, st.view, { now: 0, at: 0, P: 0 }) : null, st.judged, st.plays, st.modifier, G.over ? 1 : 0, G.ui.tick, waitV]);
+    const sig = JSON.stringify([st.phase, st.round, st.players, st.me, st.view ? Object.assign({}, st.view, { now: 0, at: 0, P: 0 }) : null, st.judged, st.plays, st.modifier, G.over ? 1 : 0, G.ui.tick, waitV, st.duel || null]);
     if (sig === G.sig) return; G.sig = sig; const pk = st.phase + "|" + st.round; const keepY = G.lastPk === pk ? main.scrollTop : 0; G.lastPk = pk; main.innerHTML = "";
     const ui = $("#ho-ui"), foot = $("#ho-foot");
-    if (ui) { ["intro", "brief", "prep", "judge", "count", "play", "over"].forEach((k) => ui.classList.toggle("ho-ph-" + k, st.phase === k)); ui.classList.toggle("ho-wide", st.phase === "brief" || st.phase === "prep" || st.phase === "judge"); ui.classList.toggle("ho-tallpanel", st.phase === "play" && st.ch && st.ch.id === "bistouri"); }
+    if (ui) { ["intro", "brief", "prep", "judge", "count", "play", "over", "duel"].forEach((k) => ui.classList.toggle("ho-ph-" + k, st.phase === k)); ui.classList.toggle("ho-wide", st.phase === "brief" || st.phase === "prep" || st.phase === "judge"); ui.classList.toggle("ho-tallpanel", st.phase === "play" && st.ch && st.ch.id === "bistouri"); }
     if (foot) { foot.innerHTML = ""; const f = waitV ? null : buildFoot(st); if (f) { foot.classList.remove("hidden"); f.forEach((x) => foot.appendChild(x)); } else foot.classList.add("hidden"); }
     if (G.over && st.phase === "over") return main.appendChild(buildOver());
     if (st.phase === "intro") main.appendChild(buildIntro(st));
@@ -259,10 +267,28 @@
     else if (st.phase === "prep") main.appendChild(buildPrep(st));
     else if (st.phase === "count") main.appendChild(buildCount(st));
     else if (st.phase === "play") main.appendChild(buildPlay(st));
+    else if (st.phase === "duel") main.appendChild(buildDuel(st));
     else if (st.phase === "judge") main.appendChild(waitV ? E("div", { class: "ho-col", id: "ho-verdict-wait" }, [E("div", { class: "ho-card ho-verdict" }, [E("h2", { text: "Le verdict tombe" }), E("p", { class: "ho-sub", text: "Silence sur le plateau." })])]) : buildJudge(st));
     else if (st.phase === "over") main.appendChild(E("div", { class: "ho-card" }, [E("h2", { text: "Générique de fin" })]));
     if (keepY) main.scrollTop = keepY;
+    if (st.phase === "play") { if (G.fitPk !== pk) { G.fitPk = pk; G.fitZ = 1; if (ui) ui.classList.remove("ho-fitstage"); } const cd = main.querySelector(".ho-card--play"); if (cd && G.fitZ && G.fitZ < 1) cd.style.zoom = G.fitZ; fitPlay(); } else if (ui) ui.classList.remove("ho-fitstage");
   }
+  // pendant une épreuve, tout ce qu'on doit toucher tient dans le panneau sans le faire défiler.
+  // La carte de jeu rétrécit juste ce qu'il faut, et si cela ne suffit pas la table en 3D laisse un peu de place
+  function fitPlay() {
+    const main = $("#ho-main"), ui = $("#ho-ui"); if (!main || !G.st || G.st.phase !== "play") return;
+    const card = main.querySelector(".ho-card--play"); if (!card) return;
+    let z = G.fitZ || 1; card.style.zoom = z;
+    for (let k = 0; k < 5; k++) {
+      const over = main.scrollHeight - main.clientHeight; const hc = card.getBoundingClientRect().height || 1; let nz = z;
+      if (over > 2) nz = Math.max(0.5, z * (hc - over - 6) / hc); else if (over < -24 && z < 1) nz = Math.min(1, z * (hc - over - 12) / hc);
+      if (Math.abs(nz - z) < 0.01) break; z = nz; card.style.zoom = z;
+    }
+    G.fitZ = z;
+    if (main.scrollHeight - main.clientHeight > 2 && ui && !ui.classList.contains("ho-fitstage")) { ui.classList.add("ho-fitstage"); requestAnimationFrame(fitPlay); }
+  }
+  window.addEventListener("resize", () => { G.fitZ = 1; const ui = $("#ho-ui"); if (ui) ui.classList.remove("ho-fitstage"); requestAnimationFrame(fitPlay); });
+  setInterval(() => { if (G.st && G.st.phase === "play") fitPlay(); }, 600);
   function renderTop(st, top) {
     top.innerHTML = "";
     top.appendChild(E("div", { class: "ho-round", text: MODE_NAMES[st.mode] + (st.phase === "over" ? "  ·  fin de l'émission" : st.round ? "  ·  épreuve " + st.round + " sur " + st.rounds : "") }));
@@ -275,9 +301,10 @@
   }
 
   // ----- pied de page commun -----
-  const FOOT_LABEL = { intro: "Je suis prêt", brief: "J'ai compris, je suis prêt", prep: "Mes cartes et mon pacte sont prêts", judge: "J'ai tout lu, épreuve suivante" };
+  const FOOT_LABEL = { intro: "Je suis prêt", brief: "J'ai compris, je suis prêt", prep: "Mes cartes et mon pacte sont prêts", judge: "J'ai tout lu, épreuve suivante", duel: "Prêt à dégainer" };
   function buildFoot(st) {
-    const ph = st.phase; if (!FOOT_LABEL[ph]) return null; const me = st.me; if (ph === "prep" && !me.alive) return null;
+    const ph = st.phase; if (!FOOT_LABEL[ph]) return null;
+    if (ph === "duel") { const d = st.duel; if (!d || (d.step !== "intro" && d.step !== "done")) return null; FOOT_LABEL.duel = d.step === "done" ? "Voir la suite" : d.ids.includes(st.you) ? "Prêt à dégainer" : "Lancer le duel"; } const me = st.me; if (ph === "prep" && !me.alive) return null;
     const done = ph === "prep" ? !!me.ready : !!me.read;
     const wait = st.players.filter((p) => p.id !== st.you && (ph === "prep" ? p.alive && !p.ready : !(p.read || p.auto)));
     let base = "";
@@ -286,6 +313,38 @@
     const info = E("div", { class: "ho-wait", id: "ho-brief-wait", text: "" }); if (ph !== "brief") info.dataset.base = base;
     return [E("div", { class: "ho-foot__row" }, [btn, Kit.isHost() ? E("button", { class: "btn btn--ghost btn--small ho-foot__skip", text: ph === "prep" ? "Lancer" : "Passer", onclick: () => Kit.socket.emit("ho:skip") }) : null]), info];
   }
+
+  // ----- le règlement de comptes, départage des ex aequo -----
+  function placeName(rk, n) { if (rk === n) return "la dernière place"; if (rk === 1) return "la première place"; return "la " + rk + "e place"; }
+  function buildDuel(st) {
+    const d = st.duel; if (!d) return E("div"); const inIt = d.ids.includes(st.you); const ms = (v) => (v / 1000).toFixed(2).replace(".", ",");
+    const span = d.rank + d.ids.length - 1; const what = d.ids.length === 2 ? "Deux joueurs" : d.ids.length + " joueurs";
+    const head = E("div", { class: "ho-duel__head" }, [E("div", { class: "ho-duel__icon", text: "🤠" }), E("div", {}, [E("h2", { text: "Le règlement de comptes" }), E("p", { class: "ho-sub", text: what + " à égalité pour " + (d.rank === 1 ? "la victoire" : placeName(d.rank, d.n)) + (span > d.rank ? " et la suivante" + (span > d.rank + 1 ? "s" : "") : "") + ". Le plus rapide passe devant." + (d.groups > 1 ? " Duel " + (d.gi + 1) + " sur " + d.groups + "." : "") })])]);
+    const kids = [head];
+    if (d.step === "intro") {
+      kids.push(E("div", { class: "ho-goal" }, [E("small", { text: "La règle" }), E("b", { text: "Trois duels au signal. Quand le bouton devient vert et que la cloche sonne, appuie le plus vite possible. Tirer avant le signal coûte une seconde, ne pas tirer en coûte deux. Le plus petit total passe devant." })]));
+      kids.push(E("p", { class: "ho-sub", text: inIt ? "Clavier, barre Espace ou Entrée. Souris ou doigt, le grand bouton." : "Tu regardes le duel, la suite de ton classement ne change pas." }));
+    }
+    if (d.step === "wait" || d.step === "fire") {
+      const mine = d.mine; const go = d.step === "fire";
+      const label = !inIt ? (go ? "FEU !" : "Attendez le signal…") : mine === "early" ? "Faux départ, une seconde de pénalité" : mine != null ? "Tiré en " + ms(mine) : go ? "DÉGAINE !" : "Attends le signal…";
+      kids.push(E("p", { class: "ho-turn", text: "Duel " + (d.draw + 1) + " sur " + d.draws }));
+      kids.push(E("button", { class: "ho-draw" + (go ? " ho-draw--go" : " ho-draw--wait") + (mine != null ? " ho-draw--done" : ""), id: "ho-draw", disabled: !inIt || mine != null, onpointerdown: (e) => { e.preventDefault(); duelShoot(); } }, [E("span", { text: go ? "💥" : "✋" }), E("b", { text: label })]));
+    }
+    // qui a déjà tiré, puis les temps de chaque duel
+    const rows = d.ids.map((id) => { const t = d.times[id] || []; const h = d.hits[id]; const cur = d.step === "show" ? (h === "early" ? "faux départ" : h == null ? "pas tiré" : ms(h)) : d.step === "wait" || d.step === "fire" ? (h === "early" ? "faux départ" : h === "ok" || (h != null && h !== "early") ? "a tiré" : "…") : "";
+      return E("tr", { class: id === st.you ? "ho-me" : "" }, [E("td", {}, [dot(id), " " + nameOf(id)])].concat([0, 1, 2].map((k) => E("td", { class: "r", text: t[k] != null ? (t[k] >= 2000 ? "raté" : t[k] === 1000 && d.step !== "fire" ? ms(t[k]) : ms(t[k])) : "" }))).concat([E("td", { class: "r", text: d.totals ? ms(d.totals[id]) : cur })])); });
+    kids.push(E("table", { class: "tbl ho-duel__tbl" }, [E("thead", {}, [E("tr", {}, [E("th", { text: "Joueur (secondes)" }), E("th", { class: "r", text: "1" }), E("th", { class: "r", text: "2" }), E("th", { class: "r", text: "3" }), E("th", { class: "r", text: d.totals ? "Total" : "" })])]), E("tbody", {}, rows)]));
+    if (d.step === "done" && d.order) kids.push(E("div", { class: "ho-duel__res" }, d.order.map((id, i) => E("p", { class: "ho-note" }, [E("b", { text: (d.rank + i === d.n ? "💀 " : i === 0 ? "🏅 " : "") + "Place " + (d.rank + i) + "  " }), dot(id), " " + nameOf(id)]))));
+    return E("div", { class: "ho-card ho-duel" }, kids);
+  }
+  function duelShoot() {
+    const st = G.st; const d = st && st.duel; if (!d || !d.ids.includes(st.you) || d.mine != null) return;
+    if (d.step === "wait") { Kit.socket.emit("ho:duel", { early: true }); sfx(() => sound.tone(140, 0.3, "sawtooth", 0.1, 0, 70)); return; }
+    if (d.step !== "fire") return; const rt = performance.now() - (G.duelSeen || performance.now()); Kit.socket.emit("ho:duel", { rt: Math.round(rt) });
+    sfx(() => { sound.noise ? sound.noise(0.18, 0.25, 0, 2400) : sound.tone(90, 0.2, "square", 0.15); });
+  }
+  window.addEventListener("keydown", (e) => { if (!G.st || G.st.phase !== "duel") return; if (e.key === " " || e.key === "Enter") { const d = G.st.duel; if (d && (d.step === "wait" || d.step === "fire")) { e.preventDefault(); if (!e.repeat) duelShoot(); } } });
 
   // ----- lecture des règles -----
   function buildBrief(st) {
@@ -615,6 +674,7 @@
     const o = G.over; const kids = []; const top = o.rows.slice(0, 3); const order = top.length === 1 ? [top[0]] : top.length === 2 ? [top[1], top[0]] : [top[1], top[0], top[2]];
     kids.push(E("div", { class: "ho-card" }, [E("h2", { text: o.teams && o.winTeam !== null ? "Victoire des " + TEAMS[o.winTeam] : "Le dernier gagnant de l'émission" }), E("div", { class: "podium" }, order.map((r) => E("div", { class: "pod pod--" + r.rank }, [E("div", { class: "pod__ball", style: { background: hexOf(r.id) } }), E("div", { class: "pod__nm", text: r.name }), E("div", { class: "pod__bar", text: G.st && G.st.points ? r.points + " pt" : r.alive ? r.hands + " main" + (r.hands > 1 ? "s" : "") : "fantôme" })])))]));
     kids.push(E("div", { class: "ho-card" }, [E("h3", { text: "Le classement" }), E("table", { class: "tbl" }, [E("thead", {}, [E("tr", {}, [E("th", { text: "" }), E("th", { text: "Joueur" }), E("th", { class: "r", text: "Mains" }), E("th", { class: "r", text: "Points" })])]), E("tbody", {}, o.rows.map((r) => E("tr", {}, [E("td", { text: String(r.rank) }), E("td", {}, [E("span", { class: "dotc", style: { background: hexOf(r.id) } }), r.name + (o.teams && r.team !== null ? (r.team === 0 ? " ⚫" : " 🔴") : "") + (r.left ? " (parti)" : "")]), E("td", { class: "r", text: r.alive ? String(r.hands) : "👻" }), E("td", { class: "r", text: String(r.points) })])))])]));
+    if (o.duels && o.duels.length) kids.push(E("div", { class: "ho-card" }, [E("h3", { text: "🤠 Le règlement de comptes" })].concat(o.duels.map((d) => E("p", { class: "ho-note" }, ["Pour " + (d.rank === 1 ? "la victoire" : placeName(d.rank, d.n)) + ", "].concat(d.order.map((id, i) => E("span", {}, [i ? ", puis " : "", dot(id), " " + nameOf(id) + " en " + (d.totals[id] / 1000).toFixed(2).replace(".", ",") + " s"]))).concat(["."]))))));
     if (o.awards.length) kids.push(E("div", { class: "ho-card" }, [E("h3", { text: "Les titres" })].concat(o.awards.map((a) => E("p", { class: "ho-note" }, [a.icon + " ", E("b", { text: a.title + "  " }), dot(a.id), " " + nameOf(a.id) + ", " + a.detail])))));
     kids.push(E("div", { class: "ho-ctrl" }, [E("button", { class: "btn btn--ghost", text: "Quitter", onclick: () => Kit.confirm("Quitter la partie et revenir à l'accueil ?", () => Kit.leave()) }), Kit.isHost() ? E("button", { class: "btn btn--accent btn--big", text: "Retour au salon", onclick: () => Kit.backToLobby() }) : E("span", { class: "muted small", text: "L'hôte peut relancer une partie depuis le salon." })]));
     return E("div", { class: "ho-col" }, kids);
@@ -638,6 +698,8 @@
       { title: "Les cartes", text: "Neuf cartes, chacune indique quand la jouer, ce qu'elle fait et ce qu'elle risque. Bouclier, miroir, cible, double ou rien, vol, alarme, leurre, espion et absolution. Tout le monde voit la carte que tu joues, mais le leurre ment. On en gagne en remportant une épreuve." },
       { title: "Les pactes et la trahison", text: "Un pacte lie deux joueurs pour une épreuve. Chacun choisit en secret d'être fidèle ou traître. Il ne se joue que si l'un perd et que l'autre s'en sort. Un fidèle prend une main à la place de son allié et pioche une carte. Un traître fait perdre une main de plus à son allié et lui vole une carte, mais il porte une rancune qui lui coûtera une main de plus." },
       { title: "Les fantômes", text: "Un fantôme reste assis à sa place, translucide, et joue encore aux épreuves qui l'autorisent. S'il gagne, il marque le joueur le plus riche en mains. S'il gagne deux fois, il revient parmi les vivants avec une main et une carte." },
+      { title: "Le règlement de comptes", text: "À la fin de la partie, des joueurs à égalité se départagent toujours par la même épreuve éclair. Trois duels au signal, le bouton devient vert et la cloche sonne, il faut appuyer le plus vite possible. Un faux départ coûte une seconde, ne pas tirer en coûte deux. Le plus petit total passe devant, que ce soit pour la victoire ou pour éviter la dernière place. Moins d'une minute en tout." },
+      { title: "Cartes et pactes au choix", text: "Dans les réglages, les cartes d'influence et les pactes peuvent être coupés dans tous les modes qui les proposent, classique compris." },
       { title: "Les modes", text: "Classique, survie, équipes, tournoi sans élimination, express, chaos avec une règle folle à chaque tour et personnalisé pour tout régler soi-même. Chaque mode existe en version courte, normale ou longue." },
     ],
     theme: { a1: "#e63946", a2: "#ffd23f", bg1: "#4a0a14", bg2: "#12060a" },

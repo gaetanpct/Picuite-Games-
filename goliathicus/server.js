@@ -143,9 +143,21 @@ function armSetupTimer(room) {
   }, secs * 1000 * TS);
 }
 
+// Durée de l'animation d'un combat chez les joueurs, les bots attendent la fin avant de rejouer
+const COMBAT_ANIM_MS = 3500;
+function noteCombats(room) {
+  const eng = room.engine; if (!eng || !eng.events) return;
+  const seen = room.seenSeq || 0; let fight = false;
+  for (let i = eng.events.length - 1; i >= 0 && eng.events[i].seq > seen; i--) if (eng.events[i].kind === "combat") fight = true;
+  room.seenSeq = eng.seq;
+  if (fight) room.animUntil = Date.now() + COMBAT_ANIM_MS * (eng.settings.slowMode ? 1.7 : 1) * TS;
+}
+function animLeft(room) { return Math.max(0, (room.animUntil || 0) - Date.now()); }
+
 function afterEngineChange(room) {
   const eng = room.engine;
   if (!eng) return;
+  noteCombats(room);
   if (eng.phase === "setup" && !room.setupArmed) armSetupTimer(room);
   if (eng.phase === "playing") {
     if (room.setupTimer) { clearTimeout(room.setupTimer); room.setupTimer = null; }
@@ -167,13 +179,14 @@ function armTurnTimer(room) {
   const eng = room.engine;
   if (room.turnTimer) { clearTimeout(room.turnTimer); room.turnTimer = null; }
   const secs = eng.settings.turnTimer;
-  room.deadline = secs > 0 ? Date.now() + secs * 1000 * TS : null;
+  const extra = animLeft(room);
+  room.deadline = secs > 0 ? Date.now() + extra + secs * 1000 * TS : null;
   if (secs > 0) {
     const key = room.turnKey;
     room.turnTimer = setTimeout(() => {
       if (!room.engine || room.turnKey !== key || room.engine.phase !== "playing") return;
       forcePlay(room, room.engine.current);
-    }, secs * 1000 * TS + 300 * TS);
+    }, extra + secs * 1000 * TS + 300 * TS);
   }
 }
 
@@ -261,7 +274,7 @@ function scheduleAi(room) {
   }
   const lvl = p.level || "normal";
   const slow = !!eng.settings.slowMode;
-  const delay = AI.thinkDelay(lvl, slow, rng);
+  const delay = AI.thinkDelay(lvl, slow, rng) + animLeft(room);
   const key = room.turnKey + ":" + eng.version;
   room.aiTimer = setTimeout(() => {
     room.aiTimer = null;

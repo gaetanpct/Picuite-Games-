@@ -163,3 +163,7 @@ body.slinging .aiminfo, body.slinging .tip, body.slinging .clubcard { opacity: 0
 .spinbox { display: flex; align-items: center; gap: 0.4rem; background: rgba(8, 30, 22, 0.62); border-radius: 999px; padding: 3px 6px; color: #fff; font-size: 0.85rem; pointer-events: auto; }
 .spinbox .round-btn--small { width: 30px; height: 30px; font-size: 1rem; }
 .spin__txt { min-width: 7.5em; text-align: center; font-weight: 600; }
+
+/* l'avertissement de visée passe en haut, la balle reste visible */
+#hud-aim.aiminfo { position: fixed; top: 4.4rem; left: 50%; transform: translateX(-50%); max-width: min(92vw, 520px); font-size: 0.85rem; padding: 0.25rem 0.8rem; z-index: 6; }
+.tip { position: fixed !important; top: 7rem !important; bottom: auto !important; left: 50% !important; transform: translateX(-50%) !important; }

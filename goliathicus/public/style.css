@@ -579,3 +579,12 @@ button:focus-visible, a:focus-visible, select:focus-visible, [role="button"]:foc
 .tile--bridge-h::after { left: -2%; right: -2%; top: 26%; bottom: 26%; }
 .tile--bridge-v::after { top: -2%; bottom: -2%; left: 26%; right: 26%; background: repeating-linear-gradient(0deg, #a8743e 0 18%, #8a5a2c 18% 22%); }
 .mark--print { display: flex; align-items: center; justify-content: center; font-size: calc(var(--cell) * 0.42); opacity: 0.6; filter: drop-shadow(0 0 2px var(--pc, #fff)); pointer-events: none; }
+/* Combat, l'étiquette de la maison sous chaque pièce */
+.clash__halo { position: fixed; transform: translate(-50%, -50%); border-radius: 50%; z-index: 1; background: radial-gradient(circle, color-mix(in srgb, var(--hc) 55%, transparent) 0 55%, transparent 72%); box-shadow: 0 0 0 5px var(--hc), 0 0 28px var(--hc); opacity: 0; transition: opacity 0.3s 0.2s; }
+.clash--on .clash__halo { opacity: 1; }
+.clash__verdict b[style] { background: linear-gradient(180deg, var(--hc), var(--hd)); padding: 0.1rem 0.55rem; border-radius: 999px; }
+.clash__tag { position: fixed; transform: translate(-50%, -100%); display: flex; align-items: center; gap: 0.35rem; padding: 0.22rem 0.7rem 0.22rem 0.25rem; border-radius: 999px; background: linear-gradient(180deg, var(--hc), var(--hd)); color: #fff; border: 2px solid rgba(255, 255, 255, 0.7); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35); white-space: nowrap; z-index: 3; opacity: 0; transition: opacity 0.25s 0.15s; max-width: 46vw; }
+.clash--on .clash__tag { opacity: 1; }
+.clash__tag b { font-size: 1rem; overflow: hidden; text-overflow: ellipsis; }
+.clash__tag small { font-size: 0.72rem; opacity: 0.85; }
+.clash__crest { width: 1.6rem; height: 1.6rem; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.85); font-size: 1rem; flex: none; }

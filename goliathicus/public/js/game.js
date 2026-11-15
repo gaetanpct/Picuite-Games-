@@ -83,7 +83,8 @@
       if (state.current === state.you && !first) { UI.Sound.turn(); }
     }
     renderAll();
-    if (state.phase === "finished" && !endShown) { endShown = true; showEnd(); }
+    // le dernier combat se joue en entier avant l'écran de fin
+    if (state.phase === "finished" && !endShown) { endShown = true; const fight = !first && fresh.some((e) => e.kind === "combat"); if (fight) setTimeout(() => { if (st && st.phase === "finished") showEnd(); }, 3300 * (st.settings.slowMode ? 1.7 : 1)); else showEnd(); }
     if (state.phase !== "finished") { endShown = false; endDismissed = false; $("#end-overlay").classList.add("hidden"); }
   }
 

@@ -28,7 +28,7 @@
     ["✨", "Si personne ne perd", "Deux fidèles piochent chacun une carte. Un traître ne se révèle pas, son secret est gardé."],
   ];
   const MODES = [
-    { value: "classique", label: "Classique", icon: "🎬", desc: "Trois mains chacun, seize épreuves au plus. Cartes d'influence, pactes et trahisons. Le dernier debout gagne." },
+    { value: "classique", label: "Classique", icon: "🎬", desc: "Trois mains chacun, seize épreuves au plus. Cartes d'influence, pactes et trahisons, que l'on peut couper dans les réglages. Le dernier debout gagne." },
     { value: "survie", label: "Survie", icon: "☠️", desc: "Deux mains seulement et des épreuves plus courtes. Chaque erreur compte, les fantômes peuvent revenir." },
     { value: "equipes", label: "Équipes", icon: "🤝", desc: "Deux équipes, trois mains chacun. Une équipe gagne quand l'autre n'a plus aucun joueur debout." },
     { value: "tournoi", label: "Tournoi", icon: "🏆", desc: "Douze épreuves, personne n'est éliminé. Chaque épreuve rapporte des points, les mains perdues en retirent." },
@@ -48,8 +48,8 @@
       { id: "rounds", label: "Nombre d'épreuves maximum", type: "range", min: 3, max: 30, step: 1, default: 16, showIf: { mode: ["perso"] }, info: "La partie s'arrête avant s'il ne reste qu'un joueur debout." },
       { id: "families", label: "Familles d'épreuves", type: "multi", default: FAMILIES.map((f) => f[0]), options: FAMILIES.map((f) => ({ value: f[0], label: f[1] })), showIf: { mode: ["perso"] }, info: "Seules les familles cochées peuvent être tirées." },
       { id: "croco", label: "Crocodile dentiste", type: "chips", default: "mixte", options: CROCO.map((c) => ({ value: c[0], label: c[1] })), showIf: { mode: ["perso"] }, info: "La variante du crocodile quand il est tiré. Au hasard change à chaque fois." },
-      { id: "cards", label: "Cartes d'influence", type: "bool", default: true, showIf: { mode: ["perso"] }, info: "Chaque joueur reçoit des cartes à jouer avant une épreuve pour se protéger ou frapper." },
-      { id: "pacts", label: "Pactes et trahisons", type: "bool", default: true, showIf: { mode: ["perso"] }, info: "Deux joueurs peuvent s'allier en secret. L'un peut trahir à la fin de l'épreuve." },
+      { id: "cards", label: "Cartes d'influence", type: "bool", default: true, showIf: { mode: ["classique", "survie", "equipes", "tournoi", "chaos", "perso"] }, info: "Chaque joueur reçoit des cartes à jouer avant une épreuve pour se protéger ou frapper." },
+      { id: "pacts", label: "Pactes et trahisons", type: "bool", default: true, showIf: { mode: ["classique", "equipes", "tournoi", "chaos", "perso"] }, info: "Deux joueurs peuvent s'allier en secret. L'un peut trahir à la fin de l'épreuve." },
       { id: "ghosts", label: "Fantômes qui hantent", type: "bool", default: true, showIf: { mode: ["perso"] }, info: "Les joueurs éliminés restent dans la partie et gênent un peu les vivants." },
       { id: "speed", label: "Rythme", type: "chips", default: 1, options: [{ value: 1.4, label: "Tranquille" }, { value: 1, label: "Normal" }, { value: 0.7, label: "Rapide" }], showIf: { mode: ["perso"] }, info: "La durée des épreuves et des pauses." },
     ] },
@@ -84,6 +84,8 @@
       case "perso": Object.assign(base, { hands: s.hands, rounds: s.rounds, families: s.families, croco: s.croco, cards: s.cards, pacts: s.pacts, ghosts: s.ghosts, speed: s.speed, format: "normal" }); break;
       default: break;
     }
+    // cartes et pactes se règlent dans tous les modes qui les proposent
+    if (s.mode !== "express" && s.mode !== "perso") { base.cards = base.cards && s.cards; base.pacts = base.pacts && s.pacts; }
     if (base.format === "court") { base.rounds = Math.max(4, Math.round(base.rounds * 0.65)); }
     else if (base.format === "long") { base.hands = Math.min(5, base.hands + 1); base.rounds = Math.min(36, Math.round(base.rounds * 1.4)); }
     return base;

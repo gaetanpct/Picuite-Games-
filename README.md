@@ -1497,3 +1497,30 @@ Chaque jeu a été regardé seul, accueil, salon et partie. Le but n'était pas 
 
 ### Ce qu'il faut déposer sur GitHub
 - Les dossiers bouskaille, golfouille, goliathicus, mauvaises-langues et vertigogo, et le fichier README.md.
+
+## Cinquante-quatrième mise à jour, lot 11, Main Morte, Golfouille et Goliathicus
+
+### Main Morte
+- Le règlement de comptes. Quand deux joueurs ou plus finissent à égalité, pour la victoire comme pour la dernière place, un duel de western les départage. Toujours la même épreuve, trois tirages, il faut toucher le gros bouton dès qu'il passe au vert et pas avant. Un tir trop tôt compte comme une seconde, un tir manqué comme deux secondes. Le plus petit total des trois passe devant, puis le meilleur tir en cas de nouvelle égalité. Le tout dure moins d'une minute, les autres joueurs regardent en direct, et le résultat apparaît sur l'écran de fin.
+- Cartes d'influence et pactes au choix. Deux nouveaux réglages permettent de couper les cartes ou les pactes et trahisons, dans le mode classique comme dans les modes survie, équipes, tournoi et chaos.
+- Plus de défilement pendant les épreuves. Les cartes, gants, boutons et grilles à toucher se réduisent tout seuls jusqu'à tenir dans le panneau sans le faire défiler, sur ordinateur comme sur téléphone. Le panneau ne grandit pas, la scène reste visible. Sur un téléphone tenu en largeur, les épreuves les plus chargées réduisent un peu la scène.
+
+### Golfouille
+- La fiche du club qui pouvait cacher la balle a disparu. Le détail de chaque club reste dans l'infobulle du bouton et dans l'aide.
+- L'avertissement de tir risqué ne prend plus qu'une petite ligne en haut de l'écran.
+- L'effet ne vient plus tout seul quand on tire la fronde un peu de travers. Pendant qu'on tire la fronde, on garde Espace enfoncée, la visée et la force se bloquent, et on glisse la souris vers la droite ou la gauche pour régler l'effet. On lâche le clic pour taper. Les boutons d'effet restent là.
+
+### Goliathicus
+- Le combat dure environ une seconde et demie de plus. Les pièces restent face à face avant de se retourner, puis le résultat reste affiché plus longtemps.
+- Chaque pièce du combat porte un halo et une étiquette aux couleurs de sa maison, avec le nom du joueur, Toi pour sa propre pièce, et qui attaque ou défend. Le résumé du combat reprend aussi les couleurs.
+- Correction d'un vieux souci qui empêchait les couleurs des maisons de s'afficher sur les pièces. Chaque pièce, cachée ou dévoilée, est maintenant à la couleur de son propriétaire, ainsi que les fiches des joueurs.
+- Les bots et le chrono attendent la fin de l'animation avant de jouer le coup suivant, et l'écran de fin laisse le dernier combat se terminer.
+
+### Tests
+- Main Morte, toutes les épreuves mesurées à huit joueurs sur ordinateur, téléphone en hauteur et téléphone en largeur. Aucun défilement sauf deux épreuves en largeur sur téléphone, avec un reste de quelques lignes. Duel vérifié dans le navigateur, et seize parties complètes entre bots en classique et en tournoi, toutes classées sans égalité.
+- Golfouille, fronde testée dans le navigateur, un tirage de travers ne donne plus d'effet, Espace bloque la visée et règle l'effet de 100 pour cent à gauche à 100 pour cent à droite.
+- Goliathicus, combats observés dans le navigateur, vingt-quatre parties complètes entre IA sans erreur.
+- Copie propre décompressée testée sur tous les jeux modifiés.
+
+### Ce qu'il faut déposer sur GitHub
+- Les dossiers hands-over, golfouille et goliathicus, et le fichier README.md.
