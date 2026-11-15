@@ -26,7 +26,7 @@
   const LIE_KEY = { 2: "rough", 3: "sand", 6: "mud" };
   function lieFor(id, surf) { const c = CLUBS[id] || CLUBS.putter; const k = LIE_KEY[surf]; const l = k && c.lie ? c.lie[k] : null; return l ? { pow: l[0], err: l[1] } : { pow: 1, err: 1 }; }
   // paramètres de physique d'un coup, partagés par le serveur, l'aperçu du joueur et les bots
-  function shotFor(id, power, yaw, surf) { const c = CLUBS[id] || CLUBS.putter; const l = lieFor(id, surf); return { yaw, speed: c.speed * power * l.pow, loft: c.loft, soft: !!c.soft, windMul: c.windMul == null ? 1 : c.windMul }; }
+  function shotFor(id, power, yaw, surf, spin) { const c = CLUBS[id] || CLUBS.putter; const l = lieFor(id, surf); return { yaw, speed: c.speed * power * l.pow, loft: c.loft, soft: !!c.soft, windMul: c.windMul == null ? 1 : c.windMul, spin: Math.max(-1, Math.min(1, +spin || 0)) }; }
   // notes de 1 à 5 pour afficher la fiche d'un club
   function stars(c) {
     const pow = Math.max(1, Math.min(5, Math.round((c.speed / 46) * 5)));
@@ -79,20 +79,24 @@
       { id: "playMode", label: "Façon de jouer", type: "cards", default: "course", options: [
         { value: "course", label: "Course", icon: "🏃", desc: "Tout le monde tape en même temps. Arriver le premier compte." },
         { value: "tour", label: "Tour par tour", icon: "🔁", desc: "Le plus loin du trou joue. Plus calme et plus tactique." },
+        { value: "uncoup", label: "Trou en un", icon: "🎯", desc: "Un seul coup par joueur sur des trous courts et piégés. Dans le trou rapporte 10 points, sinon le plus près gagne. Parties express." },
+        { value: "equipe", label: "Équipe à deux", icon: "🤝", desc: "Les joueurs vont par deux et partagent une balle. Chacun joue un coup sur deux, à tour de rôle." },
       ] },
       { id: "scoring", label: "Décompte des points", type: "cards", default: "mixte", options: [
         { value: "course", label: "Arrivée", icon: "🥇", desc: "Seul l'ordre d'arrivée compte. Le premier dans le trou gagne 10 points, puis 7, 5, 3, 2 et 1. Un trou en un ajoute 5 points." },
         { value: "mixte", label: "Arrivée et coups", icon: "⚖️", desc: "Les mêmes points d'arrivée, plus 2 points par coup sous le par du trou et 5 points pour un trou en un. Rapide et précis est récompensé." },
         { value: "coups", label: "Coups", icon: "🔢", desc: "Pas de points, le moins de coups au total gagne, comme au vrai golf. L'ordre d'arrivée ne compte pas." },
       ] },
-      { id: "finishGrace", label: "Temps accordé après le premier arrivé", type: "chips", default: 30, options: [{ value: 15, label: "15 s" }, { value: 30, label: "30 s" }, { value: 45, label: "45 s" }, { value: 60, label: "1 min" }, { value: 90, label: "1 min 30" }], showIf: { playMode: "course" }, info: "Quand quelqu'un met sa balle dans le trou, les autres ont ce temps pour finir. Passé ce délai, le trou se termine." },
+      { id: "finishGrace", label: "Temps accordé après le premier arrivé", type: "chips", default: 30, options: [{ value: 15, label: "15 s" }, { value: 30, label: "30 s" }, { value: 45, label: "45 s" }, { value: 60, label: "1 min" }, { value: 90, label: "1 min 30" }], showIf: { playMode: ["course", "equipe"] }, info: "Quand quelqu'un met sa balle dans le trou, les autres ont ce temps pour finir. Passé ce délai, le trou se termine." },
       { id: "shotClock", label: "Temps pour jouer son coup", type: "chips", default: 30, options: [{ value: 20, label: "20 s" }, { value: 30, label: "30 s" }, { value: 45, label: "45 s" }, { value: 60, label: "1 min" }], showIf: { playMode: "tour" }, info: "Si tu hésites trop longtemps, le jeu tape un coup à ta place." },
+      { id: "ballHits", label: "Collisions entre balles", type: "bool", default: true, info: "Une balle qui en touche une autre la pousse, on peut chasser un adversaire du green. Une balle poussée dans l'eau revient sans pénalité." },
       { id: "maxStrokes", label: "Coups maximum par trou", type: "chips", default: 8, options: [6, 8, 10, 12], info: "Au-delà de ce nombre de coups la balle est ramassée et le trou est terminé pour toi." },
       { id: "unfinishedPenalty", label: "Coups ajoutés si le trou n'est pas fini", type: "chips", default: 2, options: [0, 1, 2, 3], info: "Ajoutés au total de coups d'un joueur qui ne finit pas un trou, uniquement dans le décompte aux coups." },
     ] },
     { category: "🗺️ Le terrain", rules: [
       { id: "biomes", label: "Biomes possibles", type: "multi", default: Course.BIOME_IDS.slice(), options: BIOME_OPTIONS, info: "Coche les décors que tu veux croiser. Chaque biome a ses pièges et ses obstacles." },
       { id: "biomeOrder", label: "Choix du biome à chaque trou", type: "chips", default: "hasard", options: [{ value: "hasard", label: "Au hasard" }, { value: "ordre", label: "Dans l'ordre de la liste" }, { value: "unique", label: "Le même partout" }], info: "Au hasard change à chaque trou. Dans l'ordre fait un voyage. Le même partout prend le premier biome coché." },
+      { id: "signed", label: "Trous signés", type: "chips", default: 1, options: [{ value: 0, label: "Aucun" }, { value: 1, label: "Quelques-uns" }, { value: 2, label: "Souvent" }], info: "Des trous avec une astuce posée à la main, un passage secret sous un moulin, une rivière à sauter, un portail caché. Ils se mélangent aux trous générés." },
       { id: "holeLength", label: "Longueur des trous", type: "chips", default: 0, options: [{ value: 0, label: "Variée" }, { value: 1, label: "Court" }, { value: 2, label: "Moyen" }, { value: 3, label: "Long" }], info: "Un trou court fait environ 45 mètres, un long plus de 100." },
       { id: "difficulty", label: "Difficulté du terrain", type: "range", min: 1, max: 5, step: 1, default: 3, info: "Plus c'est haut, plus le chemin est étroit et sinueux." },
       { id: "hills", label: "Relief", type: "range", min: 0, max: 3, step: 1, default: 2, format: (v) => ["plat", "doux", "vallonné", "montagneux"][v], info: "Les pentes font rouler la balle et changent les trajectoires." },
@@ -105,6 +109,7 @@
     { category: "🏌️ Les clubs", rules: [
       { id: "clubs", label: "Clubs autorisés", type: "multi", default: CLUB_ORDER.slice(), options: CLUB_ORDER.map((id) => ({ value: id, label: CLUBS[id].name, icon: CLUBS[id].icon, desc: CLUBS[id].desc })), info: "Cinq clubs, chacun avec sa personnalité. Le putter est toujours disponible pour ne jamais rester bloqué." },
       { id: "precision", label: "Précision des coups", type: "chips", default: 1, options: [{ value: 0.5, label: "Facile" }, { value: 1, label: "Normale" }, { value: 1.6, label: "Réaliste" }], info: "Facile réduit de moitié les erreurs de visée, réaliste les augmente." },
+      { id: "spin", label: "Effet sur la balle", type: "bool", default: true, info: "Tirer le lance-pierre en arc de cercle donne de l'effet, la balle s'incurve pour contourner un obstacle. Les boutons d'effet le règlent aussi." },
       { id: "aimAssist", label: "Aide à la visée", type: "chips", default: "zone", options: [{ value: "none", label: "Aucune" }, { value: "dots", label: "Direction seule" }, { value: "zone", label: "Zone d'arrivée" }, { value: "traj", label: "Trajectoire exacte" }], info: "Zone d'arrivée montre l'arc de la balle jusqu'à son atterrissage et un grand cercle où elle devrait finir, sans dire où elle rebondit. Une alerte prévient seulement quand un obstacle ou un danger est proche. Trajectoire exacte dessine tout le vol, les rebonds et les obstacles touchés, pour apprendre. Direction seule montre juste une flèche. Aucune est le mode des experts. Valable pour tous les joueurs." },
       { id: "cupSize", label: "Taille du trou", type: "chips", default: 1, options: [{ value: 1.5, label: "Grand" }, { value: 1, label: "Normal" }, { value: 0.75, label: "Petit" }], info: "Un grand trou avale aussi les balles un peu rapides." },
     ] },
@@ -144,11 +149,16 @@
   function holeFor(s, baseSeed, index) {
     const r = Course.mulberry32(Course.hashSeed(baseSeed + "#" + index));
     const biome = pickBiome(s, index, r);
-    const size = s.holeLength || [1, 2, 2, 3][Math.floor(r() * 4)];
+    const one = s.playMode === "uncoup";
+    const size = one ? 1 : s.holeLength || [1, 2, 2, 3][Math.floor(r() * 4)];
     const ang = r() * Math.PI * 2; const wmag = [0, 0.9, 2.1][s.wind || 0];
-    const features = {}; s.features.forEach((f) => { features[f] = true; });
-    const hole = Course.generateHole({ seed: baseSeed + "#" + index, biome, size, difficulty: s.difficulty, hills: s.hills, hazards: s.hazards, obstacles: s.obstacles, features, orbs: s.powersOn ? s.orbs : 0, wind: [Math.cos(ang) * wmag, Math.sin(ang) * wmag] });
-    hole.cupR = 0.52 * s.cupSize;
+    const features = {}; s.features.forEach((f) => { features[f] = true; }); if (one) ["bumpers", "windmills", "sliders", "boosts"].forEach((f) => { features[f] = true; });
+    const hole = Course.generateHole({ seed: baseSeed + "#" + index, biome, size, difficulty: s.difficulty, hills: s.hills, hazards: one ? Math.max(2, s.hazards) : s.hazards, obstacles: s.obstacles, features, orbs: s.powersOn && !one ? s.orbs : 0, wind: [Math.cos(ang) * wmag, Math.sin(ang) * wmag] });
+    hole.cupR = 0.52 * s.cupSize * (one ? 1.25 : 1);
+    // trou signé, une chance sur trois ou une sur deux, jamais sur le premier trou pour garder une mise en route simple
+    const sr = Course.mulberry32(Course.hashSeed(baseSeed + "#sig" + index)); const chance = [0, 0.33, 0.5][s.signed || 0] || 0;
+    if (!one && index > 0 && sr() < chance) { const kinds = Course.SIGNED.slice(); for (let t = 0; t < 3; t++) { const k = kinds.splice(Math.floor(sr() * kinds.length), 1)[0]; if (Course.signHole(hole, sr, k)) break; } }
+    if (one) hole.par = 1;
     return hole;
   }
   return { holeFor, SCORE, placePts, scoringText, SCHEMA, CLUBS, CLUB_ORDER, HEIGHT_NAMES, HEIGHT_DEFAULT, hasHeight, loftFor, lieFor, shotFor, stars, POWERS, POWER_ORDER, defaults, normalize, allRules };

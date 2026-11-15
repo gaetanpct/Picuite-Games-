@@ -100,6 +100,8 @@
       if (t === "forest") d.appendChild(el("span", { class: "tile__deco", text: "🌲" }));
       if (t === "marsh") d.appendChild(el("span", { class: "tile__deco", text: "🫧" }));
       if (t === "lake") d.appendChild(el("span", { class: "tile__deco tile__deco--wave", text: "〰️" }));
+      if (t === "hill") d.appendChild(el("span", { class: "tile__deco tile__deco--hill", text: "⛰️" }));
+      if (t === "bridge") { const land = (a, b2) => b.terrain[a] && b.terrain[a][b2] && b.terrain[a][b2] !== "lake" && b.terrain[a][b2] !== "void"; let hz = land(r, c - 1) && land(r, c + 1); const vv = vt.map(r, c), vl = vt.map(r, c + 1); if (vv.r !== vl.r) hz = !hz; d.classList.add(hz ? "tile--bridge-h" : "tile--bridge-v"); }
       if (ruins.has(k)) d.appendChild(el("span", { class: "tile__deco", text: "🪨" }));
       const p = posOf(v.r, v.c);
       d.style.cssText += `;left:${p.x}px;top:${p.y}px;width:${cell}px;height:${cell}px;font-size:${Math.round(cell * 0.5)}px`;
@@ -277,6 +279,9 @@
       set(state.mySetupCells, "mark--setup");
       if (view.setupSelected) set([view.setupSelected], "mark--select");
     }
+    // traces de pas
+    const FOOTS = { leger: "👣", botte: "🥾", lourd: "🦶", griffe: "🐾", sabot: "🐴" };
+    (state.board.prints || []).forEach((p) => { const v = vt.map(p.r, p.c); const mk = mark(layer, v.r, v.c, "mark--print mark--print-" + p.fam, FOOTS[p.fam] || "👣"); const h = HOUSES[state.players[p.owner].house % HOUSES.length]; mk.style.setProperty("--pc", h.color); });
     if (view.marks) view.marks.forEach((m) => { const v = vt.map(m.r, m.c); mark(layer, v.r, v.c, "mark--" + m.kind, m.text); });
   }
 

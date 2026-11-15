@@ -55,6 +55,8 @@
     return (p.phoenix ? p.cost * 0.6 : p.cost) + (p.mobile ? 1 : 0);
   }
 
+  // une pièce qui se défend sur une colline gagne un rang
+  function hillOf(view, p) { const b = view && view.state && view.state.board; return b && p && b.terrain[p.r] && b.terrain[p.r][p.c] === "hill" ? 1 : 0; }
   // résultat d'une attaque de a contre d : "win" | "lose" | "tie"
   function fight(a, d, mode, ba, bd) {
     const A = PIECES[a], D = PIECES[d];
@@ -290,7 +292,7 @@
     let ev = 0; let pWin = 0; let pLose = 0;
     const ba = bannerBoost(view, mine), bd = bannerBoost(view, target);
     const consider = (t, prob) => {
-      const r = fight(myT, t, view.mode, ba, t === "etendard" ? 0 : bd);
+      const r = fight(myT, t, view.mode, ba, (t === "etendard" ? 0 : bd) + hillOf(view, target));
       const vt = val(t, view.mode);
       if (r === "win") { ev += prob * (vt + 0.5 - (t === "bouffon" ? jesterCost(vm) : 0)); pWin += prob; }
       else if (r === "lose") { ev -= prob * (vm - (myT === "bouffon" ? jesterCost(vt) : 0)); pLose += prob; }
@@ -361,7 +363,7 @@
     const blocked = (r, c) => {
       if (r < 0 || c < 0 || r >= b.rows || c >= b.cols) return true;
       const t = b.terrain[r][c];
-      if (!(t === "plain" || t === "forest" || t === "marsh")) return true;
+      if (!(t === "plain" || t === "forest" || t === "marsh" || t === "hill" || t === "bridge")) return true;
       return (b.ruins || []).some(([a, d]) => a === r && d === c);
     };
     const m = new Map([[K(r0, c0), 0]]);
@@ -720,7 +722,7 @@
       const b = state.board;
       if (r < 0 || c < 0 || r >= b.rows || c >= b.cols) return true;
       const t = b.terrain[r][c];
-      if (!(t === "plain" || t === "forest" || t === "marsh")) return true;
+      if (!(t === "plain" || t === "forest" || t === "marsh" || t === "hill" || t === "bridge")) return true;
       return b.ruins.some(([a, d]) => a === r && d === c);
     };
     return view;
@@ -824,7 +826,7 @@
     Object.keys(d).forEach((t) => {
       const pr = d[t];
       if (pr <= 0) return;
-      const r = fight(myT, t, view.mode, bannerBoost(view, p), t === "etendard" ? 0 : bannerBoost(view, e));
+      const r = fight(myT, t, view.mode, bannerBoost(view, p), (t === "etendard" ? 0 : bannerBoost(view, e)) + hillOf(view, e));
       const vt = roleValue(view, t, false) + proxBonus(view, e, t);
       expV += pr * vt;
       if (r === "win") { ev += pr * (vt - (t === "bouffon" ? jesterCost(vm) : 0)); pWin += pr; }
@@ -1230,7 +1232,7 @@
         // issue incertaine, on pondère les trois mondes possibles
         const a = cd.atk; const e = cd.target; const d = dMap(view, mem, e);
         let pw = 0, pl = 0, pt = 0;
-        Object.keys(d).forEach((t) => { const f = fight(p.type, t, view.mode, bannerBoost(view, p), t === "etendard" ? 0 : bannerBoost(view, e)); if (f === "win") pw += d[t]; else if (f === "lose") pl += d[t]; else pt += d[t]; });
+        Object.keys(d).forEach((t) => { const f = fight(p.type, t, view.mode, bannerBoost(view, p), (t === "etendard" ? 0 : bannerBoost(view, e)) + hillOf(view, e)); if (f === "win") pw += d[t]; else if (f === "lose") pl += d[t]; else pt += d[t]; });
         const tot = pw + pl + pt || 1; pw /= tot; pl /= tot; pt /= tot;
         const worlds = [];
         if (pw > 0.001) worlds.push([pw, { moverId: p.id, to: cd.L, removeEnemy: e.id, exposeMover: !!state.settings.survivorsRevealed }]);

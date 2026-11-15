@@ -1448,3 +1448,52 @@ Chaque jeu a été regardé seul, accueil, salon et partie. Le but n'était pas 
 
 ### Ce qu'il faut déposer sur GitHub
 - Le dossier bouskaille, le dossier zoomalou et le fichier README.md.
+
+## Cinquante-troisième mise à jour, lot 10, tous les lots restants
+
+### Bouskaille
+- L'arène de l'usine à jouets est retirée. Il reste douze arènes. Un salon qui l'avait cochée l'oublie tout seul.
+
+### Golfouille
+- Effet sur la balle. Tirer le lance-pierre en arc de cercle donne de l'effet, la balle s'incurve du côté de l'arc, en l'air surtout et un peu en roulant. Deux boutons sous le tableau, ou Q et E au clavier, le règlent aussi par quart. L'aide à la visée dessine la courbe. Réglage pour le couper.
+- Collisions entre balles. Une balle qui en touche une autre la pousse, on peut chasser un adversaire du green. Une balle poussée dans l'eau, dans la lave ou hors du terrain revient sans pénalité, et une balle poussée dans le trou compte pour son propriétaire. L'aide à la visée en tient compte. Réglage pour les couper.
+- Trous signés, mélangés aux trous générés, jamais sur le premier trou. Cinq astuces posées à la main, chacune annoncée dans le chat au début du trou.
+  - Le Moulin Secret, un passage sous le moulin qui mène tout près du trou si l'on passe entre deux pales.
+  - La Rivière à Sauter, une rivière barre le trou, un tapis et un trampoline la font franchir d'un bond.
+  - Le Portail Caché, dans l'herbe haute près du départ, derrière un obstacle, il ramène presque au green.
+  - La Couronne de Bumpers, une seule porte dans l'axe d'un tapis laisse entrer la balle.
+  - L'Entonnoir Turbo, entre deux bumpers un tapis file droit vers le trou.
+  - Réglage Trous signés, aucun, quelques-uns ou souvent. Les passages secrets ne marchent que dans un sens.
+- Mode Trou en un. Un seul coup par joueur sur des trous courts et piégés avec moulins, bumpers et tapis. Dans le trou rapporte 10 points, sinon les plus proches marquent 6, 4, 3, 2 et 1. Le tableau de fin de trou donne la distance de chacun.
+- Mode Équipe à deux. Les joueurs vont par paires dans l'ordre du salon et partagent une balle, chacun joue un coup sur deux, le premier coup de chaque trou change de main. Le nom des deux équipiers s'affiche sur la balle, un bandeau prévient quand c'est à toi, et le bouton Taper attend ton tour. Les pouvoirs restent personnels et agissent sur la balle de l'équipe. Les deux équipiers reçoivent le même résultat.
+- Sons. Chaque club a son bruit de frappe, du gros claquement du driver au petit tic du putter. Un bruit de roulement suit la balle au sol selon sa vitesse. La balle qui tombe dans le trou fait un plop et un petit cliquetis avant la fanfare.
+- Caméra. Pendant le vol, elle prend du recul selon la hauteur de la balle puis revient en douceur.
+- Quatre décors de mini-golf avec des obstacles en carton et en bois peint. Fête foraine avec clowns en carton, tonneaux et ballons qui rebondissent. Château avec tours, chevaliers en bois et douves. Chambre d'enfant avec moquette, parquet, cubes, peluches et toupies. Bateau pirate avec pont en bois, canons, coffres, tonneaux et mât. Il y a désormais douze décors.
+
+### Goliathicus
+- Collines. Une colline au centre, deux en terrain sauvage, posées symétriquement. La pièce qui s'y défend gagne un rang. Les IA en tiennent compte.
+- Ponts étroits. Un pont traverse un lac entre deux passages. Une seule pièce y passe, on ne le prend que par ses deux bouts, et une pièce qui avance de plusieurs cases doit s'y arrêter.
+- Nouveau réglage Collines et ponts, activé par défaut pour les terrains classique, aléatoire et sauvage. La colline s'ajoute aussi à l'éditeur de terrain.
+- Traces de pas. Une pièce qui bouge laisse sur la case quittée l'empreinte de sa famille, visible par tous jusqu'au prochain tour de son propriétaire. Petits pas pour les rangs 1 à 3, bottes pour les rangs 4 à 6, pas lourds pour les géants, griffes pour le Dragon et le Phénix, sabots pour le Cavalier. Le Fantôme et la Chauve-souris ne laissent rien. Une infobulle explique chaque empreinte. Réglage pour les couper.
+
+### Mauvaises Langues
+- Classement au doigt. On attrape une pastille ou une ligne et on la lâche à sa place dans la liste, à la souris comme au doigt. Toucher un nom l'ajoute toujours à la suite, et les flèches restent là.
+- Dévoilement mis en scène. Les rangs du classement se retournent un par un du dernier au premier, avec un petit son à chaque rang et une fanfare pour le premier. Le temps de vote est allongé d'autant.
+- Variante Qui a classé. Tout le monde reçoit la même question et classe en secret. On montre un des classements avec la question, il faut deviner qui l'a fait. L'auteur vote aussi pour brouiller les pistes et marque pour chaque joueur trompé. Chaque joueur voit son classement montré autant de fois.
+- Trois ambiances prêtes à lancer, Soirée tranquille, Entre potes et Sans filtre. Elles règlent le piment, les leurres, les changements de question, les temps et les points d'un coup. Sur mesure rouvre tous les réglages détaillés. La Zone interdite reste un réglage à part, visible et désactivé par défaut.
+
+### Vertigogo
+- Planches inclinées de 10 à 35 degrés, avec une vraie collision par plan penché. Les pentes douces se montent en courant et certaines se balancent doucement. Les toits pentus et les toboggans, marqués de flèches blanches, font glisser vers la plateforme suivante. Leur couleur suit le monde, tuiles sur les toits, métal dans la cuisine, rose dans l'usine à jouets.
+- Raccourcis secrets. Une colonne de plots discrets saute une bonne partie d'un étage. Le seul indice est un petit cristal violet qui scintille au bord de la plateforme de départ. Le serveur vérifie chaque raccourci avec le pilote automatique et retire ceux qui ne sont pas faisables ou qui gênent la route normale.
+- Mode Cordée à deux. Les joueurs grimpent par paires dans l'ordre du salon, reliés par une corde élastique de six mètres et demi. Si l'un tombe il tire l'autre, celui qui reste sur une plateforme le retient et il fait le pendule en dessous. Trop d'écart et la corde lâche, un message le dit, il faut se rejoindre pour la reformer. Une cordée a fini quand ses deux grimpeurs sont au sommet, son temps est celui du second. Les bots attendent leur partenaire avant de prendre de l'avance.
+
+### Tests
+- Golfouille, parties complètes entre bots dans les quatre modes, trous signés vérifiés par un bot champion dans cinq décors, collisions, effet et équipes testés dans le navigateur.
+- Goliathicus, dix-huit parties complètes entre IA sur les terrains classique, aléatoire et sauvage, à deux et à quatre, sans erreur. Règle du pont vérifiée.
+- Mauvaises Langues, parties à trois navigateurs dans les deux façons de jouer, avec un classement fait entièrement au glisser.
+- Vertigogo, parcours vérifiés par le pilote sans échec dû aux planches, raccourcis gardés tous faisables, cordées de bots qui montent aussi vite que des grimpeurs seuls.
+- Bouskaille, matchs complets après le retrait de l'usine.
+- Copie propre décompressée testée sur tous les jeux modifiés.
+
+### Ce qu'il faut déposer sur GitHub
+- Les dossiers bouskaille, golfouille, goliathicus, mauvaises-langues et vertigogo, et le fichier README.md.

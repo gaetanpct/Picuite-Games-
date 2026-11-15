@@ -78,6 +78,9 @@
     // ombre ronde toujours posée sous le personnage, pour juger chaque atterrissage
     const blob = new T.Mesh(new T.CircleGeometry(0.42, 24), new T.MeshBasicMaterial({ color: 0x0a0c18, transparent: true, opacity: 0.4, depthWrite: false })); blob.rotation.x = -Math.PI / 2; blob.renderOrder = 8; R.scene.add(blob); G.blob = blob;
     G.cam.yaw = G.C.start.ry + Math.PI; G.cam.pitch = 0.42; G.cam.init = false; G.out = null; G.slow = 0; G.fallTop = null;
+    // cordées, une ligne qui pend entre les deux grimpeurs
+    (G.ropes || []).forEach((r) => R.scene.remove(r.line)); G.ropes = []; G.mateId = (msg.mate || {})[G.mine] || null; G.ropeOn = false; G.ropeSeen = false;
+    const doneR = {}; Object.keys(msg.mate || {}).forEach((a) => { const b = msg.mate[a]; if (doneR[a] || doneR[b]) return; doneR[a] = doneR[b] = 1; const geo = new T.BufferGeometry(); geo.setAttribute("position", new T.BufferAttribute(new Float32Array(16 * 3), 3)); const line = new T.Line(geo, new T.LineBasicMaterial({ color: 0xfff1c9 })); line.frustumCulled = false; R.scene.add(line); G.ropes.push({ a, b, line }); });
     // mode lave, une grande nappe rougeoyante qui monte depuis le bas
     if (G.lavaM) { R.scene.remove(G.lavaM); G.lavaM = null; }
     if (msg.lava) { const c = document.createElement("canvas"); c.width = c.height = 256; const g2 = c.getContext("2d"); g2.fillStyle = "#ff5a10"; g2.fillRect(0, 0, 256, 256); for (let i = 0; i < 60; i++) { g2.fillStyle = "rgba(" + (40 + Math.floor(Math.random() * 30)) + ",16,16," + (0.55 + Math.random() * 0.4) + ")"; g2.beginPath(); const x = Math.random() * 256, y = Math.random() * 256, r = 8 + Math.random() * 22; for (let a = 0; a < 7; a++) { const an = a / 7 * 6.28, d = r * (0.7 + Math.random() * 0.5); g2.lineTo(x + Math.cos(an) * d, y + Math.sin(an) * d); } g2.fill(); } for (let i = 0; i < 30; i++) { g2.fillStyle = "rgba(255,220,90,0.5)"; g2.beginPath(); g2.arc(Math.random() * 256, Math.random() * 256, 2 + Math.random() * 5, 0, 6.28); g2.fill(); }
@@ -125,7 +128,7 @@
     const arr = performance.now(); sn.arr = arr; const off = arr - sn.now; G.off.push(off); if (G.off.length > 40) G.off.shift(); G.clockOff = Math.min.apply(null, G.off) + 5; G.snaps.push(sn); if (G.snaps.length > 30) G.snaps.shift(); G.srvT = sn.t;
   }
   function onFix(d) {
-    const P = G.P; if (!P) return; P.x = d.x; P.y = d.y; P.z = d.z; P.vx = P.vy = P.vz = 0; P.st = "ground"; P.on = -1; P.hang = null; P.climb = null; P.coy = 0; P.buf = 0; if (G.W) G.W.cr = {}; G.good = { x: d.x, y: d.y, z: d.z }; G.lock = 0.3; G.pen = d.pen || 0; G.falls = d.falls || 0; G.fixAt = performance.now();
+    const P = G.P; if (!P) return; G.ropeOn = false; P.x = d.x; P.y = d.y; P.z = d.z; P.vx = P.vy = P.vz = 0; P.st = "ground"; P.on = -1; P.hang = null; P.climb = null; P.coy = 0; P.buf = 0; if (G.W) G.W.cr = {}; G.good = { x: d.x, y: d.y, z: d.z }; G.lock = 0.3; G.pen = d.pen || 0; G.falls = d.falls || 0; G.fixAt = performance.now();
     if (d.quiet) return; SND.respawn(); const f = $("#vg-fade"); f.classList.add("on"); setTimeout(() => f.classList.remove("on"), 120);
     if (d.why === "fall") { const m = G.msg && G.msg.mode; showFall(m === "classique" ? "Le filet te rattrape" : m === "chrono" ? "Retour au drapeau, plus 5 secondes" : "Retour au dernier drapeau"); }
     else if (d.why === "reset") showFall("Retour au dernier drapeau"); else if (d.why === "sync") showFall("Position corrigée");
@@ -189,7 +192,11 @@
       if (P.st === "air" && P.vy < 0) { if (G.fallTop == null) G.fallTop = P.y; if (!G.slowDone && G.slowOn !== false && G.fallTop - P.y > 14 && P.vy < -16) { G.slow = 1.0; G.slowDone = true; SND.whoosh && SND.whoosh(); } } else if (P.st !== "air") { G.fallTop = null; G.slowDone = false; }
       if (G.slow > 0) { G.slow -= dt; G.acc -= dt * 0.65; if (G.acc < 0) G.acc = 0; }
       if (G.out) { inp.mx = inp.mz = 0; inp.jump = false; }
-      while (G.acc >= S.DT && n < 5) { G.acc -= S.DT; n++; W.t = G.tPlay - G.acc; if (W.t < 0) W.t = 0; S.prepare(W); S.stepPlayer(W, P, inp, ev); }
+      // cordée, la position du partenaire telle qu'on la voit
+      let mq = null; if (G.mateId && !G.fin) { const mi = G.idx[G.mateId]; const q = interp(mi, serverNow() - 110); if (q && !q.fin) mq = q; }
+      while (G.acc >= S.DT && n < 5) { G.acc -= S.DT; n++; W.t = G.tPlay - G.acc; if (W.t < 0) W.t = 0; S.prepare(W); S.stepPlayer(W, P, inp, ev);
+        if (mq) { const L = Rules.ROPE.L; const d = Math.hypot(P.x - mq.x, P.y - mq.y, P.z - mq.z); if (d <= L * 1.05) { if (!G.ropeOn && G.ropeSeen) showFall("Cordée reformée"); G.ropeOn = true; G.ropeSeen = true; } else if (d > L * Rules.ROPE.BREAK && G.ropeOn) { G.ropeOn = false; showFall("La corde lâche, rejoins ton partenaire"); SND.crumble(); }
+          if (G.ropeOn) { const ex = S.ropePull(P, mq, [0, 1, 4, 5, 6].indexOf(mq.a) >= 0, L); if (ex > 0.6 && performance.now() - (G.ropeSnd || 0) > 700) { G.ropeSnd = performance.now(); SND.grab(); } } } }
       if (G.acc > 0.2) G.acc = 0;
     } else { G.acc = 0; W.t = G.tPlay; S.prepare(W); }
     handleEvents(ev, dt);
@@ -211,10 +218,22 @@
     if (G.phase === "play") { if (P.st === "ground" && Math.hypot(P.vx, P.vz) > 3.5 && P.on >= 0) { G.stepT -= dt; if (G.stepT <= 0) { G.stepT = 0.3; SND.step(); } if (G.frame % 6 === 0) FX.dust(P.x, P.y, P.z, P.vx * 0.1, P.vz * 0.1, 1); } const co = G.cos[G.mine]; if (co && co.trail && Math.hypot(P.vx, P.vz) > 1.5) FX.trail(co.trail, P.x, P.y, P.z, P.vx, P.vz); if (P.vy < -14 && G.frame % 2 === 0) FX.wind(P.x, P.y, P.z, P.vy); }
     // monde
     const PF = G.dbgFocus ? { x: G.dbgFocus.x, y: G.dbgFocus.y, z: G.dbgFocus.z, vx: 0, vy: 0, vz: 0, st: "ground", fx: 0, fz: 1 } : P;
+    drawRopes();
     G.view.update(W.t, W.cr, dt, { x: PF.x, y: PF.y, z: PF.z }, R.cam.position); G.view.setAltitude(PF.y, dt); FX.update(dt);
     updateMarker(P); updateHud(P, dt); camera(dt, PF); R.renderer.render(R.scene, R.cam); PicuiteGL.verify(R.renderer);
     // vent
     if (G.frame % 10 === 0 && G.phase === "play") SND.wind(clamp(P.y / (G.C.summitTop || 100) * 0.5 + Math.max(0, -P.vy) / 45, 0, 1));
+  }
+  function drawRopes() {
+    if (!G.ropes || !G.ropes.length) return; const L = Rules.ROPE.L;
+    G.ropes.forEach((r) => {
+      const A = G.actors[r.a], B = G.actors[r.b]; const fa = G.rank && G.rank.rows.find((x) => x.id === r.a), fb = G.rank && G.rank.rows.find((x) => x.id === r.b);
+      if (!A || !B || (fa && fa.fin != null) || (fb && fb.fin != null)) { r.line.visible = false; return; }
+      const p = A.group.position, q = B.group.position; const d = Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z); if (d > L * Rules.ROPE.BREAK) { r.line.visible = false; return; } r.line.visible = true;
+      const sag = Math.max(0, L - d) * 0.55; const arr = r.line.geometry.attributes.position.array;
+      for (let k = 0; k < 16; k++) { const t = k / 15; arr[k * 3] = p.x + (q.x - p.x) * t; arr[k * 3 + 1] = p.y + 1.0 + (q.y - p.y) * t - sag * 4 * t * (1 - t); arr[k * 3 + 2] = p.z + (q.z - p.z) * t; }
+      r.line.geometry.attributes.position.needsUpdate = true; r.line.material.color.setHex(d > L * 0.97 ? 0xffa040 : 0xfff1c9);
+    });
   }
   function animCode(P) { if (P.st === "hang") return 4; if (P.st === "climb") return 5; if (P.st === "air") return P.vy > 0.5 ? 2 : 3; return Math.hypot(P.vx, P.vz) > 0.9 ? 1 : 0; }
   function handleEvents(ev, dt) {
@@ -235,16 +254,16 @@
   // ---------- marqueur d'atterrissage ----------
   function updateMarker(P) {
     const m = G.marker; if (!m) return;
-    { const bl = G.blob; if (bl) { let bb = null; const R1 = 0.2; for (const b of G.W.boxes) { if (b.k === "crumble" && G.W.cr[b.i] && G.W.t > G.W.cr[b.i].t0 + b.cr.delay) continue; if (P.x + R1 > b.X0 && P.x - R1 < b.X1 && P.z + R1 > b.Z0 && P.z - R1 < b.Z1 && b.Y1 <= P.y + 0.15) { if (!bb || b.Y1 > bb.Y1) bb = b; } }
+    { const bl = G.blob; if (bl) { let bb = null; const R1 = 0.2; for (const b of G.W.boxes) { if (b.k === "ramp") { const q = S.rampTop(b, G.W.t, P.x, P.z); if (Math.abs(q.u) <= b.rp.len / 2 && Math.abs(q.v) <= b.rp.wid / 2 && q.h <= P.y + 0.15 && (!bb || q.h > bb.Y1)) bb = { Y1: q.h }; continue; } if (b.k === "crumble" && G.W.cr[b.i] && G.W.t > G.W.cr[b.i].t0 + b.cr.delay) continue; if (P.x + R1 > b.X0 && P.x - R1 < b.X1 && P.z + R1 > b.Z0 && P.z - R1 < b.Z1 && b.Y1 <= P.y + 0.15) { if (!bb || b.Y1 > bb.Y1) bb = b; } }
       if (!bb || P.st === "hang" || P.st === "climb") bl.visible = false; else { const h = Math.max(0, P.y - bb.Y1); bl.visible = h < 40; bl.position.set(P.x, bb.Y1 + 0.03, P.z); const s = 1 + Math.min(1.2, h / 10); bl.scale.set(s, s, 1); bl.material.opacity = Math.max(0.12, 0.42 - h / 40); } } }
     if (G.phase !== "play" || P.st === "ground" || P.st === "hang" || P.st === "climb") { m.visible = false; return; }
-    let best = null; const R0 = 0.35; for (const b of G.W.boxes) { if (b.k === "crumble" && G.W.cr[b.i] && G.W.t > G.W.cr[b.i].t0 + b.cr.delay) continue; if (P.x + R0 > b.X0 && P.x - R0 < b.X1 && P.z + R0 > b.Z0 && P.z - R0 < b.Z1 && b.Y1 <= P.y + 0.3) { if (!best || b.Y1 > best.Y1) best = b; } }
+    let best = null; const R0 = 0.35; for (const b of G.W.boxes) { if (b.k === "ramp") { const q = S.rampTop(b, G.W.t, P.x, P.z); if (Math.abs(q.u) <= b.rp.len / 2 && Math.abs(q.v) <= b.rp.wid / 2 && q.h <= P.y + 0.3 && (!best || q.h > best.Y1)) best = { Y1: q.h }; continue; } if (b.k === "crumble" && G.W.cr[b.i] && G.W.t > G.W.cr[b.i].t0 + b.cr.delay) continue; if (P.x + R0 > b.X0 && P.x - R0 < b.X1 && P.z + R0 > b.Z0 && P.z - R0 < b.Z1 && b.Y1 <= P.y + 0.3) { if (!best || b.Y1 > best.Y1) best = b; } }
     if (!best) { m.visible = false; return; } m.visible = true; m.position.set(P.x, best.Y1 + 0.04, P.z); const h = P.y - best.Y1; const s = 1 + clamp(h / 8, 0, 1.2); m.scale.set(s, 1, s); m.children[0].material.opacity = clamp(1.1 - h / 30, 0.55, 0.95);
   }
 
   // ---------- caméra ----------
   function rayBoxes(ox, oy, oz, dx, dy, dz, maxT) {
-    let tmin = maxT; for (const b of G.W.boxes) { if (b.k === "crumble" && G.W.cr[b.i] && G.W.t > G.W.cr[b.i].t0 + b.cr.delay) continue; let t0 = 0, t1 = tmin; const ax = [[ox, dx, b.X0, b.X1], [oy, dy, b.Y0, b.Y1], [oz, dz, b.Z0, b.Z1]]; let ok = true; for (const [o, d, lo, hi] of ax) { if (Math.abs(d) < 1e-8) { if (o < lo || o > hi) { ok = false; break; } } else { let a = (lo - o) / d, c = (hi - o) / d; if (a > c) { const tt = a; a = c; c = tt; } t0 = Math.max(t0, a); t1 = Math.min(t1, c); if (t0 > t1) { ok = false; break; } } } if (ok && t0 < tmin && t0 > 0) tmin = t0; }
+    let tmin = maxT; for (const b of G.W.boxes) { if (b.k === "ramp") continue; if (b.k === "crumble" && G.W.cr[b.i] && G.W.t > G.W.cr[b.i].t0 + b.cr.delay) continue; let t0 = 0, t1 = tmin; const ax = [[ox, dx, b.X0, b.X1], [oy, dy, b.Y0, b.Y1], [oz, dz, b.Z0, b.Z1]]; let ok = true; for (const [o, d, lo, hi] of ax) { if (Math.abs(d) < 1e-8) { if (o < lo || o > hi) { ok = false; break; } } else { let a = (lo - o) / d, c = (hi - o) / d; if (a > c) { const tt = a; a = c; c = tt; } t0 = Math.max(t0, a); t1 = Math.min(t1, c); if (t0 > t1) { ok = false; break; } } } if (ok && t0 < tmin && t0 > 0) tmin = t0; }
     return tmin;
   }
   function camera(dt, P) {
@@ -340,6 +359,9 @@
       { title: "S'accrocher et grimper", text: "Quand tu sautes vers un rebord un peu plus haut que toi, ton personnage s'y accroche. Avance ou appuie sur Espace pour te hisser dessus, ou appuie sur Maj pour lâcher. Tu peux aussi glisser sur le côté en restant accroché." },
       { title: "Les objets géants", text: "Tu grimpes sur des objets du quotidien devenus immenses, arbres, voitures, canapés, casseroles, citrouilles ou nuages. Chaque objet a sa propre forme, un arbre a un tronc très fin et des branches plus larges, une voiture a un toit et un capot. Il faut viser la bonne partie avant de sauter." },
       { title: "Les pièges", text: "Les plateformes mobiles vont et viennent, les dalles qui s'effritent tombent un instant après ton passage puis reviennent, les plots rouges, les trampolines, les lits et les champignons rouges te propulsent, les tapis roulants t'entraînent, la glace fait glisser et les barres rayées te balayent sans te blesser." },
+      { title: "Planches inclinées", text: "Certaines plateformes sont penchées, de 10 à 35 degrés, et quelques-unes se balancent doucement. Les pentes douces se montent en courant. Les toits pentus et les toboggans, marqués de flèches blanches, font glisser vers le bas, il faut se laisser porter jusqu'à la plateforme suivante." },
+      { title: "Raccourcis secrets", text: "Un petit cristal violet qui scintille au bord d'une plateforme cache un raccourci. À côté, des plots discrets montent en colonne et font sauter une bonne partie d'un étage. C'est risqué, un plot manqué et c'est la chute." },
+      { title: "La cordée à deux", text: "En mode Cordée, les joueurs grimpent par paires dans l'ordre du salon, reliés par une corde élastique de six mètres et demi. Si l'un tombe, il tire l'autre, mais celui qui reste sur une plateforme le retient et il fait le pendule en dessous. Trop d'écart et la corde lâche, il faut alors se rejoindre pour la reformer. La cordée a fini quand ses deux grimpeurs sont au sommet." },
       { title: "Les chutes", text: "En mode Classique tu retombes vraiment, et seul un filet au début de chaque zone te rattrape. Dans les autres modes, tu reprends au dernier drapeau atteint. Touche R pour y retourner à la main." },
       { title: "Les modes", text: "Classique, Points de passage, Contre la montre où chaque chute ajoute 5 secondes, et Parcours du jour, le même pour tout le monde aujourd'hui. Tous les parcours sont générés à partir d'une graine et vérifiés pour être faisables." },
       { title: "Le chat et les bots", text: "Tu peux jouer seul contre des bots de quatre niveaux. Dans le salon, choisis ton personnage, ton accessoire et ton effet. Ça ne change rien au jeu." },

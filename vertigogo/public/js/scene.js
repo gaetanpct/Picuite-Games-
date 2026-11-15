@@ -223,7 +223,7 @@
       });
       // boîtes statiques regroupées par monde
       const byZone = {};
-      C.boxes.forEach((b, bi) => { if (skip.has(bi) || b.mv || b.k === "crumble" || b.k === "spring") return; if (b.k === "spin") return; const key = b.zone + (b.k === "ice" ? "i" : b.k === "leaf" ? "l" : ""); (byZone[key] = byZone[key] || []).push(b); });
+      C.boxes.forEach((b, bi) => { if (skip.has(bi) || b.mv || b.k === "crumble" || b.k === "spring" || b.k === "ramp") return; if (b.k === "spin") return; const key = b.zone + (b.k === "ice" ? "i" : b.k === "leaf" ? "l" : ""); (byZone[key] = byZone[key] || []).push(b); });
       Object.keys(byZone).forEach((key) => {
         const list = byZone[key]; const zi = parseInt(key, 10); const theme = C.zones[zi].id; const M = mats(zi, theme); const ice = /i$/.test(key); const m = ice ? M.ice : /l$/.test(key) ? M.leaf : M;
         const top = new T.Mesh(mergeBoxes(list, "top", 3.2), m.top), side = new T.Mesh(mergeBoxes(list, "side", 3.2), m.side);
@@ -234,12 +234,23 @@
         if (skip.has(bi)) return;
         const theme = C.zones[b.zone].id; const M = mats(b.zone, theme); const w = b.x1 - b.x0, h = b.y1 - b.y0, d = b.z1 - b.z0;
         if (b.k === "spring" && b.look === "bouee") { const g = new T.Group(); const r = Math.min(w, d) / 2; const tor = new T.Mesh(new T.TorusGeometry(r * 0.72, r * 0.3, 10, 22), lam({ map: buoyTex() })); tor.rotation.x = Math.PI / 2; tor.castShadow = true; g.add(tor); const water = new T.Mesh(new T.CircleGeometry(r * 0.45, 18), lam({ color: 0x2ab0e8, transparent: true, opacity: 0.7 })); water.rotation.x = -Math.PI / 2; water.position.y = -0.05; g.add(water); g.position.set((b.x0 + b.x1) / 2, b.y1 - 0.12, (b.z0 + b.z1) / 2); this.root.add(g); this.dyn.mov.push({ b, mesh: g, c: g.position.clone() }); return; }
+        // planche inclinée, posée sur son axe et penchée de son angle
+        if (b.k === "ramp") { const rp = b.rp; const g = new T.Group(); g.position.set(rp.cx, rp.hc, rp.cz); g.rotation.y = Math.atan2(-rp.uz, rp.ux); const tilt = new T.Group(); g.add(tilt);
+          const col = { toits: [0xb5523b, 0x7a3326], chantier: [0xf0b429, 0x6a5a3a], maison: [0xc8956a, 0x8a5a3a], jouets: [0xff6ab0, 0xffd23d], cuisine: [0xd8dde6, 0x9aa4b8], hiver: [0xe8f6ff, 0x9fc8e8] }[b.look] || [0xc49a62, 0x8a6236];
+          const pl = new T.Mesh(new T.BoxGeometry(rp.len, rp.th, rp.wid), [lam({ color: col[1] }), lam({ color: col[1] }), lam({ color: col[0] }), lam({ color: col[1] }), lam({ color: col[1] }), lam({ color: col[1] })]); pl.position.y = -rp.th / 2; pl.castShadow = true; pl.receiveShadow = true; tilt.add(pl);
+          // lattes ou tuiles pour lire la pente, et des chevrons sur les pentes qui glissent
+          const n = Math.max(3, Math.round(rp.len / 0.6)); for (let k = 0; k < n; k++) { const s = new T.Mesh(new T.BoxGeometry(0.06, 0.03, rp.wid * 0.96), lam({ color: col[1] })); s.position.set(-rp.len / 2 + (k + 0.5) * rp.len / n, 0.015, 0); tilt.add(s); }
+          if (rp.steep) for (let k = 0; k < 2; k++) { const ch = new T.Mesh(new T.ConeGeometry(0.28, 0.5, 3), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 })); ch.rotation.z = Math.PI / 2; ch.rotation.x = -Math.PI / 2; ch.position.set(-rp.len * 0.15 + k * rp.len * 0.3, 0.05, 0); tilt.add(ch); }
+          tilt.rotation.z = rp.a0; this.root.add(g); (this.dyn.ramps = this.dyn.ramps || []).push({ b, tilt }); return; }
+        if (b.k === "spring" && b.look === "secret") { const g = new T.Group(); const base = cyl(0.78, 0.84, 0.3, 0x6a5a8a, 14); base.position.y = 0.15; const cap = cyl(0.6, 0.6, 0.06, 0x9a8ac8, 14); cap.position.y = 0.33; const coil = cyl(0.4, 0.4, 0.05, 0xb8a8e8, 12); coil.position.y = 0.36; g.add(base, coil, cap); g.position.set((b.x0 + b.x1) / 2, b.y0, (b.z0 + b.z1) / 2); g.userData = { cap, coil, t: 9, b }; this.root.add(g); this.dyn.spr.push(g); return; }
         if (b.k === "spin") { const g = gear(Math.min(w, d) / 2, h, theme === 11 ? 0xffc21a : 0x9aa4b8); g.position.set((b.x0 + b.x1) / 2, b.y0, (b.z0 + b.z1) / 2); this.root.add(g); this.dyn.spin.push({ g, b }); return; }
         if (b.k === "spring") { const g = new T.Group(); const base = cyl(0.8, 0.9, 0.14, 0xe8453c, 18); base.position.y = 0.07; const coil = cyl(0.5, 0.5, 0.1, 0xffffff, 16); coil.position.y = 0.18; const cap = cyl(0.62, 0.62, 0.08, 0xffd23d, 18, { emissive: 0x553b00 }); cap.position.y = 0.24; g.add(base, coil, cap); g.position.set((b.x0 + b.x1) / 2, b.y0, (b.z0 + b.z1) / 2); g.userData = { cap, coil, t: 9, b }; this.root.add(g); this.dyn.spr.push(g); return; }
         if (!b.mv && b.k !== "crumble") return;
         const kind = b.k === "crumble" ? M.crumble : M.mover; const mesh = new T.Mesh(new T.BoxGeometry(w, h, d), [kind.side, kind.side, kind.top, kind.side, kind.side, kind.side]); mesh.castShadow = true; mesh.receiveShadow = true; mesh.position.set((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, (b.z0 + b.z1) / 2); this.root.add(mesh);
         if (b.mv) this.dyn.mov.push({ b, mesh, c: mesh.position.clone() }); else this.dyn.cru.push({ b, mesh, c: mesh.position.clone() });
       });
+      // raccourcis secrets, un petit cristal qui scintille au bord de la plateforme de départ est le seul indice
+      this.dyn.gems = []; (C.secrets || []).forEach((sc) => { const gm = new T.Mesh(new T.OctahedronGeometry(0.22, 0), lam({ color: 0xc8a8ff, emissive: 0x6a3ab8 })); gm.position.set(sc.x, sc.y + 0.45, sc.z); this.root.add(gm); this.dyn.gems.push(gm); });
       // stalactites au-dessus des plaques de glace
       (C.drops || []).forEach((d) => { const g = new T.Group(); const ice = new T.Mesh(new T.ConeGeometry(d.r, 1.8, 7), lam({ color: 0xcdefff, emissive: 0x2a5a80, transparent: true, opacity: 0.9 })); ice.rotation.x = Math.PI; ice.position.y = 0.9; g.add(ice); const sh = new T.Mesh(new T.CircleGeometry(d.r * 1.3, 14), new T.MeshBasicMaterial({ color: 0x2a4a8a, transparent: true, opacity: 0, depthWrite: false })); sh.rotation.x = -Math.PI / 2; sh.position.set(d.x, d.y + 0.03, d.z); this.root.add(sh); g.position.set(d.x, d.y + d.h, d.z); this.root.add(g); this.dyn.drops.push({ g, d, sh }); });
       // barres tournantes
@@ -310,6 +321,8 @@
       for (const b of D.belts) { b.map.offset.x -= 2.3 * dt / 1.9; }
       if (focus && (this._lod = (this._lod || 0) + dt) > 0.3) { this._lod = 0; for (const e of this.objs) { const dx = e.o.px - focus.x, dy = e.o.py - focus.y, dz = e.o.pz - focus.z; e.g.visible = dx * dx + dy * dy + dz * dz < 170 * 170; } }
       for (const sp of D.spin) sp.g.rotation.y = -sp.b.spin * t;
+      if (D.ramps) for (const r of D.ramps) if (r.b.rp.oa) r.tilt.rotation.z = VgSim.rampA(r.b.rp, t);
+      if (D.gems) for (const gm of D.gems) { gm.rotation.y = t * 1.4; gm.material.emissiveIntensity = 0.6 + 0.4 * Math.sin(t * 5); }
       for (const q of D.drops) { const k = VgSim.dropState(q.d, t); const y = VgSim.dropY(q.d, t); q.g.visible = !(k > 0.98); if (y == null) { q.g.position.y = q.d.y + q.d.h + (k > 0.5 ? Math.sin(t * 50) * 0.04 : 0); q.sh.material.opacity = k > 0.5 ? 0.35 : 0; } else { q.g.position.y = y; q.sh.material.opacity = 0.55; } }
       for (const s of D.sw) { s.rotation.y = -(s.userData.s.w * t + s.userData.s.ph); }
       for (const g of D.spr) { const u = g.userData; u.t += dt; const k = Math.max(0, 1 - u.t / 0.35); const sq = 1 - 0.55 * k * Math.sin(u.t * 30 + 1); u.cap.scale.y = Math.max(0.3, sq); u.cap.position.y = 0.24 + (1 - sq) * -0.06 + (u.t < 0.35 ? 0.18 * Math.sin(u.t * 9) : 0); u.coil.scale.y = u.t < 0.35 ? 1 + 3 * Math.sin(u.t * 9) : 1; }

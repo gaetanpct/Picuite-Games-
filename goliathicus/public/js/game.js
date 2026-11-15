@@ -412,7 +412,10 @@
     if (!p) {
       if (hoverCell) {
         const t = st.board.terrain[hoverCell.r] && st.board.terrain[hoverCell.r][hoverCell.c];
-        const names = { lake: "💧 Lac — infranchissable.", forest: "🌲 Forêt — un défenseur qui gagne ici reste caché.", marsh: "🟤 Marais — une pièce qui s'y arrête dort un tour.", plain: "" };
+        const names = { lake: "💧 Lac — infranchissable.", forest: "🌲 Forêt — un défenseur qui gagne ici reste caché.", marsh: "🟤 Marais — une pièce qui s'y arrête dort un tour.", hill: "⛰️ Colline — la pièce qui s'y défend gagne un rang.", bridge: "🌉 Pont — on ne le prend que par ses deux bouts, et l'on s'y arrête.", plain: "" };
+        const pr = (st.board.prints || []).find((x) => x.r === hoverCell.r && x.c === hoverCell.c);
+        const FAM = { leger: "👣 Petits pas, une pièce de rang 1 à 3 vient de passer.", botte: "🥾 Bottes, une pièce de rang 4 à 6 vient de passer.", lourd: "🦶 Pas lourds, un géant de rang 7 ou plus vient de passer.", griffe: "🐾 Griffes, un Dragon ou un Phénix vient de passer.", sabot: "🐴 Sabots, un Cavalier vient de passer." };
+        if (pr && !pieceAt(hoverCell.r, hoverCell.c)) { box.classList.remove("hidden"); box.innerHTML = `<p>${esc(FAM[pr.fam] || "")}</p>`; return; }
         const isRuin = st.board.ruins.some(([a, b]) => a === hoverCell.r && b === hoverCell.c);
         const isRelic = st.board.relics.some((x) => x.r === hoverCell.r && x.c === hoverCell.c);
         const txt = isRuin ? "🪨 Ruines — infranchissables." : isRelic ? "🏆 Relique — chaque tour passé dessus rapporte un point." : names[t] || "";

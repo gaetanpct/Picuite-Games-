@@ -43,6 +43,21 @@
       col: { fairway: "#7f8cff", green: "#a8b2ff", rough: "#4a3ea0", sand: "#b8a8e8", water: "#0a0a20", ice: "#bfeaff", mud: "#4a3070", lava: "#ff4a8a", bouncy: "#5affd0", wall: "#2a2070" },
       hazards: { water: 3, bouncy: 2.5, ice: 2, sand: 1 }, obst: { asteroid: 6, crystal: 3 }, names: ["Orbite Basse", "Pluie d'Astéroïdes", "Anneau de Saturne", "La Lune Rieuse", "Trou Noir Poli"] },
   };
+  // les quatre décors de mini-golf, obstacles en carton et en bois peint
+  Object.assign(BIOMES, {
+    foraine: { id: "foraine", name: "Fête foraine", icon: "🎪", gravity: 9.8, minigolf: true, sky: ["#ff9a6a", "#ffe6c8"], fog: "#ffd6b8", sun: "#fff0d6", amb: "#ffd8c0",
+      col: { fairway: "#3fbf6a", green: "#5ad07e", rough: "#e8c070", sand: "#ffe08a", water: "#3ab8ff", ice: "#d9f4ff", mud: "#8a5a3a", lava: "#ff5a2a", bouncy: "#ff6ab0", wall: "#d0453a" },
+      hazards: { bouncy: 3, water: 2, sand: 2 }, obst: { clown: 4, barrel: 3, ballon: 2 }, names: ["Le Clown Farceur", "La Grande Roue", "Le Chamboule-tout", "Barbe à Papa", "Le Train Fantôme"] },
+    chateau: { id: "chateau", name: "Château", icon: "🏰", gravity: 9.8, minigolf: true, sky: ["#8ab4e8", "#e8eef8"], fog: "#d6e0f0", sun: "#fff4e0", amb: "#c8d8f0",
+      col: { fairway: "#4aa860", green: "#68c47a", rough: "#8a8a92", sand: "#d8c89a", water: "#2a6aa8", ice: "#c8eaff", mud: "#5a4a3a", lava: "#ff5a2a", bouncy: "#ff9ad5", wall: "#6a6a74" },
+      hazards: { water: 4, sand: 2, mud: 1 }, obst: { tour: 3, chevalier: 4, barrel: 1 }, names: ["Le Pont-Levis", "Les Douves", "La Tour du Dragon", "Salle du Trône", "Le Donjon"] },
+    chambre: { id: "chambre", name: "Chambre d'enfant", icon: "🧸", gravity: 9.8, minigolf: true, sky: ["#ffd6e8", "#fff8f0"], fog: "#fbe8f0", sun: "#fff8e8", amb: "#f8e0f0",
+      col: { fairway: "#5a8af0", green: "#7aa6ff", rough: "#c89a62", sand: "#f6e0a8", water: "#4ad0e8", ice: "#e0f6ff", mud: "#8a6a4a", lava: "#ff6a6a", bouncy: "#ffd23d", wall: "#a8784a" },
+      hazards: { bouncy: 4, sand: 2, water: 1 }, obst: { cube: 5, peluche: 2, toupie: 3 }, names: ["Le Coffre à Jouets", "Sous le Lit", "La Piste de Petites Voitures", "Le Tapis Volant", "Château de Cubes"] },
+    pirate: { id: "pirate", name: "Bateau pirate", icon: "🏴‍☠️", gravity: 9.8, minigolf: true, sky: ["#4ab0e8", "#e8f6ff"], fog: "#cfe8f6", sun: "#fff4d6", amb: "#c8e4f4",
+      col: { fairway: "#c8964e", green: "#dcaa62", rough: "#8a5a2e", sand: "#f0d890", water: "#1a7ac0", ice: "#d9f4ff", mud: "#5a3a20", lava: "#ff5a2a", bouncy: "#ff9ad5", wall: "#5a3a1e" },
+      hazards: { water: 4, sand: 2 }, obst: { canon: 3, coffre: 2, tonneau: 4, mat: 1 }, names: ["Le Pont du Capitaine", "La Planche", "Le Trésor Caché", "La Cale", "Terre en Vue"] },
+  });
   const BIOME_IDS = Object.keys(BIOMES);
 
   // Obstacles. r rayon, h hauteur de collision, e rebond.
@@ -51,6 +66,10 @@
     cactus: { r: 0.45, h: 2.7, e: 0.45 }, rock: { r: 1.1, h: 1.7, e: 0.35 }, snowman: { r: 0.7, h: 2.1, e: 0.4 },
     mushroom: { r: 0.9, h: 1.5, e: 1.1, bouncy: true }, lolli: { r: 0.4, h: 3, e: 0.6 }, cane: { r: 0.35, h: 2.7, e: 0.6 },
     asteroid: { r: 1.2, h: 2.4, e: 0.4 }, crystal: { r: 0.6, h: 2.6, e: 0.5 }, parasol: { r: 0.25, h: 2.4, e: 0.5 }, gummy: { r: 0.85, h: 1.3, e: 1.0, bouncy: true },
+    clown: { r: 0.5, h: 2.4, e: 0.5 }, barrel: { r: 0.6, h: 1.2, e: 0.45 }, ballon: { r: 0.8, h: 1.6, e: 1.05, bouncy: true },
+    tour: { r: 1.1, h: 4.5, e: 0.4 }, chevalier: { r: 0.4, h: 2.2, e: 0.5 },
+    cube: { r: 0.7, h: 1.4, e: 0.5 }, peluche: { r: 0.85, h: 1.6, e: 1.0, bouncy: true }, toupie: { r: 0.5, h: 1.2, e: 0.8 },
+    canon: { r: 0.6, h: 1.1, e: 0.4 }, coffre: { r: 0.7, h: 1.0, e: 0.4 }, tonneau: { r: 0.55, h: 1.2, e: 0.45 }, mat: { r: 0.35, h: 6, e: 0.5 },
   };
   const LENGTHS = { 1: 44, 2: 72, 3: 108 };
 
@@ -318,6 +337,59 @@
     return hole;
   }
 
+  // ---------- trous signés ----------
+  // Un trou généré reçoit une astuce posée à la main, avec son nom. Il y a toujours un chemin normal, l'astuce le raccourcit.
+  const SIGNED = ["moulin", "saut", "fond", "bumpers", "tunnel"];
+  function signHole(hole, rng, kind) {
+    const path = hole.path; const n = path.length; const L = hole.len; const at = (f) => path[Math.max(0, Math.min(n - 1, Math.round(f * (n - 1))))];
+    const dirAt = (f) => { const a = at(f - 0.02), b = at(f + 0.02); return Math.atan2(b.x - a.x, b.z - a.z); };
+    const cup = hole.cup; const clearAround = (x, z, r) => { hole.obstacles = hole.obstacles.filter((o) => Math.hypot(o.x - x, o.z - z) > o.r + r); hole.bumpers = hole.bumpers.filter((o) => Math.hypot(o.x - x, o.z - z) > o.r + r); };
+    const okDry = (x, z) => { const sf = Physics.surfAt(hole, x, z); return sf !== S.WATER && sf !== S.LAVA && sf !== S.VOID; };
+    const setSurf = (pred, sf) => { for (let j = 0; j < hole.nz; j++) for (let i = 0; i < hole.nx; i++) { const x = hole.ox + i + 0.5, z = hole.oz + j + 0.5; const k = j * hole.nx + i; if (hole.surf[k] !== S.VOID && pred(x, z)) hole.surf[k] = sf; } };
+    let info = null;
+    if (kind === "moulin" && L > 40) {
+      // passage secret sous le moulin, qui envoie près du trou
+      const f = 0.42 + rng() * 0.1; const c = at(f); const h = dirAt(f); const dx = Math.sin(h), dz = Math.cos(h);
+      clearAround(c.x, c.z, 4); hole.bars = hole.bars.filter((b) => Math.hypot(b.x - c.x, b.z - c.z) > 10); hole.portals = [];
+      hole.bars.push({ x: +c.x.toFixed(2), z: +c.z.toFixed(2), len: Math.min(2 * (c.w - 1.4), 8), thick: 0.55, omega: 1.3 + rng() * 0.5, phase: rng() * 6.28, r: 0.75, k: "windmill", secret: true });
+      const ex = cup.x - dx * 3.2, ez = cup.z - dz * 3.2; const end = okDry(ex, ez) ? { x: ex, z: ez } : { x: at(0.93).x, z: at(0.93).z };
+      hole.portals.push({ a: { x: +(c.x - dx * 1.4).toFixed(2), z: +(c.z - dz * 1.4).toFixed(2), ang: h }, b: { x: +end.x.toFixed(2), z: +end.z.toFixed(2), ang: h }, r: 0.7, secret: true, oneway: true });
+      info = { name: "Le Moulin Secret", tip: "Un passage sous le moulin mène tout près du trou, si tu passes pile au centre entre deux pales." };
+    } else if (kind === "saut" && L > 40) {
+      // une rivière barre le chemin, un tremplin permet de la franchir d'un bond
+      const f = 0.55 + rng() * 0.1; const c = at(f); const h = dirAt(f); const dx = Math.sin(h), dz = Math.cos(h);
+      setSurf((x, z) => { const u = (x - c.x) * dx + (z - c.z) * dz; return u > -1.6 && u < 1.6; }, S.WATER);
+      const t = at(f - 0.12); clearAround(t.x, t.z, 3); hole.tramps = hole.tramps.filter((q) => Math.hypot(q.x - t.x, q.z - t.z) > 6);
+      hole.tramps.push({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), r: 1.6, vy: 10.5, sig: true });
+      const pd = at(f - 0.19); hole.pads.push({ x: +pd.x.toFixed(2), z: +pd.z.toFixed(2), w: 2.6, l: 3.4, ang: +h.toFixed(3), power: 18 });
+      info = { name: "La Rivière à Sauter", tip: "La rivière coupe le trou. Le tapis et le trampoline au milieu font franchir l'eau d'un bond, le ricochet passe aussi." };
+    } else if (kind === "fond" && L > 60) {
+      // portail caché dans l'herbe haute derrière un obstacle, il ramène au green
+      const f = 0.18 + rng() * 0.08; const c = at(f); const h = dirAt(f); const side = rng() < 0.5 ? 1 : -1; const px = Math.cos(h) * side, pz = -Math.sin(h) * side;
+      const off = c.w + 2.2; const pxp = c.x + px * off, pzp = c.z + pz * off;
+      if (okDry(pxp, pzp)) {
+        hole.portals = hole.portals.filter(() => false);
+        const g = at(0.9); hole.portals.push({ a: { x: +pxp.toFixed(2), z: +pzp.toFixed(2), ang: h }, b: { x: +g.x.toFixed(2), z: +g.z.toFixed(2), ang: h }, r: 0.95, secret: true, oneway: true });
+        hole.obstacles.push({ k: Object.keys(BIOMES[hole.biome].obst)[0], x: +(c.x + px * (off - 1.6)).toFixed(2), z: +(c.z + pz * (off - 1.6)).toFixed(2), r: 0.5, h: 2.5, e: 0.5, bouncy: false, sc: 1, rot: 0 });
+        info = { name: "Le Portail Caché", tip: "Un portail dort dans l'herbe haute près du départ, derrière un obstacle. Il ramène presque au green." };
+      }
+    } else if (kind === "bumpers") {
+      // le green est gardé par une couronne de bumpers, une seule porte face au tapis turbo
+      const h = dirAt(0.94); const gap = h + Math.PI; clearAround(cup.x, cup.z, 4); hole.bumpers = hole.bumpers.filter((b) => Math.hypot(b.x - cup.x, b.z - cup.z) > 6);
+      for (let k = 0; k < 9; k++) { const a = gap + 0.55 + (k / 8) * (Math.PI * 2 - 1.1); const x = cup.x + Math.sin(a) * 3.4, z = cup.z + Math.cos(a) * 3.4; if (okDry(x, z)) hole.bumpers.push({ x: +x.toFixed(2), z: +z.toFixed(2), r: 0.6 }); }
+      const pd = { x: cup.x - Math.sin(h) * 6.5, z: cup.z - Math.cos(h) * 6.5 }; if (okDry(pd.x, pd.z)) hole.pads.push({ x: +pd.x.toFixed(2), z: +pd.z.toFixed(2), w: 2.2, l: 3, ang: +h.toFixed(3), power: 9 });
+      info = { name: "La Couronne de Bumpers", tip: "Le trou est entouré de bumpers. Une seule porte, dans l'axe du tapis, laisse entrer la balle." };
+    } else if (kind === "tunnel" && L > 50) {
+      // deux bumpers en entonnoir et un tapis qui file vers le trou
+      const f = 0.7 + rng() * 0.08; const c = at(f); const h = dirAt(f); const px = Math.cos(h), pz = -Math.sin(h); clearAround(c.x, c.z, 4);
+      [-1, 1].forEach((sd) => hole.bumpers.push({ x: +(c.x + px * sd * 1.6 - Math.sin(h) * 1.2).toFixed(2), z: +(c.z + pz * sd * 1.6 - Math.cos(h) * 1.2).toFixed(2), r: 0.75 }));
+      hole.pads.push({ x: +(c.x + Math.sin(h) * 1.5).toFixed(2), z: +(c.z + Math.cos(h) * 1.5).toFixed(2), w: 2.2, l: 4, ang: +Math.atan2(cup.x - c.x, cup.z - c.z).toFixed(3), power: 26 });
+      info = { name: "L'Entonnoir Turbo", tip: "Entre les deux bumpers, un tapis turbo file droit vers le trou. Il faut viser le goulot." };
+    }
+    if (!info) return false;
+    hole.signed = info; hole.name = info.name; delete hole._w; delete hole._flow; return true;
+  }
+
   // ---------- carte des distances pour les bots ----------
   function flowField(hole) {
     if (hole._flow) return hole._flow;
@@ -353,5 +425,5 @@
     h.surf = b64.dec(o.surf); return h;
   }
 
-  return { BIOMES, BIOME_IDS, OBST, mulberry32, hashSeed, generateHole, flowAt, flowField, encodeHole, decodeHole };
+  return { SIGNED, signHole, BIOMES, BIOME_IDS, OBST, mulberry32, hashSeed, generateHole, flowAt, flowField, encodeHole, decodeHole };
 });

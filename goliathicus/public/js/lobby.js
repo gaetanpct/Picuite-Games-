@@ -127,7 +127,7 @@
 
   let decorTool = "lake";
   const DECOR_TOOLS = [
-    { v: "lake", label: "💧 Lac" }, { v: "forest", label: "🌲 Forêt" }, { v: "marsh", label: "🟤 Marais" }, { v: "plain", label: "🧽 Gomme" },
+    { v: "lake", label: "💧 Lac" }, { v: "forest", label: "🌲 Forêt" }, { v: "marsh", label: "🟤 Marais" }, { v: "hill", label: "⛰️ Colline" }, { v: "plain", label: "🧽 Gomme" },
   ];
 
   function renderRule(rule, s, host, n) {

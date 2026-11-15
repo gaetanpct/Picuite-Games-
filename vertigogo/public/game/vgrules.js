@@ -9,16 +9,17 @@
         { value: "points", label: "Points de passage", icon: "🚩", desc: "Des drapeaux jalonnent la montée. Après une chute, tu reprends au dernier drapeau atteint." },
         { value: "chrono", label: "Contre la montre", icon: "⏱️", desc: "Même règle que les points de passage, mais chaque chute ajoute 5 secondes à ton temps." },
         { value: "lave", label: "Le sol est de la lave", icon: "🌋", desc: "La lave monte depuis le bas à vitesse constante. Une chute ne coûte rien tant que ton point de reprise reste au-dessus de la lave, sinon tu es éliminé. Le premier au sommet gagne, sinon le dernier survivant." },
+        { value: "corde", label: "Cordée à deux", icon: "🪢", desc: "Les joueurs grimpent par deux, reliés par une corde de quelques mètres. Si l'un tombe, il tire l'autre, mais l'autre peut le retenir en restant sur une plateforme. On peut aussi faire le pendule pour atteindre un rebord lointain. Une cordée a fini quand ses deux grimpeurs sont au sommet." },
         { value: "jour", label: "Parcours du jour", icon: "📅", desc: "Le même parcours pour tout le monde aujourd'hui, avec des points de passage. Compare ton temps à celui des autres." },
       ] },
-      { id: "length", label: "Hauteur du parcours", type: "chips", default: "moyen", options: [{ value: "court", label: "Court" }, { value: "moyen", label: "Moyen" }, { value: "long", label: "Long" }], info: "Court, quatre zones. Moyen, six zones. Long, huit zones, tirées parmi les environnements cochés.", showIf: { mode: ["classique", "points", "chrono", "lave"] } },
+      { id: "length", label: "Hauteur du parcours", type: "chips", default: "moyen", options: [{ value: "court", label: "Court" }, { value: "moyen", label: "Moyen" }, { value: "long", label: "Long" }], info: "Court, quatre zones. Moyen, six zones. Long, huit zones, tirées parmi les environnements cochés.", showIf: { mode: ["classique", "points", "chrono", "lave", "corde"] } },
       { id: "lavaSpeed", label: "Vitesse de la lave", type: "chips", default: "normale", options: [{ value: "lente", label: "Lente" }, { value: "normale", label: "Normale" }, { value: "rapide", label: "Rapide" }], info: "Lente, la lave met environ dix minutes à atteindre le sommet. Normale, sept minutes. Rapide, cinq minutes. Elle attend vingt secondes avant de monter.", showIf: { mode: ["lave"] } },
-      { id: "diff", label: "Difficulté", type: "chips", default: "normal", options: [{ value: "facile", label: "Facile" }, { value: "normal", label: "Normale" }, { value: "difficile", label: "Difficile" }], info: "Change la taille des sauts et la vitesse des pièges. Tous les parcours restent faisables.", showIf: { mode: ["classique", "points", "chrono", "lave"] } },
-      { id: "seed", label: "Graine du parcours", type: "text", max: 20, default: "", placeholder: "Laisse vide pour un parcours au hasard", info: "Deux salons avec la même graine et les mêmes réglages jouent exactement le même parcours.", showIf: { mode: ["classique", "points", "chrono", "lave"] } },
+      { id: "diff", label: "Difficulté", type: "chips", default: "normal", options: [{ value: "facile", label: "Facile" }, { value: "normal", label: "Normale" }, { value: "difficile", label: "Difficile" }], info: "Change la taille des sauts et la vitesse des pièges. Tous les parcours restent faisables.", showIf: { mode: ["classique", "points", "chrono", "lave", "corde"] } },
+      { id: "seed", label: "Graine du parcours", type: "text", max: 20, default: "", placeholder: "Laisse vide pour un parcours au hasard", info: "Deux salons avec la même graine et les mêmes réglages jouent exactement le même parcours.", showIf: { mode: ["classique", "points", "chrono", "lave", "corde"] } },
       { id: "timeLimit", label: "Temps maximum", type: "range", min: 5, max: 30, step: 5, default: 15, unit: " min", info: "La partie s'arrête quand tout le monde a fini ou quand le temps est écoulé." },
     ] },
     { category: "🌆 Les environnements", rules: [
-      { id: "pool", label: "Environnements possibles", type: "multi", default: Cr.THEMES.map((t, i) => String(i)), options: Cr.NAMES.map((n, i) => ({ value: String(i), label: n, desc: Cr.BLURBS[i] })), info: "Les zones s'empilent toujours dans le même ordre, de la plage au pied de la tour jusqu'à l'espace tout en haut. Décoche celles que tu ne veux pas croiser.", showIf: { mode: ["classique", "points", "chrono", "lave"] } },
+      { id: "pool", label: "Environnements possibles", type: "multi", default: Cr.THEMES.map((t, i) => String(i)), options: Cr.NAMES.map((n, i) => ({ value: String(i), label: n, desc: Cr.BLURBS[i] })), info: "Les zones s'empilent toujours dans le même ordre, de la plage au pied de la tour jusqu'à l'espace tout en haut. Décoche celles que tu ne veux pas croiser.", showIf: { mode: ["classique", "points", "chrono", "lave", "corde"] } },
     ] },
   ];
   const allRules = () => SCHEMA.reduce((a, c) => a.concat(c.rules), []);
@@ -37,7 +38,9 @@
     if (!out.pool.length) out.pool = ["0"];
     return out;
   }
-  const MODES = { classique: "Classique", points: "Points de passage", chrono: "Contre la montre", lave: "Le sol est de la lave", jour: "Parcours du jour" };
+  const MODES = { classique: "Classique", points: "Points de passage", chrono: "Contre la montre", lave: "Le sol est de la lave", corde: "Cordée à deux", jour: "Parcours du jour" };
+  // corde de la cordée, longueur et point où elle lâche
+  const ROPE = { L: 6.5, BREAK: 2.2 };
   const ZONES = { court: 4, moyen: 6, long: 8 };
   // paramètres de génération à partir des réglages
   function courseOpts(s, dayLabel) {
@@ -48,5 +51,5 @@
   // lave qui monte, durée pour atteindre le sommet selon le réglage
   const LAVA = { lente: 600, normale: 420, rapide: 300 }; const LAVA_DELAY = 20;
   function lavaY(lava, t) { if (!lava) return -1e9; return lava.y0 + Math.max(0, t - lava.delay) * lava.v; }
-  return { SCHEMA, defaults, normalize, MODES, courseOpts, checkpoints, LAVA, LAVA_DELAY, lavaY };
+  return { ROPE, SCHEMA, defaults, normalize, MODES, courseOpts, checkpoints, LAVA, LAVA_DELAY, lavaY };
 });

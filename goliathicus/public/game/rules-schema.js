@@ -49,7 +49,9 @@
           info: "Classique = un grand lac central. Aléatoire = lacs, forêts et marais tirés au sort (toujours équitable). Sauvage = beaucoup de relief. Plaine = aucun obstacle. À la main = l'hôte pose lui-même les lacs, forêts et marais sur l'aperçu du plateau.",
         },
         { id: "customTerrain", label: "Décor à poser", type: "terrainEditor", default: [], showIf: { terrain: "custom" }, info: "Choisis un décor puis clique sur les cases du centre de l'aperçu du plateau. Chaque case posée est copiée par symétrie sur les autres côtés, pour que le plateau reste équitable. Un lac qui couperait le plateau en deux est refusé. Les reliques ne sont jamais posées sur un obstacle." },
-        { id: "terrainInfo", type: "legend", info: "🌲 Forêt, le défenseur qui gagne un combat ici reste caché.   🟤 Marais, une pièce qui s'y arrête dort un tour.   💧 Lac, infranchissable." },
+        { id: "heights", label: "Collines et ponts", type: "bool", default: true, showIf: { terrain: ["classic", "random", "wild"] }, info: "Une colline au centre (deux en sauvage) donne un rang de plus à la pièce qui s'y défend. Un pont étroit traverse un lac, on ne le prend que par ses deux bouts et on doit s'y arrêter. Des positions à tenir et des goulots à forcer." },
+        { id: "footprints", label: "Traces de pas", type: "bool", default: true, info: "Une pièce qui bouge laisse sur la case quittée une empreinte de sa famille, visible par tous jusqu'au prochain tour de son propriétaire. Petits pas, bottes, pas lourds, griffes ou sabots. Le fantôme et la chauve-souris ne laissent rien." },
+        { id: "terrainInfo", type: "legend", info: "🌲 Forêt, le défenseur qui gagne un combat ici reste caché.   🟤 Marais, une pièce qui s'y arrête dort un tour.   ⛰️ Colline, plus un au rang du défenseur.   🌉 Pont, une seule pièce passe, dans l'axe.   💧 Lac, infranchissable." },
       ],
     },
     {
@@ -126,7 +128,7 @@
       if (r.type === "legend") return;
       let v = src[r.id];
       if (r.type === "terrainEditor") {
-        base[r.id] = Array.isArray(v) ? v.filter((x) => typeof x === "string" && /^\d{1,2},\d{1,2},(lake|forest|marsh|plain)$/.test(x)).slice(-300) : [];
+        base[r.id] = Array.isArray(v) ? v.filter((x) => typeof x === "string" && /^\d{1,2},\d{1,2},(lake|forest|marsh|hill|plain)$/.test(x)).slice(-300) : [];
         return;
       }
       if (v === undefined) return;

@@ -116,6 +116,10 @@
     let step = 0, stillSteps = 0, outcome = "rest", skips = 0, lastDry = { x: ball.x, z: ball.z };
     let portalCool = 0, airTime = 0, wasAir = true;
     const walls = opts.walls || [];
+    // effet, la balle tourne et sa trajectoire s'incurve vers la droite (positif) ou la gauche (négatif)
+    const spin = Math.max(-1, Math.min(1, +shot.spin || 0));
+    // balles des autres joueurs, posées sur le terrain, que l'on peut pousser
+    const others = (opts.balls || []).map((b) => ({ id: b.id, x: b.x, y: b.y, z: b.z, hit: false }));
     const orbs = opts.orbs || [];
     const rec = () => { frames.push(Math.round(x * 100), Math.round(y * 100), Math.round(z * 100)); };
     const ev = (k, extra) => { const e = { k, f: frames.length / 3 - 1, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2) }; if (extra) Object.assign(e, extra); events.push(e); };
@@ -147,7 +151,8 @@
         ax -= vx * drag; az -= vz * drag; ay -= vy * drag;
         ax += wind[0] * wm; az += wind[1] * wm;
         if (opts.gust) { ax += opts.gust[0] * wm; az += opts.gust[1] * wm; }
-      }
+        if (spin) { const hs = Math.sqrt(vx * vx + vz * vz); if (hs > 0.5) { const k = spin * 5 * Math.min(1.3, hs / 20); ax += (-vz / hs) * k; az += (vx / hs) * k; } }
+      } else if (spin && step * DT < 6) { const hs = Math.sqrt(vx * vx + vz * vz); if (hs > 1) { const k = spin * 1.6 * Math.min(1, hs / 8); ax += (-vz / hs) * k; az += (vx / hs) * k; } }
       // aimant du trou
       if (opts.magnet) {
         const dx = cup.x - x, dz = cup.z - z; const d = Math.sqrt(dx * dx + dz * dz);
@@ -253,12 +258,20 @@
         const wl = walls[q]; const r = hitSeg(wl.x1, wl.z1, wl.x2, wl.z2, 0.22, wl.h || 1.8, 0.45, 0, 0);
         if (r > 2.5) ev("hit", { o: "mur", v: +r.toFixed(1) });
       }
+      // balles des autres
+      for (let q = 0; q < others.length; q++) {
+        const o = others[q]; if (o.hit) continue; const dx = x - o.x, dz = z - o.z, dy = y - o.y; const need = BALL_R * 2;
+        if (dx * dx + dz * dz < need * need && Math.abs(dy) < 0.4) {
+          const d = Math.sqrt(dx * dx + dz * dz) || 1e-6; const cx = dx / d, cz = dz / d; const vn = vx * cx + vz * cz;
+          if (vn < -0.3) { o.hit = true; const kx = vn * cx * 0.92, kz = vn * cz * 0.92; vx -= vn * cx * 0.95; vz -= vn * cz * 0.95; x = o.x + cx * need; z = o.z + cz * need; ev("knock", { id: o.id, vx: +kx.toFixed(2), vz: +kz.toFixed(2), t: +(step * DT).toFixed(3) }); }
+        }
+      }
       // portails
       if (portalCool === 0) {
         const pts = hole.portals || [];
         for (let q = 0; q < pts.length; q++) {
           const p = pts[q];
-          for (let side = 0; side < 2; side++) {
+          for (let side = 0; side < (p.oneway ? 1 : 2); side++) {
             const a = side ? p.b : p.a, b = side ? p.a : p.b;
             const dx = x - a.x, dz = z - a.z;
             if (dx * dx + dz * dz < p.r * p.r && y - BALL_R < heightAt(hole, a.x, a.z) + 1.4) {

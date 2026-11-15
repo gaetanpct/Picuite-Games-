@@ -17,6 +17,12 @@
   const QUIET_TURNS_PER_PLAYER = 50;
 
   const K = (r, c) => r + "," + c;
+  // familles d'empreintes. Les volants et le fantôme ne laissent rien, l'escargot laisse déjà sa bave
+  const FOOT = { rat: "leger", lutin: "leger", nain: "leger", assassin: "leger", bouffon: "leger", messagere: "leger", bombardier: "leger", etendard: "leger", gladiateur: "leger",
+    garde: "botte", archere: "botte", chevalier: "botte", sentinelle: "botte", reflet: "botte",
+    troll: "lourd", sorcier: "lourd", roi: "lourd", golem: "lourd",
+    dragon: "griffe", phenix: "griffe", cavalier: "sabot" };
+  const footFamily = (t) => FOOT[t] || null;
 
   class GoliathEngine {
     constructor(config) {
@@ -132,7 +138,16 @@
     passable(r, c) {
       if (!this.inBounds(r, c)) return false;
       const t = this.terrain[r][c];
-      return (t === "plain" || t === "forest" || t === "marsh") && !this.ruins.has(K(r, c));
+      return (t === "plain" || t === "forest" || t === "marsh" || t === "hill" || t === "bridge") && !this.ruins.has(K(r, c));
+    }
+    // un pont ne se prend que dans son axis, celui où ses deux bouts touchent la terre
+    _bridgeAxis(r, c) {
+      const land = (a, b) => this.inBounds(a, b) && this.terrain[a][b] !== "lake" && this.terrain[a][b] !== "void";
+      return land(r, c - 1) && land(r, c + 1) ? "h" : "v";
+    }
+    _bridgeOk(r, c, dr, dc) {
+      if (!this.inBounds(r, c) || this.terrain[r][c] !== "bridge") return true;
+      return this._bridgeAxis(r, c) === "h" ? dr === 0 : dc === 0;
     }
     houseOf(pi) { return HOUSES[this.players[pi].house % HOUSES.length]; }
     pieceLabel(p) { const d = PIECES[p.type]; return d.icon + " " + d.name; }
@@ -340,12 +355,14 @@
         return "own";
       };
       DIRS.forEach(([dr, dc]) => {
+        // sur un pont, on ne sort que par les deux bouts
+        if (!this._bridgeOk(p.r, p.c, dr, dc)) return;
         if (def.long || def.reach) {
           const lim = def.long ? 99 : def.reach;
           let r = p.r + dr, c = p.c + dc, steps = 1;
           while (steps <= lim) {
-            const k = consider(r, c);
-            if (k === "empty") out.push([r, c]);
+            const k = this._bridgeOk(r, c, dr, dc) ? consider(r, c) : "block";
+            if (k === "empty") { out.push([r, c]); if (this.terrain[r][c] === "bridge") break; } // un pont est étroit, on s'y arrête
             else if (k === "enemy") { out.push([r, c]); break; }
             else if (k === "block" && def.fly && this.inBounds(r, c) && this.terrain[r][c] !== "void") { /* survol d'un obstacle */ }
             else break;
@@ -353,11 +370,11 @@
           }
         } else {
           const r = p.r + dr, c = p.c + dc;
-          const k = consider(r, c);
+          const k = this._bridgeOk(r, c, dr, dc) ? consider(r, c) : "block";
           if (k === "empty" || k === "enemy") out.push([r, c]);
           else if (def.ghost && this.inBounds(r, c) && this.terrain[r][c] !== "void" && !this.passable(r, c)) {
             const r2 = r + dr, c2 = c + dc;
-            const k2 = consider(r2, c2);
+            const k2 = this._bridgeOk(r2, c2, dr, dc) ? consider(r2, c2) : "block";
             if (k2 === "empty" || k2 === "enemy") out.push([r2, c2]);
           }
         }
@@ -415,6 +432,7 @@
       const pi = p.owner;
       const pl = this.players[pi];
       const from = { r: p.r, c: p.c };
+      this._footprint(p, from);
       const dist = Math.abs(r - p.r) + Math.abs(c - p.c);
       pl.stats.moves++;
       pl.stats.cells += dist;
@@ -440,6 +458,14 @@
       this._combat(p, target, from);
       if (p.alive && PIECES[p.type].slow) { p.frozen = Math.max(p.frozen, 2); if (this.terrain[p.r][p.c] !== "marsh") p.pubFreeze = false; }
       this._afterAction();
+    }
+
+    // Traces de pas, chaque famille laisse son empreinte sur la case quittée, jusqu'au prochain tour de son propriétaire
+    _footprint(p, from) {
+      if (this.settings.footprints === false || this.phase !== "playing") return;
+      const fam = footFamily(p.type); if (!fam) return;
+      this.prints = (this.prints || []).filter((x) => !(x.r === from.r && x.c === from.c));
+      this.prints.push({ r: from.r, c: from.c, fam, owner: p.owner });
     }
 
     // Force en combat, avec le bonus des étendards alliés voisins (jamais cumulé)
@@ -535,7 +561,8 @@
       else if (Dd.mirror) result = "tie"; // le Reflet renvoie le coup, les deux disparaissent
       else if (A.assassin && Dd.rank <= 9) result = "attWins"; // l'Assassin frappe n'importe qui sauf le Roi
       else {
-        const ra = this._effRank(att), rd = this._effRank(def);
+        // sur une colline, le défenseur gagne un rang
+        const ra = this._effRank(att), rd = this._effRank(def) + (this.terrain[at.r][at.c] === "hill" ? 1 : 0);
         result = ra > rd ? "attWins" : ra < rd ? "defWins" : "tie";
       }
       const attWon = ["defused", "flag", "ratKing", "attWins"].includes(result);
@@ -913,6 +940,7 @@
       let guard = 0;
       while (this.phase === "playing" && guard++ < 12) {
         const pl = this.players[this.current];
+        if (this.prints && this.prints.length) this.prints = this.prints.filter((x) => x.owner !== this.current);
         this.turnPowerUsed = false;
         this.messengerUsed = false;
         if (!this.hasLegalMove(this.current) && this.myPieces(this.current).some((x) => PIECES[x.type].mobile && x.frozen > 0)) {
@@ -1097,6 +1125,7 @@
         board: {
           kind: this.board.kind, rows: this.board.rows, cols: this.board.cols, terrain: this.terrain,
           ruins: [...this.ruins].map((s) => s.split(",").map(Number)),
+          prints: this.phase === "playing" ? (this.prints || []).map((x) => ({ r: x.r, c: x.c, fam: x.fam, owner: x.owner })) : [],
           relics: this.relics,
           portals: this.portals,
           arms: this.board.arms.map((a) => ({ seat: a.seat, side: a.side, cells: a.cells })),

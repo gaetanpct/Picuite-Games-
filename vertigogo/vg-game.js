@@ -19,12 +19,28 @@ function getCourse(opts) {
   const key = JSON.stringify([opts.seed, opts.zones, opts.diff, opts.pool]); const hit = cache.get(key); if (hit) return hit;
   let best = null;
   for (let salt = 0; salt < 12; salt++) {
-    const C = Cr.generate(Object.assign({}, opts, { salt })); const r = Pilot.validate(C);
-    if (r.ok) { best = { C, salt, ok: true, bad: 0 }; break; }
-    if (!best || r.bad.length < best.bad) best = { C, salt, ok: false, bad: r.bad.length };
+    let noSc = []; let C = Cr.generate(Object.assign({}, opts, { salt })); let r = Pilot.validate(C);
+    // un raccourci secret ne doit jamais gêner la route normale, on retire ceux qui sont près d'un lien en échec
+    if (!r.ok && C.secrets.length) {
+      const near = (sc, bi) => { const b = C.boxes[bi]; return sc.pads.concat([sc.from]).some((pi) => { const p = C.boxes[pi]; return Math.hypot((p.x0 + p.x1) / 2 - (b.x0 + b.x1) / 2, (p.z0 + p.z1) / 2 - (b.z0 + b.z1) / 2) < 9 && Math.abs(p.y1 - b.y1) < 9; }); };
+      const drop = C.secrets.filter((sc) => r.bad.some((x) => near(sc, C.nodes[x.k]) || near(sc, C.nodes[x.k + 1]))).map((sc) => sc.id);
+      if (drop.length) { noSc = drop; C = Cr.generate(Object.assign({}, opts, { salt, noSc })); r = Pilot.validate(C); }
+    }
+    if (r.ok) {
+      // chaque raccourci gardé doit être faisable par le pilote, plot par plot
+      const bad = C.secrets.filter((sc) => !secretOk(C, sc)).map((sc) => sc.id);
+      if (bad.length) { noSc = noSc.concat(bad); C = Cr.generate(Object.assign({}, opts, { salt, noSc })); }
+      best = { C, salt, noSc, ok: true, bad: 0 }; break;
+    }
+    if (!best || r.bad.length < best.bad) best = { C, salt, noSc, ok: false, bad: r.bad.length };
   }
   if (!best.ok) console.error("vertigogo, aucun parcours entièrement vérifié pour", key, "meilleur", best.bad, "liens douteux");
   cache.set(key, best); if (cache.size > 30) cache.delete(cache.keys().next().value); return best;
+}
+function secretOk(C, sc) {
+  const C2 = Object.assign({}, C, { nodes: [sc.from].concat(sc.pads, [sc.to]) });
+  for (let k = 0; k + 1 < C2.nodes.length; k++) { let good = false; for (const t0 of [0, 2.3]) { if (Pilot.checkLink(C2, k, t0, 14).ok) { good = true; break; } } if (!good) return false; }
+  return true;
 }
 const daily = new Map(); // date -> [{name, t}]
 function addDaily(day, name, t) { let a = daily.get(day); if (!a) { a = []; daily.set(day, a); if (daily.size > 5) daily.delete(daily.keys().next().value); } a.push({ name, t: r2(t) }); a.sort((x, y) => x.t - y.t); if (a.length > 10) a.length = 10; }
@@ -43,7 +59,7 @@ function start(room, api) {
   setImmediate(() => { try { prepare(room); } catch (e) { console.error("vertigogo prepare", e); } });
 }
 function prepare(room) {
-  const g = room.g; if (!g || g.timer) return; const r = getCourse(g.opts); const C = r.C; g.C = C; g.salt = r.salt; g.cpOrder = {}; C.cps.forEach((bi, i) => { g.cpOrder[bi] = i + 1; });
+  const g = room.g; if (!g || g.timer) return; const r = getCourse(g.opts); const C = r.C; g.C = C; g.salt = r.salt; g.noSc = r.noSc || []; g.cpOrder = {}; C.cps.forEach((bi, i) => { g.cpOrder[bi] = i + 1; });
   const sb = C.boxes[C.startBox]; const cx = (sb.x0 + sb.x1) / 2, cz = (sb.z0 + sb.z1) / 2;
   const n = room.players.length; room.players.forEach((p, i) => {
     const col = i % 4, row = Math.floor(i / 4); const x = cx + (col - 1.5) * 1.9, z = cz + (row - 0.5) * 2.2 + 0.0;
@@ -51,13 +67,15 @@ function prepare(room) {
     if (p.isBot) { const W = S.makeWorld(C); const P = S.newPlayer(x, 0, z, 0); P.on = C.startBox; pl.sim = { W, P, pilot: Pilot.create(W, C, p.level || "moyen", Math.random), delay: 0.6 + Math.random() * 1.6 }; }
     g.pl[p.id] = pl;
   });
+  // cordées, dans l'ordre du salon
+  g.mate = {}; if (g.mode === "corde") { const ids = room.players.map((p) => p.id); for (let i = 0; i + 1 < ids.length; i += 2) { g.mate[ids[i]] = ids[i + 1]; g.mate[ids[i + 1]] = ids[i]; } }
   if (g.mode === "lave") { const s = room.settings; g.lava = { y0: -4, delay: Rules.LAVA_DELAY, v: +((C.summitTop + 4) / (Rules.LAVA[s.lavaSpeed] || 420)).toFixed(4) }; }
   g.ready = true; g.phase = "count"; g.tCount = Date.now() + COUNT * 1000; g.tStart = g.tCount;
   toAll(room, "v:course", courseMsg(room)); toAll(room, "v:phase", { p: "count", n: COUNT }); toAll(room, "v:rank", rankMsg(room));
   g.timer = setInterval(() => { try { loop(room); } catch (e) { console.error("vertigogo loop", e); } }, 8); if (g.timer.unref) g.timer.unref();
 }
 function courseMsg(room) {
-  const g = room.g; const C = g.C; return { opts: Object.assign({}, g.opts, { salt: g.salt }), mode: g.mode, seed: g.seedLabel, day: g.day, tl: g.tl, summit: C.summitTop, lava: g.lava || null, players: room.players.map((p) => ({ id: p.id, name: p.name, color: p.color, bot: !!p.isBot })), cos: cosMap(room), left: Math.max(0, (g.tCount - Date.now()) / 1000) };
+  const g = room.g; const C = g.C; return { opts: Object.assign({}, g.opts, { salt: g.salt, noSc: g.noSc }), mode: g.mode, seed: g.seedLabel, day: g.day, tl: g.tl, summit: C.summitTop, lava: g.lava || null, mate: g.mate || {}, players: room.players.map((p) => ({ id: p.id, name: p.name, color: p.color, bot: !!p.isBot })), cos: cosMap(room), left: Math.max(0, (g.tCount - Date.now()) / 1000) };
 }
 function onDestroy(room) { if (room.g && room.g.timer) { clearInterval(room.g.timer); room.g.timer = null; } }
 
@@ -107,6 +125,10 @@ function finish(room, pl) {
 // ---------- classement ----------
 function rows(room) {
   const g = room.g; const list = room.players.map((p) => g.pl[p.id]).filter(Boolean);
+  // cordée, on classe la paire, son temps est celui du second arrivé et sa hauteur celle du plus bas
+  if (g.mode === "corde" && g.mate) { const key = (pl) => { const m = g.pl[g.mate[pl.id]]; if (!m) return { fin: pl.fin, best: pl.best, bestT: pl.bestT, out: pl.out }; return { fin: pl.fin && m.fin ? (pl.fin.t > m.fin.t ? pl.fin : m.fin) : null, best: Math.min(pl.best, m.best), bestT: Math.max(pl.bestT, m.bestT), out: null }; };
+    list.sort((A, B) => { const a = key(A), b = key(B); if (a.fin && b.fin) return (a.fin.t - b.fin.t) || (A.fin && B.fin ? A.fin.t - B.fin.t : 0); if (a.fin) return -1; if (b.fin) return 1; return (b.best - a.best) || (a.bestT - b.bestT) || (B.best - A.best); });
+    return list.map((pl, i) => ({ id: pl.id, mate: g.mate[pl.id] || null, place: i + 1, h: r2(pl.best), y: r2(pl.y), fin: pl.fin ? pl.fin.t : null, out: null, falls: pl.falls, pen: pl.pen, cp: pl.cpN, away: !!pl.away })); }
   list.sort((a, b) => { if (a.fin && b.fin) return a.fin.t - b.fin.t; if (a.fin) return -1; if (b.fin) return 1; if (!!a.out !== !!b.out) return a.out ? 1 : -1; if (a.out && b.out) return (b.out.t - a.out.t) || (b.best - a.best); return (b.best - a.best) || (a.bestT - b.bestT); });
   return list.map((pl, i) => ({ id: pl.id, place: i + 1, h: r2(pl.best), y: r2(pl.y), fin: pl.fin ? pl.fin.t : null, out: pl.out ? pl.out.t : null, falls: pl.falls, pen: pl.pen, cp: pl.cpN, away: !!pl.away }));
 }
@@ -132,7 +154,13 @@ function stepBots(room) {
   for (const p of room.players) {
     if (!p.isBot) continue; const pl = g.pl[p.id]; if (!pl || pl.fin || pl.out) continue; const { W, P, pilot } = pl.sim; W.t = e; S.prepare(W);
     let inp = { mx: 0, mz: 0, jump: false, drop: false }; if (e > pl.sim.delay) inp = Pilot.step(pilot, P);
+    // cordée, le bot attend son partenaire avant de prendre de l'avance, au plus six secondes
+    { const mid0 = g.mate && g.mate[p.id]; const m0 = mid0 && g.pl[mid0];
+      if (m0 && !m0.fin && P.st === "ground") { const d = Math.hypot(P.x - m0.x, P.y - m0.y, P.z - m0.z); const mProg = m0.sim ? m0.sim.pilot.cur : (pilot.nodeOf.has(m0.on) ? pilot.nodeOf.get(m0.on) : -1); if (d > Rules.ROPE.L * 0.5 && pilot.cur > mProg && P.y >= m0.y - 0.6) { pl.waitT = (pl.waitT || 0) + S.DT; if (pl.waitT < 6) inp = { mx: 0, mz: 0, jump: false, drop: false }; } else pl.waitT = 0; } else pl.waitT = 0; }
     S.stepPlayer(W, P, inp, []);
+    // cordée, le bot est relié à son partenaire
+    const mid = g.mate && g.mate[p.id]; const mp = mid && g.pl[mid];
+    if (mp && !mp.fin && !pl.fin) { const d = Math.hypot(P.x - mp.x, P.y - mp.y, P.z - mp.z); if (d <= Rules.ROPE.L * 1.05) pl.rope = true; else if (d > Rules.ROPE.L * Rules.ROPE.BREAK) pl.rope = false; if (pl.rope) S.ropePull(P, mp, mp.s !== 1, Rules.ROPE.L); }
     pl.x = P.x; pl.y = P.y; pl.z = P.z; pl.vy = P.vy; pl.ry = Math.atan2(P.fx, P.fz); pl.on = P.st === "ground" ? P.on : -1; pl.s = P.st === "ground" ? 0 : P.st === "hang" ? 2 : P.st === "climb" ? 3 : 1;
     const sp = Math.hypot(P.vx, P.vz); pl.a = P.st === "hang" ? 4 : P.st === "climb" ? 5 : P.st === "air" ? (P.vy > 0 ? 2 : 3) : sp > 1.2 ? 1 : 0; pl.vh = sp;
     progress(room, pl);

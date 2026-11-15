@@ -14,10 +14,12 @@
   // box : {id, x0,x1,y0,y1,z0,z1, k:"solid|ice|crumble|spring|mover|lift", mv:{ax,amp,per,ph}, cr:{delay,back}}
   // sweep : {x,y,z, len, w (rad/s), ph, h, th} barre qui tourne
   function makeWorld(course) {
-    const W = { t: 0, boxes: course.boxes.map((b) => Object.assign({}, b)), sweeps: course.sweeps || [], drops: course.drops || [], grav: course.grav || [], cr: {}, cell: 6, grid: new Map(), movers: [], dyn: [] };
+    const W = { t: 0, boxes: course.boxes.map((b) => Object.assign({}, b)), sweeps: course.sweeps || [], drops: course.drops || [], grav: course.grav || [], cr: {}, cell: 6, grid: new Map(), movers: [], dyn: [], ramps: [] };
     W.boxes.forEach((b, i) => {
       b.i = i; b.ox = 0; b.oy = 0; b.oz = 0; b.px = 0; b.py = 0; b.pz = 0; b.live = true;
       b.X0 = b.x0; b.X1 = b.x1; b.Y0 = b.y0; b.Y1 = b.y1; b.Z0 = b.z0; b.Z1 = b.z1;
+      // planche inclinée, gérée à part avec sa propre collision par plan penché
+      if (b.k === "ramp") { W.ramps.push(b); return; }
       if (b.mv) { W.movers.push(b); } else addGrid(W, b);
     });
     return W;
@@ -32,6 +34,32 @@
     for (let i = 0; i < W.movers.length; i++) {
       const b = W.movers[i]; b.px = b.ox; b.py = b.oy; b.pz = b.oz; const o = off(b.mv, t); b.ox = b.mv.ax === "x" ? o : 0; b.oy = b.mv.ax === "y" ? o : 0; b.oz = b.mv.ax === "z" ? o : 0;
       b.X0 = b.x0 + b.ox; b.X1 = b.x1 + b.ox; b.Y0 = b.y0 + b.oy; b.Y1 = b.y1 + b.oy; b.Z0 = b.z0 + b.oz; b.Z1 = b.z1 + b.oz;
+    }
+  }
+  // ---------- planches inclinées ----------
+  // rp {cx, cz, ux, uz (sens de la montée), len, wid, hc (hauteur du milieu), a0 (pente), oa, per, ph (balancement), th}
+  const STEEP = 0.42; // au-delà d'environ 24 degrés, on glisse
+  function rampA(rp, t) { return rp.oa ? rp.a0 + rp.oa * Math.sin(((t / rp.per) + rp.ph) * Math.PI * 2) : rp.a0; }
+  function rampTop(b, t, x, z) { const rp = b.rp; const u = (x - rp.cx) * rp.ux + (z - rp.cz) * rp.uz, v = -(x - rp.cx) * rp.uz + (z - rp.cz) * rp.ux; return { u, v, h: rp.hc + u * Math.tan(rampA(rp, t)) }; }
+  function stepRamps(W, P, ev) {
+    if (!W.ramps.length || P.st === "hang" || P.st === "climb") return; const R = K.R, H = K.H;
+    for (let i = 0; i < W.ramps.length; i++) {
+      const b = W.ramps[i]; if (P.x < b.X0 - 1 || P.x > b.X1 + 1 || P.z < b.Z0 - 1 || P.z > b.Z1 + 1 || P.y > b.Y1 + 2 || P.y + H < b.Y0 - 1) continue;
+      const rp = b.rp; const q = rampTop(b, W.t, P.x, P.z); const hl = rp.len / 2, hw = rp.wid / 2; if (Math.abs(q.u) > hl + R * 0.4 || Math.abs(q.v) > hw + R * 0.4) continue;
+      const onIt = P.on === b.i && P.st === "ground"; const feet = P.y; const inside = Math.abs(q.u) <= hl && Math.abs(q.v) <= hw;
+      const prevFeet = feet - Math.min(0, P.vy) * DT; // chute rapide, la planche ne doit pas être traversée en une image
+      if (P.vy <= 0.5 && feet <= q.h + (onIt ? 0.4 : 0.14) && (feet >= q.h - (onIt ? 0.45 : 0.3) || prevFeet >= q.h - 0.05) && inside) {
+        const impact = -P.vy; const was = P.st; P.y = q.h; P.vy = 0; P.st = "ground"; P.on = b.i; P.jumped = false; P.coy = K.COY;
+        if (was === "air" && impact > 3) ev.push({ e: "land", v: impact, x: P.x, y: P.y, z: P.z, k: "ramp" });
+        // pente forte, on glisse vers le bas
+        const a = rampA(rp, W.t); if (a > STEEP) { const g = K.G * Math.sin(a) * Math.cos(a) * 0.95; P.vx -= rp.ux * g * DT; P.vz -= rp.uz * g * DT; P.slip = true; }
+        return;
+      }
+      // corps dans l'épaisseur de la planche, on ressort par le côté le plus proche ou on se cogne la tête
+      if (feet < q.h - 0.3 && feet + H > q.h - rp.th && inside) {
+        if (P.vy > 0 && feet + H < q.h - rp.th + 0.35) { P.vy = 0; P.y = q.h - rp.th - H - 1e-3; continue; }
+        const du = hl - Math.abs(q.u), dv = hw - Math.abs(q.v); if (du < dv) { const s = q.u >= 0 ? 1 : -1; P.x += rp.ux * s * (du + R * 0.4); P.z += rp.uz * s * (du + R * 0.4); } else { const s = q.v >= 0 ? 1 : -1; P.x += -rp.uz * s * (dv + R * 0.4); P.z += rp.ux * s * (dv + R * 0.4); }
+      }
     }
   }
   function crumbleLive(W, b) { const c = W.cr[b.i]; if (!c) return true; const e = c.t0 + b.cr.delay; if (W.t < e) return true; if (W.t < e + b.cr.back) return false; delete W.cr[b.i]; return true; }
@@ -95,7 +123,7 @@
     const grounded = P.st === "ground";
     if (grounded) { P.coy = K.COY; P.tAir = 0; } else { P.coy = Math.max(0, P.coy - dt); P.tAir += dt; }
     // surface
-    let ice = false, leaf = false; if (grounded && P.on >= 0) { const b = W.boxes[P.on]; ice = b && b.k === "ice"; leaf = b && b.k === "leaf"; }
+    let ice = false, leaf = false; if (grounded && P.on >= 0) { const b = W.boxes[P.on]; ice = b && (b.k === "ice" || (b.k === "ramp" && rampA(b.rp, W.t) > STEEP)); leaf = b && b.k === "leaf"; }
     const wantL = Math.hypot(mx, mz); const sp = K.RUN * wantL;
     if (grounded) {
       const tvx = mx * K.RUN, tvz = mz * K.RUN; const a = ice ? (wantL > 0.05 ? K.ICE_ACC : K.ICE_DEC) : leaf ? (wantL > 0.05 ? K.LEAF_ACC : K.LEAF_DEC) : (wantL > 0.05 ? K.ACC : K.DEC);
@@ -143,6 +171,7 @@
       else if (stand.k === "crumble" && !W.cr[stand.i]) { W.cr[stand.i] = { t0: W.t }; ev.push({ e: "crumble", i: stand.i }); }
     } else if (P.st === "ground") { P.st = "air"; P.on = -1; }
     if (P.st === "air") P.on = -1;
+    stepRamps(W, P, ev);
 
     // ---- barres tournantes ----
     for (let i = 0; i < W.sweeps.length; i++) {
@@ -188,5 +217,19 @@
   function clonePlayer(P) { const c = Object.assign({}, P); if (P.hang) c.hang = Object.assign({}, P.hang); if (P.climb) c.climb = Object.assign({}, P.climb); return c; }
   function cloneWorldState(W) { return { t: W.t, cr: JSON.parse(JSON.stringify(W.cr)) }; }
 
-  return { dropY, dropState, DT, K, clamp, makeWorld, prepare, tick, newPlayer, stepPlayer, clonePlayer, cloneWorldState, near, solid, overlapAny };
+  // ---------- corde entre deux grimpeurs ----------
+  // q est la position du partenaire, firm s'il est posé ou accroché. Chacun corrige seulement son propre personnage,
+  // celui qui tient une plateforme ne bouge presque pas, celui qui pend fait le pendule autour de lui
+  function ropePull(P, q, firm, L) {
+    const dx = P.x - q.x, dy = P.y - q.y, dz = P.z - q.z; const d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d <= L || d < 1e-6) return 0;
+    const meFirm = P.st === "ground" || P.st === "hang" || P.st === "climb"; if (P.st === "hang" || P.st === "climb") return d - L;
+    const share = meFirm && !firm ? 0.06 : !meFirm && firm ? 1 : 0.5; const ex = d - L, nx = dx / d, ny = dy / d, nz = dz / d;
+    // corde élastique, elle rattrape une partie de l'écart à chaque pas et freine l'éloignement
+    const k = Math.min(1, 0.35 + ex * 0.25); P.x -= nx * ex * share * k; P.z -= nz * ex * share * k; if (!meFirm) P.y -= ny * ex * share * k;
+    const vr = P.vx * nx + (meFirm ? 0 : P.vy * ny) + P.vz * nz; if (vr > 0) { const kv = Math.min(1, 0.45 + ex * 0.3) * share; P.vx -= nx * vr * kv; P.vz -= nz * vr * kv; if (!meFirm) P.vy -= ny * vr * kv; }
+    // tiré vers le bas depuis le bord, on finit par décoller
+    if (meFirm && share < 1 && ex > 1.2 && ny > 0.6) { P.st = "air"; P.on = -1; }
+    return ex;
+  }
+  return { ropePull, rampA, rampTop, STEEP, dropY, dropState, DT, K, clamp, makeWorld, prepare, tick, newPlayer, stepPlayer, clonePlayer, cloneWorldState, near, solid, overlapAny };
 });

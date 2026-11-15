@@ -24,7 +24,7 @@
   }
 
   const SIDES_BY_COUNT = { 2: ["bottom", "top"], 3: ["bottom", "left", "right"], 4: ["bottom", "left", "top", "right"] };
-  const PASSABLE = { plain: true, forest: true, marsh: true };
+  const PASSABLE = { plain: true, forest: true, marsh: true, hill: true, bridge: true };
 
   function isPassableTerrain(t) { return !!PASSABLE[t]; }
 
@@ -117,7 +117,7 @@
     } else if (mode === "custom") {
       // décor choisi à la main par l'hôte, répété par symétrie pour rester équitable
       const neutralSet = new Set(neutral.map(([r, c]) => key(r, c)));
-      const ok = { lake: 1, forest: 1, marsh: 1, plain: 1 };
+      const ok = { lake: 1, forest: 1, marsh: 1, hill: 1, plain: 1 };
       (settings.customTerrain || []).forEach((entry) => {
         const [r, c, t] = String(entry).split(",");
         const rr = Number(r), cc = Number(c);
@@ -149,6 +149,35 @@
         setOrbit(r, c, t);
         if (t === "lake" && !connected()) setOrbit(r, c, prev);
       });
+    }
+
+    // --- collines et ponts ---
+    // une ou deux collines symétriques au centre, et des ponts étroits posés sur les lacs qui séparent deux passages
+    if (settings.heights !== false && mode !== "none" && mode !== "custom") {
+      const plainOrbits = []; const seen2 = new Set();
+      neutral.forEach(([r, c]) => { if (seen2.has(key(r, c))) return; const o = orbitOf(r, c); o.forEach(([a, b]) => seen2.add(key(a, b))); if (o.every(([a, b]) => terrain[a][b] === "plain")) plainOrbits.push([r, c]); });
+      shuffle(plainOrbits, rng);
+      const nHill = mode === "wild" ? 2 : 1; let placed = 0;
+      for (const [r, c] of plainOrbits) {
+        if (placed >= nHill) break;
+        // pas collée à un camp, pour que la colline soit un enjeu du centre
+        const nearArm = orbitOf(r, c).some(([a, b]) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dr, dc]) => { const x = a + dr, y = b + dc; return x >= 0 && y >= 0 && x < rows && y < cols && arms.some((arm) => arm.cells.some(([p, q]) => p === x && q === y)); }));
+        if (nearArm) continue; setOrbit(r, c, "hill"); placed++;
+      }
+      // ponts, une case de lac entre deux cases praticables alignées, avec du lac ou du vide de chaque côté
+      const isLake = (r, c) => r < 0 || c < 0 || r >= rows || c >= cols || terrain[r][c] === "lake" || terrain[r][c] === "void";
+      const okEnd = (r, c) => r >= 0 && c >= 0 && r < rows && c < cols && isPassableTerrain(terrain[r][c]);
+      const cand = []; const seen3 = new Set();
+      neutral.forEach(([r, c]) => {
+        if (terrain[r][c] !== "lake" || seen3.has(key(r, c))) return; orbitOf(r, c).forEach(([a, b]) => seen3.add(key(a, b)));
+        const h = okEnd(r, c - 1) && okEnd(r, c + 1) && isLake(r - 1, c) && isLake(r + 1, c);
+        const v = okEnd(r - 1, c) && okEnd(r + 1, c) && isLake(r, c - 1) && isLake(r, c + 1);
+        const h2 = !h && okEnd(r, c - 1) && c + 2 < cols && terrain[r][c + 1] === "lake" && okEnd(r, c + 2);
+        const v2 = !v && okEnd(r - 1, c) && r + 2 < rows && terrain[r + 1][c] === "lake" && okEnd(r + 2, c);
+        if (h || v) cand.push([[r, c]]); else if (h2) cand.push([[r, c], [r, c + 1]]); else if (v2) cand.push([[r, c], [r + 1, c]]);
+      });
+      shuffle(cand, rng);
+      cand.slice(0, mode === "wild" ? 2 : 1).forEach((cells) => cells.forEach(([r, c]) => setOrbit(r, c, "bridge")));
     }
 
     // --- reliques ---

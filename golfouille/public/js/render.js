@@ -100,6 +100,19 @@
     asteroid() { const g = new T.Group(); const m = mesh(G.ico(1, 1), mat("#6f6a8a"), 0, 1.2, 0); m.scale.set(1.2, 1, 0.9); g.add(m); return g; },
     crystal(sc, b) { const g = new T.Group(); [[0, 0, 1.3], [0.45, 0.2, 0.9], [-0.4, -0.2, 0.8]].forEach(([x, z, h]) => { const c = mesh(G.octa(0.45), mat(b.id === "volcan" ? "#ff7a3a" : "#5affd8", { emissive: col(b.id === "volcan" ? "#c03a10" : "#10a890"), emissiveIntensity: 0.6, flatShading: true }), x, h, z); c.scale.set(0.7, 1.9, 0.7); g.add(c); }); return g; },
     parasol() { const g = new T.Group(); g.add(mesh(G.cyl(0.05, 0.05, 2.4, 6), mat("#eeeeee"), 0, 1.2, 0)); g.add(mesh(G.cone(1.4, 0.6, 10), mat("#ff5a4a"), 0, 2.6, 0)); return g; },
+    // mini-golf, carton découpé et bois peint
+    clown() { const g = new T.Group(); const board = mesh(G.box(1.1, 2.2, 0.08), mat("#ffffff"), 0, 1.25, 0); g.add(board); g.add(mesh(G.sph(0.42, 10, 8), mat("#ffd0b0"), 0, 1.95, 0.08)); g.add(mesh(G.sph(0.12, 8, 6), mat("#ff2a2a"), 0, 1.92, 0.5)); g.add(mesh(G.cone(0.32, 0.6, 8), mat("#3a8aff"), 0, 2.55, 0.05)); g.add(mesh(G.box(0.95, 0.9, 0.12), mat("#ff4a6a"), 0, 1.05, 0.06)); [-0.3, 0.3].forEach((x) => g.add(mesh(G.sph(0.11, 6, 5), mat("#ffe14a"), x, 1.1, 0.14))); g.add(mesh(G.box(0.12, 0.25, 0.5), mat("#8a5a2e"), 0, 0.12, -0.2)); return g; },
+    barrel(sc, b) { const g = new T.Group(); g.add(mesh(G.cyl(0.55, 0.55, 1.2, 12), mat(b.id === "foraine" ? "#e8453c" : "#9a6a3a"), 0, 0.6, 0)); [0.2, 1.0].forEach((y) => { const r = mesh(new T.TorusGeometry(0.56, 0.04, 5, 16), mat("#3a3a3a"), 0, y, 0); r.rotation.x = Math.PI / 2; g.add(r); }); g.add(mesh(G.cyl(0.5, 0.5, 0.04, 12), mat("#ffffff"), 0, 1.21, 0)); return g; },
+    ballon() { const g = new T.Group(); const m = mesh(G.sph(0.8, 14, 10), mat("#ff5ab0", { roughness: 0.4 }), 0, 0.8, 0); g.add(m); g.add(mesh(new T.TorusGeometry(0.81, 0.06, 5, 20), mat("#ffe14a"), 0, 0.8, 0)); return g; },
+    tour() { const g = new T.Group(); g.add(mesh(G.cyl(1.0, 1.1, 4, 10), mat("#b8b0a4"), 0, 2, 0)); for (let i = 0; i < 8; i++) { const a = (i / 8) * 6.28; g.add(mesh(G.box(0.4, 0.5, 0.3), mat("#b8b0a4"), Math.cos(a) * 1.0, 4.2, Math.sin(a) * 1.0)); } g.add(mesh(G.cone(1.15, 1.6, 10), mat("#3a5ac8"), 0, 5.2, 0)); g.add(mesh(G.box(0.5, 0.9, 0.1), mat("#3a2a1a"), 0, 0.45, 1.05)); return g; },
+    chevalier() { const g = new T.Group(); const b = mesh(G.box(0.7, 1.9, 0.08), mat("#c8ccd4"), 0, 1.1, 0); g.add(b); g.add(mesh(G.sph(0.3, 8, 6), mat("#c8ccd4"), 0, 2.2, 0)); g.add(mesh(G.box(0.08, 0.5, 0.1), mat("#e8453c"), 0, 2.6, 0)); g.add(mesh(G.box(0.45, 0.6, 0.1), mat("#3a5ac8"), -0.2, 1.3, 0.08)); g.add(mesh(G.box(0.06, 1.5, 0.06), mat("#8a8a8a"), 0.42, 1.4, 0.06)); g.add(mesh(G.box(0.15, 0.2, 0.5), mat("#6a4a2a"), 0, 0.1, -0.2)); return g; },
+    cube(sc) { const g = new T.Group(); const cols = ["#ff4a4a", "#4a8aff", "#ffd23d", "#4ad06a"]; const c = cols[Math.floor((sc * 100) % 4)]; const m = mesh(G.box(1.2, 1.2, 1.2), mat(c), 0, 0.6, 0); g.add(m); g.add(mesh(G.box(0.7, 0.04, 0.7), mat("#ffffff"), 0, 1.21, 0)); return g; },
+    peluche() { const g = new T.Group(); g.add(mesh(G.sph(0.75, 12, 10), mat("#b07a4a"), 0, 0.7, 0)); g.add(mesh(G.sph(0.5, 12, 10), mat("#b07a4a"), 0, 1.5, 0)); [-0.32, 0.32].forEach((x) => g.add(mesh(G.sph(0.18, 8, 6), mat("#8a5a30"), x, 1.92, 0))); g.add(mesh(G.sph(0.2, 8, 6), mat("#e8c8a0"), 0, 1.42, 0.42)); return g; },
+    toupie() { const g = new T.Group(); const cn = mesh(G.cone(0.5, 0.7, 12), mat("#ff6a3a"), 0, 0.45, 0); cn.rotation.x = Math.PI; g.add(cn); g.add(mesh(G.cyl(0.5, 0.5, 0.2, 12), mat("#ffd23d"), 0, 0.85, 0)); g.add(mesh(G.cyl(0.06, 0.06, 0.5, 6), mat("#3a3a3a"), 0, 1.15, 0)); return g; },
+    canon() { const g = new T.Group(); g.add(mesh(G.box(0.9, 0.4, 0.7), mat("#6a4a2a"), 0, 0.3, 0)); const t = mesh(G.cyl(0.22, 0.3, 1.6, 10), mat("#2a2a2e"), 0, 0.7, 0.2); t.rotation.x = Math.PI / 2 - 0.25; g.add(t); [-0.45, 0.45].forEach((x) => { const w = mesh(G.cyl(0.3, 0.3, 0.12, 10), mat("#4a3020"), x, 0.3, 0); w.rotation.z = Math.PI / 2; g.add(w); }); return g; },
+    coffre() { const g = new T.Group(); g.add(mesh(G.box(1.2, 0.7, 0.8), mat("#8a5a2e"), 0, 0.35, 0)); const lid = mesh(G.cyl(0.4, 0.4, 1.2, 10, 1), mat("#9a6a3a"), 0, 0.72, 0); lid.rotation.z = Math.PI / 2; lid.scale.set(1, 1, 1); g.add(lid); g.add(mesh(G.box(0.2, 0.3, 0.05), mat("#ffd23d"), 0, 0.6, 0.42)); return g; },
+    tonneau() { const g = new T.Group(); g.add(mesh(G.cyl(0.5, 0.5, 1.2, 12), mat("#8a5a2e"), 0, 0.6, 0)); [0.2, 1.0].forEach((y) => { const r = mesh(new T.TorusGeometry(0.51, 0.04, 5, 16), mat("#3a3a3a"), 0, y, 0); r.rotation.x = Math.PI / 2; g.add(r); }); return g; },
+    mat() { const g = new T.Group(); g.add(mesh(G.cyl(0.3, 0.35, 6, 8), mat("#6a4a2a"), 0, 3, 0)); const sail = mesh(G.box(2.4, 2.2, 0.05), mat("#f4ead0"), 0, 3.8, 0.3); g.add(sail); g.add(mesh(G.box(0.8, 0.5, 0.03), mat("#1a1a1a"), 0, 5.6, 0)); return g; },
     gummy() { const g = new T.Group(); const m = mesh(G.sph(1, 12, 8), mat("#ff6aa8", { transparent: true, opacity: 0.85, roughness: 0.3 }), 0, 0.6, 0); m.scale.set(1, 0.7, 1); g.add(m); return g; },
   };
 
@@ -228,7 +241,7 @@
     });
     hole.portals.forEach((p) => {
       [p.a, p.b].forEach((e, i) => {
-        const g = new T.Group(); const c = i ? "#ff9a2a" : "#2ad0ff";
+        const g = new T.Group(); const c = p.secret ? (i ? "#9a7aff" : "#c8a8ff") : i ? "#ff9a2a" : "#2ad0ff";
         const ring = mesh(new T.TorusGeometry(p.r, 0.14, 8, 24), mat(c, { emissive: col(c), emissiveIntensity: 0.9 }), 0, p.r + 0.2, 0); g.add(ring);
         const disc = new T.Mesh(new T.CircleGeometry(p.r, 24), new T.MeshBasicMaterial({ color: col(c), transparent: true, opacity: 0.35, side: T.DoubleSide })); disc.position.y = p.r + 0.2; g.add(disc);
         g.position.set(e.x, groundY(e.x, e.z), e.z); g.rotation.y = e.ang + Math.PI / 2; holeGroup.add(g); movers.push({ kind: "portal", obj: ring, disc });
@@ -436,7 +449,9 @@
       const dx = f[(i + 1) * 3] - f[i * 3], dz = f[(i + 1) * 3 + 2] - f[i * 3 + 2];
       if (Math.hypot(dx, dz) > 0.5) { const want = Math.atan2(dx, dz); let d = want - camYaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; camYaw += d * Math.min(1, dt * 1.6); yaw = camYaw; }
     }
-    const horiz = camDist * Math.cos(camPitch), vert = camDist * Math.sin(camPitch);
+    // pendant le vol, la caméra prend du recul selon la hauteur de la balle, puis revient en douceur
+    const air = me.anim ? Math.max(0, ty - groundY(tx, tz) - 0.3) : 0; View.camExtra = lerp(View.camExtra || 0, Math.min(9, air * 0.8), Math.min(1, dt * (air > (View.camExtra || 0) ? 2.5 : 1.2)));
+    const cd = camDist + View.camExtra; const horiz = cd * Math.cos(camPitch), vert = cd * Math.sin(camPitch);
     tmpV.set(tx - Math.sin(yaw) * horiz, ty + vert + 0.6, tz - Math.cos(yaw) * horiz);
     const gy = groundY(tmpV.x, tmpV.z) + 1.0; if (tmpV.y < gy) tmpV.y = gy;
     camPos.lerp(tmpV, me.anim ? Math.min(1, dt * 4) : Math.min(1, dt * 7));

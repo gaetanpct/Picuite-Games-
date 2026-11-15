@@ -14,7 +14,7 @@
   const hexOf = (c) => COLORS[(c || 0) % COLORS.length].hex;
 
   const G = {
-    hole: null, holeIdx: -1, total: 0, st: null, samples: [], offset: 0, club: "driver", height: 2, clubManual: false, power: 0.65, yaw: 0, charging: false, chargeAt: 0, keys: {},
+    spin: 0, hole: null, holeIdx: -1, total: 0, st: null, samples: [], offset: 0, club: "driver", height: 2, clubManual: false, power: 0.65, yaw: 0, charging: false, chargeAt: 0, keys: {},
     viewInit: false, flown: false, needAim: false, peek: null, prevPhase: "", lastTurn: null, sentAt: 0, sheet: null, lastCount: -99, endInfo: null,
     prev: { seed: "", idx: 0, key: "", hole: null }, pred: null, predAt: 0, predKey: "", ranges: {}, rangeKey: "", suggest: null, aimDist: null, top: false, topZoom: 1, tap: null, lastInfo: "", lastMini: 0, lastSlow: 0, wasMoving: false, pointers: new Map(), pinch: 0,
   };
@@ -50,6 +50,7 @@
         el("div", { id: "hud-tip", class: "tip nopoint" }),
         el("div", { id: "hud-powers", class: "powers" }),
         el("div", { id: "hud-aim", class: "aiminfo nopoint" }),
+        el("div", { id: "spinbox", class: "spinbox" }, [el("button", { id: "spin-l", class: "round-btn round-btn--small", title: "Effet vers la gauche (touche Q)", text: "↶" }), el("span", { id: "spin-txt", class: "spin__txt", text: "Sans effet" }), el("button", { id: "spin-r", class: "round-btn round-btn--small", title: "Effet vers la droite (touche E)", text: "↷" })]),
         el("div", { class: "shootrow" }, [
           el("button", { id: "pw-minus", class: "round-btn round-btn--small", title: "Moins fort", text: "−" }),
           el("div", { id: "power", class: "power", title: "Force du coup, touche la jauge ou glisse dessus" }, [el("div", { id: "power-fill", class: "power__fill" }), el("div", { class: "power__ticks" }), el("div", { id: "power-txt", class: "power__txt" })]),
@@ -93,9 +94,10 @@
     const old = G.st; G.st = s;
     if (!G.hole || !G.viewInit) return;
     V.setPlayStart(s.playStart);
-    V.setPlayers(s.players.map((p) => ({ id: p.id, name: p.name, hex: hexOf(p.color), finished: p.finished, moving: p.moving, x: p.x, y: p.y, z: p.z })));
+    V.setPlayers(s.players.filter((p) => !p.mate).map((p) => ({ id: p.id, name: teamName(s, p), hex: hexOf(p.color), finished: p.finished, moving: p.moving, x: p.x, y: p.y, z: p.z })));
     V.setWalls(s.walls); V.setOrbs(s.orbs);
-    s.players.forEach((p) => { if (!p.moving) V.setBallRest(p.id, p); });
+    s.players.forEach((p) => { if (!p.moving && !p.mate) V.setBallRest(p.id, p); });
+    if (s.playMode === "equipe" && me0() && s.phase === "play") { const m0 = me0(); const k = m0.myTurn + "|" + m0.strokes; if (k !== G.lastTeamTurn) { G.lastTeamTurn = k; if (m0.myTurn && !m0.finished) { setBanner("À toi de jouer", "Ton équipier a joué, ce coup est pour toi", 1400); sound.tone(660, 0.15, "triangle", 0.1); } } }
     const me = myState();
     if (s.phase === "countdown" && !G.flown) { G.flown = true; V.startFlyover(Math.max(1500, s.phaseUntil - snow())); }
     if (s.phase !== G.prevPhase) {
@@ -123,9 +125,10 @@
   // hauteur utilisée pour un club, celle choisie pour le club en main et l'angle habituel pour les autres
   const heightOf = (clubId) => (S().heightControl === false || clubId !== G.club ? GR.HEIGHT_DEFAULT : G.height);
   function simShot(me, clubId, power, yaw) {
-    const club = GR.CLUBS[clubId]; const sh = GR.shotFor(clubId, power, yaw, GP.surfAt(G.hole, me.x, me.z)); if (me.fx.turbo) sh.speed = Math.min(sh.speed * 1.5, 60); if (me.fx.glu) sh.speed *= 0.5;
+    const club = GR.CLUBS[clubId]; const sh = GR.shotFor(clubId, power, yaw, GP.surfAt(G.hole, me.x, me.z), S().spin === false ? 0 : G.spin); if (me.fx.turbo) sh.speed = Math.min(sh.speed * 1.5, 60); if (me.fx.glu) sh.speed *= 0.5;
     const opts = { t0: (snow() - G.st.playStart) / 1000, wind: G.st.wind, walls: G.st.walls.map((w) => ({ x1: w.x1, z1: w.z1, x2: w.x2, z2: w.z2, h: w.h })), skip: !!club.skip, ice: me.fx.ice, magnet: me.fx.magnet, cupMul: 1 };
     if (S().powersOn) opts.orbs = G.st.orbs.filter((o) => !o.taken).map((o) => ({ id: o.id, x: o.x, z: o.z, taken: false }));
+    if (S().ballHits !== false) opts.balls = G.st.players.filter((p) => !p.mate && p.id !== ballIdOf(me) && !p.finished && !p.moving).map((p) => ({ id: p.id, x: p.x, y: p.y, z: p.z }));
     return GP.simulate(G.hole, { x: me.x, y: me.y, z: me.z }, sh, opts);
   }
   const reach = (me, res) => dist2(res.end.x, res.end.z, me.x, me.z);
@@ -178,21 +181,26 @@
   }
   function canAct() {
     const s = G.st, me = myState(); if (!s || !me || s.phase !== "play") return false;
-    if (me.finished || me.moving || V.isAnimating(me.id)) return false;
+    if (me.finished || me.moving || V.isAnimating(ballIdOf(me))) return false;
+    if (me.myTurn === false) return false;
     if (me.fx.frozenUntil && me.fx.frozenUntil > snow()) return false;
     if (s.playMode === "tour" && s.turnPid !== me.id) return false;
     return true;
   }
+  // nom affiché sur une balle, en équipe les deux prénoms
+  function teamName(s, p) { if (!s.teams) return p.name; const t = s.teams.find((x) => x.id === p.id); if (!t || t.mates.length < 2) return p.name; return t.mates.map((id) => { const q = s.players.find((x) => x.id === id); return q ? q.name : "?"; }).join(" et "); }
+  function me0() { return myState(); }
+  function ballIdOf(p) { return p ? p.mate || p.id : null; }
   function followId() {
     const me = myState(); const s = G.st; if (!s) return null;
-    if (me && !me.finished) return me.id;
+    if (me && !me.finished) return ballIdOf(me);
     if (G.peek) { const p = stPlayer(G.peek); if (p && !p.finished) return p.id; }
     const left = s.players.filter((p) => !p.finished && !p.left); if (!left.length) return me ? me.id : null;
     left.sort((a, b) => GC.flowAt(G.hole, a.x, a.z) - GC.flowAt(G.hole, b.x, b.z)); return left[0].id;
   }
   // prévision du coup sans l'erreur de frappe, avec distances et alertes
   function predict(me) {
-    const key = [G.club, G.height, S().aimAssist, G.power.toFixed(2), G.yaw.toFixed(3), me.x.toFixed(1), me.z.toFixed(1), me.fx.turbo, me.fx.glu, me.fx.ice, me.fx.magnet, G.st.walls.length, Math.floor(snow() / 1500)].join("|");
+    const key = [G.spin, G.club, G.height, S().aimAssist, G.power.toFixed(2), G.yaw.toFixed(3), me.x.toFixed(1), me.z.toFixed(1), me.fx.turbo, me.fx.glu, me.fx.ice, me.fx.magnet, G.st.walls.length, Math.floor(snow() / 1500)].join("|");
     if (key === G.predKey && G.pred) return G.pred;
     if (Date.now() - G.predAt < 80) return G.pred; G.predAt = Date.now(); G.predKey = key;
     try {
@@ -221,21 +229,40 @@
       if (me.finished) toast("Tu as déjà fini ce trou.", "info");
       else if (me.fx.frozenUntil > snow()) toast("Tu es gelé, patiente un instant.", "error");
       else if (G.st.playMode === "tour" && G.st.turnPid !== me.id) toast("Ce n'est pas encore ton tour.", "error");
+      else if (me.myTurn === false) toast("C'est à ton équipier de jouer ce coup.", "info");
       return;
     }
     G.sentAt = Date.now(); G.power = power; G.top = false;
-    Kit.socket.emit("golf:shoot", { club: G.club, yaw: G.yaw, power, height: S().heightControl === false ? GR.HEIGHT_DEFAULT : G.height });
+    Kit.socket.emit("golf:shoot", { club: G.club, yaw: G.yaw, power, spin: S().spin === false ? 0 : G.spin, height: S().heightControl === false ? GR.HEIGHT_DEFAULT : G.height });
+    setTimeout(() => { G.spin = 0; renderSpin(); }, 300);
   }
 
   // ---------- événements du jeu ----------
   function onShot(m) {
     V.playShot(m.pid, m.frames, m.events, m.t0, m.outcome);
-    const mine = m.pid === myId(); const club = GR.CLUBS[m.club];
-    sound.noise(0.14, mine ? 0.14 : 0.06, 0, 3200); sound.tone(club && club.speed > 30 ? 180 : 260, 0.1, "triangle", mine ? 0.09 : 0.04, 0, 90);
-    const p = stPlayer(m.pid); if (p && !mine) feed((p.name || "?") + " tape avec " + (club ? club.name : "un club"));
+    const meS = myState(); const mine = m.pid === myId() || (meS && meS.mate === m.pid); const club = GR.CLUBS[m.club];
+    if (m.knocked) { const by = stPlayer(m.knocked); setTimeout(() => { sound.tone(1250, 0.05, "triangle", 0.09); sound.tone(900, 0.06, "sine", 0.06, 0.03); if (mine) setBanner("Bousculée", (by ? by.name : "Quelqu'un") + " a poussé ta balle", 1600); }, Math.max(0, m.t0 - (Date.now() + G.offset))); return; }
+    clubSound(m.club, mine ? 1 : 0.4);
+    const p = stPlayer(m.by || m.pid); if (p && m.by !== myId()) feed((p.name || "?") + " tape avec " + (club ? club.name : "un club") + (m.spin ? ", avec de l'effet" : ""));
     G.sentAt = Date.now();
     if (mine) setTimeout(() => shotBanner(m), Math.max(300, (m.dur || 1) * 1000 + 250));
   }
+  // chaque club a son bruit de frappe
+  function clubSound(id, v) {
+    if (id === "driver") { sound.noise(0.09, 0.2 * v, 0, 4200); sound.tone(110, 0.16, "triangle", 0.12 * v, 0, 60); sound.tone(1600, 0.03, "square", 0.04 * v); }
+    else if (id === "iron") { sound.noise(0.07, 0.15 * v, 0, 3000); sound.tone(880, 0.05, "triangle", 0.08 * v); sound.tone(220, 0.08, "sine", 0.06 * v, 0, 120); }
+    else if (id === "wedge") { sound.noise(0.12, 0.12 * v, 0, 1400); sound.tone(300, 0.1, "sine", 0.08 * v, 0, 180); }
+    else if (id === "ricochet") { sound.tone(600, 0.14, "sawtooth", 0.05 * v, 0, 1400); sound.noise(0.06, 0.1 * v, 0, 3600); }
+    else { sound.tone(1250, 0.035, "triangle", 0.09 * v); sound.tone(620, 0.05, "sine", 0.04 * v, 0.01); }
+  }
+  // bruit de roulement, des grains de bruit tant qu'une balle roule au sol
+  function rollTick() {
+    if (!G.hole || !G.st || G.st.phase !== "play") return; const meB = ballIdOf(myState());
+    Object.keys(V.balls || {}).forEach((id) => { const p = V.ballPos(id); if (!p || !V.isAnimating(id)) { delete G.rollPrev[id]; return; } const q = G.rollPrev[id]; G.rollPrev[id] = p; if (!q) return; const sp = Math.hypot(p.x - q.x, p.z - q.z) / 0.12; const gy = V.groundY(p.x, p.z); if (p.y - gy > 0.35 || sp < 0.6) return; const v = (id === meB ? 1 : 0.3) * Math.min(1, sp / 10); sound.noise(0.13, 0.035 * v, 0, 260 + sp * 70); });
+  }
+  G.rollPrev = {}; setInterval(rollTick, 120);
+  function renderSpin() { const t = $("#spin-txt"); if (!t) return; const v = Math.round(G.spin * 100); t.textContent = v === 0 ? "Sans effet" : "Effet " + (v < 0 ? "gauche " : "droite ") + Math.abs(v) + " %"; const b = $("#spinbox"); if (b) b.style.display = S().spin === false ? "none" : ""; }
+  function setSpin(v) { G.spin = clamp(Math.round(v * 4) / 4, -1, 1); G.pred = null; renderSpin(); sound.click(); }
   function scoreName(strokes, par) {
     const d = strokes - par; if (strokes === 1) return "Trou en un !"; if (d <= -3) return "Albatros !"; if (d === -2) return "Aigle !"; if (d === -1) return "Birdie !"; if (d === 0) return "Par"; if (d === 1) return "Bogey"; if (d === 2) return "Double bogey"; return strokes + " coups";
   }
@@ -251,7 +278,7 @@
     if (e.k === "bounce") sound.tone(160 + (e.v || 3) * 22, 0.07, "sine", 0.07 * vol);
     else if (e.k === "splash") sound.noise(0.4, 0.13 * vol, 0, 1300);
     else if (e.k === "skip") sound.tone(520, 0.06, "sine", 0.05 * vol);
-    else if (e.k === "sunk") { if (e.mine) sound.win(); else { sound.tone(700, 0.12, "triangle", 0.07); sound.tone(940, 0.14, "triangle", 0.07, 0.1); } }
+    else if (e.k === "sunk") { sound.tone(320, 0.12, "sine", 0.12 * vol, 0, 110); [0.13, 0.2, 0.25].forEach((d, i) => sound.tone(1500 - i * 200, 0.025, "triangle", 0.05 * vol, d)); if (e.mine) setTimeout(() => sound.win(), 320); else { sound.tone(700, 0.12, "triangle", 0.07, 0.3); sound.tone(940, 0.14, "triangle", 0.07, 0.4); } }
     else if (e.k === "hit" || e.k === "bumper") sound.tone(e.k === "bumper" ? 520 : 130, 0.08, e.k === "bumper" ? "triangle" : "square", 0.06 * vol, 0, e.k === "bumper" ? 880 : 90);
     else if (e.k === "boost") sound.tone(380, 0.16, "sawtooth", 0.05 * vol, 0, 900);
     else if (e.k === "tramp") sound.tone(260, 0.22, "sine", 0.08 * vol, 0, 720);
@@ -289,7 +316,11 @@
     const rows = m.rows.slice().sort((a, b) => (sc === "coups" ? (a.eff - b.eff) || (b.done - a.done) : (b.pts - a.pts) || (b.done - a.done) || (a.place - b.place)));
     let head, body;
     const name = (r) => { const p = stPlayer(r.id) || {}; return el("td", {}, [el("span", { class: "dotc", style: { background: hexOf(p.color) } }), p.name || "?"]); };
-    if (sc === "coups") {
+    if (G.st && G.st.playMode === "uncoup") {
+      head = ["Joueur", "Résultat", "Points", "Total"];
+      const rr = m.rows.slice().sort((a, b) => b.pts - a.pts);
+      body = rr.map((r) => el("tr", {}, [name(r), el("td", { class: "r", text: r.done ? "Dans le trou !" : r.dist != null ? "à " + String(r.dist).replace(".", ",") + " m" : "perdue" }), el("td", { class: "r", text: "+" + r.pts }), el("td", { class: "r", text: String(r.total) })]));
+    } else if (sc === "coups") {
       head = ["Joueur", "Coups", "Par " + m.par, "Total des coups"];
       body = rows.map((r) => el("tr", {}, [name(r), el("td", { class: "r", text: r.done ? r.strokes + " · " + scoreName(r.strokes, m.par).replace(" !", "") : "abandon, " + r.eff + " comptés" }), el("td", { class: "r", text: sgn(r.vsPar) }), el("td", { class: "r", text: String(r.totalStrokes) })]));
     } else {
@@ -490,6 +521,8 @@
     if (!s || !me) { t.textContent = ""; return; }
     if (s.phase === "play" && me.finished) txt = me.capped ? "Balle ramassée. Touche un joueur du tableau pour le suivre." : "Trou terminé. Touche un joueur du tableau pour le suivre.";
     else if (s.phase === "play" && s.playMode === "tour" && s.turnPid !== me.id) { const p = stPlayer(s.turnPid); txt = p ? "Au tour de " + p.name + ". Prépare ta visée." : ""; }
+    else if (s.phase === "play" && me.myTurn === false) { const t = s.teams && s.teams.find((x) => x.id === me.id); const p = t && stPlayer(t.turn); txt = (p ? p.name : "Ton équipier") + " joue ce coup, le suivant sera pour toi."; }
+    else if (s.phase === "play" && s.playMode === "uncoup" && !me.finished) txt = "Un seul coup pour ce trou. Vise bien.";
     else if (s.phase === "play") txt = "";
     t.textContent = txt;
   }
@@ -514,29 +547,31 @@
       if (!slingEl) return; const svg = slingEl.firstChild; const [l1, l2, c] = svg.children; const off = 7;
       l1.setAttribute("x1", sl.bx - off); l1.setAttribute("y1", sl.by); l1.setAttribute("x2", px); l1.setAttribute("y2", py);
       l2.setAttribute("x1", sl.bx + off); l2.setAttribute("y1", sl.by); l2.setAttribute("x2", px); l2.setAttribute("y2", py);
-      c.setAttribute("cx", px); c.setAttribute("cy", py); const pc = slingEl.querySelector(".sling__pct"); pc.textContent = Math.round(G.power * 100) + " %"; pc.style.left = px + "px"; pc.style.top = py + "px";
+      c.setAttribute("cx", px); c.setAttribute("cy", py); const pc = slingEl.querySelector(".sling__pct"); pc.textContent = Math.round(G.power * 100) + " %" + (G.spin ? (G.spin < 0 ? " ↶" : " ↷") : ""); pc.style.left = px + "px"; pc.style.top = py + "px";
       slingEl.style.setProperty("--pw", G.power.toFixed(2)); slingEl.classList.toggle("sling--weak", sl.weak);
     };
     const slingStart = (e) => {
       if (!canAct() || G.top) return false; const me = myState(); const bp = V.ballPos(me.id) || me; const sp = V.project(bp.x, bp.y + 0.1, bp.z); const r = host.getBoundingClientRect();
       const bx = sp.x, by = sp.y; if (Math.hypot(e.clientX - r.left - bx, e.clientY - r.top - by) > Math.max(60, Math.min(r.width, r.height) * 0.09)) return false;
-      sl.on = true; document.body.classList.add("slinging"); sl.id = e.pointerId; sl.bx = bx; sl.by = by; sl.r = r; sl.weak = true; sl.yaw0 = G.yaw; sl.p0 = G.power; slingEl.classList.remove("hidden"); slingDraw(bx, by); return true;
+      sl.on = true; document.body.classList.add("slinging"); sl.id = e.pointerId; sl.bx = bx; sl.by = by; sl.r = r; sl.weak = true; sl.yaw0 = G.yaw; sl.p0 = G.power; sl.s0 = G.spin; sl.pts = []; slingEl.classList.remove("hidden"); slingDraw(bx, by); return true;
     };
     const slingMove = (e) => {
       const r = sl.r; const px = e.clientX - r.left, py = e.clientY - r.top; const dist = Math.hypot(px - sl.bx, py - sl.by); const full = Math.max(120, Math.min(r.width, r.height) * 0.24);
       sl.weak = dist < 14; G.power = clamp(dist / full, 0.05, 1); const me = myState();
       const pt = V.pick(e.clientX, e.clientY); const bp = V.ballPos(me.id) || me;
       if (pt && Math.hypot(bp.x - pt.x, bp.z - pt.z) > 0.15) { let yaw = Math.atan2(bp.x - pt.x, bp.z - pt.z); if (me.fx.invert) { const cy = V.camState().yaw; yaw = cy - (yaw - cy); } G.yaw = yaw; }
+      // effet, le tirage fait en arc de cercle se mesure par l'écart du chemin à la ligne droite
+      if (S().spin !== false) { sl.pts.push([px, py]); if (sl.pts.length > 60) sl.pts.shift(); if (dist > 40) { const ux = (sl.bx - px) / dist, uy = (sl.by - py) / dist; const rx = -uy, ry = ux; let dev = 0; sl.pts.forEach(([qx, qy]) => { const along = (qx - sl.bx) * -ux + (qy - sl.by) * -uy; if (along < dist * 0.15 || along > dist * 0.9) return; const d = (qx - sl.bx) * rx + (qy - sl.by) * ry; if (Math.abs(d) > Math.abs(dev)) dev = d; }); const sp = clamp(Math.round((dev / (dist * 0.35)) * 4) / 4, -1, 1); if (sp !== G.spin && Math.abs(dev) > 12) { G.spin = sp; G.pred = null; renderSpin(); } else if (Math.abs(dev) <= 12 && G.spin !== sl.s0) { G.spin = sl.s0; G.pred = null; renderSpin(); } } }
       G.aimDist = null; slingDraw(sl.bx + (px - sl.bx) * Math.min(1, full * 1.15 / Math.max(1, dist)), sl.by + (py - sl.by) * Math.min(1, full * 1.15 / Math.max(1, dist)));
     };
-    const slingEnd = (shoot) => { if (!sl.on) return; sl.on = false; document.body.classList.remove("slinging"); slingEl.classList.add("hidden"); if (shoot && !sl.weak) { sound.click(); fire(G.power); } else { G.yaw = sl.yaw0; G.power = sl.p0; } };
+    const slingEnd = (shoot) => { if (!sl.on) return; sl.on = false; document.body.classList.remove("slinging"); slingEl.classList.add("hidden"); if (shoot && !sl.weak) { sound.click(); fire(G.power); } else { G.yaw = sl.yaw0; G.power = sl.p0; G.spin = sl.s0 || 0; renderSpin(); } };
     G.slingCancel = () => slingEnd(false); G.slingOn = () => sl.on;
     host.addEventListener("contextmenu", (e) => { if (sl.on) { e.preventDefault(); slingEnd(false); } });
     // on écoute avant tout le reste, pour pouvoir attraper la balle même sous une étiquette ou une bulle d'aide
     window.addEventListener("pointerdown", (e) => {
       if (document.body.dataset.screen !== "game") return;
       if (sl.on) { if (e.button === 2) { e.preventDefault(); slingEnd(false); } return; }
-      const t = e.target; if (e.button !== 0 || (t && t.closest && t.closest("button, input, select, textarea, a, .clubrail, .shootrow, .clubcard, #hud-mini, .modal, .tuto, .kit-chat, [role=dialog]"))) return;
+      const t = e.target; if (e.button !== 0 || (t && t.closest && t.closest("button, input, select, textarea, a, .clubrail, .shootrow, .spinbox, .clubcard, #hud-mini, .modal, .tuto, .kit-chat, [role=dialog]"))) return;
       if (slingStart(e)) { e.preventDefault(); e.stopPropagation(); }
     }, true);
     window.addEventListener("pointermove", (e) => { if (sl.on && e.pointerId === sl.id) slingMove(e); }, true);
@@ -565,6 +600,7 @@
     const caddie = () => { if (!canAct()) return; resetAim(); toast("Le caddie a visé vers le trou et choisi le club.", "info"); };
     $("#btn-top").onclick = toggleTop; $("#btn-caddie").onclick = caddie;
     $("#pw-minus").onclick = () => { G.power = clamp(Math.round((G.power - 0.05) * 100) / 100, 0.05, 1); G.aimDist = null; };
+    $("#spin-l").onclick = () => setSpin(G.spin - 0.25); $("#spin-r").onclick = () => setSpin(G.spin + 0.25); renderSpin();
     $("#pw-plus").onclick = () => { G.power = clamp(Math.round((G.power + 0.05) * 100) / 100, 0.05, 1); G.aimDist = null; };
     $("#hud-mini").addEventListener("pointerup", (e) => { if (!canAct() || !G.hole) return; const cv = e.currentTarget; const r = cv.getBoundingClientRect(); const m = M.mapper(G.hole, cv.width, cv.height); const pt = m.fromPx((e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height); aimAtPoint(pt.x, pt.z); sound.click(); });
     G.toggleTop = toggleTop; G.caddie = caddie;
@@ -587,6 +623,8 @@
       else if (k === "r" || k === "pageup") { e.preventDefault(); setHeight(G.height + 1); }
       else if (k === "f" || k === "pagedown") { e.preventDefault(); setHeight(G.height - 1); }
       else if (k === "v") { if (G.toggleTop) G.toggleTop(); }
+      else if (k === "q") { setSpin(G.spin - 0.25); }
+      else if (k === "e") { setSpin(G.spin + 0.25); }
       else if (k === "c") { if (G.caddie) G.caddie(); }
       else if (k === "escape") { $("#hud-pick").classList.add("hidden"); if (G.slingCancel) G.slingCancel(); }
     });
@@ -758,6 +796,10 @@
       { title: "Les cinq clubs", text: "Le driver est le grand frappeur, il va très loin et roule longtemps mais dévie facilement. Le fer est le régulier, bon partout. La cale monte haut, passe les arbres, retombe et s'arrête net, et c'est la seule qui sort du sable et de l'herbe haute sans perdre de puissance. Le ricochet est un tir rasant qui saute sur l'eau et que le vent ne gêne presque pas. Le putter roule au sol, le plus précis, parfait sur le green. Dans le sable, la boue et l'herbe haute, les clubs perdent de la puissance et dévient plus, sauf la cale. Le jeu conseille un club, mais tu choisis." },
       { title: "Les orbes et les pouvoirs", text: "Roule sur une orbe dorée pour gagner un pouvoir au hasard. Certains aident ta balle, d'autres embêtent un adversaire. Ils se lancent à tout moment, même pendant que la balle des autres roule." },
       { title: "Les pièges", text: "Eau, lave et sortie de terrain coûtent un coup. Le sable et la boue freinent, la glace fait glisser, la gelée fait rebondir. Les moulins, barrières, trampolines et portails sont des animations du terrain que l'hôte peut régler." },
+      { title: "L'effet", text: "Tire le lance-pierre en arc de cercle plutôt qu'en ligne droite, la balle s'incurve du côté de l'arc pour contourner un obstacle. Les boutons d'effet sous le tableau, ou Q et E au clavier, le règlent aussi. L'aide à la visée montre la courbe." },
+      { title: "Balles qui se cognent", text: "Une balle qui en touche une autre la pousse. On peut chasser un adversaire du green. Une balle poussée dans l'eau ou hors du terrain revient sans pénalité." },
+      { title: "Trous signés", text: "Certains trous ont une astuce posée à la main, annoncée dans le chat au début du trou. Un passage secret sous un moulin, une rivière à franchir d'un bond, un portail caché dans l'herbe haute, une couronne de bumpers autour du trou, un entonnoir turbo." },
+      { title: "Les modes", text: "Course, tout le monde tape en même temps. Tour par tour, le plus loin joue. Trou en un, un seul coup par joueur sur des trous courts et piégés, dans le trou rapporte 10 points et sinon le plus près marque. Équipe à deux, les joueurs vont par paires dans l'ordre du salon et partagent une balle, chacun joue un coup sur deux." },
       { title: "Les points", text: "Le premier dans le trou gagne 10 points, puis 7, 5, 3, 2 et 1. Un trou en un ajoute 5 points. Dans le décompte arrivée et coups, chaque coup sous le par du trou rapporte 2 points de plus. Dans le décompte aux coups, il n'y a pas de points et le moins de coups gagne. Le détail s'affiche à la fin de chaque trou." },
     ],
     theme: { a1: "#ffe27a", a2: "#f0a81c", bg1: "#1f7a4d", bg2: "#0b3a2a" },

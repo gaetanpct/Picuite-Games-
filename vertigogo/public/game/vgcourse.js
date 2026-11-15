@@ -10,18 +10,18 @@
   const ORDER = [0, 8, 1, 2, 9, 3, 4, 11, 5, 10, 6, 7, 12];
   const BLURBS = ["Des pins, des rochers et des champignons qui font rebondir.", "Des voitures, des bennes et des poteaux tout fins.", "Des caisses, des poutres et des palettes empilées.", "Des chaises, des tables, un canapé et un lit trampoline.", "Un fourneau, un frigo, des marmites et un tapis roulant.", "Des immeubles de hauteurs différentes et des trampolines.", "Des arbres morts, des citrouilles et des tombes qui s'effritent.", "Des nuages moelleux et des bonds géants vers le sommet.", "Des bouées qui flottent et font rebondir, des parasols et des châteaux de sable.", "Des tas de feuilles mortes qui glissent un peu et des branches qui craquent sous les pieds.", "De la glace où l'on glisse, des bonshommes de neige et des stalactites qui tombent.", "Des tapis roulants, des pistons et des engrenages qui tournent.", "Une gravité plus faible pour de grands sauts, des astéroïdes et des débris qui flottent."];
   const WEIGHTS = [
-    { prop: 8, steps: 2, gaps: 2, narrow: 1, crumble: 1, tramp: 2 },
+    { prop: 8, steps: 2, gaps: 2, narrow: 1, crumble: 1, tramp: 2, ramp: 1 },
     { prop: 8, gaps: 2, steps: 1, wall: 1, mover: 2, lift: 1, tramp: 2 },
-    { prop: 7, narrow: 2, lift: 2, sweeper: 2, gaps: 1, mover: 1, wall: 1, tramp: 2 },
-    { prop: 8, steps: 2, wall: 2, spring: 1, tramp: 2, narrow: 1 },
-    { prop: 7, mover: 2, ice: 2, sweeper: 1, gaps: 1, steps: 1, tramp: 2 },
-    { prop: 7, gaps: 3, wall: 2, narrow: 1, tramp: 3, mover: 1 },
+    { prop: 7, narrow: 2, lift: 2, sweeper: 2, gaps: 1, mover: 1, wall: 1, tramp: 2, ramp: 2 },
+    { prop: 8, steps: 2, wall: 2, spring: 1, tramp: 2, narrow: 1, ramp: 2 },
+    { prop: 7, mover: 2, ice: 2, sweeper: 1, gaps: 1, steps: 1, tramp: 2, ramp: 2 },
+    { prop: 7, gaps: 3, wall: 2, narrow: 1, tramp: 3, mover: 1, ramp: 3 },
     { prop: 7, crumble: 3, narrow: 1, sweeper: 1, steps: 1, spring: 1, tramp: 1 },
     { prop: 6, crumble: 3, spring: 2, tramp: 3, gaps: 1, lift: 1, mover: 1, ice: 1 },
     { prop: 7, bouee: 3, steps: 1, gaps: 1, mover: 1, tramp: 1 },
-    { prop: 7, leaf: 3, crumble: 2, steps: 1, gaps: 1, tramp: 1 },
-    { prop: 6, ice: 3, drop: 2, steps: 1, narrow: 1, gaps: 1, tramp: 1 },
-    { prop: 6, spin: 3, lift: 2, mover: 1, steps: 1, tramp: 1 },
+    { prop: 7, leaf: 3, crumble: 2, steps: 1, gaps: 1, tramp: 1, ramp: 1 },
+    { prop: 6, ice: 3, drop: 2, steps: 1, narrow: 1, gaps: 1, tramp: 1, ramp: 2 },
+    { prop: 6, spin: 3, lift: 2, mover: 1, steps: 1, tramp: 1, ramp: 2 },
     { prop: 6, debris: 3, gaps: 2, spin: 1, mover: 1, tramp: 1 },
   ];
   const DIFF = {
@@ -136,6 +136,24 @@
     MODS.drop = function (z) { const dy = pick(0, 0.5), b = place(sg(dy, gapF(z) * 0.7), dy, 5.6, 5.6, 0, "ice", null, 1.2); if (conflict(b, 1)) return false; commit(b); adopt(b);
       const k = ri(2, 3); for (let q = 0; q < k; q++) C.drops.push({ x: (b.x0 + b.x1) / 2 + pick(-1.6, 1.6), z: (b.z0 + b.z1) / 2 + pick(-1.6, 1.6), y: b.y1, h: 6, per: pick(2.6, 3.6), ph: R(), r: 0.5, box: b.i });
       const e = place(sg(0.4, gapF(z)) * 0.7, 0.4, pick(3, 3.8), 3.2, 0, "solid"); if (conflict(e, 1)) return false; commit(e); adopt(e); return true; };
+    // planches inclinées de 10 à 35 degrés. Les douces se montent en courant, certaines se balancent.
+    // Les fortes (toits pentus, toboggans) se descendent en glissant vers la plateforme suivante.
+    MODS.ramp = function (z) {
+      const f = DIRS[dir], n = [-f[1], f[0]]; const steep = R() < 0.3; const a0 = steep ? pick(0.46, 0.6) : pick(0.18, 0.36);
+      const len = steep ? pick(3.2, 4.4) : pick(3.6, 5.4), wid = pick(1.9, 2.6), th = 0.35; const rise = len * Math.tan(a0) * (steep ? -1 : 1);
+      const lat = pick(-0.6, 0.6); const farX = lx + f[0] * ld / 2, farZ = lz + f[1] * ld / 2; const g0 = 0.15;
+      const cx = farX + f[0] * (g0 + len / 2) + n[0] * lat, cz = farZ + f[1] * (g0 + len / 2) + n[1] * lat; const hStart = ltop + 0.05; const hc = hStart + rise / 2;
+      const ux = steep ? -f[0] : f[0], uz = steep ? -f[1] : f[1]; // sens de la montée
+      const oa = !steep && R() < 0.35 ? 0.05 : 0; const amax = a0 + oa; const ext = (len / 2) * Math.cos(Math.min(a0, 0.6)) + 0.2;
+      const hx = f[0] ? len / 2 : wid / 2, hz = f[0] ? wid / 2 : len / 2; const yLo = hc - (len / 2) * Math.tan(amax), yHi = hc + (len / 2) * Math.tan(amax);
+      const look = ["toits", "chantier", "maison", "jouets", "cuisine", "hiver"].indexOf(THEMES[ids[z]]) >= 0 ? THEMES[ids[z]] : "planche";
+      const rb = { x0: cx - hx, x1: cx + hx, z0: cz - hz, z1: cz + hz, y0: yLo - th, y1: yHi, k: "ramp", zone: zoneIdx, w: wid, d: len, look, rp: { cx, cz, ux, uz, len, wid, hc, a0, oa, per: pick(4.5, 6.5), ph: R(), th, steep } };
+      void ext; if (conflict(rb, 1)) return false; commit(rb);
+      // plateforme d'arrivée au bout de la planche
+      const endTop = hStart + rise; const d = pick(3, 3.8), w = pick(3, 4); const gap = steep ? pick(0.3, 0.9) : pick(0.25, 0.6); const dyE = steep ? pick(-0.6, 0) : pick(0, 0.35);
+      const ex = cx + f[0] * (len / 2 + gap + d / 2), ez = cz + f[1] * (len / 2 + gap + d / 2); const eb = mkBox(ex, ez, d, w, endTop + dyE, 1.1, "solid");
+      if (conflict(eb, 2)) { boxes.pop(); C.nodes.pop(); return false; } commit(eb); adopt(eb); return true;
+    };
     // ---- objets du quotidien : chaque objet a ses propres boîtes de collision ----
     let recent = [];
     function placeTpl(T, z, o) {
@@ -196,6 +214,29 @@
     C.zones.forEach((zz, i) => { zz.cx = 0; zz.cz = 0; if (!zz.y1) zz.y1 = zz.y0 + HZ; }); C.zones[nz - 1].y1 = top.y1;
     // checkpoints : repos de zone + plateformes marquées
     C.cps = []; C.zones.forEach((zz, i) => { if (i > 0) C.cps.push(zz.rest); zz.cps.forEach((c) => C.cps.push(c)); }); C.cps.sort((a, b) => boxes[a].y1 - boxes[b].y1);
+    // raccourcis secrets, une colonne de plots cachés qui saute une bonne partie d'un étage. Seul un détail du décor les signale
+    C.secrets = []; const noSc = opts.noSc || []; const nN = C.nodes.length; let scId = 0;
+    for (let z = 0; z < nz && scId < 4; z++) {
+      // un départ dans la zone, une arrivée bien plus haut, à moins de quinze mètres à l'horizontale
+      let made = false;
+      for (let tries = 0; tries < 30 && !made; tries++) {
+        const ka = ri(1, nN - 4); const A = boxes[C.nodes[ka]]; if (A.zone !== z || A.k !== "solid" || (A.w || 0) < 2.4) continue;
+        let kb = -1; for (let k = ka + 8; k < nN - 1; k++) { const B = boxes[C.nodes[k]]; const dyB = B.y1 - A.y1; if (dyB < 9) continue; if (dyB > 19) break; if (B.k !== "solid" || B.mv) continue; const dh = Math.hypot((B.x0 + B.x1) / 2 - (A.x0 + A.x1) / 2, (B.z0 + B.z1) / 2 - (A.z0 + A.z1) / 2); if (dh < 15 && dh > 3) { kb = k; break; } }
+        if (kb < 0) continue; const B = boxes[C.nodes[kb]];
+        const ax = (A.x0 + A.x1) / 2, az = (A.z0 + A.z1) / 2, bx = (B.x0 + B.x1) / 2, bz = (B.z0 + B.z1) / 2; const dyB = B.y1 - A.y1;
+        const dx = bx - ax, dz = bz - az, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl;
+        // premier plot collé au bord de la plateforme de départ, une petite marche
+        const tEdge = Math.min(Math.abs(ux) > 1e-3 ? (A.x1 - A.x0) / 2 / Math.abs(ux) : 99, Math.abs(uz) > 1e-3 ? (A.z1 - A.z0) / 2 / Math.abs(uz) : 99);
+        const p0x = ax + ux * (tEdge + 0.82), p0z = az + uz * (tEdge + 0.82);
+        const nh = Math.max(2, Math.ceil((dyB - 0.2) / 4.6)); const step = (dyB - 0.2) / nh; const tB = Math.min(Math.abs(ux) > 1e-3 ? (B.x1 - B.x0) / 2 / Math.abs(ux) : 99, Math.abs(uz) > 1e-3 ? (B.z1 - B.z0) / 2 / Math.abs(uz) : 99); const endX = bx - ux * (tB + 1.3), endZ = bz - uz * (tB + 1.3); const pads = [];
+        for (let k = 0; k < nh; k++) { const fr = nh > 1 ? k / (nh - 1) : 0; const px = p0x + (endX - p0x) * fr, pz = p0z + (endZ - p0z) * fr; const top = A.y1 + 0.2 + step * k; pads.push({ x0: px - 0.8, x1: px + 0.8, z0: pz - 0.8, z1: pz + 0.8, y0: top - 0.35, y1: top, k: "spring", sv: 17.5, zone: A.zone, w: 1.6, d: 1.6, look: "secret", sc: scId, nonode: 1 }); }
+        if (Math.hypot(endX - p0x, endZ - p0z) / Math.max(1, nh - 1) > 3.4) continue;
+        // chaque plot doit avoir une colonne d'air libre jusqu'au suivant, sinon on se cogne
+        const colFree = (p, k) => { const top = (k + 1 < pads.length ? pads[k + 1].y1 : B.y1) + 2.2; for (let q = 0; q < boxes.length; q++) { const e = boxes[q]; if (e === A) continue; const r = reach(e); if (p.x1 + 0.38 > r.x0 && p.x0 - 0.38 < r.x1 && p.z1 + 0.38 > r.z0 && p.z0 - 0.38 < r.z1 && top > r.y0 && p.y0 - 0.6 < r.y1) return false; } return true; };
+        if (!pads.every(colFree)) continue; if (noSc.indexOf(scId) < 0) { pads.forEach((p) => commit(p, false)); C.secrets.push({ id: scId, from: A.i, to: B.i, pads: pads.map((p) => p.i), x: ax + (dx / dl) * 1.0, y: A.y1, z: az + (dz / dl) * 1.0, zone: A.zone }); }
+        made = true; scId++;
+      }
+    }
     // normalise pour le monde
     boxes.forEach((b) => { b.th = b.y1 - b.y0; });
     // gravité plus faible dans l'espace

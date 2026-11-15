@@ -2,7 +2,7 @@
  "name": "Golfouille",
  "order": 4,
  "tagline": "Le golf en folie, sur des terrains qui n'existent pas encore.",
- "pitch": "Un golf en 3D où chaque trou est généré au hasard parmi huit biomes, de la prairie au cosmos. Choisis ton club, rate ou réussis ton coup, ramasse des orbes et embête tes adversaires avec des pouvoirs. Le premier dans le trou prend les points.",
+ "pitch": "Un golf en 3D où chaque trou est généré au hasard parmi douze décors, de la prairie au cosmos en passant par la fête foraine, le château, la chambre d'enfant et le bateau pirate. Choisis ton club, rate ou réussis ton coup, ramasse des orbes et embête tes adversaires avec des pouvoirs. Le premier dans le trou prend les points.",
  "tags": ["1 à 6 joueurs", "10 à 30 minutes", "Course et pouvoirs"],
  "steps": [
   "Règle ton parcours en choisissant les biomes, le relief et les pièges.",
