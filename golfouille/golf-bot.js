@@ -13,7 +13,7 @@ const LEVELS = {
   champion: { id: "champion", label: "Champion", yawErr: 1.1, powErr: 0.04, think: [1100, 2500], dirs: 7, pick: 2, usePower: 0.85 },
   prodige: { id: "prodige", label: "Prodige", yawErr: 0.35, powErr: 0.015, think: [800, 1700], dirs: 9, pick: 1, usePower: 1 },
 };
-const RANGE = { driver: 80, iron: 58, wedge: 31, putter: 15, ricochet: 44 };
+const RANGE = { driver: 74, iron: 58, wedge: 24, putter: 15 };
 const gauss = (r) => (r() + r() + r() - 1.5) * 1.6;
 
 function normAng(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }

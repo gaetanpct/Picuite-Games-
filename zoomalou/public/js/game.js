@@ -744,7 +744,7 @@
     cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
     function rebuild() {
       E.tr = null;
-      if (E.p.length >= 16) { try { const st = S(); E.tr = TR.generate({ seed: "trace" + (st.seed || "") + E.p.length, biome: (st.biomes || [])[0] || "cote", size: st.trackSize, difficulty: st.difficulty, hills: st.hills, elements: st.elements, features: {}, trace: { p: E.p, s: E.s, x: E.x } }); } catch (err) { console.error(err); E.tr = null; } }
+      if (E.p.length >= 16) { try { const st = S(); E.tr = TR.generate({ seed: "trace" + (st.seed || "") + E.p.length, biome: (st.biomes || [])[0] || "neige", size: st.trackSize, difficulty: st.difficulty, hills: st.hills, elements: st.elements, features: {}, trace: { p: E.p, s: E.s, x: E.x } }); } catch (err) { console.error(err); E.tr = null; } }
       draw(); const t = E.tr;
       if (!t) { status.className = "z-editor__status small"; status.textContent = E.p.length ? "Continue le trait, il est encore trop court." : "Pose le doigt ou la souris sur la carte et trace la route."; okBtn.disabled = true; return; }
       const inf = t.trace.info; const err = t.trace.err; const kinds = [...new Set(err.map((e2) => e2.k))];

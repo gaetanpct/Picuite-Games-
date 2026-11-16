@@ -5,19 +5,18 @@
   if (typeof module !== "undefined" && module.exports) module.exports = factory(require("./course.js"));
   else root.GolfRules = factory(root.GolfCourse);
 })(typeof window !== "undefined" ? window : globalThis, function (Course) {
-  // Cinq clubs, chacun a une vraie personnalité.
+  // Quatre clubs, chacun a une vraie personnalité.
   // speed vitesse maximale en m/s, loft angle de lancer en degrés (fixe), err erreur de visée en degrés pour un coup à pleine puissance,
   // soft la balle se pose sans rouler, windMul sensibilité au vent, skip fait des ricochets sur l'eau.
   // lie dit comment le club s'en sort quand la balle est posée sur du rough, du sable ou de la boue. pow garde cette part de la puissance, err multiplie l'erreur.
   const CLUBS = {
-    driver: { id: "driver", name: "Driver", icon: "🏌️", speed: 32.5, loft: 13, loftMin: 13, loftMax: 13, err: 2.7, windMul: 1, role: "Le grand frappeur", desc: "Part très loin, tendu, et roule longtemps. Imprécis, et il déteste le sable et la boue.", fly: "Vol tendu et bas, long roulé à l'arrivée. Il cogne les arbres.", lie: { rough: [0.82, 1.4], sand: [0.5, 1.8], mud: [0.55, 1.7] } },
+    driver: { id: "driver", name: "Driver", icon: "🏌️", speed: 31, loft: 13, loftMin: 13, loftMax: 13, err: 2.7, windMul: 1, role: "Le grand frappeur", desc: "Part très loin, tendu, et roule longtemps. Imprécis, et il déteste le sable et la boue.", fly: "Vol tendu et bas, long roulé à l'arrivée. Il cogne les arbres.", lie: { rough: [0.82, 1.4], sand: [0.5, 1.8], mud: [0.55, 1.7] } },
     iron: { id: "iron", name: "Fer", icon: "⛳", speed: 23, loft: 24, loftMin: 24, loftMax: 24, err: 1.7, windMul: 1, role: "Le régulier", desc: "Le club de confiance. Courbe moyenne, bon roulé, peu d'erreur. Il s'en sort partout sans exceller nulle part.", fly: "Vol moyen. Passe les petits obstacles et roule bien à l'arrivée.", lie: { rough: [0.9, 1.2], sand: [0.68, 1.4], mud: [0.72, 1.4] } },
-    wedge: { id: "wedge", name: "Cale", icon: "🥄", speed: 16.5, loft: 47, loftMin: 47, loftMax: 47, err: 1.3, windMul: 1.2, soft: true, role: "Le grimpeur", desc: "Monte haut, passe arbres et obstacles, retombe et s'arrête net. Le seul club qui sort du sable et du rough sans perdre de puissance.", fly: "Vol haut, la balle se pose et ne roule presque pas. Le vent la bouscule plus.", lie: { rough: [1, 1], sand: [1, 1], mud: [0.9, 1.1] } },
-    ricochet: { id: "ricochet", name: "Ricochet", icon: "🥏", speed: 21.5, loft: 8, loftMin: 8, loftMax: 8, err: 2, windMul: 0.3, skip: true, role: "Le rase-mottes", desc: "Frappe rasante qui fait des ricochets sur l'eau pour traverser les mares. Presque insensible au vent, mais un arbre l'arrête.", fly: "Vol rasant, le vent ne le bouge presque pas. Aucun arbre ne le laisse passer.", lie: { rough: [0.8, 1.3], sand: [0.55, 1.5], mud: [0.6, 1.5] } },
+    wedge: { id: "wedge", name: "Cale", icon: "🥄", speed: 15.5, loft: 62, loftMin: 62, loftMax: 62, err: 1.3, windMul: 1.2, soft: true, role: "Le lob", desc: "Un vrai lob, la balle monte très haut, passe par-dessus arbres et obstacles, retombe presque à la verticale et s'arrête net. Le seul club qui sort du sable et du rough sans perdre de puissance.", fly: "Vol haut, la balle se pose et ne roule presque pas. Le vent la bouscule plus.", lie: { rough: [1, 1], sand: [1, 1], mud: [0.9, 1.1] } },
     putter: { id: "putter", name: "Putter", icon: "🎯", speed: 11, loft: 0, loftMin: 0, loftMax: 0, err: 0.6, windMul: 0, role: "Le précis", desc: "Roule au ras du sol, le plus précis du sac. Parfait sur le green, médiocre dans l'herbe haute et le sable.", fly: "Aucun vol, la balle roule. Une bosse ou un obstacle l'arrête.", lie: { rough: [0.6, 1], sand: [0.45, 1], mud: [0.5, 1] } },
   };
   // du plus puissant au moins puissant
-  const CLUB_ORDER = ["driver", "iron", "wedge", "ricochet", "putter"];
+  const CLUB_ORDER = ["driver", "iron", "wedge", "putter"];
   const HEIGHT_NAMES = ["Très bas", "Bas", "Normal", "Haut", "Très haut"];
   const HEIGHT_DEFAULT = 2;
   const hasHeight = (c) => c.loftMax > c.loftMin;
@@ -89,32 +88,24 @@
       ] },
       { id: "finishGrace", label: "Temps accordé après le premier arrivé", type: "chips", default: 30, options: [{ value: 15, label: "15 s" }, { value: 30, label: "30 s" }, { value: 45, label: "45 s" }, { value: 60, label: "1 min" }, { value: 90, label: "1 min 30" }], showIf: { playMode: ["course", "equipe"] }, info: "Quand quelqu'un met sa balle dans le trou, les autres ont ce temps pour finir. Passé ce délai, le trou se termine." },
       { id: "shotClock", label: "Temps pour jouer son coup", type: "chips", default: 30, options: [{ value: 20, label: "20 s" }, { value: 30, label: "30 s" }, { value: 45, label: "45 s" }, { value: 60, label: "1 min" }], showIf: { playMode: "tour" }, info: "Si tu hésites trop longtemps, le jeu tape un coup à ta place." },
-      { id: "ballHits", label: "Collisions entre balles", type: "bool", default: true, info: "Une balle qui en touche une autre la pousse, on peut chasser un adversaire du green. Une balle poussée dans l'eau revient sans pénalité." },
       { id: "maxStrokes", label: "Coups maximum par trou", type: "chips", default: 8, options: [6, 8, 10, 12], info: "Au-delà de ce nombre de coups la balle est ramassée et le trou est terminé pour toi." },
       { id: "unfinishedPenalty", label: "Coups ajoutés si le trou n'est pas fini", type: "chips", default: 2, options: [0, 1, 2, 3], info: "Ajoutés au total de coups d'un joueur qui ne finit pas un trou, uniquement dans le décompte aux coups." },
     ] },
     { category: "🗺️ Le terrain", rules: [
       { id: "biomes", label: "Biomes possibles", type: "multi", default: Course.BIOME_IDS.slice(), options: BIOME_OPTIONS, info: "Coche les décors que tu veux croiser. Chaque biome a ses pièges et ses obstacles." },
-      { id: "biomeOrder", label: "Choix du biome à chaque trou", type: "chips", default: "hasard", options: [{ value: "hasard", label: "Au hasard" }, { value: "ordre", label: "Dans l'ordre de la liste" }, { value: "unique", label: "Le même partout" }], info: "Au hasard change à chaque trou. Dans l'ordre fait un voyage. Le même partout prend le premier biome coché." },
-      { id: "signed", label: "Trous signés", type: "chips", default: 1, options: [{ value: 0, label: "Aucun" }, { value: 1, label: "Quelques-uns" }, { value: 2, label: "Souvent" }], info: "Des trous avec une astuce posée à la main, un passage secret sous un moulin, une rivière à sauter, un portail caché. Ils se mélangent aux trous générés." },
       { id: "holeLength", label: "Longueur des trous", type: "chips", default: 0, options: [{ value: 0, label: "Variée" }, { value: 1, label: "Court" }, { value: 2, label: "Moyen" }, { value: 3, label: "Long" }], info: "Un trou court fait environ 45 mètres, un long plus de 100." },
       { id: "difficulty", label: "Difficulté du terrain", type: "range", min: 1, max: 5, step: 1, default: 3, info: "Plus c'est haut, plus le chemin est étroit et sinueux." },
       { id: "hills", label: "Relief", type: "range", min: 0, max: 3, step: 1, default: 2, format: (v) => ["plat", "doux", "vallonné", "montagneux"][v], info: "Les pentes font rouler la balle et changent les trajectoires." },
       { id: "hazards", label: "Pièges", type: "range", min: 0, max: 3, step: 1, default: 2, format: (v) => ["aucun", "peu", "normal", "beaucoup"][v], info: "Eau, lave, sable, glace, boue et gelée selon le biome." },
       { id: "obstacles", label: "Obstacles", type: "range", min: 0, max: 3, step: 1, default: 2, format: (v) => ["aucun", "peu", "normal", "beaucoup"][v], info: "Arbres, cactus, rochers, bonshommes de neige et autres." },
-      { id: "features", label: "Animations du terrain", type: "multi", default: FEATURE_OPTIONS.map((f) => f.value), options: FEATURE_OPTIONS, info: "Ce qui bouge ou qui réagit sur le terrain. Décoche ce que tu n'aimes pas." },
-      { id: "wind", label: "Vent", type: "chips", default: 1, options: [{ value: 0, label: "Aucun" }, { value: 1, label: "Léger" }, { value: 2, label: "Fort" }], info: "Le vent pousse les balles en vol. Une flèche indique sa direction." },
       { id: "seed", label: "Graine du parcours", type: "text", default: "", max: 20, placeholder: "Laisse vide pour du hasard", info: "Écris un mot pour rejouer exactement le même parcours plus tard ou avec des amis." },
     ] },
     { category: "🏌️ Les clubs", rules: [
-      { id: "clubs", label: "Clubs autorisés", type: "multi", default: CLUB_ORDER.slice(), options: CLUB_ORDER.map((id) => ({ value: id, label: CLUBS[id].name, icon: CLUBS[id].icon, desc: CLUBS[id].desc })), info: "Cinq clubs, chacun avec sa personnalité. Le putter est toujours disponible pour ne jamais rester bloqué." },
-      { id: "precision", label: "Précision des coups", type: "chips", default: 1, options: [{ value: 0.5, label: "Facile" }, { value: 1, label: "Normale" }, { value: 1.6, label: "Réaliste" }], info: "Facile réduit de moitié les erreurs de visée, réaliste les augmente." },
-      { id: "spin", label: "Effet sur la balle", type: "bool", default: true, info: "Tirer le lance-pierre en arc de cercle donne de l'effet, la balle s'incurve pour contourner un obstacle. Les boutons d'effet le règlent aussi." },
-      { id: "aimAssist", label: "Aide à la visée", type: "chips", default: "zone", options: [{ value: "none", label: "Aucune" }, { value: "dots", label: "Direction seule" }, { value: "zone", label: "Zone d'arrivée" }, { value: "traj", label: "Trajectoire exacte" }], info: "Zone d'arrivée montre l'arc de la balle jusqu'à son atterrissage et un grand cercle où elle devrait finir, sans dire où elle rebondit. Une alerte prévient seulement quand un obstacle ou un danger est proche. Trajectoire exacte dessine tout le vol, les rebonds et les obstacles touchés, pour apprendre. Direction seule montre juste une flèche. Aucune est le mode des experts. Valable pour tous les joueurs." },
-      { id: "cupSize", label: "Taille du trou", type: "chips", default: 1, options: [{ value: 1.5, label: "Grand" }, { value: 1, label: "Normal" }, { value: 0.75, label: "Petit" }], info: "Un grand trou avale aussi les balles un peu rapides." },
+      { id: "clubs", label: "Clubs autorisés", type: "multi", default: CLUB_ORDER.slice(), options: CLUB_ORDER.map((id) => ({ value: id, label: CLUBS[id].name, icon: CLUBS[id].icon, desc: CLUBS[id].desc })), info: "Quatre clubs, chacun avec sa personnalité. Le putter est toujours disponible pour ne jamais rester bloqué." },
+      { id: "spin", label: "Effet sur la balle", type: "bool", default: true, info: "Pendant que tu tires la fronde, garde Espace enfoncée et glisse la souris à droite ou à gauche, la balle s'incurve pour contourner un obstacle. Les boutons d'effet le règlent aussi." },
     ] },
     { category: "✨ Les pouvoirs", rules: [
-      { id: "powersOn", label: "Orbes et pouvoirs", type: "bool", default: true, info: "Des orbes flottent sur le terrain. En roulant dessus tu gagnes un pouvoir pour aider ta balle ou embêter les autres." },
+      { id: "powersOn", label: "Orbes et pouvoirs", type: "bool", default: false, info: "Des orbes flottent sur le terrain. En roulant dessus tu gagnes un pouvoir pour aider ta balle ou embêter les autres." },
       { id: "orbs", label: "Orbes par trou", type: "range", min: 1, max: 6, step: 1, default: 3, showIf: { powersOn: true }, info: "Le nombre d'orbes à ramasser sur chaque terrain." },
       { id: "orbRespawn", label: "Retour des orbes", type: "chips", default: 30, options: [{ value: 0, label: "Jamais" }, { value: 20, label: "20 s" }, { value: 30, label: "30 s" }, { value: 60, label: "1 min" }], showIf: { powersOn: true }, info: "Une orbe ramassée réapparaît après ce délai." },
       { id: "powerSlots", label: "Pouvoirs gardés en réserve", type: "chips", default: 2, options: [1, 2, 3], showIf: { powersOn: true }, info: "Combien de pouvoirs tu peux porter en même temps." },
@@ -122,8 +113,10 @@
     ] },
   ];
 
+  // aide à la visée en direction seule, trou normal, précision normale, vent léger, toutes les animations, aucun trou signé, biome au hasard, balles qui se cognent
+  const FIXED = { aimAssist: "dots", cupSize: 1, precision: 1, wind: 1, signed: 0, biomeOrder: "hasard", ballHits: true };
   const allRules = () => SCHEMA.reduce((a, c) => a.concat(c.rules), []);
-  function defaults() { const o = {}; allRules().forEach((r) => { o[r.id] = Array.isArray(r.default) ? r.default.slice() : r.default; }); return o; }
+  function defaults() { const o = {}; allRules().forEach((r) => { o[r.id] = Array.isArray(r.default) ? r.default.slice() : r.default; }); Object.assign(o, FIXED, { features: FEATURE_OPTIONS.map((f) => f.value) }); return o; }
   function valuesOf(rule) { return (rule.options || []).map((o) => (typeof o === "object" ? o.value : o)); }
   function normalize(input) {
     const out = defaults();
@@ -135,6 +128,8 @@
       else if (r.type === "multi") { const ok = valuesOf(r); out[r.id] = Array.isArray(v) ? v.filter((x) => ok.includes(x)) : r.default.slice(); }
       else { const ok = valuesOf(r); const want = typeof ok[0] === "number" ? Number(v) : v; if (ok.includes(want)) out[r.id] = want; }
     });
+    // réglages fixes, plus proposés dans le salon
+    Object.assign(out, FIXED, { features: FEATURE_OPTIONS.map((f) => f.value) });
     if (!out.biomes.length) out.biomes = [Course.BIOME_IDS[0]];
     if (!out.clubs.includes("putter")) out.clubs.push("putter");
     return out;

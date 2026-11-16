@@ -33,8 +33,6 @@
 
   // el règle la fréquence des éléments propres au biome (1 = normal). verge est la part de route bordée de bas-côtés sans barrière
   const BIOMES = {
-    cote: { id: "cote", phys: {}, identity: "Route classique, la référence pour comparer", name: "Côte", icon: "🏖️", sky: ["#4fc8ff", "#fff3d6"], fog: "#d8f1ff", sun: "#fff3d0", amb: "#c8ecff", ground: "#f0dc9c", road: "#5b606c", wall: "#ffffff", curb: ["#ff5a4a", "#ffffff"], gravity: 9.8, plan: { dirt: 0.0, ice: 0, slow: 0.22 }, vergeK: "sable", vergeCol: "#ecd28c",
-      el: { verge: 0.25 }, deco: ["palm", "palm", "rock", "parasol", "phare", "bouee"], names: ["Corniche Salée", "Route des Mouettes", "Plage Express", "Marée Basse", "Phare en Vue"] },
     neige: { id: "neige", phys: { grip: 0.86, accel: 0.95 }, identity: "Adhérence réduite partout, glace fréquente et congères sur les bords", name: "Neige", icon: "⛄", sky: ["#9fd4ff", "#f4fbff"], fog: "#e6f3ff", sun: "#ffffff", amb: "#d0e8ff", ground: "#f4f9ff", road: "#4a5666", wall: "#dff0ff", curb: ["#2a6fb0", "#ffffff"], gravity: 9.8, plan: { dirt: 0, ice: 0.45, slow: 0.1 }, vergeK: "neige", vergeCol: "#ffffff",
       el: { verge: 0.45, tunnel: 1.3, fork: 0.9, bank: 1.2 }, deco: ["pine", "pine", "snowman", "rock", "igloo"], names: ["Piste Verglacée", "Col Blanc", "Tobogan Fou", "Sapin Givré", "Lac Gelé"] },
     neon: { id: "neon", phys: { accel: 1.08, grip: 0.94 }, identity: "Gravité faible, grands sauts et anneaux turbo à traverser", name: "Néon", icon: "🪐", sky: ["#07041f", "#3a1f7a"], fog: "#241250", sun: "#c8c0ff", amb: "#6a60c0", ground: "#14104a", road: "#1e1a50", wall: "#5affd8", curb: ["#ff4a8a", "#5affd8"], gravity: 4.6, stars: true, plan: { dirt: 0, ice: 0.2, slow: 0.05 }, vergeK: "gravier", vergeCol: "#2a2470",
@@ -83,7 +81,7 @@
 
   function build(spec, attempt) {
     const rng = mulberry32(hashSeed(spec.seed + "zt" + (attempt ? "#" + attempt : "")));
-    const biome = BIOMES[spec.biome] || BIOMES.cote;
+    const biome = BIOMES[spec.biome] || BIOMES.neige;
     const diff = clamp(spec.difficulty || 3, 1, 5), size = clamp(spec.size || 2, 1, 5);
     const hillsLvl = clamp(spec.hills == null ? 2 : spec.hills, 0, 3);
     const F = Object.assign({ boosts: true, jumps: true, surfaces: true, gaps: true, steep: true, obstacles: true, widths: true, bridges: true, mag: true, forks: true, verges: true, cross: true, movers: true, rings: true, bank: true, xing: true, cut: true }, spec.features || {});

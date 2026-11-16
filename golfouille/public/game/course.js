@@ -16,26 +16,14 @@
   const lerp = (a, b, t) => a + (b - a) * t;
   const smooth = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
 
-  // Les huit biomes. Les couleurs servent à l'affichage, le reste à la génération.
+  // Les biomes qui ont chacun leur mécanique, glace, lave, gelée ou gravité. Les couleurs servent à l'affichage, le reste à la génération.
   const BIOMES = {
-    prairie: { id: "prairie", name: "Prairie", icon: "🌳", gravity: 9.8, sky: ["#6ec6ff", "#e8f7ff"], fog: "#d6efff", sun: "#fff4d6", amb: "#bfe3ff",
-      col: { fairway: "#62c96e", green: "#7fe08a", rough: "#3f9a50", sand: "#f0d98c", water: "#3da5ee", ice: "#bfeaff", mud: "#7a5a3a", lava: "#ff5a2a", bouncy: "#ff9ad5", wall: "#2f7a40" },
-      hazards: { water: 3, sand: 3, mud: 1 }, obst: { tree: 6, rock: 2, mushroom: 0.4 }, names: ["Le Grand Chêne", "La Mare aux Canards", "Pré Fleuri", "La Colline Douce", "Le Pique-nique"] },
-    desert: { id: "desert", name: "Désert", icon: "🌵", gravity: 9.8, sky: ["#ffb347", "#fff0cf"], fog: "#ffe2b0", sun: "#fff0c0", amb: "#ffe0b0",
-      col: { fairway: "#ecc77c", green: "#f6dc9a", rough: "#cf9650", sand: "#f7e2a0", water: "#35b6c9", ice: "#d9f4ff", mud: "#8a5a30", lava: "#ff5a2a", bouncy: "#ffb870", wall: "#b9783a" },
-      hazards: { sand: 5, mud: 2, water: 1.5 }, obst: { cactus: 6, rock: 3 }, names: ["Mirage Piquant", "L'Oasis Perdue", "Dune Chaude", "Le Chameau Boudeur", "Canyon Sec"] },
     neige: { id: "neige", name: "Neige", icon: "⛄", gravity: 9.8, sky: ["#a9d8ff", "#f4fbff"], fog: "#e6f3ff", sun: "#ffffff", amb: "#d0e8ff",
       col: { fairway: "#f2f7ff", green: "#ffffff", rough: "#c4d7ea", sand: "#e3d8c0", water: "#2a6fb0", ice: "#a8e4ff", mud: "#6a5a50", lava: "#ff5a2a", bouncy: "#c9f0ff", wall: "#9bb5cf" },
       hazards: { ice: 5, water: 1.5, mud: 1, sand: 0.5 }, obst: { pine: 5, snowman: 3, rock: 2 }, names: ["Piste Verglacée", "Le Bonhomme Gelé", "Sapin Givré", "Lac Glacé", "Col Blanc"] },
-    jungle: { id: "jungle", name: "Jungle", icon: "🦜", gravity: 9.8, sky: ["#6ed49a", "#e9ffe2"], fog: "#b9ecc4", sun: "#fff6c0", amb: "#a8e8b8",
-      col: { fairway: "#3fb35e", green: "#5fd47a", rough: "#1f7a3d", sand: "#d8c27a", water: "#2b9a8a", ice: "#bfeaff", mud: "#6a4a2a", lava: "#ff5a2a", bouncy: "#ff7ac0", wall: "#165a2c" },
-      hazards: { water: 4, mud: 4, sand: 1 }, obst: { jtree: 6, rock: 2, mushroom: 2 }, names: ["Liane Glissante", "La Rivière Folle", "Champignon Géant", "Temple Moussu", "Singe Farceur"] },
     volcan: { id: "volcan", name: "Volcan", icon: "🌋", gravity: 9.8, sky: ["#6a2a3a", "#ff9a5a"], fog: "#d8785a", sun: "#ffc890", amb: "#ff9a70",
       col: { fairway: "#6a5660", green: "#8a7480", rough: "#3e3038", sand: "#9a8e8a", water: "#3da5ee", ice: "#bfeaff", mud: "#4a3a30", lava: "#ff5a1a", bouncy: "#ff9a40", wall: "#2a1e24" },
       hazards: { lava: 5, sand: 2, mud: 1 }, obst: { rock: 5, crystal: 3 }, names: ["Cratère Rouge", "Coulée de Lave", "La Cheminée", "Fournaise", "Cendres Chaudes"] },
-    plage: { id: "plage", name: "Plage", icon: "🏖️", gravity: 9.8, sky: ["#5ad0ff", "#fff6dc"], fog: "#e6f6ff", sun: "#fff6d0", amb: "#c8ecff",
-      col: { fairway: "#f3e2a8", green: "#fff0be", rough: "#d6b878", sand: "#fff2c0", water: "#26b8e8", ice: "#d9f4ff", mud: "#8a6a4a", lava: "#ff5a2a", bouncy: "#ff9ad5", wall: "#c8a468" },
-      hazards: { water: 5, sand: 2, mud: 0.6 }, obst: { palm: 6, parasol: 2, rock: 2 }, names: ["Bord de Mer", "Palmier Penché", "Château de Sable", "La Crique Secrète", "Marée Haute"] },
     bonbons: { id: "bonbons", name: "Bonbons", icon: "🍭", gravity: 9.8, sky: ["#ffb3e0", "#fff4fb"], fog: "#ffd9f0", sun: "#fff0f8", amb: "#ffd0ee",
       col: { fairway: "#ff9fd6", green: "#ffc2e6", rough: "#c98cf0", sand: "#ffe9a8", water: "#6ad0ff", ice: "#d9f4ff", mud: "#7a4a30", lava: "#ff5a8a", bouncy: "#7affc0", wall: "#a368d8" },
       hazards: { bouncy: 4, mud: 3, water: 2, sand: 1 }, obst: { lolli: 5, cane: 3, gummy: 3 }, names: ["Route Guimauve", "Rivière de Soda", "Chocolat Fondu", "Gelée Rebondissante", "Sucre d'Orge"] },
@@ -89,7 +77,7 @@
   // spec = { seed, biome, size 1 à 3, difficulty 1 à 5, hills 0 à 3, hazards 0 à 3, obstacles 0 à 3, features {...}, orbs, wind }
   function generateHole(spec) {
     const rng = mulberry32(hashSeed(spec.seed));
-    const biome = BIOMES[spec.biome] || BIOMES.prairie;
+    const biome = BIOMES[spec.biome] || BIOMES.neige;
     const diff = clamp(Math.round(spec.difficulty || 3), 1, 5);
     const hillsLv = clamp(spec.hills == null ? 2 : spec.hills, 0, 3);
     const hazLv = clamp(spec.hazards == null ? 2 : spec.hazards, 0, 3);
@@ -362,7 +350,7 @@
       const t = at(f - 0.12); clearAround(t.x, t.z, 3); hole.tramps = hole.tramps.filter((q) => Math.hypot(q.x - t.x, q.z - t.z) > 6);
       hole.tramps.push({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), r: 1.6, vy: 10.5, sig: true });
       const pd = at(f - 0.19); hole.pads.push({ x: +pd.x.toFixed(2), z: +pd.z.toFixed(2), w: 2.6, l: 3.4, ang: +h.toFixed(3), power: 18 });
-      info = { name: "La Rivière à Sauter", tip: "La rivière coupe le trou. Le tapis et le trampoline au milieu font franchir l'eau d'un bond, le ricochet passe aussi." };
+      info = { name: "La Rivière à Sauter", tip: "La rivière coupe le trou. Le tapis et le trampoline au milieu font franchir l'eau d'un bond." };
     } else if (kind === "fond" && L > 60) {
       // portail caché dans l'herbe haute derrière un obstacle, il ramène au green
       const f = 0.18 + rng() * 0.08; const c = at(f); const h = dirAt(f); const side = rng() < 0.5 ? 1 : -1; const px = Math.cos(h) * side, pz = -Math.sin(h) * side;

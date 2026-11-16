@@ -1531,3 +1531,58 @@ Chaque jeu a été regardé seul, accueil, salon et partie. Le but n'était pas 
 
 ### Ce qu'il faut déposer sur GitHub
 - Le dossier vertigogo et le fichier README.md.
+
+## Cinquante-sixième mise à jour, version 58 complète
+
+### Mine de rien
+- Au plus juste, on ne voit plus combien de tirs ont faits les autres tant qu'on cherche. Une fois sa mine trouvée, ou après avoir renoncé, on suit en direct la grille de chaque autre joueur, avec ses tirs, à côté de sa propre grille résolue pour comparer.
+- Mines croisées, un nouveau réglage permet de jouer à la vitesse, le premier qui trouve gagne, ou au nombre de coups, chacun prend son temps et le moins de tirs gagne.
+- Les modes Coopération, Équipes, Énigme et Campagne sont supprimés.
+- Nouveau niveau Maître au-dessus d'Expert. Mine 10 sur 10, neuf pierres dont deux émeraudes, une nouvelle couleur verte qui se mélange aux autres, 20 tirs et une seule accusation.
+
+### Bouskaille, Golfouille et Zoomalou
+- Les anciens décors sans mécanique à eux sont retirés. Bouskaille garde ses six arènes récentes, le radeau, la patinoire, le ring en spirale, le toit sous l'orage, le billard et le volcan. Golfouille retire la prairie, le désert, la jungle et la plage. Zoomalou retire la côte.
+- Bouskaille, la vue à la première personne devient une vue à la troisième personne, derrière son personnage, plus éloignée. Elle suit toujours la direction où l'on va.
+
+### Pagaille Party
+- Vote de vingt secondes, sans réglage. Les bots ne votent plus.
+- Lecture des règles de vingt secondes, sans réglage.
+- Plus d'aide au saut dans la Course des fous.
+- Bombe en voiture avec la mèche longue, Course des fous en difficulté tirée entre normal et costaud à chaque manche, météores toujours présents au Sumo glissant et au Choc au sommet. Les réglages correspondants sont retirés.
+- Dalles de mémoire, Ruée vers l'or, Tir à la corde et La Bouée sont supprimés.
+- Sol en miettes, la caméra suit son personnage de près, et l'étage du dessus disparaît quand on tombe en bas.
+- La Course des fous, le Pont de verre et le Sol en miettes utilisent la caméra de Vertigogo. Haut et bas avancent et reculent, gauche et droite tournent la caméra, Q et D font un pas de côté, F et H tournent, T et G montent ou baissent.
+- Les vitres du Pont de verre se brisent instantanément.
+- Le bon compte propose quatre nouvelles questions, lequel était là deux fois, lequel n'y était pas, combien en tout et quelle ligne était la plus remplie. Le tableau reste affiché plus longtemps, il y a moins de dessins et plus de temps pour répondre.
+- Territoires n'est jamais proposé quand des bots jouent.
+- Deux nouveaux mini-jeux en 3D. 🌀 Le Tourniquet, deux barres tournent au ras du sol de plus en plus vite, on saute par-dessus et on ramasse des pièces. 👑 Vole la couronne, on touche le porteur pour lui prendre la couronne, chaque seconde avec elle rapporte un point.
+
+### Vertigogo
+- Le gros bloc central est supprimé, le parcours flotte dans le vide.
+- Six grandes structures à traverser, façon Only Up. Un avion dont on longe la carlingue avant de monter sur la dérive, une maison où l'on entre par la porte pour ressortir par l'étage, une grue avec ses paliers et sa flèche, un échafaudage en zigzag, un pont de planches et un tuyau géant.
+- Nouvelles façons de grimper. Des planches penchées sur le côté à traverser en travers de la pente, parfois qui roulent doucement, de grands sauts vers une plateforme plus basse et lointaine, et des suites de petits poteaux où il faut viser juste.
+- Les objets ont maintenant des tailles bien plus variées.
+- Chaque parcours reste vérifié par le pilote automatique avant la partie.
+
+### Main Morte
+- Le coffre se joue en solo. Tout le monde a le même code, chacun cherche seul avec huit essais et ne voit que ses propres essais, plus le nombre d'essais des autres.
+- Le règlement de comptes se joue désormais à la fin d'une épreuve. Quand plusieurs joueurs perdent ensemble, ils passent au Goulag, une petite arène en 3D vue de haut avec des caisses pour se cacher. On bouge avec les flèches ou ZQSD, on vise à la souris et on lance des tomates au clic ou avec Espace. Sur téléphone, on glisse à gauche pour bouger et on touche à droite pour lancer. Trois tomates reçues et c'est perdu, après 40 secondes celui qui a touché le plus gagne, sinon mort subite. Le perdant reste dans l'arène et affronte le suivant, et seul le dernier perdant perd sa main. Les autres regardent le combat en direct. Un réglage permet de couper le Goulag.
+- L'ancien duel au signal de fin de partie est retiré.
+- Les cartes d'influence et les pactes sont décochés au départ.
+
+### Golfouille
+- Les orbes et pouvoirs sont décochés au départ.
+- Le club Ricochet est supprimé. Le Driver va un peu moins loin. La Cale va un peu moins loin et devient un vrai lob, la balle monte très haut et retombe presque à la verticale.
+- Réglages fixés et retirés du salon. Aide à la visée en direction seule, trou normal, précision normale, vent léger, toutes les animations du terrain, aucun trou signé, biome au hasard, collisions entre balles.
+
+### Tests
+- Mine de rien, partie Au plus juste en niveau Maître et Mines croisées au nombre de coups jouées dans le navigateur, grilles des autres affichées après abandon.
+- Main Morte, Goulag joué dans le navigateur sur ordinateur, téléphone en hauteur et téléphone en largeur, et seize parties complètes entre bots en classique et en tournoi, avec 75 combats au Goulag, sans erreur.
+- Pagaille Party, les seize mini-jeux simulés six fois chacun sans erreur, et les nouveaux jeux et caméras vérifiés dans le navigateur.
+- Vertigogo, des dizaines de parcours générés et validés par le pilote automatique, en normal, difficile et facile.
+- Bouskaille, les six arènes générées et vérifiées, vue à la troisième personne testée. Golfouille, fronde et clubs testés dans le navigateur.
+- Copie propre décompressée testée sur tous les jeux.
+
+### Ce qu'il faut déposer sur GitHub
+- Le zip contient le site complet. Les dossiers modifiés sont bouskaille, golfouille, hands-over, orapa-mine, pagaille, vertigogo et zoomalou, ainsi que README.md.
+- Dans pagaille/games, il faut supprimer memo.js, ruee.js, corde.js et bouee.js si on remplace fichier par fichier. En remplaçant tout le dossier pagaille, ils disparaissent d'eux-mêmes.
