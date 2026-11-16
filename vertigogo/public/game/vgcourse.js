@@ -1,6 +1,6 @@
 // ============================================================
 // VERTIGOGO — Génération de parcours à partir d'une graine (partagé client, serveur et tests)
-// Le parcours monte en spirale carrée autour d'un noyau central. Chaque module est calibré
+// Le parcours monte en spirale carrée dans le vide, à la manière d'Only Up. Chaque module est calibré
 // sur les vrais sauts du contrôleur, puis le serveur vérifie tout avec un pilote automatique.
 // ============================================================
 (function (root, factory) { if (typeof module === "object" && module.exports) module.exports = factory(require("./vgsim.js"), require("./vgprops.js")); else root.VgCourse = factory(root.VgSim, root.VgProps); })(typeof self !== "undefined" ? self : this, function (S, PR) {
@@ -10,19 +10,19 @@
   const ORDER = [0, 8, 1, 2, 9, 3, 4, 11, 5, 10, 6, 7, 12];
   const BLURBS = ["Des pins, des rochers et des champignons qui font rebondir.", "Des voitures, des bennes et des poteaux tout fins.", "Des caisses, des poutres et des palettes empilées.", "Des chaises, des tables, un canapé et un lit trampoline.", "Un fourneau, un frigo, des marmites et un tapis roulant.", "Des immeubles de hauteurs différentes et des trampolines.", "Des arbres morts, des citrouilles et des tombes qui s'effritent.", "Des nuages moelleux et des bonds géants vers le sommet.", "Des bouées qui flottent et font rebondir, des parasols et des châteaux de sable.", "Des tas de feuilles mortes qui glissent un peu et des branches qui craquent sous les pieds.", "De la glace où l'on glisse, des bonshommes de neige et des stalactites qui tombent.", "Des tapis roulants, des pistons et des engrenages qui tournent.", "Une gravité plus faible pour de grands sauts, des astéroïdes et des débris qui flottent."];
   const WEIGHTS = [
-    { prop: 8, steps: 2, gaps: 2, narrow: 1, crumble: 1, tramp: 2, ramp: 1 },
-    { prop: 8, gaps: 2, steps: 1, wall: 1, mover: 2, lift: 1, tramp: 2 },
-    { prop: 7, narrow: 2, lift: 2, sweeper: 2, gaps: 1, mover: 1, wall: 1, tramp: 2, ramp: 2 },
-    { prop: 8, steps: 2, wall: 2, spring: 1, tramp: 2, narrow: 1, ramp: 2 },
-    { prop: 7, mover: 2, ice: 2, sweeper: 1, gaps: 1, steps: 1, tramp: 2, ramp: 2 },
-    { prop: 7, gaps: 3, wall: 2, narrow: 1, tramp: 3, mover: 1, ramp: 3 },
-    { prop: 7, crumble: 3, narrow: 1, sweeper: 1, steps: 1, spring: 1, tramp: 1 },
-    { prop: 6, crumble: 3, spring: 2, tramp: 3, gaps: 1, lift: 1, mover: 1, ice: 1 },
-    { prop: 7, bouee: 3, steps: 1, gaps: 1, mover: 1, tramp: 1 },
-    { prop: 7, leaf: 3, crumble: 2, steps: 1, gaps: 1, tramp: 1, ramp: 1 },
-    { prop: 6, ice: 3, drop: 2, steps: 1, narrow: 1, gaps: 1, tramp: 1, ramp: 2 },
-    { prop: 6, spin: 3, lift: 2, mover: 1, steps: 1, tramp: 1, ramp: 2 },
-    { prop: 6, debris: 3, gaps: 2, spin: 1, mover: 1, tramp: 1 },
+    { prop: 8, steps: 2, gaps: 2, narrow: 1, crumble: 1, tramp: 2, ramp: 1, big: 3, devers: 2, envol: 1, pegs: 1 },
+    { prop: 8, gaps: 2, steps: 1, wall: 1, mover: 2, lift: 1, tramp: 2, big: 3, devers: 2, envol: 1, pegs: 1 },
+    { prop: 7, narrow: 2, lift: 2, sweeper: 2, gaps: 1, mover: 1, wall: 1, tramp: 2, ramp: 2, big: 3, devers: 2, envol: 1, pegs: 1 },
+    { prop: 8, steps: 2, wall: 2, spring: 1, tramp: 2, narrow: 1, ramp: 2, big: 3, devers: 2, envol: 1, pegs: 1 },
+    { prop: 7, mover: 2, ice: 2, sweeper: 1, gaps: 1, steps: 1, tramp: 2, ramp: 2, big: 3, devers: 2, envol: 1, pegs: 1 },
+    { prop: 7, gaps: 3, wall: 2, narrow: 1, tramp: 3, mover: 1, ramp: 3, big: 3, devers: 2, envol: 1, pegs: 1 },
+    { prop: 7, crumble: 3, narrow: 1, sweeper: 1, steps: 1, spring: 1, tramp: 1, big: 3, devers: 2, envol: 1, pegs: 1 },
+    { prop: 6, crumble: 3, spring: 2, tramp: 3, gaps: 1, lift: 1, mover: 1, ice: 1, big: 3, devers: 2, envol: 1, pegs: 1 },
+    { prop: 7, bouee: 3, steps: 1, gaps: 1, mover: 1, tramp: 1, big: 3, devers: 2, envol: 1, pegs: 1 },
+    { prop: 7, leaf: 3, crumble: 2, steps: 1, gaps: 1, tramp: 1, ramp: 1, big: 3, devers: 2, envol: 1, pegs: 1 },
+    { prop: 6, ice: 3, drop: 2, steps: 1, narrow: 1, gaps: 1, tramp: 1, ramp: 2, big: 3, devers: 2, envol: 1, pegs: 1 },
+    { prop: 6, spin: 3, lift: 2, mover: 1, steps: 1, tramp: 1, ramp: 2, big: 3, devers: 2, envol: 1, pegs: 1 },
+    { prop: 6, debris: 3, gaps: 2, spin: 1, mover: 1, tramp: 1, big: 3, devers: 2, envol: 1, pegs: 1 },
   ];
   const DIFF = {
     facile: { gap: 0.58, wall: 2.1, narrow: 1.6, crumble: 0.85, per: 6.2, zoneBonus: 0.06 },
@@ -58,7 +58,7 @@
     let pool = Array.from(new Set((opts.pool && opts.pool.length ? opts.pool : ORDER).map(Number).filter((v) => v >= 0 && v < THEMES.length))).sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b)); if (!pool.length) pool = ORDER.slice();
     let ids; if (pool.length <= nzReq) ids = pool.slice(); else { const keep = new Set([pool[0], pool[pool.length - 1]]); while (keep.size < nzReq) keep.add(pool[ri(1, pool.length - 2)]); ids = pool.filter((v) => keep.has(v)); }
     const nz = ids.length;
-    const C = { boxes: [], sweeps: [], drops: [], nodes: [], zones: [], objs: [], seed, opts: { seed, salt, diff: diffName, zones: nzReq, pool: opts.pool || null } }; const boxes = C.boxes;
+    let curMod = "start"; const C = { boxes: [], sweeps: [], drops: [], nodes: [], zones: [], objs: [], seed, opts: { seed, salt, diff: diffName, zones: nzReq, pool: opts.pool || null } }; const boxes = C.boxes;
     const HZ = nz <= 3 ? 42 : nz === 4 ? 38 : nz <= 6 ? 31 : 26; const Hs = 12 + ri(0, 2) * 1.5; // demi-côté de la spirale
     // état du curseur
     let dir = 0, lx = -Hs, lz = -Hs, ltop = 0, lw = 8, ld = 8, lastBox = null; let zoneIdx = 0, zStartY = 0, zNodeStart = 0, side = 0, halfPlaced = false, nextCp = 0;
@@ -71,7 +71,7 @@
       let o = { x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1, z0: b.z0, z1: b.z1 }; if (b.mv) { const a = b.mv.amp; if (b.mv.ax === "x") { o.x0 -= a; o.x1 += a; } else if (b.mv.ax === "y") { o.y0 -= a; o.y1 += a; } else { o.z0 -= a; o.z1 += a; } } return o;
     }
     function conflict(b, ignoreLast) { const r = reach(b); const n = boxes.length; const lb = ignoreLast && n ? boxes[n - 1] : null; for (let i = 0; i < n - (ignoreLast || 0); i++) { if (lb && lb.obj != null && boxes[i].obj === lb.obj) continue; const e = reach(boxes[i]); if (r.x1 + 0.5 > e.x0 && r.x0 - 0.5 < e.x1 && r.z1 + 0.5 > e.z0 && r.z0 - 0.5 < e.z1 && r.y1 + 3.0 > e.y0 && r.y0 - 4.4 < e.y1) return true; } return false; }
-    function commit(b, isNode) { b.i = boxes.length; boxes.push(b); if (isNode !== false) C.nodes.push(b.i); return b; }
+    function commit(b, isNode) { if (b.mod == null) b.mod = curMod; b.i = boxes.length; boxes.push(b); if (isNode !== false) C.nodes.push(b.i); return b; }
     function front(box) { const f = DIRS[dir]; return f[0] ? (f[0] > 0 ? box.x1 : box.x0) : (f[1] > 0 ? box.z1 : box.z0); }
     // place une plateforme à "gap" de la précédente (bord à bord), lat = décalage latéral
     function place(gap, dy, w, d, lat, k, extra, th) {
@@ -154,10 +154,35 @@
       const ex = cx + f[0] * (len / 2 + gap + d / 2), ez = cz + f[1] * (len / 2 + gap + d / 2); const eb = mkBox(ex, ez, d, w, endTop + dyE, 1.1, "solid");
       if (conflict(eb, 2)) { boxes.pop(); C.nodes.pop(); return false; } commit(eb); adopt(eb); return true;
     };
+    // dévers, une planche penchée sur le côté qu'on traverse en travers de la pente. Certaines roulent doucement d'un côté à l'autre
+    MODS.devers = function (z) {
+      const f = DIRS[dir], n = [-f[1], f[0]]; const s = sgn(); const a0 = pick(0.2, 0.42); const across = pick(3.4, 4.6), along = pick(4.2, 6.2), th = 0.35;
+      const farX = lx + f[0] * ld / 2, farZ = lz + f[1] * ld / 2; const g0 = sg(0.2, gapF(z)) * pick(0.35, 0.6); const lat = pick(-0.4, 0.4);
+      const cx = farX + f[0] * (g0 + along / 2) + n[0] * lat, cz = farZ + f[1] * (g0 + along / 2) + n[1] * lat; const hc = ltop + pick(0.1, 0.5);
+      const oa = R() < 0.4 ? pick(0.05, 0.1) : 0; const amax = a0 + oa; const hx = f[0] ? along / 2 : across / 2, hz = f[0] ? across / 2 : along / 2;
+      const look = THEMES[ids[z]] === "hiver" ? "hiver" : THEMES[ids[z]] === "toits" ? "toits" : "planche";
+      const rb = { x0: cx - hx, x1: cx + hx, z0: cz - hz, z1: cz + hz, y0: hc - (across / 2) * Math.tan(amax) - th, y1: hc + (across / 2) * Math.tan(amax), k: "ramp", zone: zoneIdx, w: across, d: along, look, rp: { cx, cz, ux: n[0] * s, uz: n[1] * s, len: across, wid: along, hc, a0, oa, per: pick(4, 6), ph: R(), th, steep: false } };
+      if (conflict(rb, 1)) return false; commit(rb);
+      const d = pick(3, 3.6), w = pick(3, 4); const gap = pick(0.3, 0.7); const ex = cx + f[0] * (along / 2 + gap + d / 2), ez = cz + f[1] * (along / 2 + gap + d / 2); const eb = mkBox(ex, ez, d, w, hc + pick(0, 0.4), 1.1, "solid");
+      if (conflict(eb, 2)) { boxes.pop(); C.nodes.pop(); return false; } commit(eb); adopt(eb); return true;
+    };
+    // le grand saut, une longue détente vers une plateforme plus basse et lointaine
+    MODS.envol = function (z) {
+      const dy = pick(-3.2, -1.6); const g = sg(dy, Math.min(0.86, gapF(z) + 0.06)); const b = place(g, dy, pick(3.6, 4.8), pick(3.6, 4.6), pick(-0.8, 0.8), "solid", null, 1.4);
+      if (conflict(b, 1)) return false; commit(b); adopt(b); return true;
+    };
+    // les poteaux, une suite de toutes petites marches très rapprochées, il faut être précis
+    MODS.pegs = function (z) {
+      const n = ri(4, 6); for (let i = 0; i < n; i++) { const dy = pick(-0.1, 0.45), g = pick(0.8, 1.4), sz2 = pick(1.3, 1.6); const b = place(g, dy, sz2, pick(2.2, 2.8), pick(-0.5, 0.5), "solid", { look: "poteau" }, pick(2.5, 4)); if (conflict(b, 1)) return false; commit(b); adopt(b); }
+      const e = place(sg(0.3, gapF(z)) * 0.6, 0.3, pick(3, 3.8), 3.2, 0, "solid"); if (conflict(e, 1)) return false; commit(e); adopt(e); return true;
+    };
+    // les grandes structures, avion, maison, grue, échafaudage, pont ou tuyau, présentes dans plusieurs mondes
+    const BIG = ["avion", "maison_ouverte", "grue", "echafaudage", "pont_planches", "tuyau"];
+    MODS.big = function (z) { const zid = ids[z]; const c = BIG.map((id) => PR.byId(id)).filter((T) => T && T.zones.indexOf(zid) >= 0 && recent.indexOf(T.id) < 0); const T = c.length ? c[Math.floor(R() * c.length)] : PR.byId(BIG[Math.floor(R() * BIG.length)]); recent.push(T.id); if (recent.length > 4) recent.shift(); return placeTpl(T, z, { dy: pick(-0.2, 0.6) }); };
     // ---- objets du quotidien : chaque objet a ses propres boîtes de collision ----
-    let recent = [];
+    let recent = []; const BIGSET = { avion: 1, maison_ouverte: 1, grue: 1, echafaudage: 1, pont_planches: 1, tuyau: 1 };
     function placeTpl(T, z, o) {
-      o = o || {}; const f = pick(0.92, 1.1); const L = PR.layout(T, f); const E = L.boxes[L.route[0]]; const fv = DIRS[dir], nv = [-fv[1], fv[0]];
+      o = o || {}; const f = T.proc && BIGSET[T.id] ? pick(0.95, 1.15) : pick(0.82, 1.3); const L = PR.layout(T, f); const E = L.boxes[L.route[0]]; const fv = DIRS[dir], nv = [-fv[1], fv[0]];
       const dy = o.dy != null ? o.dy : pick(-0.3, 0.9); const g = (o.gap != null ? o.gap : Math.max(0.5, sg(dy, gapF(z)) * pick(0.55, 0.92))) * Math.min(1, 0.52 + ld / 5); const lat = pick(-0.7, 0.7);
       const farF = (lx + fv[0] * ld / 2) * fv[0] + (lz + fv[1] * ld / 2) * fv[1]; const cN = lx * nv[0] + lz * nv[1];
       const pf = farF + g - E.u0, pn = cN + lat - (E.v0 + E.v1) / 2, py = ltop + dy - E.y1;
@@ -203,7 +228,7 @@
         if (rem < 9) { const b = corner(false, false); if (!conflict(b, 1)) { commit(b); adopt(b); dir = (dir + 1) % 4; side++; continue; } }
         // pas de module trop long près d'un angle : on se contente de marches
         const st0 = snapshotState(); let ok = false; let tries = 0;
-        while (!ok && tries++ < 8) { const name = rem < 16 ? "steps" : weightedPick(z); ok = MODS[name](z); if (ok) lastMod = name; if (!ok) restore(st0); else if (!cpDone && climbed > HZ * 0.45 && lastBox.w >= 3 && lastBox.k === "solid") { cpDone = true; lastBox.cp = true; zc.cps.push(lastBox.i); } }
+        while (!ok && tries++ < 8) { const name = rem < 16 ? "steps" : weightedPick(z); curMod = name; ok = MODS[name](z); if (ok) lastMod = name; if (!ok) restore(st0); else if (!cpDone && climbed > HZ * 0.45 && lastBox.w >= 3 && lastBox.k === "solid") { cpDone = true; lastBox.cp = true; zc.cps.push(lastBox.i); } }
         if (!ok) { // dernier recours, marches simples vers le haut
           const b = place(sg(1.0, 0.5), 1.0, 3.4, 3.2, 0, "solid"); commit(b); adopt(b); }
       }

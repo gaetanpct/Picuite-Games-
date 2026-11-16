@@ -50,7 +50,7 @@
     sc.appendChild(hudEl);
     $("#bk-snd").onclick = () => { SND.setMute(!SND.muted); $("#bk-snd").textContent = SND.muted ? "🔇" : "🔊"; if (!SND.muted) SND.click(); };
     $("#bk-snd").textContent = SND.muted ? "🔇" : "🔊";
-    $("#bk-menu").onclick = openPause; keysHint(); $("#bk-xh").style.display = G.fp ? "block" : "none";
+    $("#bk-menu").onclick = openPause; keysHint(); $("#bk-xh").style.display = "none";
     document.addEventListener("pointerlockchange", () => { if (document.pointerLockElement !== canvas) G.act = false; });
     bindInput();
   }
@@ -293,7 +293,7 @@
       if (!s) { const pre = G.pre && G.pre[i]; if (pre) s = { x: pre.x, z: pre.z, y: 0, vx: 0, vz: 0, a: pre.a, st: "ok", ch: 0, alive: true, inv: false }; else return; }
       if (G.phase === "intro" || G.phase === "count") s.st = "ok";
       if (G.phase === "roundEnd" || G.phase === "over") { const win = G.end && G.end.end && G.end.end.winners.includes(p.id); if (win) s.cheer = true; }
-      a.show(s, vdt); if (i === meIdx) a.group.visible = !(G.fp && playing && s.alive && G.phase === "play");
+      a.show(s, vdt); if (i === meIdx) a.group.visible = true;
       const co = G.cos[p.id]; if (co && co.trail && playing && s.alive && (s.st === "dash" || Math.hypot(s.vx, s.vz) > 3)) FX.trail(co.trail, s.x, 0, s.z, s.vx, s.vz);
       if (s.st === "dash" && s.alive) FX.dashTrail(s.x, s.z, s.vx / (Math.hypot(s.vx, s.vz) || 1), s.vz / (Math.hypot(s.vx, s.vz) || 1), colorOf(p.id));
       else if (s.alive && s.y <= 0.01 && Math.hypot(s.vx, s.vz) > 5.5 && G.frame % 5 === 0) FX.dust(s.x, s.z, s.vx * 0.1, s.vz * 0.1, 1);
@@ -327,16 +327,20 @@
   // ---------- caméra ----------
   function keysHint() { const kk = $("#bk-keys"); if (kk) kk.innerHTML = "<span><kbd>Maj</kbd> ou <kbd>E</kbd> saut</span>" + (G.fp ? "<span><kbd>F</kbd><kbd>H</kbd><kbd>T</kbd><kbd>G</kbd> caméra</span>" : ""); }
   function setFp(on) {
-    on = !!on; if (on === G.fp) return; G.fp = on; G.fpInit = false; keysHint(); const xh = $("#bk-xh"); if (xh) xh.style.display = G.fp ? "block" : "none";
+    on = !!on; if (on === G.fp) return; G.fp = on; G.fpInit = false; keysHint(); const xh = $("#bk-xh"); if (xh) xh.style.display = "none";
     if (!G.fp && document.pointerLockElement) document.exitPointerLock();
-    if (G.fp && G.phase === "play") toast("Vue à la première personne, clique pour capturer la souris", "info");
+    if (G.fp && G.phase === "play" && !isTouch) toast("Vue à la troisième personne, clique pour capturer la souris", "info");
     if (!G.fp) { R.cam.fov = 38; R.cam.near = 0.5; R.cam.updateProjectionMatrix(); }
   }
+  // vue à la troisième personne, derrière son personnage. La caméra suit la direction où l'on va, F, H, T et G l'orientent
   function fpCamera(dt, mine) {
-    const cam = R.cam; if (cam.fov !== 80) { cam.fov = 80; cam.near = 0.15; cam.updateProjectionMatrix(); }
-    if (!G.fpInit) { G.fpInit = true; if (mine) G.fpYaw = Math.atan2(-Math.cos(mine.a || 0), -Math.sin(mine.a || 0)) + 0; else G.fpYaw = 0; G.fpPitch = 0; }
-    const x = mine ? mine.x : 0, z = mine ? mine.z : 0, y = mine ? Math.max(mine.y, mine.st === "fall" ? mine.y : 0) : 0; const c = G.cam; c.shake *= Math.max(0, 1 - dt * 7); const sh = c.shake * 0.12;
-    cam.rotation.order = "YXZ"; cam.position.set(x + (Math.random() - 0.5) * sh, y + 1.45 + (Math.random() - 0.5) * sh, z + (Math.random() - 0.5) * sh); cam.rotation.set(G.fpPitch, G.fpYaw, 0);
+    const cam = R.cam; if (cam.fov !== 62) { cam.fov = 62; cam.near = 0.2; cam.updateProjectionMatrix(); }
+    if (!G.fpInit) { G.fpInit = true; if (mine) G.fpYaw = Math.atan2(-Math.cos(mine.a || 0), -Math.sin(mine.a || 0)) + 0; else G.fpYaw = 0; G.fpPitch = 0; G.tpx = null; }
+    const x = mine ? mine.x : 0, z = mine ? mine.z : 0, y = mine ? Math.max(mine.y, mine.st === "fall" ? mine.y : 0) : 0; const c = G.cam; c.shake *= Math.max(0, 1 - dt * 7); const sh = c.shake * 0.2;
+    const fx = -Math.sin(G.fpYaw), fz = -Math.cos(G.fpYaw); const el = clamp(0.42 - G.fpPitch, 0.12, 1.15); const dist = 7.2;
+    const px = x - fx * dist * Math.cos(el), pz = z - fz * dist * Math.cos(el), py = y + 1.1 + dist * Math.sin(el);
+    if (G.tpx == null) { G.tpx = px; G.tpy = py; G.tpz = pz; } const k = Math.min(1, dt * 9); G.tpx += (px - G.tpx) * k; G.tpy += (py - G.tpy) * k; G.tpz += (pz - G.tpz) * k;
+    cam.rotation.order = "XYZ"; cam.position.set(G.tpx + (Math.random() - 0.5) * sh, G.tpy + (Math.random() - 0.5) * sh, G.tpz + (Math.random() - 0.5) * sh); cam.lookAt(x + fx * 1.6, y + 1.0, z + fz * 1.6);
   }
   function camera(dt, cen, mine) {
     if (R) setFp(!!S().firstPerson);
@@ -473,11 +477,11 @@
     colors: COLORS, botLevels: LEVELS, maxPlayers: 8, minPlayers: 2, schema: Rules.SCHEMA,
     help: [
       { title: "Le but", text: "Reste sur l'arène et fais tomber les autres. Dans Chacun pour soi, le dernier debout gagne la manche. Chaque éjection rapporte aussi des points, donc quelqu'un d'éliminé tôt peut remonter au classement général." },
-      { title: "Se déplacer", text: "Les flèches du clavier, ZQSD ou WASD pour bouger. Sur téléphone, un joystick et un bouton apparaissent. En vue à la première personne, la caméra suit ta direction toute seule, et tu peux aussi l'orienter avec la souris ou avec F et H pour regarder à gauche et à droite, T et G pour regarder vers le haut et vers le bas." },
+      { title: "Se déplacer", text: "Les flèches du clavier, ZQSD ou WASD pour bouger. Sur téléphone, un joystick et un bouton apparaissent. En vue à la troisième personne, la caméra suit ta direction toute seule, et tu peux aussi l'orienter avec la souris ou avec F et H pour regarder à gauche et à droite, T et G pour regarder vers le haut et vers le bas." },
       { title: "Pousser et charger", text: "Un appui rapide sur Espace donne une poussée courte, utile pour repousser quelqu'un qui est tout près. Si tu maintiens Espace, tu charges, tu avances lentement et un anneau grandit autour de toi. En relâchant, tu fonces dans la direction où tu vas. Plus la charge est longue, plus le choc est fort." },
       { title: "Les risques", text: "Une charge qui ne touche personne te laisse sans défense un instant, et tu ne peux pas enchaîner les charges sans pause. Quelqu'un qui te percute pendant que tu charges ou que tu récupères t'envoie bien plus loin." },
       { title: "Jouer avec l'élan", text: "Un choc de plein fouet avec beaucoup de vitesse pousse bien plus qu'un choc de côté. Tu peux infléchir un peu ta charge en route, et esquiver sur le côté quand tu vois quelqu'un charger." },
-      { title: "Les arènes", text: "Les nuages ont des rafales de vent annoncées par des traînées blanches. Le manège tourne avec des bras qui balayent. L'île a de la boue, des champignons et une marée. Les sections glissent, la fête foraine a des bumpers, et la structure flottante allonge ses bras. Le radeau penche du côté où se tient le groupe. La patinoire en pente fait glisser vers le bord rouge. Sur le ring en spirale, les dalles qui tremblent vont tomber et le centre tient jusqu'au bout. Sur le toit sous l'orage, un cercle lumineux annonce chaque éclair. Le billard renvoie tout le monde contre ses bandes et ses poches grandissent. Au volcan, les îlots s'écartent au-dessus de la lave." },
+      { title: "Les arènes", text: "Le radeau penche du côté où se tient le groupe. La patinoire en pente fait glisser vers le bord rouge. Sur le ring en spirale, les dalles qui tremblent vont tomber et le centre tient jusqu'au bout. Sur le toit sous l'orage, un cercle lumineux annonce chaque éclair. Le billard renvoie tout le monde contre ses bandes et ses poches grandissent. Au volcan, les îlots s'écartent au-dessus de la lave." },
       { title: "Se rattraper au bord", text: "Si tu tombes du bord sans avoir été projeté trop fort, tu t'y accroches un court instant. Appuie sur saut pour remonter. Un coup reçu pendant que tu es accroché te fait lâcher prise." },
       { title: "Les événements", text: "Vers le milieu de la manche, un événement est annoncé trois secondes avant. Le sol bascule d'un côté, un bumper géant sort au centre, la gravité baisse ou tout gèle. On peut les couper dans les réglages du salon." },
       { title: "Les modes", text: "Chacun pour soi, équipe contre équipe, Points où l'on revient après une chute, et Roi de la couronne où il faut rester seul dans la zone dorée. À la fin, l'arène rétrécit pour que les manches se terminent." },

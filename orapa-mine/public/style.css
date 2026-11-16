@@ -101,3 +101,8 @@
 .om-shot__dot--ask { background: #2a3a8a; border-color: #7fd6ff; color: #fff; }
 .om-shots { max-height: 22rem; }
 @media (max-width: 420px) { .om-mode { font-size: 0.78rem; padding: 0.45rem 0.15rem; } }
+
+/* au plus juste, suivre les autres une fois sa mine trouvée */
+.om-watchgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 0.6rem; margin-top: 0.6rem; }
+.om-watch h3 { font-size: 0.95rem; display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+.om-watch--me { border-color: #2fd66b; }

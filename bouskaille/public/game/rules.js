@@ -22,7 +22,7 @@
         { value: "echange", label: "Échange", icon: "🔁", desc: "Gabarits au hasard, et celui qui éjecte un adversaire lui vole son gabarit, l'autre récupère le sien." },
         { value: "egal", label: "Tous pareils", icon: "⚖️", desc: "Tout le monde a le même poids, comme avant." },
       ] },
-      { id: "firstPerson", label: "Vue à la première personne pour tous", type: "bool", default: false, info: "Si c'est activé, tout le monde joue avec la caméra à hauteur de yeux, qui tourne toute seule vers la direction où l'on va. Les flèches servent à se déplacer, F, H, T et G orientent la caméra. Le choix vaut pour tous les joueurs de la partie." },
+      { id: "firstPerson", label: "Vue à la troisième personne pour tous", type: "bool", default: false, info: "Si c'est activé, tout le monde joue avec la caméra derrière son personnage, qui tourne toute seule vers la direction où l'on va. Les flèches servent à se déplacer, F, H, T et G orientent la caméra. Le choix vaut pour tous les joueurs de la partie." },
       { id: "finalDouble", label: "Dernière manche à points doubles", type: "bool", default: true, info: "Pour que tout se joue jusqu'au bout." },
     ] },
     { category: "🏟️ Les arènes", rules: [

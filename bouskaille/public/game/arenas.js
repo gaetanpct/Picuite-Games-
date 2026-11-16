@@ -19,83 +19,8 @@
   const LIST = [];
   function reg(id, name, theme, blurb, build) { LIST.push({ id, name, theme, blurb, build }); }
 
-  // ---------- 1. Les Nuages ----------
-  reg("nuages", "Les Nuages", "cloud", "Un nuage rond entouré de petits nuages qui tournent, et des rafales de vent qui reviennent.", (seed) => {
-    const r = rng(seed); const R = 8.8 + r() * 1.4; const A = empty("nuages", "Les Nuages", "cloud", R + 6);
-    const n = 3 + Math.floor(r() * 3), dir = sgn(r), rs = 2.2 + r() * 0.5, slipSats = r() < 0.4;
-    for (let i = 0; i < n; i++) A.surfaces.push(disc(0, 0, rs, { mv: { type: "orbit", cx: 0, cz: 0, rad: R + rs - 0.5, w: dir * (0.28 + r() * 0.1), ph: (i / n) * TAU }, slip: slipSats && i % 2 === 0, kind: i === n - 1 && r() < 0.35 ? "crumble" : null, delay: 1.1, back: 4.5 }));
-    A.surfaces.push(disc(0, 0, R));
-    const gusts = 2 + Math.floor(r() * 2); let a0 = r() * TAU;
-    for (let i = 0; i < gusts; i++) { const a = a0 + (i / gusts) * TAU + r() * 0.5; A.zones.push({ k: "wind", shape: "disc", x: 0, z: 0, r: R + 1, dx: Math.cos(a), dz: Math.sin(a), f: 8.5 + r() * 2.5, period: 12 + r() * 3, on: 2.3, ph: (i / gusts) * 12 + r() * 3 }); }
-    const sp = Math.floor(r() * 3); for (let i = 0; i < sp; i++) { const a = r() * TAU, d = 3.5 + r() * 2.5; A.zones.push({ k: "spring", shape: "disc", x: Math.cos(a) * d, z: Math.sin(a) * d, r: 1.0 }); }
-    if (r() < 0.5) A.zones.push({ k: "slip", shape: "disc", x: (r() - 0.5) * 6, z: (r() - 0.5) * 6, r: 2.3 });
-    ringSpawns(A, R * 0.62, r() * 0.4); ringCrown(A, R * 0.4, 4);
-    A.shrink = { R0: R + rs * 2 + 1, Rmin: 3.6, start: 50, dur: 40 }; A.info = "Les rafales sont annoncées par des traînées blanches.";
-    return A;
-  });
-
-  // ---------- 3. Le Manège ----------
-  reg("manege", "Le Manège", "carousel", "Deux plateaux qui tournent en sens inverse, et des bras qui balayent.", (seed) => {
-    const r = rng(seed); const A = empty("manege", "Le Manège", "carousel", 12); const d = sgn(r);
-    A.surfaces.push(disc(0, 0, 4.5, { mv: { type: "spin", px: 0, pz: 0, w: -d * (0.38 + r() * 0.12) }, slip: r() < 0.35 }));
-    A.surfaces.push(disc(0, 0, 11, { mv: { type: "spin", px: 0, pz: 0, w: d * (0.2 + r() * 0.1) } }));
-    A.pegs.push({ x: 0, z: 0, r: 1.15, i: 0 });
-    const arms = [1, 2, 4][Math.floor(r() * 3)], bw = sgn(r) * (0.45 + r() * 0.15), off = r() * TAU;
-    for (let i = 0; i < arms; i++) A.bars.push({ x: 0, z: 0, len: 7.2 + r() * 1.2, w: bw, ph: off + Math.PI / 8 + (i / arms) * TAU, th: 0.3 });
-    const ns = 1 + Math.floor(r() * 3); for (let i = 0; i < ns; i++) { const a = (i / ns) * TAU + r(); A.zones.push({ k: "spring", shape: "disc", x: Math.cos(a) * 9.4, z: Math.sin(a) * 9.4, r: 1.0, host: 1 }); }
-    if (r() < 0.5) A.zones.push({ k: "slip", shape: "disc", x: 7.5, z: 0, r: 2.4, host: 1 });
-    ringSpawns(A, 7.4, off); ringCrown(A, 7.2, 4); A.shrink = { R0: 11.5, Rmin: 4.2, start: 55, dur: 40 };
-    A.info = "Les plateaux entraînent les joueurs, garde un oeil sur les bras."; return A;
-  });
-
-  // ---------- 4. L'Île tropicale ----------
-  reg("ile", "L'Île tropicale", "island", "Une île avec de la boue, des champignons rebondissants et la marée qui monte.", (seed) => {
-    const r = rng(seed); const A = empty("ile", "L'Île tropicale", "island", 12.5);
-    A.surfaces.push(disc(0, 0, 6.2));
-    const n = 5 + Math.floor(r() * 2); for (let i = 0; i < n; i++) { const a = (i / n) * TAU + r() * 0.6, dd = 4.4 + r() * 1.3; A.surfaces.push(disc(Math.cos(a) * dd, Math.sin(a) * dd, 3.7 + r() * 0.9)); }
-    for (let i = 0; i < 2; i++) { const a = r() * TAU, dd = 1.5 + r() * 4; A.zones.push({ k: "mud", shape: "disc", x: Math.cos(a) * dd, z: Math.sin(a) * dd, r: 1.9 + r() * 0.7 }); }
-    const ns = 2 + Math.floor(r() * 2); for (let i = 0; i < ns; i++) { const a = (i / ns) * TAU + r(), dd = 5 + r() * 2; A.zones.push({ k: "spring", shape: "disc", x: Math.cos(a) * dd, z: Math.sin(a) * dd, r: 1.0, pow: 1 }); }
-    A.pegs.push({ x: (r() - 0.5) * 3, z: (r() - 0.5) * 3, r: 0.9, i: 0 });
-    A.tide = { R0: 10.6, depth: 2.4 + r() * 0.5, period: 17 + r() * 4, ph: r() * 17 };
-    A.shrink = { R0: 11, Rmin: 4.2, start: 58, dur: 40 };
-    ringSpawns(A, 5.4, r()); ringCrown(A, 3.8, 4); A.info = "La marée monte et descend, le sable sombre annonce l'eau."; return A;
-  });
-
-  // ---------- 5. Les Sections mobiles ----------
-  reg("sections", "Les Sections mobiles", "sections", "Un noyau fixe entouré de plateaux qui glissent et laissent des trous.", (seed) => {
-    const r = rng(seed); const A = empty("sections", "Les Sections mobiles", "sections", 14);
-    const nc = 2 + Math.floor(r() * 3);
-    for (let i = 0; i < nc; i++) { const sx = i % 2 ? -1 : 1, sz = i < 2 ? 1 : -1; A.surfaces.push(rect(sx * 5.0, sz * 5.0, 3.4, 3.4, { kind: "crumble", delay: 1.1, back: 4.2 })); }
-    A.surfaces.push(rect(0, 0, 7.4, 7.4));
-    const base = r() * 6, dir = sgn(r);
-    for (let i = 0; i < 4; i++) { const a = (i / 4) * TAU; const cx = Math.round(Math.cos(a)) * 6.2, cz = Math.round(Math.sin(a)) * 6.2; const tx = -Math.round(Math.sin(a)), tz = Math.round(Math.cos(a)); A.surfaces.push(rect(cx, cz, 6, 6, { mv: { type: "slide", ax: tx, az: tz, amp: 3.0 + r() * 0.5, w: dir * (0.5 + r() * 0.12), ph: base + i * 1.57 * (r() < 0.5 ? 1 : 1) } })); }
-    ringSpawns(A, 2.9, 0.4); ringCrown(A, 2, 3); A.shrink = { R0: 13, Rmin: 4, start: 50, dur: 40 }; A.info = "Les plateaux glissent, les cases clignotantes s'effondrent."; return A;
-  });
-
-  // ---------- 6. La Fête foraine ----------
-  reg("foraine", "La Fête foraine", "fair", "Des auto-tamponneuses, des trampolines et un manège qui tourne au milieu.", (seed) => {
-    const r = rng(seed); const A = empty("foraine", "La Fête foraine", "fair", 12);
-    A.surfaces.push(disc(0, 0, 3.4, { mv: { type: "spin", px: 0, pz: 0, w: sgn(r) * (0.7 + r() * 0.3) } }));
-    A.surfaces.push(disc(0, 0, 10.4));
-    const nb = 5 + Math.floor(r() * 3), a0 = r() * TAU, rb = 6.3 + r() * 0.6; for (let i = 0; i < nb; i++) { const a = a0 + (i / nb) * TAU; A.pegs.push({ x: Math.cos(a) * rb, z: Math.sin(a) * rb, r: 0.75, bounce: 1.15, i }); }
-    const nt = 2 + Math.floor(r() * 2); for (let i = 0; i < nt; i++) { const a = a0 + ((i + 0.5) / nt) * TAU + 0.3, dd = 7.0; A.zones.push({ k: "spring", shape: "disc", x: Math.cos(a) * dd, z: Math.sin(a) * dd, r: 1.15, pow: 1.1 }); }
-    for (let i = 0; i < 2; i++) { const a = r() * TAU; A.zones.push({ k: "slip", shape: "disc", x: Math.cos(a) * 4.8, z: Math.sin(a) * 4.8, r: 1.8 + r() * 0.6 }); }
-    ringSpawns(A, 8.9, a0 + 0.2); ringCrown(A, 4.5, 4); A.shrink = { R0: 11, Rmin: 4, start: 50, dur: 40 }; A.info = "Les bumpers rebondissent, les trampolines propulsent."; return A;
-  });
-
-  // ---------- 7. La Structure flottante ----------
-  reg("flottante", "La Structure flottante", "float", "Une croix suspendue dans le vide, des bras qui s'allongent et des dalles fragiles.", (seed) => {
-    const r = rng(seed); const A = empty("flottante", "La Structure flottante", "float", 17);
-    const nc = 2 + Math.floor(r() * 3); for (let i = 0; i < nc; i++) { const sx = i % 2 ? -1 : 1, sz = i < 2 ? 1 : -1; A.surfaces.push(rect(sx * 4.6, sz * 4.6, 3.6, 3.6, { kind: "crumble", delay: 1.0, back: 4.0 })); }
-    A.surfaces.push(rect(0, 0, 18, 6.6)); A.surfaces.push(rect(0, 0, 6.6, 18));
-    const base = r() * 6; for (let i = 0; i < 4; i++) { const a = (i / 4) * TAU, ax = Math.round(Math.cos(a)), az = Math.round(Math.sin(a)); A.surfaces.push(rect(ax * 8.3, az * 8.3, 4.4, 4.4, { mv: { type: "slide", ax, az, amp: 2.4, w: 0.45 + r() * 0.1, ph: base + i * 1.2 } })); }
-    A.zones.push({ k: "wind", shape: "disc", x: 0, z: 0, r: 14, dx: Math.cos(r() * TAU), dz: Math.sin(r() * TAU), f: 7.5, period: 14, on: 2.2, ph: r() * 14 });
-    if (r() < 0.6) A.zones.push({ k: "spring", shape: "disc", x: 0, z: 0, r: 1.0 });
-    ringSpawns(A, 6.2, 0.4); ringCrown(A, 3.6, 4); A.shrink = { R0: 16, Rmin: 4, start: 50, dur: 40 }; A.info = "Les extrémités avancent et reculent."; return A;
-  });
-
-  // retire les obstacles posés trop près d'une apparition
   function clearPegs(A) { A.pegs = A.pegs.filter((g) => A.spawns.every((s) => Math.hypot(s.x - g.x, s.z - g.z) >= g.r + 1.5)); A.pegs.forEach((g, i) => { g.i = i; }); }
+
   // ---------- 8. Le Radeau sur la rivière ----------
   reg("radeau", "Le Radeau", "raft", "Un radeau sur la rivière qui penche du côté où se tiennent les joueurs. Tout le monde du même côté, et ça glisse.", (seed) => {
     const r = rng(seed); const W = 17 + r() * 2, D = 12 + r() * 1.5; const A = empty("radeau", "Le Radeau", "raft", 13);

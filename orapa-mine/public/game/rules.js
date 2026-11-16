@@ -11,6 +11,7 @@
     facile: { board: "6x6", gems: 3, kinds: "orapa", shapes: "petits", lasers: ["t"], trace: "complet", shots: 0, accLives: 3, accHint: true, adjacent: true },
     normal: { board: "10x8", gems: 5, kinds: "orapa", shapes: "mixtes", lasers: ["t"], trace: "mystere", shots: 24, accLives: 2, accHint: false, adjacent: false },
     expert: { board: "10x8", gems: 7, kinds: "orapa", shapes: "mixtes", lasers: ["t"], trace: "mystere", shots: 18, accLives: 1, accHint: false, adjacent: false },
+    maitre: { board: "10x10", gems: 9, kinds: "orapa", shapes: "mixtes", lasers: ["t"], trace: "mystere", shots: 20, accLives: 1, accHint: false, adjacent: false, seq: [1, 2, 4, 8, 16, 8, 0, "obs", 16] },
     fantaisie: { board: "8x8", gems: 5, kinds: "tout", shapes: "mixtes", lasers: ["r", "b", "y", "w"], trace: "mystere", shots: 24, accLives: 2, accHint: false, adjacent: false },
   };
   const MODES = {
@@ -32,22 +33,18 @@
         { value: "course", label: "Course", icon: "🏁", desc: "Une mine tirée au sort. Chacun tire de son côté en secret et le premier qui accuse juste gagne." },
         { value: "precision", label: "Au plus juste", icon: "🎯", desc: "Même mine pour tout le monde, temps illimité, personne ne se presse. Chacun fouille à son rythme et la manche finit quand tout le monde a trouvé. Celui qui a tiré le moins gagne, une fausse accusation compte pour trois tirs." },
         { value: "croise", label: "Mines croisées", icon: "🔀", desc: "Chacun cache sa propre mine, puis explore celle de son voisin. Cache bien, trouve vite." },
-        { value: "coop", label: "Coopération", icon: "🤝", desc: "Tout le monde fouille la même mine avec un carnet commun et un nombre de tirs limité." },
-        { value: "equipes", label: "Équipes", icon: "⚔️", desc: "Deux équipes se disputent la même mine, chacune avec son carnet secret." },
-        { value: "enigme", label: "Énigme", icon: "🧩", desc: "Une mine prédéfinie avec quelques tirs déjà révélés. Il reste peu de tirs pour conclure." },
-        { value: "campagne", label: "Campagne", icon: "🗺️", desc: "Douze mines de plus en plus grandes, les mêmes pour tout le monde. On avance ensemble." },
         { value: "perso", label: "Personnalisé", icon: "🛠️", desc: "Tu choisis le mode de base et tous les réglages, la taille de la mine, les pierres, les lasers et les limites." },
       ] },
-      { id: "base", label: "Mode de base", type: "chips", default: "course", options: [{ value: "classique", label: "Classique" }, { value: "course", label: "Course" }, { value: "precision", label: "Au plus juste" }, { value: "croise", label: "Mines croisées" }, { value: "coop", label: "Coopération" }, { value: "equipes", label: "Équipes" }], showIf: { mode: ["perso"] }, info: "Le fonctionnement de la partie, comme dans les modes ci-dessus." },
+      { id: "base", label: "Mode de base", type: "chips", default: "course", options: [{ value: "classique", label: "Classique" }, { value: "course", label: "Course" }, { value: "precision", label: "Au plus juste" }, { value: "croise", label: "Mines croisées" }], showIf: { mode: ["perso"] }, info: "Le fonctionnement de la partie, comme dans les modes ci-dessus." },
       { id: "level", label: "Difficulté", type: "cards", default: "normal", options: [
         { value: "facile", label: "Facile", icon: "🌱", desc: "Mine 6 sur 6, trois pierres, la sonde laisse sa trace complète et chaque erreur donne un indice." },
         { value: "normal", label: "Normal", icon: "⛏️", desc: "La mine de l'original, 10 sur 8, avec les cinq pierres de base, rouge, bleue, jaune et deux blanches. 24 tirs." },
         { value: "expert", label: "Expert", icon: "💎", desc: "Mine 10 sur 8, sept pierres dont un diamant et un corps noir, 18 tirs, une seule accusation." },
+        { value: "maitre", label: "Maître", icon: "👑", desc: "Mine 10 sur 10, neuf pierres dont deux émeraudes, une nouvelle couleur verte qui se mélange aux autres, un diamant et un corps noir. 20 tirs, une seule accusation." },
         { value: "fantaisie", label: "Fantaisie", icon: "🌈", desc: "Mine 8 sur 8 avec des filtres, des prismes et des opales, et quatre lasers de couleur. Les pierres de l'original, en plus fou." },
-      ], showIf: { mode: ["classique", "course", "precision", "croise", "coop", "equipes", "enigme"] }, info: "Règle la taille de la mine, le nombre de pierres, les tirs disponibles et la visibilité des rayons." },
-      { id: "rounds", label: "Nombre de manches", type: "chips", default: 3, options: [{ value: 1, label: "1" }, { value: 2, label: "2" }, { value: 3, label: "3" }, { value: 4, label: "4" }, { value: 6, label: "6" }], showIf: { mode: ["classique", "course", "precision", "croise", "coop", "equipes", "perso"] }, info: "Chaque manche utilise une nouvelle mine. En classique, le rôle de Directeur tourne." },
-      { id: "levels", label: "Niveaux à jouer", type: "chips", default: 6, options: [{ value: 3, label: "3" }, { value: 6, label: "6" }, { value: 9, label: "9" }, { value: 12, label: "12" }], showIf: { mode: ["campagne"] }, info: "La campagne commence petit et grandit. Un niveau raté ne bloque pas la suite." },
-      { id: "puzzle", label: "Numéro de l'énigme", type: "range", min: 1, max: 30, step: 1, default: 1, showIf: { mode: ["enigme"] }, info: "Chaque numéro donne toujours la même mine. Plus le numéro est grand, plus la mine est grosse." },
+      ], showIf: { mode: ["classique", "course", "precision", "croise"] }, info: "Règle la taille de la mine, le nombre de pierres, les tirs disponibles et la visibilité des rayons." },
+      { id: "croiseWin", label: "Comment gagner en mines croisées", type: "cards", default: "vitesse", options: [{ value: "vitesse", label: "À la vitesse", icon: "⚡", desc: "Le premier qui trouve la mine de son voisin gagne la manche." }, { value: "coups", label: "Au nombre de coups", icon: "🎯", desc: "Pas de course, chacun prend son temps. La manche finit quand tout le monde a trouvé ou abandonné, le moins de tirs gagne. Une fausse accusation compte pour trois tirs." }], showIf: { mode: ["croise"] }, info: "Choisis si les mines croisées se jouent à la vitesse ou au nombre de coups." },
+      { id: "rounds", label: "Nombre de manches", type: "chips", default: 3, options: [{ value: 1, label: "1" }, { value: 2, label: "2" }, { value: 3, label: "3" }, { value: 4, label: "4" }, { value: 6, label: "6" }], showIf: { mode: ["classique", "course", "precision", "croise", "perso"] }, info: "Chaque manche utilise une nouvelle mine. En classique, le rôle de Directeur tourne." },
     ] },
     { category: "💎 La mine", showIf: { mode: ["perso"] }, rules: [
       { id: "board", label: "Taille de la mine", type: "chips", default: "10x8", options: [{ value: "6x6", label: "6 sur 6" }, { value: "8x8", label: "8 sur 8" }, { value: "10x8", label: "10 sur 8" }, { value: "8x10", label: "8 sur 10" }, { value: "10x10", label: "10 sur 10" }], showIf: { mode: ["perso"] }, info: "Plus la mine est grande, plus il y a de places où cacher les pierres." },
@@ -98,11 +95,10 @@
   function effective(s0) {
     const s = normalize(s0); const key = s.mode === "perso" ? s.base : s.mode; const M = MODES[key] || MODES.course;
     const e = Object.assign({}, s, M, { key });
-    if (s.mode !== "perso") { Object.assign(e, LEVELS[s.level] || LEVELS.normal); if (key === "coop") { e.shots = e.shots ? e.shots + 6 : 0; } }
-    if (key === "enigme") { e.rounds = 1; e.freeShots = 3; e.shots = 8; e.accLives = 2; const p = s.puzzle; e.board = p <= 8 ? "6x6" : p <= 18 ? "10x8" : "10x10"; e.gems = 2 + Math.floor(p / 5); e.kinds = p < 20 ? "orapa" : "tout"; if (e.kinds === "orapa") e.lasers = ["t"]; else e.lasers = ["r", "b", "y", "w"]; e.shapes = "mixtes"; e.trace = "mystere"; e.seed = 7000 + p; e.roundTime = 0; e.adjacent = false; }
-    else e.freeShots = 0;
-    if (key === "precision") { e.shots = 0; e.roundTime = 0; e.accLives = 3; e.accHint = false; }
-    if (key === "campagne") { e.rounds = s.levels; e.shots = 0; e.accLives = 3; e.accHint = true; e.roundTime = 0; e.lasers = ["r", "b", "y", "w"]; e.trace = "partiel"; e.adjacent = false; }
+    if (s.mode !== "perso") { Object.assign(e, LEVELS[s.level] || LEVELS.normal); }
+    e.freeShots = 0;
+    if (key === "precision" || (key === "croise" && s.croiseWin === "coups")) { e.shots = 0; e.roundTime = 0; e.accLives = 3; e.accHint = false; }
+    e.byCost = key === "precision" || (key === "croise" && s.croiseWin === "coups");
     if (e.kinds === "orapa") e.lasers = ["t"];
     if (s.mode !== "perso") { if (!e.roundTime) e.roundTime = 0; }
     if (!e.lasers || !e.lasers.length) e.lasers = ["t"]; e.W = (BOARDS[e.board] || BOARDS["8x8"])[0]; e.H = (BOARDS[e.board] || BOARDS["8x8"])[1];

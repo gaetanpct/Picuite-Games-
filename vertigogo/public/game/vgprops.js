@@ -93,6 +93,20 @@
   def({ id: "satellite", zones: [12], w: 3, proc: "satellite", parts: [], abs: [[-1.1, 1.1, 0, 1.2, -1.1, 1.1], [1.9, 5.6, 0.85, 1.15, -1.0, 1.0]], route: [0, 1] });
   def({ id: "fusee", zones: [12], w: 2, proc: "fusee", parts: [], abs: [[-1.0, 1.0, -7, 0.6, -1.0, 1.0]], route: [0] });
 
+  // ---------- grandes structures à traverser, façon Only Up. On marche dessus, dedans, on grimpe ----------
+  // un avion posé dans le vide, on longe la carlingue puis on monte sur la dérive
+  def({ id: "avion", zones: [1, 5, 7, 8, 10, 12], w: 2.2, proc: "avion", parts: [], abs: [[0, 12, 0, 2.2, -1.1, 1.1], [4.2, 7.4, 1.0, 1.25, 1.1, 6.2, { node: false }], [4.2, 7.4, 1.0, 1.25, -6.2, -1.1, { node: false }], [10.4, 12.4, 2.2, 3.9, -0.9, 0.9]], route: [0, 3] });
+  // une maison sans toit à l'arrière, on entre par la porte, on grimpe table, armoire puis l'étage
+  def({ id: "maison_ouverte", zones: [0, 1, 3, 6, 9, 10], w: 2.2, proc: "maison", parts: [], abs: [[0, 7.5, -0.3, 0, -3, 3], [3.0, 4.6, 0, 1.3, -1.0, 1.0], [5.2, 7.0, 0, 2.7, 0.6, 2.6], [4.2, 7.5, 4.0, 4.3, -3, 0.3], [-0.3, 4.2, 4.0, 4.4, -3.3, 3.3, { node: false }], [0, 7.5, 0, 4.0, 3.0, 3.3, { node: false }], [0, 7.5, 0, 4.0, -3.3, -3.0, { node: false }], [7.5, 7.8, 0, 4.0, -3.3, 3.3, { node: false }]], route: [0, 1, 2, 3] });
+  // une grue, on monte les paliers du mât puis on court le long de la flèche
+  def({ id: "grue", zones: [1, 2, 5, 11], w: 2.2, proc: "grue", parts: [], abs: [[0, 2.6, 0, 1.0, -1.3, 1.3], [2.3, 3.9, 2.1, 2.4, -1.6, -0.1], [3.4, 5.0, 3.5, 3.8, 0.1, 1.6], [4.5, 6.1, 4.9, 5.2, -1.6, -0.1], [6.2, 9.2, 6.1, 6.4, -0.7, 0.7], [9.2, 15, 6.1, 6.4, -0.7, 0.7]], route: [0, 1, 2, 3, 4, 5] });
+  // un échafaudage, des planches en zigzag qui montent
+  def({ id: "echafaudage", zones: [2, 3, 4, 5], w: 2.2, proc: "echafaudage", parts: [], abs: [[0, 3.2, -0.3, 0, -2.2, -0.4], [2.4, 5.6, 1.4, 1.7, 0.4, 2.2], [4.8, 8.0, 3.1, 3.4, -2.2, -0.4], [7.2, 10.4, 4.8, 5.1, 0.4, 2.2]], route: [0, 1, 2, 3] });
+  // un pont de planches suspendues, une à une
+  def({ id: "pont_planches", zones: [0, 6, 7, 8, 9], w: 2, proc: "pont", parts: [], abs: [[0, 1.3, -0.25, 0, -1, 1], [1.8, 3.1, -0.05, 0.2, -1, 1], [3.6, 4.9, -0.15, 0.1, -1, 1], [5.4, 6.7, 0.05, 0.3, -1, 1], [7.2, 8.5, -0.05, 0.2, -1, 1], [9.0, 11.4, 0.1, 0.45, -1.4, 1.4]], route: [0, 1, 2, 3, 4, 5] });
+  // un tuyau géant couché, on marche sur le dessus arrondi puis on saute dans le coude qui remonte
+  def({ id: "tuyau", zones: [2, 4, 11, 12], w: 2, proc: "tuyau", parts: [], abs: [[0, 9, -0.4, 1.1, -0.8, 0.8], [8.4, 10.4, 1.1, 3.0, -1.1, 1.1]], route: [0, 1] });
+
   // ---------- tremplins, dans tous les mondes ----------
   def({ id: "trampoline", zones: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], w: 0, proc: "trampoline", parts: [], abs: [[-1.7, 1.7, -0.55, 0, -1.7, 1.7, { k: "spring", sv: 21.5 }], [4.8, 8.0, 4.2, 4.8, -1.6, 1.6]], route: [0, 1] });
 

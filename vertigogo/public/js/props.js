@@ -196,6 +196,59 @@
       const pt = tex("panel", 64, 64, (gg, s2) => { gg.fillStyle = "#1a3a8a"; gg.fillRect(0, 0, s2, s2); gg.strokeStyle = "#8ab8ff"; gg.lineWidth = 2; for (let i = 0; i <= s2; i += 16) { gg.beginPath(); gg.moveTo(i, 0); gg.lineTo(i, s2); gg.stroke(); gg.beginPath(); gg.moveTo(0, i); gg.lineTo(s2, i); gg.stroke(); } }); g.add(boxMesh(p2, 0xffffff, { map: pt })); return shade(g, ctx.sh); },
     fusee(obj, C, ctx) { const b = BX(C, obj, 0); const c = ctr(b), s3 = sz(b); const r = Math.min(s3[0], s3[2]) / 2; const g = new T.Group(); g.add(mesh(new T.CylinderGeometry(r, r, s3[1], 16), lam(0xffffff, { map: stripeTex("#ffffff", "#e8453c", 2) }), c[0], c[1], c[2])); [0, 1, 2].forEach((k) => { const a = k / 3 * TAU; const fin = mesh(new T.BoxGeometry(0.15, 1.8, 1.0), lam(0xe8453c), c[0] + Math.cos(a) * r, b.y0 + 0.9, c[2] + Math.sin(a) * r); fin.rotation.y = -a; g.add(fin); }); g.add(mesh(new T.ConeGeometry(r * 0.7, 1.2, 12), lam(0xffd23d, { emissive: 0xff6a00 }), c[0], b.y0 - 0.6, c[2])).rotation; return shade(g, ctx.sh); },
   };
+  // ---------- grandes structures ----------
+  // repère de l'objet, f le sens de la montée, n le côté
+  const frame = (obj) => { const ca = Math.cos(obj.ang), sa = Math.sin(obj.ang); return { fx: ca, fz: -sa, nx: sa, nz: ca, ry: obj.ang }; };
+  Object.assign(P, {
+    avion(obj, C, ctx) {
+      const g = new T.Group(); const fu = BX(C, obj, 0), wl = BX(C, obj, 1), wr = BX(C, obj, 2), tl = BX(C, obj, 3); const F = frame(obj); const c = ctr(fu), s3 = sz(fu); const L = Math.max(s3[0], s3[2]), r = Math.min(s3[0], s3[2]) / 2;
+      const body = new T.Group(); body.position.set(c[0], fu.y0 + s3[1] / 2, c[2]); body.rotation.y = F.ry; g.add(body);
+      const white = lam(0xf4f6fa), blue = lam(0x2a6ad8);
+      const cyl = mesh(new T.CylinderGeometry(r * 1.05, r * 1.05, L, 18), white); cyl.rotation.z = Math.PI / 2; body.add(cyl);
+      const nose = mesh(new T.SphereGeometry(r * 1.05, 16, 10, 0, TAU, 0, Math.PI / 2), white, -L / 2, 0, 0); nose.rotation.z = Math.PI / 2; body.add(nose);
+      const stripe = mesh(new T.CylinderGeometry(r * 1.07, r * 1.07, L * 0.92, 18, 1, true, Math.PI * 0.4, Math.PI * 0.2), blue); stripe.rotation.z = Math.PI / 2; body.add(stripe);
+      for (let i = 0; i < 8; i++) { const w = mesh(new T.BoxGeometry(0.4, 0.4, 0.05), lam(0x223355), -L / 2 + 1.6 + i * 1.1, 0.35, r * 1.04); body.add(w); const w2 = w.clone(); w2.position.z = -r * 1.04; body.add(w2); }
+      [wl, wr].forEach((b) => g.add(boxMesh(b, 0xdfe4ee))); g.add(boxMesh(tl, 0x2a6ad8));
+      const stab = mesh(new T.BoxGeometry(1.4, 0.18, 4.4), lam(0xdfe4ee), 0, 0, 0); const ct = ctr(tl); stab.position.set(ct[0], tl.y1 - 0.4, ct[2]); stab.rotation.y = F.ry; g.add(stab);
+      return shade(g, ctx.sh);
+    },
+    maison(obj, C, ctx) {
+      const g = new T.Group(); const fl = BX(C, obj, 0), tb = BX(C, obj, 1), ar = BX(C, obj, 2), mz = BX(C, obj, 3), rf = BX(C, obj, 4), wl = BX(C, obj, 5), wr = BX(C, obj, 6), bk = BX(C, obj, 7);
+      const brick = tex("brique", 64, 64, (q, s2) => { q.fillStyle = "#c8643a"; q.fillRect(0, 0, s2, s2); q.fillStyle = "#e8d8c0"; for (let y = 0; y < s2; y += 16) { q.fillRect(0, y, s2, 2); for (let x = (y / 16) % 2 ? 8 : 0; x < s2; x += 16) q.fillRect(x, y, 2, 16); } });
+      g.add(boxMesh(fl, 0xb8865a)); g.add(boxMesh(tb, 0x8a5a32)); g.add(boxMesh(ar, 0x6a4a8a)); g.add(boxMesh(mz, 0xb8865a));
+      [wl, wr, bk].forEach((b) => g.add(boxMesh(b, 0xffffff, { map: brick })));
+      g.add(boxMesh(rf, 0xd8452a)); const cr = ctr(rf), s3 = sz(rf); const ridge = mesh(new T.BoxGeometry(Math.max(0.3, s3[0] * 0.98), 0.5, Math.max(0.3, s3[2] * 0.98)), lam(0xb83a22), cr[0], rf.y1 + 0.25, cr[2]); g.add(ridge);
+      return shade(g, ctx.sh);
+    },
+    grue(obj, C, ctx) {
+      const g = new T.Group(); const yel = 0xffc21a; const base = BX(C, obj, 0); g.add(boxMesh(base, 0x4a4f5a));
+      for (let k = 1; k <= 3; k++) { const b = BX(C, obj, k); g.add(boxMesh(b, yel)); const c = ctr(b); const post = mesh(new T.BoxGeometry(0.25, b.y0 - base.y1 + 0.01, 0.25), lam(0x8a6a10), c[0], (b.y0 + base.y1) / 2, c[2]); g.add(post); }
+      const j1 = BX(C, obj, 4), j2 = BX(C, obj, 5); g.add(boxMesh(j1, yel)); g.add(boxMesh(j2, yel)); const jib = { x0: Math.min(j1.x0, j2.x0), x1: Math.max(j1.x1, j2.x1), y0: j1.y0, y1: j1.y1, z0: Math.min(j1.z0, j2.z0), z1: Math.max(j1.z1, j2.z1) }; const cj = ctr(jib), sj = sz(jib); const F = frame(obj);
+      const mast = mesh(new T.BoxGeometry(0.9, jib.y0 - base.y1 + 1.6, 0.9), lam(yel, { wireframe: false }), 0, 0, 0); const bc = ctr(base); mast.position.set(bc[0] + F.fx * 4.2, (base.y1 + jib.y0 + 1.6) / 2, bc[2] + F.fz * 4.2); g.add(mast);
+      const cab = mesh(new T.BoxGeometry(1.4, 1.1, 1.4), lam(0xe8453c), mast.position.x, jib.y1 + 0.55, mast.position.z); g.add(cab);
+      const hookX = cj[0] + F.fx * (Math.max(sj[0], sj[2]) * 0.4), hookZ = cj[2] + F.fz * (Math.max(sj[0], sj[2]) * 0.4); const cable = mesh(new T.CylinderGeometry(0.04, 0.04, 3, 4), lam(0x333333), hookX, jib.y0 - 1.5, hookZ); g.add(cable); g.add(mesh(new T.BoxGeometry(0.5, 0.4, 0.5), lam(0x333333), hookX, jib.y0 - 3.1, hookZ));
+      return shade(g, ctx.sh);
+    },
+    echafaudage(obj, C, ctx) {
+      const g = new T.Group(); const pole = lam(0x9aa0aa);
+      for (let k = 0; k < 4; k++) { const b = BX(C, obj, k); g.add(boxMesh(b, 0xc8964e)); [[b.x0 + 0.15, b.z0 + 0.15], [b.x1 - 0.15, b.z0 + 0.15], [b.x0 + 0.15, b.z1 - 0.15], [b.x1 - 0.15, b.z1 - 0.15]].forEach((q) => { const h = 2.4 + k * 1.7; g.add(mesh(new T.CylinderGeometry(0.07, 0.07, h, 6), pole, q[0], b.y1 + 1.0 - h / 2, q[1])); }); }
+      return shade(g, ctx.sh);
+    },
+    pont(obj, C, ctx) {
+      const g = new T.Group(); const wood = 0x9a6a3a; let first = null, last = null;
+      for (let k = 0; k < 6; k++) { const b = BX(C, obj, k); if (!first) first = b; last = b; g.add(boxMesh(b, k === 5 ? 0x7a5230 : wood)); const c = ctr(b); [[b.x0, b.z0], [b.x1, b.z1]].forEach((q) => g.add(mesh(new T.CylinderGeometry(0.06, 0.06, 1.4, 6), lam(0x5a3a1e), q[0], b.y1 + 0.6, q[1]))); void c; }
+      return shade(g, ctx.sh);
+    },
+    tuyau(obj, C, ctx) {
+      const g = new T.Group(); const a = BX(C, obj, 0), b = BX(C, obj, 1); const F = frame(obj); const ca = ctr(a), sa = sz(a); const L = Math.max(sa[0], sa[2]), r = sa[1] / 2;
+      const pipe = lam(0x3aa860); const body = new T.Group(); body.position.set(ca[0], ca[1], ca[2]); body.rotation.y = F.ry; g.add(body);
+      const cy = mesh(new T.CylinderGeometry(r, r, L, 18), pipe); cy.rotation.z = Math.PI / 2; body.add(cy);
+      [-L / 2, L / 2 - 0.3].forEach((x) => { const ring = mesh(new T.CylinderGeometry(r + 0.12, r + 0.12, 0.4, 18), lam(0x2a8a4a), x, 0, 0); ring.rotation.z = Math.PI / 2; body.add(ring); });
+      const cb = ctr(b), sb = sz(b); const up = mesh(new T.CylinderGeometry(Math.min(sb[0], sb[2]) / 2, Math.min(sb[0], sb[2]) / 2, sb[1], 18), pipe, cb[0], cb[1], cb[2]); g.add(up);
+      g.add(mesh(new T.CylinderGeometry(Math.min(sb[0], sb[2]) / 2 + 0.12, Math.min(sb[0], sb[2]) / 2 + 0.12, 0.35, 18), lam(0x2a8a4a), cb[0], b.y1 - 0.17, cb[2]));
+      return shade(g, ctx.sh);
+    },
+  });
   const BUILD = Object.assign({ sapin: buildSapin, arbre: buildTree, champi: buildMush, trampoline: buildTramp, tapis: buildBelt }, P);
 
   // retourne le groupe, ou null si l'objet doit rester en plateformes simples

@@ -19,7 +19,7 @@ function makeInventoryOrapa(rnd, cfg) {
   const shapes = cfg.shapes === "petits" ? ["mono", "mono", "domino"] : cfg.shapes === "gros" ? ["domino", "ligne3", "coude", "coude"] : ["mono", "mono", "domino", "domino", "coude"];
   const inv = [];
   for (let i = 0; i < cfg.gems; i++) {
-    const c = ORAPA_SEQ[i % ORAPA_SEQ.length]; const shape = shapes[Math.floor(rnd() * shapes.length)];
+    const seq = cfg.seq || ORAPA_SEQ; const c = seq[i % seq.length]; const shape = shapes[Math.floor(rnd() * shapes.length)];
     if (c === "obs") inv.push({ k: "obsidian", m: 0, d: 0, shape: "mono", rot: 0, cells: E.rot(E.SHAPES.mono, 0), x: null, y: null });
     else inv.push({ k: "gem", m: c, d: Math.floor(rnd() * 2), shape, rot: Math.floor(rnd() * 4), cells: E.rot(E.SHAPES[shape], 0), x: null, y: null });
   }

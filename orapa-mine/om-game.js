@@ -54,7 +54,7 @@ function nextRound(room) {
     r.units = t.map((m, i) => ({ id: i, members: m, mine: 0, perMember: false, team: true, shots: [], strikes: {}, solved: false, out: false, stallAt: 0 }));
   } else r.units = [{ id: 0, members: players.slice(), mine: 0, perMember: false, team: true, shots: [], strikes: {}, solved: false, out: false, stallAt: 0 }];
   // inventaires et mines
-  const cfgGen = { W: r.W, H: r.H, gems: s.gems, kinds: s.kinds, shapes: s.shapes, adjacent: s.adjacent, laserMasks: s.laserMasks };
+  const cfgGen = { W: r.W, H: r.H, gems: s.gems, kinds: s.kinds, shapes: s.shapes, adjacent: s.adjacent, laserMasks: s.laserMasks, seq: s.seq || null };
   if (s.mines === "gen") { const m = Gen.makeMine(seed, cfgGen); r.inv = m.inv; r.mines = [{ gems: m.gems, owner: null }]; }
   else {
     const m = Gen.makeMine(seed, cfgGen); r.inv = m.inv; // inventaire commun, mines vides pour l'instant
@@ -157,8 +157,8 @@ function accuse(room, u, pid, placement) {
 const costOf = (u) => u.shotsUsed + 3 * (u.perMember ? Object.values(u.strikes).reduce((a, b) => a + b, 0) : (u.strikes.u || 0));
 function checkEnd(room) {
   const g = room.g, r = g.r; if (g.phase !== "play") return;
-  if (r.s.key === "precision") {
-    // temps illimité, la manche finit quand chacun a trouvé ou est sorti, le moins de tirs gagne
+  if (r.s.byCost) {
+    // au plus juste et mines croisées aux coups, la manche finit quand chacun a trouvé ou est sorti, le moins de tirs gagne
     if (!r.units.every((u) => u.solved || u.out)) return;
     const sv = r.units.filter((u) => u.solved).sort((a, b) => costOf(a) - costOf(b) || a.solvedAt - b.solvedAt);
     return endRound(room, sv[0] || null);
@@ -175,10 +175,10 @@ function endRound(room, win) {
   const used = (u) => u.shotsUsed;
   const coopLike = s.key === "coop" || s.key === "enigme" || s.key === "campagne";
   if (win) {
-    const bonus = s.shots ? Math.max(0, Math.floor((s.shots - used(win)) / 3)) : Math.max(0, 6 - Math.floor((s.key === "precision" ? costOf(win) : used(win)) / 3));
+    const bonus = s.shots ? Math.max(0, Math.floor((s.shots - used(win)) / 3)) : Math.max(0, 6 - Math.floor((s.byCost ? costOf(win) : used(win)) / 3));
     const pts = 6 + Math.min(6, bonus) + (s.key === "enigme" || s.key === "campagne" ? 2 : 0);
     win.members.forEach((id) => { gains[id] += pts; g.stats[id].wins++; });
-    if (s.key === "precision") r.units.forEach((u) => { if (u !== win && u.solved) u.members.forEach((id) => { gains[id] += 3; }); });
+    if (s.byCost) r.units.forEach((u) => { if (u !== win && u.solved) u.members.forEach((id) => { gains[id] += 3; }); });
     if (s.key === "classique") { gains[r.directorId] += Math.min(6, Math.floor(used(win) / 2)); }
     if (s.key === "croise") { /* le propriétaire de la mine résolue ne marque pas */ }
   } else {
@@ -269,11 +269,13 @@ function publicState(room, pid) {
   const g = room.g; const base = { now: Date.now(), phase: g.phase, round: g.round, rounds: g.rounds, seq: g.seq, scores: g.scores, phaseUntil: g.phaseUntil, sfx: g.s.sfx };
   if (g.phase === "over" || g.phase === "wait" || !g.r) return base;
   const r = g.r, s = r.s; const my = unitOf(r, pid); const isDir = pid === r.directorId;
+  // au plus juste, on ne voit pas combien de tirs ont fait les autres tant qu'on cherche encore
+  const done = my && (my.solved || my.out); const hideN = (u) => s.key === "precision" && g.phase === "play" && u !== my && !done;
   const st = Object.assign(base, {
-    key: s.key, faithful: s.kinds === "orapa", W: r.W, H: r.H, trace: s.trace, lasers: s.laserMasks, budget: s.shots || null, lives: s.accLives, accHint: s.accHint, share: s.share, directorId: r.directorId, roundTime: s.roundTime,
+    key: s.key, byCost: !!s.byCost, faithful: s.kinds === "orapa", W: r.W, H: r.H, trace: s.trace, lasers: s.laserMasks, budget: s.shots || null, lives: s.accLives, accHint: s.accHint, share: s.share, directorId: r.directorId, roundTime: s.roundTime,
     inv: r.inv.map((g2, i) => ({ idx: i, k: g2.k, m: g2.m, shape: g2.shape, cells: E.SHAPES[g2.shape] })),
     campaign: s.key === "campagne" ? { level: g.round + 1, levels: g.rounds } : null, puzzle: s.key === "enigme" ? s.puzzle : null,
-    units: r.units.map((u) => ({ id: u.id, members: u.members, shots: u.shots.length, used: u.shotsUsed, solved: u.solved, out: u.out, turn: s.share === "turn" ? u.members.filter((id) => !u.mout || !u.mout[id])[u.turn % Math.max(1, u.members.filter((id) => !u.mout || !u.mout[id]).length)] : null, turnUntil: u.turnUntil || 0, mout: u.mout || {}, strikes: u.perMember ? u.strikes : { u: u.strikes.u || 0 }, perMember: !!u.perMember, stallAt: u.stallAt || 0 })),
+    units: r.units.map((u) => ({ id: u.id, members: u.members, shots: hideN(u) ? null : u.shots.length, used: hideN(u) ? null : u.shotsUsed, solved: u.solved, out: u.out, turn: s.share === "turn" ? u.members.filter((id) => !u.mout || !u.mout[id])[u.turn % Math.max(1, u.members.filter((id) => !u.mout || !u.mout[id]).length)] : null, turnUntil: u.turnUntil || 0, mout: u.mout || {}, strikes: u.perMember ? u.strikes : { u: u.strikes.u || 0 }, perMember: !!u.perMember, stallAt: u.stallAt || 0 })),
     myUnit: my ? my.id : null,
   });
   if (g.phase === "setup") {
@@ -290,6 +292,11 @@ function publicState(room, pid) {
     if (isDir) { const m = r.mines[0]; if (m && m.gems) st.dirMine = m.gems.map(pubGem); }
     // en mines croisées on voit sa propre mine, pour ne pas l'oublier
     const mine = r.mines.find((m) => m.owner === pid); if (mine && mine.gems && s.key === "croise") st.dirMine = mine.gems.map(pubGem);
+    // au plus juste, une fois sa mine trouvée on suit les autres en direct, à côté de sa propre grille résolue
+    if (s.key === "precision" && my && done) {
+      st.watch = r.units.filter((u) => u !== my).map((u) => ({ id: u.id, members: u.members, used: u.shotsUsed, cost: costOf(u), solved: u.solved, out: u.out, shots: u.shots.map((x) => pubShot(x, full)), asks: u.asks }));
+      st.myFinal = { solved: my.solved, used: my.shotsUsed, cost: costOf(my), gems: my.solved ? r.mines[my.mine].gems.map(pubGem) : null };
+    }
   }
   if (g.phase === "reveal") { st.reveal = r.reveal; st.shots = null; }
   return st;
@@ -303,11 +310,11 @@ function bind(socket, helpers, api) {
   const cur = () => { const room = ctx.room; const p = me(); return room && room.g && room.g.r && p ? { room, g: room.g, r: room.g.r, p } : null; };
   // au plus juste, on peut renoncer à sa manche, et l'hôte peut la clore s'il ne reste que des joueurs qui ne bougent plus
   socket.on("om:giveup", safe(() => {
-    const c = cur(); if (!c || c.g.phase !== "play" || c.r.s.key !== "precision") return; const u = unitOf(c.r, c.p.id); if (!u || u.solved || u.out) return;
+    const c = cur(); if (!c || c.g.phase !== "play" || !c.r.s.byCost) return; const u = unitOf(c.r, c.p.id); if (!u || u.solved || u.out) return;
     u.out = true; c.g.api.sysChat(c.room, c.p.name + " renonce à cette manche."); emitAll(c.room); checkEnd(c.room);
   }));
   socket.on("om:forceend", safe(() => {
-    const c = cur(); if (!c || c.g.phase !== "play" || c.r.s.key !== "precision" || !helpers.isHost()) return;
+    const c = cur(); if (!c || c.g.phase !== "play" || !c.r.s.byCost || !helpers.isHost()) return;
     c.r.units.forEach((u) => { if (!u.solved) u.out = true; }); c.g.api.sysChat(c.room, "L'hôte clôt la manche."); emitAll(c.room); checkEnd(c.room);
   }));
   socket.on("om:place", safe((d) => {

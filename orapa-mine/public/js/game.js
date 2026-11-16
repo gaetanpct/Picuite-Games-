@@ -25,7 +25,7 @@
   const CNAME = new Proxy({}, { get: (_, m) => E.nameOf(+m, fa()) });
   const lum = (hex) => { const n = parseInt(hex.slice(1), 16); return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255); };
   const inkOn = (hex) => (lum(hex) > 150 ? "#14182e" : "#ffffff");
-  const gemLabel = (m, f) => { if (f !== false && m.k === "gem") return m.m === 0 ? "Diamant" : "Pierre " + ({ 1: "rouge", 2: "bleue", 4: "jaune", 8: "blanche" }[m.m] || "colorée"); if (m.k === "obsidian" && fa()) return "Corps noir"; return E.KINDS[m.k].label + (m.m ? " " + E.nameOf(m.m, false) : ""); };
+  const gemLabel = (m, f) => { if (f !== false && m.k === "gem") return m.m === 0 ? "Diamant" : "Pierre " + ({ 1: "rouge", 2: "bleue", 4: "jaune", 8: "blanche", 16: "émeraude" }[m.m] || "colorée"); if (m.k === "obsidian" && fa()) return "Corps noir"; return E.KINDS[m.k].label + (m.m ? " " + E.nameOf(m.m, false) : ""); };
   const COLS = "ABCDEFGHIJKL";
   const slotLabel = (sl) => (sl.s === "N" || sl.s === "S" ? COLS[sl.i] : String(sl.i + 1));
   const slotLong = (sl) => ({ N: "haut", S: "bas", W: "gauche", E: "droite" }[sl.s]) + " " + slotLabel(sl);
@@ -48,7 +48,7 @@
       el("h3", { text: "Les pierres", style: { marginTop: "0.8rem" } })];
     rows.push(el("p", { class: "small", text: "La sonde est transparente. Chaque pierre qu'elle touche la renvoie en diagonale et lui donne sa couleur, une seule fois par couleur. Rouge et bleu font du violet, rouge et jaune de l'orange, bleu et jaune du vert. Le blanc éclaircit. Un diamant renvoie sans colorer, le corps noir avale tout." }));
     rows.push(el("p", { class: "small", text: "Dans une case de pierre, le trait blanc en diagonale est le miroir. Les deux faces renvoient le rayon de la même façon. Le côté coloré et le côté pâle ne changent rien, seule compte la diagonale, que tu peux retourner avec le bouton prévu." }));
-    if (G.st && G.st.phase === "play" && G.st.key === "precision") {
+    if (G.st && G.st.phase === "play" && G.st.byCost) {
       const mu = G.st.units.find((u) => u.id === G.st.myUnit);
       if (mu && !mu.solved && !mu.out) rows.push(el("button", { class: "btn btn--ghost btn--small", style: { marginTop: "0.6rem" }, text: "Renoncer à cette manche", onclick: () => Kit.confirm("Renoncer à cette manche ? Tu ne marqueras rien.", () => { $("#modal").classList.add("hidden"); Kit.socket.emit("om:giveup"); }) }));
       if (Kit.isHost()) rows.push(el("button", { class: "btn btn--ghost btn--small", style: { marginTop: "0.6rem" }, text: "Clore la manche pour tout le monde", onclick: () => Kit.confirm("Clore la manche ? Ceux qui cherchent encore sortent.", () => { $("#modal").classList.add("hidden"); Kit.socket.emit("om:forceend"); }) }));
@@ -301,19 +301,20 @@
     let banner = null;
     if (iAmDir) banner = "Tu es le Directeur, regarde-les chercher. Ta mine est affichée sous les rayons.";
     else if (!explorer) banner = "Tu regardes la partie.";
-    else if (mine.solved) banner = s.key === "precision" ? "Mine trouvée en " + mine.used + " tirs. Les autres ont tout leur temps, la manche finit quand tout le monde a fini." : "Mine résolue, bravo !";
+    else if (mine.solved) banner = s.byCost ? "Mine trouvée en " + mine.used + " tirs. Les autres ont tout leur temps, la manche finit quand tout le monde a fini." + (s.watch ? " Suis leur recherche plus bas." : "") : "Mine résolue, bravo !";
     else if (mine.out) banner = "Tu es sorti de la manche.";
     else if (s.share === "turn") banner = mine.turn === myId() ? "C'est ton tour, tire, interroge une case ou accuse." : "Tour de " + nameOf(mine.turn) + ".";
-    else banner = s.key === "precision" ? "Au plus juste. Aucune limite de temps, réfléchis autant que tu veux. Le moins de tirs gagne, une fausse accusation vaut trois tirs." : s.key === "course" ? "Course. Ton carnet est secret, le premier qui accuse juste gagne." : s.key === "croise" ? "Tu explores la mine de ton voisin. La tienne est cachée plus bas." : s.key === "equipes" ? "Ton équipe " + mine.members.map(nameOf).join(" et ") + " partage un carnet secret." : "Vous fouillez ensemble, le carnet est commun.";
+    else banner = s.key === "precision" ? "Au plus juste. Aucune limite de temps, réfléchis autant que tu veux. Le moins de tirs gagne, une fausse accusation vaut trois tirs. Tu ne vois pas où en sont les autres." : s.key === "croise" && s.byCost ? "Mines croisées au nombre de coups. Prends ton temps, le moins de tirs gagne, une fausse accusation vaut trois tirs." : s.key === "course" ? "Course. Ton carnet est secret, le premier qui accuse juste gagne." : s.key === "croise" ? "Tu explores la mine de ton voisin. La tienne est cachée plus bas." : s.key === "equipes" ? "Ton équipe " + mine.members.map(nameOf).join(" et ") + " partage un carnet secret." : "Vous fouillez ensemble, le carnet est commun.";
     const mayAct = explorer && !mine.solved && !mine.out && (s.share !== "turn" || mine.turn === myId());
     const left = s.budget && mine ? Math.max(0, s.budget - mine.used) : null;
     const allowed = explorer ? ["tir", "ask", "pose", "note"] : [];
     if (explorer && !allowed.includes(G.tool)) G.tool = "tir";
     const bd = boardSvg(s, { gems: iAmDir ? s.dirMine : null, hyp: explorer ? G.hyp : null, shots: explorer || iAmDir ? shots : [], asks: explorer || iAmDir ? asks : [], notes: G.notes, onCell: explorer && G.tool !== "tir" ? (x, y) => cellPose(s, x, y) : null, onSlot: mayAct && G.tool === "tir" ? (sl) => { G.slot = sl; render(); } : null, selSlot: G.slot, selCell: G.tool === "ask" ? G.askCell : null });
     const mainCol = el("div", { class: "om-main" }, [el("div", { class: "om-banner" + (explorer && s.share === "turn" && mine.turn === myId() ? " om-banner--turn" : "") }, [el("b", { text: banner })])]);
-    if (s.units.length > 1 && s.key !== "classique") mainCol.appendChild(el("div", { class: "om-units" }, s.units.map((u) => el("span", { class: "om-unit" + (u.id === s.myUnit ? " om-unit--me" : "") + (u.out ? " om-unit--out" : "") }, u.members.map((id) => dot(id)).concat([u.members.map(nameOf).join(" et ") + "  ·  " + u.used + " tir" + (u.used > 1 ? "s" : "") + (u.solved ? "  ·  résolu" : u.out ? "  ·  éliminé" : "")])))));
-    mainCol.appendChild(boardWrap(bd));
-    if (explorer) {
+    if (s.units.length > 1 && s.key !== "classique") mainCol.appendChild(el("div", { class: "om-units" }, s.units.map((u) => el("span", { class: "om-unit" + (u.id === s.myUnit ? " om-unit--me" : "") + (u.out ? " om-unit--out" : "") }, u.members.map((id) => dot(id)).concat([u.members.map(nameOf).join(" et ") + (u.used == null ? "  ·  cherche" : "  ·  " + u.used + " tir" + (u.used > 1 ? "s" : "")) + (u.solved ? "  ·  résolu" : u.out ? "  ·  éliminé" : "")])))));
+    const watching = !!(s.watch && s.watch.length);
+    if (!watching) mainCol.appendChild(boardWrap(bd));
+    if (explorer && !watching) {
       mainCol.appendChild(toolBar(s, allowed));
       const act = el("div", { class: "om-act" });
       if (G.tool === "tir") {
@@ -344,6 +345,13 @@
     const tabs = [["journal", "Journal"], ["pierres", "Les pierres"]];
     side.appendChild(el("div", { class: "om-modes om-modes--tabs", role: "tablist" }, tabs.map((t) => el("button", { class: "om-mode" + (G.tab === t[0] ? " om-mode--on" : ""), role: "tab", onclick: () => { G.tab = t[0]; render(); } }, [txt(t[1])]))));
     if (G.tab === "pierres") side.appendChild(legendCard(s)); else side.appendChild(shotLog(s, shots, asks, explorer));
+    if (s.watch && s.watch.length) {
+      // sa propre grille résolue à côté de celles des autres, mises à jour en direct
+      const cards = [];
+      if (s.myFinal) cards.push(el("div", { class: "om-card om-watch om-watch--me" }, [el("h3", { text: (s.myFinal.solved ? "Ta mine résolue" : "Ta recherche") + "  ·  " + s.myFinal.used + " tir" + (s.myFinal.used > 1 ? "s" : "") }), boardWrap(boardSvg(s, { gems: s.myFinal.gems, shots: shots, asks: asks }))]));
+      s.watch.forEach((w) => cards.push(el("div", { class: "om-card om-watch" }, [el("h3", {}, w.members.map((id) => dot(id)).concat([" " + w.members.map(nameOf).join(" et ") + "  ·  " + w.used + " tir" + (w.used > 1 ? "s" : "") + (w.solved ? "  ·  résolu ✔" : w.out ? "  ·  sorti" : "  ·  cherche…")])), boardWrap(boardSvg(s, { gems: null, shots: w.shots, asks: w.asks || [] }))])));
+      mainCol.appendChild(el("div", { class: "om-watchgrid" }, cards));
+    }
     if (s.key === "croise" && s.dirMine) side.appendChild(el("div", { class: "om-card" }, [el("h3", { text: "Ta propre mine" }), boardWrap(boardSvg(s, { gems: s.dirMine, shots: [] }))]));
     if (Kit.isHost()) side.appendChild(el("div", { class: "om-ctrl" }, [el("button", { class: "btn btn--small btn--ghost", text: "Terminer la manche", onclick: () => Kit.confirm("Terminer la manche maintenant ? Personne ne marquera.", () => Kit.socket.emit("om:skip")) })]));
     st.appendChild(el("div", { class: "om-play" }, [mainCol, side]));
@@ -351,7 +359,7 @@
   function legendCard(s) {
     const rows = s.inv.map((m) => el("div", { class: "om-leg" }, [el("span", { class: "om-picon" }, [gemIcon(m, 0, 26)]), el("div", {}, [el("b", { text: gemLabel(m) }), el("span", { class: "small muted", text: m.k === "gem" ? (m.m === 0 ? " Renvoie la sonde sans la colorer." : " Renvoie la sonde et la colore en " + E.nameOf(m.m, true) + ".") : m.k === "obsidian" && s.faithful ? " Absorbe la sonde, rien ne ressort." : " " + E.KINDS[m.k].desc })])]));
     const card = el("div", { class: "om-card" }, [el("h3", { text: "À trouver dans la mine (" + s.inv.length + ")" }), el("div", { class: "om-legs" }, rows)]);
-    if (s.faithful) card.appendChild(el("p", { class: "small muted", text: "Mélanges. Rouge et bleu font violet, rouge et jaune orange, bleu et jaune vert. Le blanc éclaircit, rose, bleu clair, jaune clair. Les quatre couleurs ensemble donnent gris. Toucher deux fois la même couleur ne change rien." }));
+    if (s.faithful) card.appendChild(el("p", { class: "small muted", text: "Mélanges. Rouge et bleu font violet, rouge et jaune orange, bleu et jaune vert. Le blanc éclaircit, rose, bleu clair, jaune clair. Les quatre couleurs ensemble donnent gris. L'émeraude du niveau Maître verdit tout ce qu'elle touche. Toucher deux fois la même couleur ne change rien." }));
     return card;
   }
   const slotName = (sl) => slotLong(sl);
@@ -366,7 +374,7 @@
     });
     asks.forEach((a, i) => {
       let mark = ""; if (placedAll) { const gi = grid[a.y * s.W + a.x]; const g2 = gi >= 0 ? hyp[gi] : null; const ok = a.k === "vide" ? !g2 : g2 && g2.k === a.k && (a.m || 0) === (g2.m || 0); mark = ok ? "✔" : "✕"; }
-      const what = a.k === "vide" ? "vide" : a.k === "obsidian" ? (s.faithful ? "le corps noir" : "obsidienne") : a.k === "gem" ? (a.m === 0 ? "un diamant" : "une pierre " + ({ 1: "rouge", 2: "bleue", 4: "jaune", 8: "blanche" }[a.m] || "colorée")) : E.KINDS[a.k].label + (a.m ? " " + E.nameOf(a.m, false) : "");
+      const what = a.k === "vide" ? "vide" : a.k === "obsidian" ? (s.faithful ? "le corps noir" : "obsidienne") : a.k === "gem" ? (a.m === 0 ? "un diamant" : "une pierre " + ({ 1: "rouge", 2: "bleue", 4: "jaune", 8: "blanche", 16: "émeraude" }[a.m] || "colorée")) : E.KINDS[a.k].label + (a.m ? " " + E.nameOf(a.m, false) : "");
       items.push({ n: 1000 + i, node: el("div", { class: "om-shot" }, [el("i", { class: "om-shot__dot om-shot__dot--ask", text: "?" }), el("div", {}, [el("b", { text: "Question, case " + cellName(a.x, a.y) }), el("span", { class: "small", text: "Réponse, " + what + "." })]), mark ? el("span", { class: "om-shot__mark " + (mark === "✔" ? "ok" : "ko"), text: mark }) : null]) });
     });
     items.sort((x, y) => y.n - x.n);
@@ -426,7 +434,7 @@
       { title: "Tirer ou demander", text: "Touche un rond autour de la mine pour choisir l'entrée, puis tire. Selon le réglage tu vois tout le trajet, le début seulement, ou juste l'entrée et la sortie. Tu peux aussi demander ce que cache une case, tu apprends la couleur de la pierre mais pas son sens, et ça compte comme un tir." },
       { title: "Le carnet", text: "Pose les pierres de la liste dans ton carnet, tourne-les, change le sens des diagonales. Une fois toutes posées, le journal te dit quels tirs et quelles réponses sont compatibles avec ton carnet. C'est la meilleure façon de trouver ce qui ne va pas." },
       { title: "Accuser", text: "Quand ton carnet te semble juste, accuse. Si les pierres sont bien placées avec le bon sens, tu gagnes la manche. Sinon tu perds un essai, et quand il n'y en a plus tu sors de la manche." },
-      { title: "Les modes", text: "En classique un Directeur cache la mine et chacun tire à son tour. En course on se dispute la même mine en secret. En mines croisées chacun cache la sienne. En coopération et en équipes on partage un carnet. L'énigme donne quelques tirs gratuits, la campagne enchaîne douze mines." },
+      { title: "Les modes", text: "En classique un Directeur cache la mine et chacun tire à son tour. En course on se dispute la même mine en secret. Au plus juste chacun prend son temps et on ne voit pas les tirs des autres, puis une fois sa mine trouvée on suit leur recherche en direct. En mines croisées chacun cache la sienne, et on choisit de jouer à la vitesse ou au nombre de coups." },
     ],
     theme: { a1: "#7fd6ff", a2: "#b06bff", bg1: "#1a2a6b", bg2: "#070a1c" },
     onInit() { build(); attach(); Kit.on("connect", attach); },

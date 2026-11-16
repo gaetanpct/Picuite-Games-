@@ -10,11 +10,14 @@
   const COLOR_NAMES = { 1: "rouge", 2: "bleu", 4: "jaune", 3: "violet", 5: "orange", 6: "vert", 7: "blanc" };
   const COLOR_HEX = { 1: "#ff3b4e", 2: "#3b7bff", 4: "#ffd23f", 3: "#b04dff", 5: "#ff8a1f", 6: "#2fd66b", 7: "#ffffff" };
   // mode fidèle à l'original, la sonde est transparente et prend les couleurs des pierres touchées
-  // rouge 1, bleu 2, jaune 4, blanc 8. Chaque couleur ne compte qu'une fois.
+  // rouge 1, bleu 2, jaune 4, blanc 8, émeraude 16. Chaque couleur ne compte qu'une fois.
   const FAITHFUL_HEX = { 0: "#d6ecff", 1: "#ff3b4e", 2: "#3b7bff", 4: "#ffd23f", 3: "#b04dff", 5: "#ff8a1f", 6: "#2fd66b", 7: "#8d5a3b", 8: "#ffffff", 9: "#ff9db0", 10: "#9cc3ff", 12: "#fff0a0", 11: "#d9b6ff", 13: "#ffc58a", 14: "#a6f0c0", 15: "#9aa3b5" };
   const FAITHFUL_NAMES = { 0: "transparent", 1: "rouge", 2: "bleu", 4: "jaune", 3: "violet", 5: "orange", 6: "vert", 7: "brun", 8: "blanc", 9: "rose", 10: "bleu clair", 12: "jaune clair", 11: "violet clair", 13: "orange clair", 14: "vert clair", 15: "gris" };
-  const hexOf = (m, f) => (f ? FAITHFUL_HEX[m] : COLOR_HEX[m]) || "#ffffff";
-  const nameOf = (m, f) => (f ? FAITHFUL_NAMES[m] : COLOR_NAMES[m]) || "inconnu";
+  // l'émeraude du niveau Maître, 16, une couleur de plus qui se mélange aux autres
+  const EMERALD = "#10c07a";
+  const mixHex = (a, b, k) => { const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)); const A = p(a), B = p(b); return "#" + A.map((v, i) => Math.round(v * (1 - k) + B[i] * k).toString(16).padStart(2, "0")).join(""); };
+  const hexOf = (m, f) => { if (f && m & 16) { const b = m & 15; return b ? mixHex(FAITHFUL_HEX[b] || "#ffffff", EMERALD, 0.5) : EMERALD; } return (f ? FAITHFUL_HEX[m] : COLOR_HEX[m]) || "#ffffff"; };
+  const nameOf = (m, f) => { if (f && m & 16) { const b = m & 15; return b ? FAITHFUL_NAMES[b] + " et émeraude" : "émeraude"; } return (f ? FAITHFUL_NAMES[m] : COLOR_NAMES[m]) || "inconnu"; };
   const KINDS = {
     gem: { label: "Pierre", desc: "Renvoie le rayon en diagonale et lui donne sa couleur. Une couleur n'est comptée qu'une fois, même touchée deux fois." },
     filter: { label: "Filtre", desc: "Laisse passer sa couleur et arrête le reste." },
