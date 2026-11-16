@@ -48,7 +48,15 @@
     const t = new T.CanvasTexture(c); const m = new T.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false }); const s = new T.Sprite(m); s.scale.set(2.4, 0.675, 1); s.renderOrder = 20; return s;
   }
 
-  const ANIMS = { idle: "Idle", run: "Running_A", walk: "Walking_A", jump: "Jump_Start", fall: "Jump_Idle", land: "Jump_Land", hang: "Spellcast_Raise", climb: "Interact", cheer: "Cheer", hit: "Hit_B" };
+  const ANIMS = { idle: "Idle", run: "Running_A", walk: "Walking_A", jump: "Jump_Start", fall: "Jump_Idle", land: "Jump_Land", hang: "Spellcast_Raise", climb: "Interact", cheer: "Cheer", hit: "Hit_B", lie: "Lie_Idle", kick: "Unarmed_Melee_Attack_Kick", spin: "2H_Melee_Attack_Spin", raise: "Spellcast_Raise" };
+  // les émotes pour narguer, touche P. Code d'animation 10 à 14
+  const EMOTES = { 10: { an: "lie", sp: 1, txt: "😴 Réveillez-moi au sommet" }, 11: { an: "cheer", sp: 1.4, txt: "🤣 HA HA HA, trop nuls" }, 12: { an: "kick", sp: 0.9, txt: "😏 Viens me chercher" }, 13: { an: "spin", sp: 0.8, txt: "🐌 Plus vite les escargots" }, 14: { an: "raise", sp: 1.2, txt: "😘 Bisous d'en haut" } };
+  function emoteSprite(txt) {
+    const c = document.createElement("canvas"); c.width = 512; c.height = 120; const g = c.getContext("2d"); g.font = "700 44px Fredoka, Arial, sans-serif"; const w = Math.min(500, g.measureText(txt).width + 50); const x = (512 - w) / 2;
+    g.fillStyle = "#ffffff"; g.strokeStyle = "#ff3d6e"; g.lineWidth = 6; g.beginPath(); g.roundRect ? g.roundRect(x, 10, w, 76, 34) : g.rect(x, 10, w, 76); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(246, 84); g.lineTo(256, 112); g.lineTo(272, 84); g.closePath(); g.fill(); g.fillStyle = "#1a1030"; g.textBaseline = "middle"; g.textAlign = "center"; g.fillText(txt, 256, 50, w - 30);
+    const m = new T.SpriteMaterial({ map: new T.CanvasTexture(c), transparent: true, depthTest: false, depthWrite: false }); const sp = new T.Sprite(m); sp.scale.set(3.6, 0.85, 1); sp.renderOrder = 21; return sp;
+  }
   const soft = (() => { const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d"); const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new T.CanvasTexture(c); })();
 
   class Actor {
@@ -93,7 +101,8 @@
       const g = this.group; g.position.set(s.x, s.y, s.z);
       const target = s.ry; let d = target - this.fy; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; this.fy += d * Math.min(1, dt * 16); this.pose.rotation.y = this.fy;
       let an = "idle", sp = 1, once = false;
-      switch (s.a) { case 1: an = "run"; sp = Math.max(0.7, Math.min(1.5, (s.vh || 6) / 6)); if ((s.vh || 0) < 3.6) { an = "walk"; sp = 1.1; } break; case 2: an = "jump"; once = true; sp = 1.6; break; case 3: an = "fall"; break; case 4: an = "hang"; break; case 5: an = "climb"; sp = 1.5; break; case 6: an = "cheer"; break; default: an = "idle"; }
+      switch (s.a) { case 1: an = "run"; sp = Math.max(0.7, Math.min(1.5, (s.vh || 6) / 6)); if ((s.vh || 0) < 3.6) { an = "walk"; sp = 1.1; } break; case 2: an = "jump"; once = true; sp = 1.6; break; case 3: an = "fall"; break; case 4: an = "hang"; break; case 5: an = "climb"; sp = 1.5; break; case 6: an = "cheer"; break; default: an = EMOTES[s.a] ? EMOTES[s.a].an : "idle"; if (EMOTES[s.a]) sp = EMOTES[s.a].sp; }
+      this.emote(s.a, dt);
       if (an === "hang") { this.play("hang", 0.1, true, 0); const a = this.act[ANIMS.hang]; if (a) { a.paused = false; a.timeScale = 0; a.time = a.getClip().duration * 0.7; } }
       else this.play(an, an === "jump" ? 0.05 : 0.14, once, sp);
       if (this.mixer) this.mixer.update(dt);
@@ -104,6 +113,13 @@
       this.pose.visible = s.vis !== false;
       // écrasement bref à l'atterrissage
       if (this.squash > 0) { this.squash = Math.max(0, this.squash - dt * 5); const k = Math.sin(this.squash * Math.PI) * this.sqAmp; this.pose.scale.set(1 + k * 0.6, 1 - k, 1 + k * 0.6); } else if (this.pose.scale.y !== 1) this.pose.scale.set(1, 1, 1);
+    }
+    // bulle de l'émote au-dessus de la tête, et un petit balancement moqueur
+    emote(code, dt) {
+      const E = EMOTES[code]; if (this.emoCode !== code) { if (this.emoS) { this.group.remove(this.emoS); this.emoS.material.map.dispose(); this.emoS.material.dispose(); this.emoS = null; } this.emoCode = code; this.emoT = 0; if (E) { this.emoS = emoteSprite(E.txt); this.group.add(this.emoS); } }
+      if (!E) { if (this.model && this.model.rotation.z) this.model.rotation.z = 0; return; }
+      this.emoT += dt; this.emoS.position.y = 2.75 + (this.hatObj ? 0.35 : 0) + Math.sin(this.emoT * 3) * 0.06; const k = Math.min(1, this.emoT * 4); this.emoS.scale.set(3.6 * k, 0.85 * k, 1);
+      if (this.model && (code === 11 || code === 14)) this.model.rotation.z = Math.sin(this.emoT * (code === 11 ? 14 : 5)) * (code === 11 ? 0.12 : 0.08);
     }
     land(v) { this.squash = 1; this.sqAmp = Math.min(0.22, 0.06 + (v || 6) * 0.008); }
     dispose() { this.dead = true; this.scene.remove(this.group); this.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); if (this.mixer) this.mixer.stopAllAction(); }

@@ -294,7 +294,7 @@ function publicState(room, pid) {
     const mine = r.mines.find((m) => m.owner === pid); if (mine && mine.gems && s.key === "croise") st.dirMine = mine.gems.map(pubGem);
     // au plus juste, une fois sa mine trouvée on suit les autres en direct, à côté de sa propre grille résolue
     if (s.key === "precision" && my && done) {
-      st.watch = r.units.filter((u) => u !== my).map((u) => ({ id: u.id, members: u.members, used: u.shotsUsed, cost: costOf(u), solved: u.solved, out: u.out, shots: u.shots.map((x) => pubShot(x, full)), asks: u.asks }));
+      st.watch = r.units.filter((u) => u !== my).map((u) => ({ carnet: (r.carnet || {})[u.members[0]] || botCarnet(u), id: u.id, members: u.members, used: u.shotsUsed, cost: costOf(u), solved: u.solved, out: u.out, shots: u.shots.map((x) => pubShot(x, full)), asks: u.asks }));
       st.myFinal = { solved: my.solved, used: my.shotsUsed, cost: costOf(my), gems: my.solved ? r.mines[my.mine].gems.map(pubGem) : null };
     }
   }
@@ -302,6 +302,8 @@ function publicState(room, pid) {
   return st;
 }
 function sendTo(room, sock, p) { try { sock.emit("om:state", publicState(room, p.id)); } catch (e) { console.error("om emit", e); } }
+// le carnet d'un bot, c'est sa meilleure hypothèse du moment
+function botCarnet(u) { const best = u.brain && u.brain.pool && u.brain.pool[0]; if (!best || !best.length) return null; return { hyp: best.map((g) => ({ x: g.x, y: g.y, rot: g.rot || 0, d: g.d ? 1 : 0 })), notes: [], bot: true }; }
 function emitAll(room) { const g = room.g; if (!g) return; room.players.forEach((p) => { if (p.isBot || !p.socketId) return; const s = g.api.io.sockets.sockets.get(p.socketId); if (s) sendTo(room, s, p); }); }
 
 // ---------- sockets ----------
@@ -309,6 +311,14 @@ function bind(socket, helpers, api) {
   const { ctx, me, safe, toast } = helpers;
   const cur = () => { const room = ctx.room; const p = me(); return room && room.g && room.g.r && p ? { room, g: room.g, r: room.g.r, p } : null; };
   // au plus juste, on peut renoncer à sa manche, et l'hôte peut la clore s'il ne reste que des joueurs qui ne bougent plus
+  // le carnet du joueur, pierres posées et croix, pour que ceux qui ont fini le suivent en direct
+  socket.on("om:carnet", safe((d) => {
+    const c = cur(); if (!c || c.g.phase !== "play" || !d || typeof d !== "object") return; const r = c.r; const n = r.s.inv ? r.s.inv.length : 20;
+    const hyp = Array.isArray(d.hyp) ? d.hyp.slice(0, 20).map((h) => (h && typeof h === "object" ? { x: Math.floor(+h.x) || 0, y: Math.floor(+h.y) || 0, rot: Math.floor(+h.rot) & 3, d: h.d ? 1 : 0 } : null)) : [];
+    const notes = Array.isArray(d.notes) ? d.notes.slice(0, 200).filter((k) => typeof k === "string" && /^\d{1,2},\d{1,2}$/.test(k)) : [];
+    if (!r.carnet) r.carnet = {}; r.carnet[c.p.id] = { hyp: hyp.slice(0, Math.max(n, 0) || 20), notes };
+    if (r.s.key === "precision") { if (!c.g._cTo) c.g._cTo = setTimeout(() => { c.g._cTo = null; emitAll(c.room); }, 150); }
+  }));
   socket.on("om:giveup", safe(() => {
     const c = cur(); if (!c || c.g.phase !== "play" || !c.r.s.byCost) return; const u = unitOf(c.r, c.p.id); if (!u || u.solved || u.out) return;
     u.out = true; c.g.api.sysChat(c.room, c.p.name + " renonce à cette manche."); emitAll(c.room); checkEnd(c.room);

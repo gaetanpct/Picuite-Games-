@@ -43,7 +43,7 @@
       <div class="vg-banner" id="vg-banner"></div><div class="vg-fade" id="vg-fade"></div>
       <div class="vg-help" id="vg-help"></div>
       <div class="vg-ck" id="vg-ck"><span>Caméra</span><kbd id="ck-f" title="Regarder à gauche">F</kbd><kbd id="ck-h" title="Regarder à droite">H</kbd><kbd id="ck-t" title="Regarder vers le haut">T</kbd><kbd id="ck-g" title="Regarder vers le bas">G</kbd></div>
-      <div class="vg-joy" id="vg-joy"><i></i></div><div class="vg-act" id="vg-act">SAUT</div><div class="vg-btn2" id="vg-b2">LÂCHER</div>
+      <div class="vg-joy" id="vg-joy"><i></i></div><div class="vg-act" id="vg-act">SAUT</div><div class="vg-btn2" id="vg-b2">LÂCHER</div><div class="vg-btn2 vg-emo" id="vg-emo">😏</div>
       <div class="vg-ov" id="vg-end"></div><div class="vg-ov" id="vg-over"></div><div class="vg-ov" id="vg-pause"></div>`;
     sc.appendChild(hudEl);
     $("#vg-snd").onclick = () => { SND.setMute(!SND.muted); $("#vg-snd").textContent = SND.muted ? "🔇" : "🔊"; if (!SND.muted) SND.click(); }; $("#vg-snd").textContent = SND.muted ? "🔇" : "🔊"; $("#vg-menu").onclick = openPause;
@@ -143,7 +143,7 @@
       if (document.body.dataset.screen !== "game") return; const t = e.target && e.target.tagName; if (t === "INPUT" || t === "TEXTAREA" || t === "SELECT") return; const k = e.key.toLowerCase();
       if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "z", "q", "s", "d", "w", "a", "shift", "f", "h", "t", "g", "r"].includes(k)) e.preventDefault();
       G.keys[k] = true; SND.unlock(); if (k === "escape") { if ($("#vg-pause").classList.contains("show")) closePause(); else openPause(); }
-      if (k === "r" && !e.repeat) resetToFlag(); if (k === "c") { G.cam.yaw = Math.atan2(G.P.fx, G.P.fz) + Math.PI; }
+      if (k === "p" && !e.repeat) emote(); if (k === "r" && !e.repeat) resetToFlag(); if (k === "c") { G.cam.yaw = Math.atan2(G.P.fx, G.P.fz) + Math.PI; }
     });
     window.addEventListener("keyup", (e) => { G.keys[e.key.toLowerCase()] = false; }); window.addEventListener("blur", () => { G.keys = {}; G.jump = false; });
     // souris, verrouillage du pointeur
@@ -156,6 +156,7 @@
     joy.addEventListener("pointerdown", (e) => { jid = e.pointerId; joy.setPointerCapture(jid); const r = joy.getBoundingClientRect(); jc.x = r.left + r.width / 2; jc.y = r.top + r.height / 2; moveJoy(e); SND.unlock(); });
     joy.addEventListener("pointermove", (e) => { if (e.pointerId === jid) moveJoy(e); }); const endJoy = (e) => { if (e.pointerId !== jid) return; jid = null; G.joy.x = G.joy.z = 0; G.joy.on = false; joy.firstElementChild.style.transform = ""; }; joy.addEventListener("pointerup", endJoy); joy.addEventListener("pointercancel", endJoy);
     act.addEventListener("pointerdown", (e) => { G.jump = true; act.classList.add("on"); act.setPointerCapture(e.pointerId); SND.unlock(); }); const endAct = () => { G.jump = false; act.classList.remove("on"); }; act.addEventListener("pointerup", endAct); act.addEventListener("pointercancel", endAct);
+    $("#vg-emo").addEventListener("pointerdown", (e) => { e.preventDefault(); emote(); });
     b2.addEventListener("pointerdown", () => { G.drop = true; setTimeout(() => { G.drop = false; }, 250); });
     let cid = null, cx = 0, cy = 0; canvas.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch" && e.clientX > innerWidth * 0.35) { cid = e.pointerId; cx = e.clientX; cy = e.clientY; } });
     canvas.addEventListener("pointermove", (e) => { if (e.pointerId === cid) { rot((e.clientX - cx) * 1.6, (e.clientY - cy) * 1.6); cx = e.clientX; cy = e.clientY; } }); const endC = (e) => { if (e.pointerId === cid) cid = null; }; canvas.addEventListener("pointerup", endC); canvas.addEventListener("pointercancel", endC);
@@ -201,6 +202,7 @@
     } else { G.acc = 0; W.t = G.tPlay; S.prepare(W); }
     handleEvents(ev, dt);
     if (G.lavaM && G.msg.lava) { const L = G.msg.lava; const y = L.y0 + Math.max(0, (G.phase === "play" ? G.tPlay : 0) - L.delay) * L.v; G.lavaM.position.y = y; G.lavaM.material.map.offset.x = (G.tPlay || 0) * 0.004; G.lavaM.material.map.offset.y = Math.sin((G.tPlay || 0) * 0.3) * 0.01; G.lavaY = y; }
+    emoteCheck(P);
     // envoi de l'état
     if (G.phase === "play" && now - G.lastSend > 50) { G.lastSend = now; Kit.socket.emit("v:st", { x: +P.x.toFixed(3), y: +P.y.toFixed(3), z: +P.z.toFixed(3), ry: +Math.atan2(P.fx, P.fz).toFixed(3), a: animCode(P), s: P.st === "ground" ? 0 : P.st === "air" ? 1 : P.st === "hang" ? 2 : 3, on: P.st === "ground" ? P.on : -1, vh: +Math.hypot(P.vx, P.vz).toFixed(2), vy: +P.vy.toFixed(2) }); }
     // sécurité si le serveur ne répond pas à une chute
@@ -235,7 +237,15 @@
       r.line.geometry.attributes.position.needsUpdate = true; r.line.material.color.setHex(d > L * 0.97 ? 0xffa040 : 0xfff1c9);
     });
   }
-  function animCode(P) { if (P.st === "hang") return 4; if (P.st === "climb") return 5; if (P.st === "air") return P.vy > 0.5 ? 2 : 3; return Math.hypot(P.vx, P.vz) > 0.9 ? 1 : 0; }
+  // émote au hasard parmi cinq, elle reste tant qu'on ne bouge pas
+  function emote() {
+    const P = G.P; if (G.phase !== "play" || G.fin || P.st !== "ground") return; let c; do { c = 10 + Math.floor(Math.random() * 5); } while (c === G.lastEmote); G.lastEmote = c; G.emote = c; G.emoteAt = performance.now();
+  }
+  function emoteCheck(P) {
+    if (!G.emote) return; const k = G.keys; const moving = k.arrowup || k.arrowdown || k.z || k.q || k.s || k.d || k.w || k.a || k[" "] || G.jump || G.joy.on;
+    if (moving || P.st !== "ground" || Math.hypot(P.vx, P.vz) > 0.6 || G.fin) G.emote = 0;
+  }
+  function animCode(P) { if (G.emote && P.st === "ground") return G.emote; if (P.st === "hang") return 4; if (P.st === "climb") return 5; if (P.st === "air") return P.vy > 0.5 ? 2 : 3; return Math.hypot(P.vx, P.vz) > 0.9 ? 1 : 0; }
   function handleEvents(ev, dt) {
     const P = G.P; for (const e of ev) {
       if (e.e === "jump") { SND.jump(); FX.dust(e.x, e.y, e.z, 0, 0, 4); }
@@ -359,6 +369,7 @@
       { title: "S'accrocher et grimper", text: "Quand tu sautes vers un rebord un peu plus haut que toi, ton personnage s'y accroche. Avance ou appuie sur Espace pour te hisser dessus, ou appuie sur Maj pour lâcher. Tu peux aussi glisser sur le côté en restant accroché." },
       { title: "Les objets géants", text: "Tu grimpes sur des objets du quotidien devenus immenses, arbres, voitures, canapés, casseroles, citrouilles ou nuages. Chaque objet a sa propre forme, un arbre a un tronc très fin et des branches plus larges, une voiture a un toit et un capot. Il faut viser la bonne partie avant de sauter." },
       { title: "Les grandes structures", text: "Comme dans Only Up, le parcours flotte dans le vide et traverse de vraies structures. Tu longes la carlingue d'un avion avant de monter sur sa dérive, tu entres dans une maison par la porte pour ressortir par l'étage, tu grimpes les paliers d'une grue puis tu cours sur sa flèche, tu montes un échafaudage en zigzag, tu passes un pont de planches ou tu marches sur un tuyau géant. Il y a aussi des planches penchées sur le côté à traverser en travers de la pente, de grands sauts vers une plateforme plus basse et des suites de petits poteaux où il faut viser juste." },
+      { title: "Narguer les autres", text: "Touche P, ou le bouton 😏 sur téléphone, pour lancer une émote au hasard parmi cinq. Tu peux t'allonger pour faire la sieste, te moquer en riant, inviter les autres à venir te chercher, traiter tout le monde d'escargots ou envoyer des bisous d'en haut. L'émote reste tant que tu ne bouges pas, et tout le monde voit la bulle au-dessus de ta tête." },
       { title: "Les pièges", text: "Les plateformes mobiles vont et viennent, les dalles qui s'effritent tombent un instant après ton passage puis reviennent, les plots rouges, les trampolines, les lits et les champignons rouges te propulsent, les tapis roulants t'entraînent, la glace fait glisser et les barres rayées te balayent sans te blesser." },
       { title: "Planches inclinées", text: "Certaines plateformes sont penchées, de 10 à 35 degrés, et quelques-unes se balancent doucement. Les pentes douces se montent en courant. Les toits pentus et les toboggans, marqués de flèches blanches, font glisser vers le bas, il faut se laisser porter jusqu'à la plateforme suivante." },
       { title: "Raccourcis secrets", text: "Un petit cristal violet qui scintille au bord d'une plateforme cache un raccourci. À côté, des plots discrets montent en colonne et font sauter une bonne partie d'un étage. C'est risqué, un plot manqué et c'est la chute." },

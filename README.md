@@ -1586,3 +1586,17 @@ Chaque jeu a été regardé seul, accueil, salon et partie. Le but n'était pas 
 ### Ce qu'il faut déposer sur GitHub
 - Le zip contient le site complet. Les dossiers modifiés sont bouskaille, golfouille, hands-over, orapa-mine, pagaille, vertigogo et zoomalou, ainsi que README.md.
 - Dans pagaille/games, il faut supprimer memo.js, ruee.js, corde.js et bouee.js si on remplace fichier par fichier. En remplaçant tout le dossier pagaille, ils disparaissent d'eux-mêmes.
+
+## Cinquante-septième mise à jour, émotes de Vertigogo et suivi dans Mine de rien
+
+### Vertigogo
+- Touche P, ou le bouton 😏 sur téléphone, pour lancer une émote au hasard parmi cinq, jamais deux fois la même d'affilée. 😴 Réveillez-moi au sommet, allongé pour la sieste. 🤣 HA HA HA, trop nuls, en riant et en se dandinant. 😏 Viens me chercher, avec un coup de pied dans le vide. 🐌 Plus vite les escargots, en tournoyant. 😘 Bisous d'en haut, les bras levés.
+- L'émote reste tant qu'on ne bouge pas. Avancer, reculer, faire un pas de côté, sauter ou tomber l'arrête. Tourner la caméra ne l'arrête pas.
+- Tout le monde voit l'animation et la bulle au-dessus de la tête.
+
+### Mine de rien
+- Au plus juste, une fois sa mine trouvée ou après avoir renoncé, on voit le carnet de chaque autre joueur en direct, ses pierres posées, tournées ou retirées et ses croix, en plus de ses tirs. Pour un bot, on voit sa meilleure hypothèse du moment.
+- Dans le journal, les croix et les coches vertes s'affichent tout le temps. Elles comparent chaque tir aux pierres déjà posées, même si le carnet n'est pas complet.
+
+### Ce qu'il faut déposer sur GitHub
+- Les dossiers orapa-mine et vertigogo, et le fichier README.md.

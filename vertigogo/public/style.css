@@ -103,3 +103,6 @@ body.touch .vg-btn2 { display: flex; }
 .vg-ck kbd.on { background: #ffd23d; color: #2a1a4a; transform: translateY(2px); box-shadow: none; }
 body.touch .vg-ck { display: none; }
 @media (max-height: 480px) { .vg-ck { bottom: 6px; } }
+
+/* bouton des émotes sur téléphone */
+.vg-emo { bottom: 250px; background: rgba(255, 61, 110, 0.55); font-size: 1.9rem; }

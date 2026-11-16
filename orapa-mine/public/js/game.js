@@ -85,8 +85,13 @@
   function onRandom(m) { G.hyp = []; (m.placement || []).forEach((p) => { G.hyp[p.idx] = { x: p.x, y: p.y, rot: p.rot, d: p.d }; }); render(); }
 
   // ---------- rendu ----------
+  // envoie son carnet au serveur quand il change, pour ceux qui suivent la partie
+  function syncCarnet() {
+    const s = G.st; if (!s || s.phase !== "play") return; const k = JSON.stringify([G.hyp, [...(G.notes || [])]]); if (k === G.carnetKey) return; G.carnetKey = k;
+    clearTimeout(G.carnetTo); G.carnetTo = setTimeout(() => Kit.socket.emit("om:carnet", { hyp: G.hyp.map((h) => (h ? { x: h.x, y: h.y, rot: h.rot, d: h.d } : null)), notes: [...(G.notes || [])] }), 120);
+  }
   function render() {
-    const s = G.st; if (!s || !Kit.room) return;
+    const s = G.st; if (!s || !Kit.room) return; syncCarnet();
     renderTop();
     const tm = $("#om-timer"); tm.classList.toggle("hidden", !(s.phaseUntil && (s.phase === "setup" || s.phase === "play" || s.phase === "reveal")));
     const stage = $("#om-stage"); const top = stage.scrollTop; stage.innerHTML = "";
@@ -349,7 +354,7 @@
       // sa propre grille résolue à côté de celles des autres, mises à jour en direct
       const cards = [];
       if (s.myFinal) cards.push(el("div", { class: "om-card om-watch om-watch--me" }, [el("h3", { text: (s.myFinal.solved ? "Ta mine résolue" : "Ta recherche") + "  ·  " + s.myFinal.used + " tir" + (s.myFinal.used > 1 ? "s" : "") }), boardWrap(boardSvg(s, { gems: s.myFinal.gems, shots: shots, asks: asks }))]));
-      s.watch.forEach((w) => cards.push(el("div", { class: "om-card om-watch" }, [el("h3", {}, w.members.map((id) => dot(id)).concat([" " + w.members.map(nameOf).join(" et ") + "  ·  " + w.used + " tir" + (w.used > 1 ? "s" : "") + (w.solved ? "  ·  résolu ✔" : w.out ? "  ·  sorti" : "  ·  cherche…")])), boardWrap(boardSvg(s, { gems: null, shots: w.shots, asks: w.asks || [] }))])));
+      s.watch.forEach((w) => cards.push(el("div", { class: "om-card om-watch" }, [el("h3", {}, w.members.map((id) => dot(id)).concat([" " + w.members.map(nameOf).join(" et ") + "  ·  " + w.used + " tir" + (w.used > 1 ? "s" : "") + (w.solved ? "  ·  résolu ✔" : w.out ? "  ·  sorti" : "  ·  cherche…")])), boardWrap(boardSvg(s, { gems: null, shots: w.shots, asks: w.asks || [], hyp: w.carnet ? w.carnet.hyp : null, notes: w.carnet ? new Set(w.carnet.notes) : null }))])));
       mainCol.appendChild(el("div", { class: "om-watchgrid" }, cards));
     }
     if (s.key === "croise" && s.dirMine) side.appendChild(el("div", { class: "om-card" }, [el("h3", { text: "Ta propre mine" }), boardWrap(boardSvg(s, { gems: s.dirMine, shots: [] }))]));
@@ -364,7 +369,8 @@
   }
   const slotName = (sl) => slotLong(sl);
   function shotLog(s, shots, asks, explorer) {
-    const hyp = hypGems(s); const placedAll = hyp.every(Boolean) && hyp.length === s.inv.length; const grid = placedAll ? E.buildGrid(s.W, s.H, hyp) : null;
+    // les croix et les coches suivent toujours le carnet, même s'il n'est pas complet
+    const hyp = hypGems(s).filter(Boolean); const placedAll = true; const grid = E.buildGrid(s.W, s.H, hyp);
     const items = [];
     shots.forEach((sh) => {
       let mark = ""; if (placedAll) { const res = E.trace(s.W, s.H, grid, hyp, sh.slot, sh.mask, false); mark = E.shotSig(res) === E.shotSig(sh) ? "✔" : "✕"; }
