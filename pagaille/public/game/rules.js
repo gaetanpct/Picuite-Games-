@@ -18,20 +18,11 @@
       { id: "lastDouble", label: "Dernière manche à points doubles", type: "bool", default: true, info: "Pour garder du suspense jusqu'au bout. Les points de la dernière manche comptent double." },
     ] },
     { category: "🗳️ Le choix des jeux", rules: [
-      { id: "voteTime", label: "Temps pour voter", type: "chips", default: 12, options: [{ value: 8, label: "8 s" }, { value: 12, label: "12 s" }, { value: 20, label: "20 s" }], info: "Trois mini-jeux sont proposés à chaque manche. Le vote s'arrête dès que tout le monde a voté. Les bots votent aussi." },
       { id: "noRepeat", label: "Éviter deux fois de suite le même jeu", type: "bool", default: true, info: "Un jeu qui vient d'être joué n'est pas reproposé à la manche suivante. Les jeux pas encore joués passent aussi en priorité." },
       { id: "games", label: "Mini-jeux autorisés", type: "multi", default: Cat.ids.slice(), options: GAME_OPTIONS, info: "Décoche ceux que tu ne veux pas. Les jeux qui ne conviennent pas au nombre de joueurs présents ne sont jamais proposés." },
     ] },
     { category: "⏱️ Le rythme", rules: [
       { id: "len", label: "Durée des mini-jeux", type: "chips", default: "normal", options: [{ value: "court", label: "Courts" }, { value: "normal", label: "Normaux" }, { value: "long", label: "Longs" }], info: "Raccourcit ou allonge les jeux qui ont un temps limite, des étapes ou une montée en difficulté. Un jeu s'arrête toujours dès qu'il y a un vainqueur." },
-      { id: "introTime", label: "Temps pour lire les règles", type: "chips", default: 8, options: [{ value: 5, label: "5 s" }, { value: 8, label: "8 s" }, { value: 12, label: "12 s" }], info: "Avant chaque mini-jeu, les règles s'affichent. Elles passent plus vite si tout le monde se déclare prêt." },
-    ] },
-    { category: "🎮 Variantes des mini-jeux", rules: [
-      { id: "jumpAssist", label: "Aide au saut dans la Course des fous", type: "bool", default: true, info: "Quand tu cours vers un bord avec du sol de l'autre côté, ton personnage saute tout seul au bon moment. Pratique si ton clavier refuse de lire la flèche et la barre d'espace en même temps. Tu peux toujours sauter à la main, et même sauter une seconde fois en l'air." },
-      { id: "tntFuse", label: "Bombe en voiture, longueur de la mèche", type: "chips", default: "normal", options: [{ value: "court", label: "Courte" }, { value: "normal", label: "Normale" }, { value: "long", label: "Longue" }], info: "Plus la mèche est courte, plus la bombe circule vite et plus les éliminations s'enchaînent." },
-      { id: "raceDiff", label: "Course des fous, difficulté du parcours", type: "chips", default: "normal", options: [{ value: "facile", label: "Facile" }, { value: "normal", label: "Normal" }, { value: "dur", label: "Costaud" }], info: "Change la largeur des plateformes, le nombre de pièges et la vitesse des balanciers. Le parcours est le même pour tout le monde dans une manche." },
-      { id: "sumoEvents", label: "Sumo glissant, météores sur la glace", type: "bool", default: true, info: "Des météores tombent entre deux lancers et bousculent les joueurs qui sont près de l'impact." },
-      { id: "bumperEvents", label: "Choc au sommet, météores et plots", type: "chips", default: "normal", options: [{ value: "aucun", label: "Aucun" }, { value: "normal", label: "Normaux" }, { value: "chaos", label: "Chaotiques" }], info: "Météores et plots rebondissants dans l'arène du Choc au sommet. Avec aucun, c'est de la bagarre pure sur une plateforme qui rétrécit." },
     ] },
     { category: "🤖 Bots et tests", rules: [
       { id: "takeover", label: "Un bot remplace un joueur déconnecté", type: "bool", default: true, info: "Si quelqu'un perd la connexion pendant un mini-jeu, un bot joue à sa place jusqu'à son retour. Sinon son personnage reste immobile." },
@@ -39,8 +30,9 @@
       { id: "forced", label: "Jeu imposé pour tester", type: "chips", default: "", options: FORCED, info: "Pour essayer un mini-jeu en boucle sans passer par le vote. Laisse sur vote normal pour jouer comme d'habitude." },
     ] },
   ];
+  const FIXED = { voteTime: 20, introTime: 20, jumpAssist: false, tntFuse: "long", sumoEvents: true, bumperEvents: "normal" };
   const allRules = () => SCHEMA.reduce((a, c) => a.concat(c.rules), []);
-  function defaults() { const o = {}; allRules().forEach((r) => { o[r.id] = Array.isArray(r.default) ? r.default.slice() : r.default; }); return o; }
+  function defaults() { const o = {}; allRules().forEach((r) => { o[r.id] = Array.isArray(r.default) ? r.default.slice() : r.default; }); return Object.assign(o, FIXED); }
   const valuesOf = (rule) => (rule.options || []).map((o) => (typeof o === "object" ? o.value : o));
   function normalize(input) {
     const out = defaults();
@@ -52,6 +44,8 @@
       else { const ok = valuesOf(r); const want = typeof ok[0] === "number" ? Number(v) : v; if (ok.includes(want)) out[r.id] = want; }
     });
     if (!out.games.length) out.games = Cat.ids.slice();
+    // réglages fixes, plus proposés dans le salon. La difficulté de la Course des fous est tirée à chaque manche entre normal et costaud
+    Object.assign(out, FIXED);
     return out;
   }
   const totalRounds = (s) => (s.roundsCustom > 0 ? s.roundsCustom : s.rounds);

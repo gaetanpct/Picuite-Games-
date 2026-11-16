@@ -53,7 +53,7 @@ exports.create = function (ctx) {
       // dalles qui se fissurent sous les pieds
       S.alive().forEach((p) => {
         const b = p.bd; const g = b.grounded && b.ground ? panels.find((q) => q.b === b.ground) : null;
-        if (g) { if (g.bad && !g.crack) { g.crack = 0.001; ctx.snd("glass"); } if (!g.bad && !g.safe) { g.safe = true; p.ex.pio = (p.ex.pio || 0) + 1; ctx.fx("puff", g.b.x, g.b.y, g.b.z + 14, ""); } }
+        if (g) { if (g.bad && !g.crack) { g.crack = 0.001; g.fall = 0.001; g.b.solid = false; ctx.snd("glass"); ctx.shake(1.5); ctx.fx("splash", g.b.x, g.b.y, -30, "#e8f7ff"); } if (!g.bad && !g.safe) { g.safe = true; p.ex.pio = (p.ex.pio || 0) + 1; ctx.fx("puff", g.b.x, g.b.y, g.b.z + 14, ""); } }
         p.ex.best = Math.max(p.ex.best, prog(p));
         if (!p.ex.fin && b.grounded && b.ground === fin) { p.ex.fin = true; p.ex.finT = t; finishers.push(p); ctx.snd("win"); ctx.fx("confetti", b.x, b.y, 50, ""); ctx.announce(p.name + " a traversé le pont", 2200); }
       });

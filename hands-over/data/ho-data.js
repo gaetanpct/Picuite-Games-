@@ -38,7 +38,7 @@ const HOST = {
     simon: ["On éteint la lumière. Les clochettes vont vous parler.", "Écoutez bien les clochettes. Elles ne sonnent qu'une fois, comme le glas."],
     reflex: ["Ma main est grande, la vôtre est petite. Faites-en bon usage.", "Je vais frapper la table. Je préfère que vos mains n'y soient plus."],
     stoppile: ["Un curseur, une zone dorée, et beaucoup de regrets.", "Arrêtez-le pile. Pile, j'ai dit."],
-    coffre: ["Un coffre, trois chiffres, et tout le monde regarde vos doigts.", "Coopérez. Ça ne durera pas."],
+    coffre: ["Un coffre chacun, trois chiffres, et pas de copie possible.", "Chacun pour soi. Le plus lent paie."],
     bombe: ["Une bombe, une mèche, et personne pour l'éteindre.", "Écoutez cette mèche. Elle chante pour vous."],
     coupdoeil: ["Ouvrez grand les yeux, les mains ne restent pas longtemps.", "Comptez vite. Moi je compte déjà les perdants."],
     imposteur: ["Un menteur est assis parmi vous. Il vous sourit.", "Méfiez-vous de vos voisins, surtout s'ils vous ressemblent."],

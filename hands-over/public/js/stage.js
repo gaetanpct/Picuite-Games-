@@ -324,7 +324,7 @@
     return { update(v, st) {
       const last = v.guesses.length ? v.guesses[v.guesses.length - 1] : null; const txt = v.code ? v.code.join(" ") : last ? last.g.join(" ") : "? ? ?"; if (txt !== shown) { shown = txt; draw(txt); if (last) dial.rotation.y += 2; }
       if (v.cracked && !opened) { opened = true; anim(0.8, (k) => { hinge.rotation.y = -1.9 * ease(k); }); St.flash("#ffd23f", 0.5); }
-      st.part.forEach((id) => { if (id === meId || !pods[id]) return; const code = v.hv && v.hv[id]; if (!tags[id]) { tags[id] = label(" ", { size: 0.3, bg: "rgba(10,4,8,0.8)", color: pods[id].hex }); tags[id].position.copy(pods[id].g.localToWorld(V(0, 1.75, -0.35))); propG.add(tags[id]); } tags[id].visible = !!code; if (code) relabel(tags[id], "✏️ " + code.join(" "), { size: 0.3, bg: "rgba(10,4,8,0.8)", color: pods[id].hex }); });
+      st.part.forEach((id) => { if (id === meId || !pods[id]) return; const pr = v.prog && v.prog[id]; if (!tags[id]) { tags[id] = label(" ", { size: 0.3, bg: "rgba(10,4,8,0.8)", color: pods[id].hex }); tags[id].position.copy(pods[id].g.localToWorld(V(0, 1.75, -0.35))); propG.add(tags[id]); tags[id]._t = ""; } tags[id].visible = !!pr; const t = pr ? (pr.ok ? "🔓 " + pr.n : "🔒 " + pr.n) : ""; if (pr && t !== tags[id]._t) { tags[id]._t = t; relabel(tags[id], t, { size: 0.3, bg: "rgba(10,4,8,0.8)", color: pods[id].hex }); } });
     } };
   };
 

@@ -519,10 +519,16 @@
   R.render = function (dt) {
     if (!R.ready) return; R.t += dt; R.dtLast = dt; if (R.w !== R.host.clientWidth || R.h !== R.host.clientHeight) R.resize();
     // les éléments qui bougent entre deux images du serveur sont lissés ici
-    smoothAll(dt);
+    smoothAll(dt); applyCull();
     stepFx(dt); updateCamera(dt); stepMotes(dt);
     const run = () => R.renderer.render(R.scene, R.camera); if (window.PicuiteGL && PicuiteGL.frame) { PicuiteGL.frame(run); PicuiteGL.verify && PicuiteGL.verify(R.renderer); } else run();
   };
+  // cache ce qui se trouve au-dessus d'une hauteur, pour voir l'étage du dessous
+  function applyCull() {
+    const lim = R.cullZ == null ? null : R.cullZ * S;
+    [R.stat, R.dyn].forEach((b) => Object.keys(b).forEach((k) => { const en = b[k]; if (!en || !en.obj || en.t === "pawn") return; const o = en.obj; const hide = lim != null && o.position.y > lim;
+      if (hide && o.visible) { o.visible = false; o.userData.cull = 1; } else if (!hide && o.userData.cull) { o.visible = true; o.userData.cull = 0; } }));
+  }
   function smoothAll(dt) {
     // appelée à chaque image pour que les mouvements restent fluides même si le serveur envoie moins souvent
     const f = R.lastFrame; if (!f) return; const items = f.items || [];

@@ -48,8 +48,9 @@
       { id: "rounds", label: "Nombre d'épreuves maximum", type: "range", min: 3, max: 30, step: 1, default: 16, showIf: { mode: ["perso"] }, info: "La partie s'arrête avant s'il ne reste qu'un joueur debout." },
       { id: "families", label: "Familles d'épreuves", type: "multi", default: FAMILIES.map((f) => f[0]), options: FAMILIES.map((f) => ({ value: f[0], label: f[1] })), showIf: { mode: ["perso"] }, info: "Seules les familles cochées peuvent être tirées." },
       { id: "croco", label: "Crocodile dentiste", type: "chips", default: "mixte", options: CROCO.map((c) => ({ value: c[0], label: c[1] })), showIf: { mode: ["perso"] }, info: "La variante du crocodile quand il est tiré. Au hasard change à chaque fois." },
-      { id: "cards", label: "Cartes d'influence", type: "bool", default: true, showIf: { mode: ["classique", "survie", "equipes", "tournoi", "chaos", "perso"] }, info: "Chaque joueur reçoit des cartes à jouer avant une épreuve pour se protéger ou frapper." },
-      { id: "pacts", label: "Pactes et trahisons", type: "bool", default: true, showIf: { mode: ["classique", "equipes", "tournoi", "chaos", "perso"] }, info: "Deux joueurs peuvent s'allier en secret. L'un peut trahir à la fin de l'épreuve." },
+      { id: "cards", label: "Cartes d'influence", type: "bool", default: false, showIf: { mode: ["classique", "survie", "equipes", "tournoi", "chaos", "perso"] }, info: "Chaque joueur reçoit des cartes à jouer avant une épreuve pour se protéger ou frapper." },
+      { id: "pacts", label: "Pactes et trahisons", type: "bool", default: false, showIf: { mode: ["classique", "equipes", "tournoi", "chaos", "perso"] }, info: "Deux joueurs peuvent s'allier en secret. L'un peut trahir à la fin de l'épreuve." },
+      { id: "gulag", label: "Le Goulag", type: "bool", default: true, info: "Quand plusieurs joueurs perdent ensemble une épreuve, ils se départagent en face à face dans une petite arène. Seul le dernier perdant perd sa main." },
       { id: "ghosts", label: "Fantômes qui hantent", type: "bool", default: true, showIf: { mode: ["perso"] }, info: "Les joueurs éliminés restent dans la partie et gênent un peu les vivants." },
       { id: "speed", label: "Rythme", type: "chips", default: 1, options: [{ value: 1.4, label: "Tranquille" }, { value: 1, label: "Normal" }, { value: 0.7, label: "Rapide" }], showIf: { mode: ["perso"] }, info: "La durée des épreuves et des pauses." },
     ] },
@@ -74,7 +75,7 @@
   // réglages réellement appliqués, selon le mode
   function effective(settings) {
     const s = normalize(settings); const all = FAMILIES.map((f) => f[0]);
-    const base = { mode: s.mode, sfx: s.sfx, hands: 3, rounds: 16, families: all, croco: "mixte", cards: true, pacts: true, ghosts: true, speed: 1, teams: false, points: false, chaos: false, format: s.format };
+    const base = { mode: s.mode, sfx: s.sfx, gulag: s.gulag, hands: 3, rounds: 16, families: all, croco: "mixte", cards: true, pacts: true, ghosts: true, speed: 1, teams: false, points: false, chaos: false, format: s.format };
     switch (s.mode) {
       case "survie": Object.assign(base, { hands: 2, rounds: 24, pacts: false, speed: 0.85 }); break;
       case "equipes": Object.assign(base, { hands: 3, rounds: 18, teams: true }); break;

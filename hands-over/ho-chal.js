@@ -169,37 +169,45 @@ D.stoppile = {
   },
 };
 
-// ---------- Le coffre (déduction coopérative) ----------
+// ---------- Le coffre (déduction en solo) ----------
+// Tout le monde a le même code, mais chacun cherche seul et ne voit que ses propres essais.
+const COFFRE_ALL = []; for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) for (let d = 1; d <= 6; d++) if (a !== b && a !== d && b !== d) COFFRE_ALL.push([a, b, d]);
 D.coffre = {
   id: "coffre", family: "deduction", name: "Le coffre", min: 2, ghostOk: false,
-  rules: "Un code de trois chiffres différents entre 1 et 6 ferme le coffre. Chaque essai dit combien de chiffres sont bien placés et combien sont ailleurs. Si l'équipe échoue, celui qui a le moins participé perd une main.",
-  init(part, o) { const code = shuffle([1, 2, 3, 4, 5, 6]).slice(0, 3); return { id: "coffre", part, code, guesses: [], max: 10, ends: Date.now() + 75000 * o.speed, cracked: null, o, hv: {} }; },
-  hover(c, pid, d) { if (!c.part.includes(pid) || c.cracked || !Array.isArray(d.code) || d.code.length !== 3) return false; const g = d.code.map((x) => Math.floor(+x)); if (g.some((x) => !(x >= 1 && x <= 6))) return false; if (c.hv[pid] && c.hv[pid].join() === g.join()) return false; c.hv[pid] = g; return true; },
+  rules: "Un code de trois chiffres différents entre 1 et 6 ferme ton coffre. Chacun cherche seul, avec huit essais. Chaque essai dit combien de chiffres sont bien placés et combien sont ailleurs. Celui qui n'ouvre pas, ou le plus lent si tout le monde ouvre, perd une main.",
+  init(part, o) { const code = shuffle([1, 2, 3, 4, 5, 6]).slice(0, 3); const g = {}; part.forEach((id) => { g[id] = []; }); return { id: "coffre", part, code, g, max: 8, t0: Date.now(), ends: Date.now() + 75000 * o.speed, ok: {}, o }; },
   fb(code, g) { let exact = 0, near = 0; g.forEach((x, i) => { if (code[i] === x) exact++; else if (code.includes(x)) near++; }); return { exact, near }; },
-  view(c, pid, now) { const done = this.isDone(c, now); return { guesses: c.guesses, left: c.max - c.guesses.length, ends: c.ends, cracked: c.cracked, code: done ? c.code : null, hv: done ? {} : c.hv }; },
+  view(c, pid, now) {
+    const done = this.isDone(c, now); const mine = c.g[pid] || [];
+    const prog = {}; c.part.forEach((id) => { prog[id] = { n: c.g[id].length, ok: !!c.ok[id] }; });
+    return { guesses: mine.map((x) => ({ by: pid, g: x.g, exact: x.exact, near: x.near })), left: c.max - mine.length, ends: c.ends, cracked: !!c.ok[pid], code: done ? c.code : null, prog, all: done ? c.g : null };
+  },
   act(c, pid, d, now) {
-    if (!c.part.includes(pid) || c.cracked || c.guesses.length >= c.max || now > c.ends) return false; const g = (d.guess || []).map((x) => Math.floor(+x));
+    if (!c.part.includes(pid) || c.ok[pid] || c.g[pid].length >= c.max || now > c.ends) return false; const g = (d.guess || []).map((x) => Math.floor(+x));
     if (g.length !== 3 || g.some((x) => !(x >= 1 && x <= 6)) || new Set(g).size !== 3) return false;
-    const f = this.fb(c.code, g); c.guesses.push({ by: pid, g, exact: f.exact, near: f.near }); if (f.exact === 3) c.cracked = pid; return true;
+    const f = this.fb(c.code, g); c.g[pid].push({ g, exact: f.exact, near: f.near, t: now - c.t0 }); if (f.exact === 3) c.ok[pid] = now - c.t0; return true;
   },
   tick() { return false; },
-  isDone(c, now) { return !!c.cracked || c.guesses.length >= c.max || now > c.ends; },
+  isDone(c, now) { return now > c.ends || c.part.every((id) => c.ok[id] != null || c.g[id].length >= c.max); },
+  // note de chaque joueur, plus c'est haut mieux c'est
+  note(c, id) { if (c.ok[id] != null) return 1000 - c.g[id].length * 60 - c.ok[id] / 1000; const best = c.g[id].reduce((m, x) => Math.max(m, x.exact * 2 + x.near), 0); return best * 10; },
   result(c) {
-    const scores = {}; const cnt = {}; c.part.forEach((id) => { cnt[id] = 0; scores[id] = 0; }); c.guesses.forEach((x) => { cnt[x.by]++; });
-    if (c.cracked) { scores[c.cracked] = 3; c.part.forEach((id) => { if (id !== c.cracked) scores[id] = 1; }); return { scores, losers: [], reveal: { code: c.code, cracked: c.cracked } }; }
-    const min = Math.min.apply(null, c.part.map((id) => cnt[id])); const low = c.part.filter((id) => cnt[id] === min); c.part.forEach((id) => { scores[id] = cnt[id]; });
-    return { scores, losers: [pickOne(low)], reveal: { code: c.code, cracked: null } };
+    const scores = {}; c.part.forEach((id) => { scores[id] = Math.round(this.note(c, id)); });
+    const open = c.part.filter((id) => c.ok[id] != null); let losers;
+    if (open.length && open.length < c.part.length) losers = c.part.filter((id) => c.ok[id] == null);
+    else { const min = Math.min.apply(null, c.part.map((id) => scores[id])); losers = c.part.filter((id) => scores[id] === min); }
+    // si certains n'ont pas ouvert, seuls les plus mauvais d'entre eux perdent
+    if (open.length && losers.length > 1) { const min = Math.min.apply(null, losers.map((id) => scores[id])); losers = losers.filter((id) => scores[id] === min); }
+    return { scores, losers, reveal: { code: c.code, ok: c.ok, n: c.part.reduce((o, id) => { o[id] = c.g[id].length; return o; }, {}) } };
   },
   bot(c, pid, level, mem, now) {
-    if (c.cracked || c.guesses.length >= c.max) return null; const L = lv(level);
-    if (!mem.at) mem.at = now + between(3500, 7000) * (L === 2 ? 0.8 : 1.1);
-    // le robot hésite à voix haute, son code en cours de composition se voit
-    if (now < mem.at) { if (!mem.hvAt || now >= mem.hvAt) { mem.hvAt = now + between(700, 1600); c.hv[pid] = shuffle([1, 2, 3, 4, 5, 6]).slice(0, 3); } return null; } mem.at = now + between(5000, 9500);
-    // on laisse des essais aux humains
-    const humansLeft = c.max - c.guesses.length; if (humansLeft <= 4 && c.ends - now > 15000) return null;
-    const all = []; for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) for (let d = 1; d <= 6; d++) if (a !== b && a !== d && b !== d) all.push([a, b, d]);
-    let cand = all.filter((g) => c.guesses.every((x) => { const f = this.fb(g, x.g); return f.exact === x.exact && f.near === x.near; }));
-    if (!cand.length) cand = all; if (L === 0 || (L === 1 && rng() < 0.4)) cand = all.filter((g) => !c.guesses.some((x) => x.g.join() === g.join()));
+    if (c.ok[pid] != null || c.g[pid].length >= c.max) return null; const L = lv(level);
+    if (!mem.at) mem.at = now + between(3000, 6000) * (L === 2 ? 0.8 : 1.15);
+    if (now < mem.at) return null; mem.at = now + between(4000, 8000) * (L === 2 ? 0.75 : L === 0 ? 1.3 : 1);
+    const mine = c.g[pid];
+    let cand = COFFRE_ALL.filter((g) => mine.every((x) => { const f = this.fb(g, x.g); return f.exact === x.exact && f.near === x.near; }));
+    // un figurant oublie parfois ce qu'il a appris
+    if (!cand.length || L === 0 && rng() < 0.45 || L === 1 && rng() < 0.15) cand = COFFRE_ALL.filter((g) => !mine.some((x) => x.g.join() === g.join()));
     return { guess: pickOne(cand) };
   },
 };

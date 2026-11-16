@@ -9,7 +9,7 @@
     { name: "Rouge", hex: "#ef4b4b" }, { name: "Bleu", hex: "#3b82f6" }, { name: "Vert", hex: "#34c36c" }, { name: "Jaune", hex: "#f5c518" },
     { name: "Violet", hex: "#9b5de5" }, { name: "Orange", hex: "#ff8a1f" }, { name: "Rose", hex: "#ff6fb5" }, { name: "Turquoise", hex: "#1fc8c0" },
   ];
-  const G = { cam: { f: 0, h: 0, t: 0, g: 0 }, st: null, deadline: 0, fr: null, priv: null, scene: null, keys: { l: 0, r: 0, u: 0, d: 0, a: 0, b: 0, c: 0 }, sent: "", canvas: null, ctx: null, last: 0, phaseKey: "", scale: 1, ox: 0, oy: 0, lastFrameAt: 0, uiKey: "", sceneKey: -1, cdLast: 0, goShown: 0 };
+  const G = { cam: { f: 0, h: 0, t: 0, g: 0 }, turn: { l: 0, r: 0 }, tp: { yaw: null, hg: 0 }, st: null, deadline: 0, fr: null, priv: null, scene: null, keys: { l: 0, r: 0, u: 0, d: 0, a: 0, b: 0, c: 0 }, sent: "", canvas: null, ctx: null, last: 0, phaseKey: "", scale: 1, ox: 0, oy: 0, lastFrameAt: 0, uiKey: "", sceneKey: -1, cdLast: 0, goShown: 0 };
   const play = (n) => { try { window.PgSound && PgSound.play(n); } catch (e) { /* rien */ } };
   const myId = () => { const p = Kit.me(); return p ? p.id : null; };
   const hexOf = (k) => COLORS[(k || 0) % COLORS.length].hex;
@@ -37,7 +37,7 @@
             el("div", { id: "pg-target", class: "pg-target hidden" }), el("div", { id: "pg-big", class: "pg-big hidden" }), el("div", { id: "pg-msgs", class: "pg-msgs" }), el("div", { id: "pg-cd", class: "pg-cd hidden" }),
             el("div", { id: "pg-dead", class: "pg-dead hidden" }), el("div", { id: "pg-prog", class: "pg-prog hidden" }), el("div", { id: "pg-banner", class: "pg-banner hidden" }),
             el("div", { id: "pg-bars", class: "pg-bars" }), el("div", { id: "pg-flash", class: "pg-flash" }),
-            el("div", { id: "pg-racehint", class: "pg-racehint hidden", text: "Espace saute deux fois, Maj ou E plonge, C agrippe, F et H tournent la caméra, T et G la montent ou la baissent" }),
+            el("div", { id: "pg-racehint", class: "pg-racehint hidden", text: "Haut et bas avancent, gauche et droite tournent la caméra, Q et D font un pas de côté. Espace saute deux fois, Maj ou E plonge, C agrippe, T et G montent ou baissent la caméra" }),
           ]),
           el("div", { id: "pg-pad", class: "pg-pad hidden" }),
         ]),
@@ -92,18 +92,23 @@
   // ---------- touches ----------
   const KEYMAP = { ArrowLeft: "l", ArrowRight: "r", ArrowUp: "u", ArrowDown: "d", q: "l", a: "l", d: "r", z: "u", w: "u", s: "d", " ": "a", Enter: "a", x: "a", X: "a", Shift: "b", e: "b", c: "b", C: "b", Q: "l", A: "l", D: "r", Z: "u", W: "u", S: "d", E: "b" };
   function setKey(k, v) { if (G.keys[k] === v) return; G.keys[k] = v; sendKeys(); }
-  function sendKeys() { const k = Object.assign({}, G.keys); if (isRace() && G.mv) { k.mx = Math.round(G.mv[0] * 100) / 100; k.my = Math.round(G.mv[1] * 100) / 100; } const s = JSON.stringify(k); if (s === G.sent) return; G.sent = s; if (Kit.socket) Kit.socket.emit("pg:in", k); }
+  function sendKeys() { const k = Object.assign({}, G.keys); if ((isRace() || isTP()) && G.mv) { k.mx = Math.round(G.mv[0] * 100) / 100; k.my = Math.round(G.mv[1] * 100) / 100; } const s = JSON.stringify(k); if (s === G.sent) return; G.sent = s; if (Kit.socket) Kit.socket.emit("pg:in", k); }
   const inGame = () => document.body.dataset.screen === "game" && G.st && G.st.phase === "play";
   // pendant la Course des fous, F et H tournent la caméra, T et G la montent ou la baissent, C agrippe
   const isRace = () => !!(G.st && G.st.game && G.st.game.id === "parcours" && PD.on);
+  // jeux vus de dos, avec la caméra de Vertigogo. Haut et bas avancent et reculent, gauche et droite tournent la caméra, Q et D font un pas de côté
+  const TP_GAMES = { parcours: 1, bridge: 1, tiles: 1 };
+  const isTP = () => !!(G.st && G.st.game && TP_GAMES[G.st.game.id] && (G.st.phase === "play" || G.st.phase === "result") && G.use3d && P3.ready);
+  const coarse = () => !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
   const CAMK = { f: "f", F: "f", h: "h", H: "h", t: "t", T: "t", g: "g", G: "g" };
   window.addEventListener("keydown", (e) => {
     if (document.body.dataset.screen !== "game") return; const tag = (e.target && e.target.tagName) || ""; if (tag === "INPUT" || tag === "TEXTAREA" || e.ctrlKey || e.metaKey || e.altKey) return;
-    if (isRace()) { if (CAMK[e.key]) { G.cam[CAMK[e.key]] = 1; e.preventDefault(); return; } if (e.key === "c" || e.key === "C") { G.keys.c = 1; e.preventDefault(); return; } }
+    if (isTP()) { if (CAMK[e.key]) { G.cam[CAMK[e.key]] = 1; e.preventDefault(); return; } if (e.key === "ArrowLeft" || e.key === "ArrowRight") { G.turn[e.key === "ArrowLeft" ? "l" : "r"] = 1; e.preventDefault(); return; } }
+    if (isRace()) { if (e.key === "c" || e.key === "C") { G.keys.c = 1; e.preventDefault(); return; } }
     const k = KEYMAP[e.key]; if (!k) return; e.preventDefault(); setKey(k, 1);
   });
-  window.addEventListener("keyup", (e) => { if (CAMK[e.key]) G.cam[CAMK[e.key]] = 0; if (e.key === "c" || e.key === "C") G.keys.c = 0; const k = KEYMAP[e.key]; if (!k) return; setKey(k, 0); });
-  window.addEventListener("blur", () => { ["l", "r", "u", "d", "a", "b", "c"].forEach((k) => { G.keys[k] = 0; }); Object.keys(G.cam).forEach((k) => { G.cam[k] = 0; }); sendKeys(); });
+  window.addEventListener("keyup", (e) => { if (e.key === "ArrowLeft") G.turn.l = 0; if (e.key === "ArrowRight") G.turn.r = 0; if (CAMK[e.key]) G.cam[CAMK[e.key]] = 0; if (e.key === "c" || e.key === "C") G.keys.c = 0; const k = KEYMAP[e.key]; if (!k) return; setKey(k, 0); });
+  window.addEventListener("blur", () => { ["l", "r", "u", "d", "a", "b", "c"].forEach((k) => { G.keys[k] = 0; }); Object.keys(G.cam).forEach((k) => { G.cam[k] = 0; }); G.turn.l = G.turn.r = 0; sendKeys(); });
   setInterval(() => { if (inGame()) { G.sent = ""; sendKeys(); } }, 700);
   function onCanvasClick(e) {
     if (!inGame() || (e.target && e.target.closest && e.target.closest(".pg-padbtn"))) return; let x, y; const pz = G.fr && G.fr.hud && G.fr.hud.pickZ || 0;
@@ -118,7 +123,7 @@
     const prev = G.st; G.st = st; G.deadline = Date.now() + st.left;
     const key = st.phase + ":" + st.round + ":" + (st.game ? st.game.id : "");
     if (key !== G.phaseKey) {
-      G.phaseKey = key; G.priv = null; G.uiKey = ""; G.cdLast = 0; G.goShown = 0;
+      G.phaseKey = key; G.priv = null; G.uiKey = ""; G.cdLast = 0; G.goShown = 0; G.tp.yaw = null; G.tp.hg = 0; G.turn.l = G.turn.r = 0;
       if (st.phase !== "play" && st.phase !== "result") { G.fr = null; RD.reset(); if (st.phase === "intro" || st.phase === "vote") { G.scene = null; G.sceneApplied = -1; if (P3.ready) P3.clear(); } }
       if (st.phase === "play") { ["l", "r", "u", "d", "a", "b", "c"].forEach((k) => { G.keys[k] = 0; }); G.sent = ""; }
       if (st.phase !== "play" && st.phase !== "result") { PD.reset(); if (P3.ready) P3.camLive = null; }
@@ -130,7 +135,7 @@
     const sig = JSON.stringify(Object.assign({}, st, { left: 0 })); if (sig === G.sig) return; G.sig = sig;
     renderTop(); renderOverlay();
   }
-  function onScene(m) { G.scene = m; G.sceneApplied = -1; if (m && m.scene && m.scene.pred && window.PgPred) PD.setScene(m.scene, { jumpAssist: !(Kit.room && Kit.room.settings && Kit.room.settings.jumpAssist === false) }); else PD.reset(); applyView(true); if (!G.use3d) { /* la vue à plat lit G.scene à chaque image */ } }
+  function onScene(m) { G.scene = m; G.sceneApplied = -1; if (m && m.scene && m.scene.pred && window.PgPred) PD.setScene(m.scene, { jumpAssist: false }); else PD.reset(); applyView(true); if (!G.use3d) { /* la vue à plat lit G.scene à chaque image */ } }
   function onFrame(m) {
     G.fr = m.f; G.priv = m.p; G.lastFrameAt = performance.now();
     if (PD.on) { PD.frame(m.f, m.p, myId(), performance.now()); PD.patch(m.f.items, myId()); }
@@ -210,7 +215,7 @@
     requestAnimationFrame(frameLoop);
     if (document.body.dataset.screen !== "game") return; const dt = Math.min(0.1, (now - (G.last || now)) / 1000); G.last = now;
     if (!G.st) return;
-    if (PD.on && G.fr) raceStep(dt);
+    if (PD.on && G.fr) raceStep(dt); else if (G.fr && isTP()) tpStep(dt); else if (P3.ready && P3.cullZ != null) P3.cullZ = null;
     if (G.use3d && P3.ready) { if (G.st.phase === "play" || G.st.phase === "result" || G.st.phase === "intro") P3.render(dt); return; }
     const ctx = G.ctx; if (!ctx) return; const dpr = G.dpr || 1; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, G.canvas.width, G.canvas.height);
     const f = G.fr; if (!f || (G.st.phase !== "play" && G.st.phase !== "result")) return;
@@ -234,14 +239,11 @@
   const RSND = { jump: "jump", dbl: "jump", dive: "whoosh", land: "land", stun: "squeak", flop: "squeak", void: "scream", bump: "bump" };
   function raceStep(dt) {
     const h = (G.fr && G.fr.hud) || {}; const pc = G.priv && G.priv.cam; const now = performance.now();
-    // caméra de dos qui suit les virages, F et H la tournent, T et G changent sa hauteur
-    PD.yawOff = Math.max(-2.6, Math.min(2.6, (PD.yawOff || 0) + ((G.cam.h ? 1 : 0) - (G.cam.f ? 1 : 0)) * dt * 1.9));
-    if (!G.cam.f && !G.cam.h && Math.abs(PD.yawOff) > 0.001 && G.keys.u) PD.yawOff *= Math.exp(-dt * 0.8);
-    PD.hgOff = Math.max(-110, Math.min(240, (PD.hgOff || 0) + ((G.cam.t ? 1 : 0) - (G.cam.g ? 1 : 0)) * dt * 220));
-    const target = (pc && pc.yaw != null ? pc.yaw : -Math.PI / 2) + PD.yawOff;
-    if (!PD.yawInit || PD.snapped) { PD.yaw = target; PD.yawInit = true; PD.snapped = false; } else PD.yaw = angLerp(PD.yaw, target, 1 - Math.exp(-dt * 2.4));
+    // caméra de Vertigogo, gauche et droite ou F et H tournent la caméra, T et G changent sa hauteur. Après une chute elle se remet dans le sens du parcours
+    if (!PD.yawInit || PD.snapped) { PD.yaw = pc && pc.yaw != null ? pc.yaw : -Math.PI / 2; PD.yawInit = true; PD.snapped = false; }
+    const tv = tpTurn(dt); PD.yaw += tv.turn; PD.hgOff = G.tp.hg;
     const f = [Math.cos(PD.yaw), Math.sin(PD.yaw)], r = [-Math.sin(PD.yaw), Math.cos(PD.yaw)]; const k = G.keys;
-    let mx = f[0] * ((k.u ? 1 : 0) - (k.d ? 1 : 0)) + r[0] * ((k.r ? 1 : 0) - (k.l ? 1 : 0)), my = f[1] * ((k.u ? 1 : 0) - (k.d ? 1 : 0)) + r[1] * ((k.r ? 1 : 0) - (k.l ? 1 : 0));
+    let mx = f[0] * ((k.u ? 1 : 0) - (k.d ? 1 : 0)) + r[0] * tv.side, my = f[1] * ((k.u ? 1 : 0) - (k.d ? 1 : 0)) + r[1] * tv.side;
     const l = Math.hypot(mx, my); if (l > 1) { mx /= l; my /= l; } if (G.st.mod && G.st.mod.id === "inv") { mx = -mx; my = -my; }
     G.mv = [mx, my]; if (!G.mvSentAt || now - G.mvSentAt > 120) { G.mvSentAt = now; sendKeys(); }
     const frozen = G.st.phase !== "play" || !!h.cd || !!h.end;
@@ -250,6 +252,28 @@
     PD.patch(G.fr.items, myId());
     const p = PD.pos(); const tall = window.innerWidth < window.innerHeight; if (P3.ready) P3.camLive = p && !PD.dead ? { m: "follow", t: [p.x, p.y, Math.max(p.z, -60)], yaw: PD.yaw, d: tall ? 520 : 340, hg: (tall ? 320 : 220) + PD.hgOff, la: tall ? 170 : 130 } : null;
     const hint = $("#pg-racehint"); if (hint) hint.classList.toggle("hidden", !!h.end);
+  }
+
+  // rotation de la caméra de dos, partagée par les jeux vus de dos
+  function tpTurn(dt) {
+    const k = G.keys; const touch = coarse();
+    const turn = ((G.turn.r ? 1 : 0) - (G.turn.l ? 1 : 0) + (G.cam.h ? 1 : 0) - (G.cam.f ? 1 : 0) + (touch ? (k.r ? 1 : 0) - (k.l ? 1 : 0) : 0)) * 2.3 * dt;
+    G.tp.hg = Math.max(-110, Math.min(240, G.tp.hg + ((G.cam.t ? 1 : 0) - (G.cam.g ? 1 : 0)) * dt * 220));
+    return { turn, side: touch ? 0 : (k.r ? 1 : 0) - (k.l ? 1 : 0) };
+  }
+  // Pont de verre et Sol en miettes, la caméra suit son personnage de dos
+  function tpStep(dt) {
+    const gid = G.st.game.id; const me = (G.fr.items || []).find((it) => it.t === "pawn" && it.id === myId()); const dead = G.priv && G.priv.dead;
+    if (!me || dead) { if (P3.ready) { P3.camLive = null; P3.cullZ = null; } return; }
+    if (G.tp.yaw == null || G.tp.key !== G.phaseKey) { G.tp.key = G.phaseKey; G.tp.hg = 0; const W = P3.world || { w: 900, h: 600 }; G.tp.yaw = gid === "tiles" ? Math.atan2(W.h / 2 - me.y, W.w / 2 - me.x) : -Math.PI / 2; }
+    const tv = tpTurn(dt); G.tp.yaw += tv.turn; const yaw = G.tp.yaw; const k = G.keys;
+    const f = [Math.cos(yaw), Math.sin(yaw)], r = [-Math.sin(yaw), Math.cos(yaw)];
+    let mx = f[0] * ((k.u ? 1 : 0) - (k.d ? 1 : 0)) + r[0] * tv.side, my = f[1] * ((k.u ? 1 : 0) - (k.d ? 1 : 0)) + r[1] * tv.side; const l = Math.hypot(mx, my); if (l > 1) { mx /= l; my /= l; }
+    G.mv = [mx, my]; const now = performance.now(); if (!G.mvSentAt || now - G.mvSentAt > 90) { G.mvSentAt = now; sendKeys(); }
+    const tall = window.innerWidth < window.innerHeight; const close = gid === "tiles";
+    P3.camLive = { m: "follow", t: [me.x, me.y, Math.max(me.z || 0, -400)], yaw, d: tall ? 560 : close ? 430 : 380, hg: (tall ? 380 : close ? 310 : 250) + G.tp.hg, la: tall ? 150 : 120 };
+    // au Sol en miettes, l'étage du dessus disparaît quand on est tombé en bas
+    P3.cullZ = gid === "tiles" && (me.z || 0) < -100 ? (me.z || 0) + 110 : null;
   }
 
   // ---------- confettis ----------
@@ -415,6 +439,8 @@
     help: [
       { title: "Le principe", text: "De deux à huit joueurs se retrouvent dans un salon, avec ou sans bots. À chaque manche, trois mini-jeux sont proposés et tout le monde vote. Le plus voté se joue, puis les points tombent et la manche suivante commence." },
       { title: "Les commandes", text: "Les flèches ou ZQSD déplacent. Espace est l'action principale, Maj, E ou C l'action secondaire, et X peut remplacer Espace si ton clavier bloque. Certains jeux se jouent avec des boutons à l'écran ou à la souris. Sur téléphone, des touches apparaissent à l'écran." },
+      { title: "Le vote et les règles", text: "Seuls les joueurs humains votent, pendant vingt secondes au plus. Les règles de chaque mini-jeu restent affichées vingt secondes, ou moins si tout le monde se déclare prêt. Territoires n'est jamais proposé quand des bots jouent." },
+      { title: "La caméra de dos", text: "Dans la Course des fous, le Pont de verre et le Sol en miettes, la caméra suit ton personnage de dos, comme dans Vertigogo. Haut et bas avancent et reculent, gauche et droite tournent la caméra, Q et D font un pas de côté, F et H tournent aussi la caméra, T et G la montent ou la baissent." },
       { title: "Jouer seul", text: "Appuie sur Jouer seul avec des bots, ou ajoute des bots dans le salon. Dans les réglages, le mode démo laisse les bots jouer à ta place et le jeu imposé permet de répéter un mini-jeu." },
       { title: "Les points", text: "Le premier d'un mini-jeu reçoit dix points, les suivants moins, et les égalités se partagent. Quelques bonus récompensent les beaux coups. La dernière manche peut compter double." },
       { title: "Affichage", text: "Le bouton en haut à droite change l'affichage. 3D complet, 3D allégé pour les ordinateurs lents, ou vue à plat si ton navigateur n'arrive pas à dessiner la 3D. Le bouton à côté coupe le son." },

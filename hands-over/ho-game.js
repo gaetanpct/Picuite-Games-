@@ -7,6 +7,7 @@ const Rules = require("./public/game/rules.js");
 const { D, IDS } = require("./ho-chal.js");
 const { HOST, pick } = require("./data/ho-data.js");
 const { BRIEF, extra: briefExtra } = require("./data/ho-brief.js");
+const GL = require("./ho-gulag.js");
 
 const TS = Math.max(0.001, Number(process.env.HO_TIME_SCALE) || 1);
 const rng = Math.random;
@@ -27,8 +28,8 @@ function start(room, api) {
   api.sysChat(room, "Le plateau est prêt. Mode " + s.mode + ", " + s.hands + " main" + (s.hands > 1 ? "s" : "") + " chacun.");
   g.timer = setInterval(() => { try { tick(room); } catch (e) { console.error("tick ho", e); } }, 200);
   emitAll(room);
-  // HO_DUEL_NOW sert seulement aux essais en local, pour ouvrir tout de suite le règlement de comptes
-  if (process.env.HO_DUEL_NOW) setTimeout(() => { if (room.g !== g) return; Object.values(g.P).forEach((P) => { P.hands = 1; P.points = 0; }); startDuel(room, tiedGroups(room)); }, 800);
+  // HO_GULAG_NOW sert seulement aux essais en local, pour ouvrir tout de suite le Goulag avec les deux ou trois premiers joueurs
+  if (process.env.HO_GULAG_NOW) setTimeout(() => { if (room.g !== g) return; g.round = 1; g.ch = { id: "croco", name: "Le crocodile dentiste" }; g.c = D.croco.init(ids, { speed: 1 }); g.c.alive = ids.slice(); g.res0 = { scores: {}, losers: ids.slice(0, +process.env.HO_GULAG_NOW || 2), reveal: {} }; judge(room); }, 800);
 }
 function onDestroy(room) { if (room.g && room.g.timer) { clearInterval(room.g.timer); room.g.timer = null; } }
 const aliveIds = (room) => room.players.filter((p) => !p.left && room.g.P[p.id].alive).map((p) => p.id);
@@ -60,7 +61,7 @@ function tick(room) {
     if (mod.isDone(c, now)) return judge(room);
     if (ch || now - g.lastChange > 700) { g.lastChange = now; emitAll(room); } return;
   }
-  if (g.phase === "duel") return duelTick(room, now);
+  if (g.phase === "gulag") return gulagTick(room, now);
   if (g.phase === "judge") {
     // les robots finissent de lire au bout de quelques secondes, tout le monde prêt fait passer à la suite
     present(room).forEach((p) => { if (!autoCtl(p)) return; const P = g.P[p.id]; if (!P || P.briefOk) return; const m = g.mem[p.id] || (g.mem[p.id] = {}); if (!m.judgeAt) m.judgeAt = now + (2500 + rng() * 5500) * TS; if (now >= m.judgeAt) { P.briefOk = true; emitAll(room); } });
@@ -113,7 +114,9 @@ function startPlay(room) {
   g.api.emitAll(room, "ho:go", { id: g.ch.id });
 }
 function judge(room) {
-  const g = room.g, s = g.s; const def = D[g.ch.id]; const c = g.c; const res = def.result(c); g.res = res; const al = c.alive;
+  const g = room.g, s = g.s; const def = D[g.ch.id]; const c = g.c; if (!g.res0) g.res0 = def.result(c); const res = g.res0; g.res = res; const al = c.alive;
+  // plusieurs perdants à égalité, ils règlent leurs comptes au Goulag avant la sanction
+  if (s.gulag !== false && !g.gulagDone) { const tied = res.losers.filter((id) => al.includes(id) && byId(room, id) && !byId(room, id).left); if (tied.length >= 2) return startGulag(room, tied); }
   // les fantômes qui ont gagné frappent le joueur le plus riche
   const ghosts = c.part.filter((id) => !al.includes(id)); let ghostWin = null;
   if (ghosts.length) { const best = ghosts.slice().sort((a, b) => res.scores[b] - res.scores[a])[0]; if (best && !res.losers.includes(best)) { ghostWin = best; g.P[best].st.ghostWins++; const rich = al.slice().sort((a, b) => g.P[b].hands - g.P[a].hands || rng() - 0.5)[0]; if (rich) { g.P[rich].mark++; g.notes.push("Le fantôme " + nm(room, best) + " a gagné et marque " + nm(room, rich) + " pour la prochaine sanction."); } } }
@@ -167,11 +170,12 @@ function judge(room) {
   // retour d'entre les morts, un fantôme qui gagne deux épreuves revient avec une main
   if (ghostWin && !s.points && g.P[ghostWin].st.ghostWins >= 2 && !g.P[ghostWin].revived) { const R = g.P[ghostWin]; R.revived = true; R.alive = true; R.ghost = false; R.hands = 1; R.cards = [pickOne(CARD_IDS)]; R.st.revived++; g.notes.push(nm(room, ghostWin) + " a gagné deux épreuves d'outre-tombe et revient parmi les vivants avec une main et une carte."); }
   const outs = {}; al.forEach((id) => { outs[id] = { before: before[id], after: g.P[id].hands, loss: loss[id] || 0, safe: !(loss[id] > 0) }; });
-  g.judged = { id: g.ch.id, losers, pev, revived: ghostWin && g.P[ghostWin].alive ? ghostWin : null, loss: outs, scores: res.scores, reveal: res.reveal, notes: g.notes.slice(), best: bestId || null, ghostWin };
+  g.judged = { gulag: res.gulag || null, id: g.ch.id, losers, pev, revived: ghostWin && g.P[ghostWin].alive ? ghostWin : null, loss: outs, scores: res.scores, reveal: res.reveal, notes: g.notes.slice(), best: bestId || null, ghostWin };
   g.history.push({ round: g.round, id: g.ch.id, name: g.ch.name, losers: losers.map((x) => nm(room, x)), best: bestId ? nm(room, bestId) : null });
   const anyDown = dead.length && !s.points; g.quip = anyDown ? pick(HOST.ghost) : losers.length ? pick(HOST.after[g.ch.id] && rng() < 0.6 ? HOST.after[g.ch.id] : HOST.lose) : pick(HOST.none);
   const lines = losers.length + g.notes.length + pev.length + (bestId ? 1 : 0); g.total = Math.min(45000, Math.max(16000, 9000 + lines * 3200)) * TS;
   Object.values(g.P).forEach((Q) => { Q.briefOk = false; }); g.mem = {};
+  g.res0 = null; g.gulagDone = false;
   g.phase = "judge"; g.until = 0; g.total = 0; emitAll(room);
 }
 // petit signal visuel quand quelqu'un agit, pour que sa main ou son fantôme bouge sur le plateau
@@ -189,62 +193,47 @@ function over(room) {
 
 // ---------- classement final ----------
 function standings(room) {
-  const g = room.g, s = g.s; const tie = g.tie || {};
-  const rows = room.players.map((p) => { const P = g.P[p.id]; return { id: p.id, name: p.name, color: p.color, isBot: p.isBot, hands: P.hands, alive: P.alive, points: P.points, team: P.team, st: P.st, left: !!p.left, tie: tie[p.id] }; });
+  const g = room.g, s = g.s;
+  const rows = room.players.map((p) => { const P = g.P[p.id]; return { id: p.id, name: p.name, color: p.color, isBot: p.isBot, hands: P.hands, alive: P.alive, points: P.points, team: P.team, st: P.st, left: !!p.left }; });
   const base = (a, b) => (s.points ? b.points - a.points : (b.alive - a.alive) || b.hands - a.hands || b.points - a.points);
-  // le règlement de comptes départage les ex aequo
-  const tb = (a, b) => (a.tie != null && b.tie != null ? a.tie - b.tie : 0);
-  rows.sort((a, b) => base(a, b) || (a.left - b.left) || tb(a, b));
-  let rk = 0; rows.forEach((r, i) => { const prev = rows[i - 1]; const same = prev && !base(prev, r) && !tb(prev, r) && prev.left === r.left; if (!same) rk = i + 1; r.rank = rk; });
+  rows.sort((a, b) => base(a, b) || (a.left - b.left));
+  let rk = 0; rows.forEach((r, i) => { const prev = rows[i - 1]; const same = prev && !base(prev, r) && prev.left === r.left; if (!same) rk = i + 1; r.rank = rk; });
   return rows;
 }
-// groupes de joueurs encore là qui finissent à égalité
-function tiedGroups(room) {
-  const rows = standings(room).filter((r) => !r.left); const by = {}; rows.forEach((r) => { (by[r.rank] = by[r.rank] || []).push(r); });
-  return Object.keys(by).map(Number).sort((a, b) => b - a).map((rk) => ({ rank: rk, ids: by[rk].map((r) => r.id), n: rows.length })).filter((x) => x.ids.length >= 2);
-}
-
-// ---------- le règlement de comptes ----------
-// Toujours la même épreuve, très courte. Trois duels au signal, le plus rapide au total passe devant.
-// Un faux départ coûte une seconde, ne pas tirer du tout en coûte deux.
-const DUEL_DRAWS = 3, DUEL_EARLY = 1000, DUEL_MISS = 2000;
-function startDuel(room, groups) {
-  const g = room.g; g.phase = "duel"; g.duels = g.duels || []; g.duel = { groups, gi: -1 }; nextDuel(room);
-}
-function nextDuel(room) {
-  const g = room.g, D0 = g.duel; D0.gi++;
-  if (D0.gi >= D0.groups.length) { g.duelDone = true; g.duel = null; return finish(room, false); }
-  const grp = D0.groups[D0.gi]; D0.cur = { ids: grp.ids.slice(), rank: grp.rank, n: grp.n, step: "intro", draw: 0, until: 0, fireAt: 0, times: {}, hits: {}, order: null };
-  grp.ids.forEach((id) => { D0.cur.times[id] = []; });
-  Object.values(g.P).forEach((P) => { P.briefOk = false; }); g.mem = {};
+// ---------- le règlement de comptes, le Goulag ----------
+// Plusieurs perdants à égalité dans une épreuve se départagent dans l'arène. Seul le dernier perdant perd sa main.
+function startGulag(room, ids) {
+  const g = room.g; const now = Date.now();
+  g.gl = GL.create(shuffle(ids), { ctl: (id) => autoCtl(byId(room, id)), level: (id) => { const p = byId(room, id); return p && p.isBot ? (GL.LVL[p.level] != null ? GL.LVL[p.level] : 1) : 1; }, TS });
+  GL.nextFight(g.gl, now); g.phase = "gulag"; Object.values(g.P).forEach((P) => { P.briefOk = false; }); g.mem = {};
   g.quip = pick(HOST.next); emitAll(room);
 }
-function duelArm(room) { const c = room.g.duel.cur; c.step = "wait"; c.hits = {}; c.until = Date.now() + (1600 + rng() * 2600) * TS; emitAll(room); }
-function duelTick(room, now) {
-  const g = room.g; const c = g.duel && g.duel.cur; if (!c) return;
+function gulagLoop(room) {
+  const g = room.g; if (!g || !g.gl || g.phase !== "gulag") { if (g && g.glTimer) { clearInterval(g.glTimer); g.glTimer = null; } return; }
+  const now = Date.now(); const ch = GL.step(g.gl, now); const sn = GL.snap(g.gl);
+  g.glN = (g.glN || 0) + 1; if (sn && (g.glN % 2 === 0 || sn.ev.length)) g.api.emitAll(room, "ho:gl", sn);
+  if (ch) emitAll(room);
+  if (g.gl.step !== "fight") { clearInterval(g.glTimer); g.glTimer = null; }
+}
+function gulagTick(room, now) {
+  const g = room.g, gl = g.gl; if (!gl) return; const f = gl.cur;
   const ctl = (id) => autoCtl(byId(room, id));
-  if (c.step === "intro") {
-    c.ids.forEach((id) => { if (!ctl(id)) return; const P = g.P[id]; if (P.briefOk) return; const m = g.mem[id] || (g.mem[id] = {}); if (!m.at) m.at = now + (1500 + rng() * 2500) * TS; if (now >= m.at) { P.briefOk = true; emitAll(room); } });
-    const hu = c.ids.filter((id) => !ctl(id)); const watchers = present(room).filter((p) => !autoCtl(p));
-    // s'il n'y a aucun humain dans le duel, un humain qui regarde lance le duel
-    if (hu.length ? hu.every((id) => g.P[id].briefOk) : (!watchers.length || watchers.some((p) => g.P[p.id].briefOk)) && c.ids.every((id) => g.P[id].briefOk)) duelArm(room);
+  if (gl.step === "intro") {
+    [f.a, f.b].forEach((id) => { if (!ctl(id)) return; const P = g.P[id]; if (P.briefOk) return; const m = g.mem[id] || (g.mem[id] = {}); if (!m.at) m.at = now + (1500 + rng() * 2000) * TS; if (now >= m.at) { P.briefOk = true; emitAll(room); } });
+    const hu = [f.a, f.b].filter((id) => !ctl(id)); const watchers = present(room).filter((p) => !autoCtl(p));
+    // s'il n'y a aucun humain dans l'arène, un humain qui regarde lance le combat
+    const go = hu.length ? hu.every((id) => g.P[id].briefOk) : (!watchers.length || watchers.some((p) => g.P[p.id].briefOk)) && [f.a, f.b].every((id) => g.P[id].briefOk);
+    if (go) { gl.step = "fight"; f.t0 = now; f.ends = now + GL.FIGHT_MS * TS; if (g.glTimer) clearInterval(g.glTimer); g.glTimer = setInterval(() => { try { gulagLoop(room); } catch (e) { console.error("goulag", e); } }, GL.STEP_MS); emitAll(room); }
     return;
   }
-  if (c.step === "wait") { if (now >= c.until) { c.step = "fire"; c.fireAt = now; c.until = now + 2600 * TS; c.ids.forEach((id) => { if (!ctl(id) || c.hits[id] != null) return; const p = byId(room, id); const L = p && p.isBot ? ({ figurant: 0, candidat: 1, veteran: 2 })[p.level] : 1; const base = [430, 340, 270][L == null ? 1 : L], sp = [130, 80, 50][L == null ? 1 : L]; (g.mem[id] = g.mem[id] || {}).fireIn = Math.max(150, base + (rng() - 0.5) * 2 * sp); }); emitAll(room); } else { c.ids.forEach((id) => { if (!ctl(id) || c.hits[id] != null) return; const p = byId(room, id); const m = g.mem[id] || (g.mem[id] = {}); if (m.earlyD !== c.draw) { m.earlyD = c.draw; m.early = p && p.isBot && p.level === "figurant" && rng() < 0.08 ? now + rng() * (c.until - now) : 0; } if (m.early && now >= m.early) { c.hits[id] = "early"; emitAll(room); } }); } return; }
-  if (c.step === "fire") {
-    c.ids.forEach((id) => { if (!ctl(id) || c.hits[id] != null) return; const m = g.mem[id] || {}; if (m.fireIn && now - c.fireAt >= m.fireIn) { c.hits[id] = Math.round(m.fireIn); emitAll(room); } });
-    if (now >= c.until || c.ids.every((id) => c.hits[id] != null)) { c.ids.forEach((id) => { const h = c.hits[id]; c.times[id].push(h === "early" ? DUEL_EARLY : h == null ? DUEL_MISS : h); }); c.step = "show"; c.until = now + 1900 * TS; c.last = Object.assign({}, c.hits); emitAll(room); }
-    return;
+  if (gl.step === "ko") {
+    if (now - gl.koAt < 2600 * TS) return;
+    if (gl.queue.length) { Object.values(g.P).forEach((P) => { P.briefOk = false; }); g.mem = {}; GL.nextFight(gl, now); emitAll(room); return; }
+    gl.worst = f.loser; gl.step = "done"; gl.doneAt = now; emitAll(room); return;
   }
-  if (c.step === "show") { if (now < c.until) return; c.draw++; if (c.draw < DUEL_DRAWS) return duelArm(room);
-    const tot = (id) => c.times[id].reduce((a, b) => a + b, 0), best = (id) => Math.min.apply(null, c.times[id]);
-    c.order = c.ids.slice().sort((a, b) => tot(a) - tot(b) || best(a) - best(b) || rng() - 0.5); c.totals = {}; c.ids.forEach((id) => { c.totals[id] = tot(id); });
-    g.tie = g.tie || {}; c.order.forEach((id, i) => { g.tie[id] = i; });
-    g.duels.push({ rank: c.rank, n: c.n, order: c.order.slice(), totals: Object.assign({}, c.totals), times: JSON.parse(JSON.stringify(c.times)) });
-    c.step = "done"; Object.values(g.P).forEach((P) => { P.briefOk = false; }); g.mem = {}; emitAll(room); return; }
-  if (c.step === "done") {
-    present(room).forEach((p) => { if (!autoCtl(p)) return; const P = g.P[p.id]; if (P.briefOk) return; const m = g.mem[p.id] || (g.mem[p.id] = {}); if (!m.at) m.at = now + (2000 + rng() * 2000) * TS; if (now >= m.at) { P.briefOk = true; } });
-    const hu = present(room).filter((p) => !autoCtl(p)); if (hu.length ? hu.every((p) => g.P[p.id].briefOk) : true) nextDuel(room);
+  if (gl.step === "done" && now - gl.doneAt >= 2800 * TS) {
+    // le juge reprend avec un seul perdant
+    g.res0.losers = [gl.worst]; g.res0.gulag = { fights: gl.fights, worst: gl.worst }; g.gulagDone = true; g.gl = null; judge(room);
   }
 }
 function awards(rows) {
@@ -258,13 +247,11 @@ function awards(rows) {
 }
 function finish(room, aborted) {
   const g = room.g; if (g.over) return;
-  // avant le générique, les ex aequo règlent leurs comptes
-  if (!aborted && !g.duelDone && g.phase !== "duel") { const groups = tiedGroups(room); if (groups.length) return startDuel(room, groups); }
-  g.over = true; g.phase = "over"; if (g.timer) { clearInterval(g.timer); g.timer = null; }
+  g.over = true; g.phase = "over"; if (g.timer) { clearInterval(g.timer); g.timer = null; } if (g.glTimer) { clearInterval(g.glTimer); g.glTimer = null; }
   const rows = standings(room); let winTeam = null;
   if (g.s.teams) { const sc = [0, 0]; rows.forEach((r) => { if (r.alive) sc[r.team] += 10 + r.hands; sc[r.team] += r.points * 0.01; }); winTeam = sc[0] === sc[1] ? null : sc[0] > sc[1] ? 0 : 1; }
   g.quip = pick(HOST.end);
-  g.final = { mode: g.s.mode, rows, awards: awards(rows), history: g.history, aborted: !!aborted, winTeam, teams: g.s.teams, duels: g.duels || [] };
+  g.final = { mode: g.s.mode, rows, awards: awards(rows), history: g.history, aborted: !!aborted, winTeam, teams: g.s.teams };
   emitAll(room); g.api.emitAll(room, "ho:over", g.final);
 }
 
@@ -332,7 +319,7 @@ function publicState(room, forId) {
   if (g.ch && (g.phase === "brief" || g.phase === "prep" || g.phase === "count" || g.phase === "play")) { const B = BRIEF[g.ch.id] || {}; st.brief = { icon: B.icon || "🖐️", goal: B.goal || "", cmds: B.cmds || [], lose: B.lose || "", tip: B.tip || "", extra: briefExtra(g.ch.id, g.pre), minLeft: 0, minTotal: g.briefMinMs || 0 }; }
   if (g.c && (g.phase === "play" || g.phase === "judge")) { const def = D[g.ch.id]; st.view = def.view(g.c, forId, now); st.part = g.c.part; st.amIn = g.c.part.includes(forId); }
   if (g.phase === "judge" && g.judged) st.judged = g.judged;
-  if (g.phase === "duel" && g.duel && g.duel.cur) { const c = g.duel.cur; st.duel = { ids: c.ids, rank: c.rank, n: c.n, step: c.step, draw: c.draw, draws: DUEL_DRAWS, gi: g.duel.gi, groups: g.duel.groups.length, hits: c.step === "show" || c.step === "done" ? c.last || {} : Object.keys(c.hits).reduce((o, k) => { o[k] = c.hits[k] === "early" ? "early" : "ok"; return o; }, {}), times: c.times, order: c.order, totals: c.totals || null, mine: c.hits[forId] != null ? c.hits[forId] : null, wait: c.step === "wait" ? 1 : 0 }; }
+  if (g.phase === "gulag" && g.gl) { st.gl = GL.view(g.gl); st.glReady = [g.gl.cur.a, g.gl.cur.b].filter((id) => g.P[id] && g.P[id].briefOk); }
   return st;
 }
 function sendTo(room, sock, p) { try { sock.emit("ho:state", publicState(room, p.id)); } catch (e) { console.error("ho emit", e); } }
@@ -352,13 +339,8 @@ function bind(socket, helpers, api) {
     const now = Date.now(); if (!def.hover(c.g.c, c.p.id, d, now)) return;
     if (now - (c.g.hoverAt || 0) > 120) { c.g.hoverAt = now; emitAll(c.room); } else c.g.hoverDirty = true;
   }));
-  // règlement de comptes, rt est le temps de réaction mesuré dans le navigateur, early un tir avant le signal
-  socket.on("ho:duel", safe((d) => {
-    const c = cur(); if (!c || c.g.phase !== "duel" || !c.g.duel || !c.g.duel.cur) return; const D1 = c.g.duel.cur; const id = c.p.id; if (!D1.ids.includes(id) || D1.hits[id] != null) return;
-    if (D1.step === "wait") { D1.hits[id] = "early"; emitAll(c.room); return; }
-    if (D1.step !== "fire") return; const srv = Date.now() - D1.fireAt; let rt = Math.round(Number(d && d.rt)); if (!isFinite(rt)) rt = srv;
-    D1.hits[id] = Math.max(100, Math.min(srv + 60, rt, 2500)); emitAll(c.room);
-  }));
+  // le Goulag, les commandes du joueur dans l'arène
+  socket.on("ho:gl", safe((d) => { const c = cur(); if (!c || c.g.phase !== "gulag" || !c.g.gl || !d || typeof d !== "object") return; GL.input(c.g.gl, c.p.id, d); }));
   socket.on("ho:card", safe((d) => { const c = cur(); if (!c) return; const err = playCard(c.room, c.p.id, +(d && d.i), d && d.target); if (err) toast(err); emitAll(c.room); }));
   socket.on("ho:pact", safe((d) => {
     const c = cur(); if (!c || c.g.phase !== "prep" || !c.g.s.pacts) return; if (c.g.alarm) return toast("L'alarme a retenti, plus aucun pacte ce tour."); const id = c.p.id, to = d && d.to; const al = aliveIds(c.room);
@@ -371,7 +353,7 @@ function bind(socket, helpers, api) {
   }));
   socket.on("ho:ready", safe(() => {
     const c = cur(); if (!c) return; const P = c.g.P[c.p.id]; if (!P) return;
-    if (c.g.phase === "brief" || c.g.phase === "intro" || c.g.phase === "judge" || c.g.phase === "duel") { P.briefOk = true; emitAll(c.room); }
+    if (c.g.phase === "brief" || c.g.phase === "intro" || c.g.phase === "judge" || c.g.phase === "gulag") { P.briefOk = true; emitAll(c.room); }
     else if (c.g.phase === "prep" && P.alive) { P.ready = true; emitAll(c.room); }
   }));
   socket.on("ho:skip", safe(() => {
@@ -380,7 +362,7 @@ function bind(socket, helpers, api) {
     else if (c.g.phase === "brief") { leaveBrief(c.room); }
     else if (c.g.phase === "prep") startCount(c.room);
     else if (c.g.phase === "judge") afterJudge(c.room);
-    else if (c.g.phase === "duel" && c.g.duel && c.g.duel.cur) { const D1 = c.g.duel.cur; if (D1.step === "intro") duelArm(c.room); else if (D1.step === "done") nextDuel(c.room); }
+    else if (c.g.phase === "gulag" && c.g.gl && c.g.gl.step === "intro") { const f = c.g.gl.cur; [f.a, f.b].forEach((id) => { if (c.g.P[id]) c.g.P[id].briefOk = true; }); }
   }));
 }
 function onReconnect(room, p) { const g = room.g; if (!g) return; const s = g.api.io.sockets.sockets.get(p.socketId); if (s) { sendTo(room, s, p); if (g.over && g.final) s.emit("ho:over", g.final); } }
@@ -389,4 +371,4 @@ function onLeave(room, p) {
   const P = g.P[p.id]; if (P && p.left && P.alive && (g.phase === "intro" || g.phase === "prep")) { P.alive = false; P.ghost = true; }
   if (g.phase === "prep" || g.phase === "intro") emitAll(room);
 }
-module.exports = { start, bind, onReconnect, onLeave, onDestroy, canReturn: (room) => !!(room.g && room.g.over), publicState, standings, _duel: { startDuel, tiedGroups } };
+module.exports = { start, bind, onReconnect, onLeave, onDestroy, canReturn: (room) => !!(room.g && room.g.over), publicState, standings, _gulag: { startGulag } };

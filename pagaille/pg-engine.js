@@ -11,6 +11,7 @@ const U = require("./pg-util.js");
 const fs = require("fs"), path = require("path");
 
 const MODULES = {};
+const VOTE_MS = 20000, INTRO_MS = 20000;
 Cat.ids.forEach((id) => { try { MODULES[id] = require("./games/" + id + ".js"); } catch (e) { console.error("Mini-jeu ignoré", id, e); } });
 
 const TICK = 1000 / 30;
@@ -90,14 +91,16 @@ function nextRound(room) {
   g.votes = {}; g.ready = {}; g.inst = null; g.meta = null; g.result = null; g.msgs = []; g.fxq = []; g.scene = null; g.banner = ""; g.rk = null; g.voteAt = {};
   g.options = pickOptions(room, g.members.length);
   if (g.options.length <= 1) { g.meta = g.options[0] || Cat.GAMES[0]; return beginIntro(room); }
-  g.members.forEach((m) => { if (m.bot) g.voteAt[m.id] = g.t + 1200 + Math.random() * 4200; });
-  g.phase = "vote"; g.until = g.t + room.settings.voteTime * 1000; g.span = room.settings.voteTime * 1000; push(room);
+  // les bots ne votent pas, vingt secondes pour les humains, le vote s'arrête dès que tous ont voté
+  g.phase = "vote"; g.until = g.t + VOTE_MS; g.span = VOTE_MS; push(room);
 }
 function pickOptions(room, n) {
   const g = room.g, s = room.settings;
   if (s.forced && MODULES[s.forced] && Cat.byId[s.forced]) return [Cat.byId[s.forced]];
-  let pool = Cat.GAMES.filter((m) => MODULES[m.id] && s.games.includes(m.id) && m.min <= n && n <= m.max);
-  if (!pool.length) pool = Cat.GAMES.filter((m) => MODULES[m.id] && m.min <= n && n <= m.max);
+  // Territoires n'est jamais proposé quand des bots jouent
+  const bots = g.members.some((m) => m.bot); const fits = (m) => MODULES[m.id] && m.min <= n && n <= m.max && !(bots && m.id === "territoires");
+  let pool = Cat.GAMES.filter((m) => fits(m) && s.games.includes(m.id));
+  if (!pool.length) pool = Cat.GAMES.filter(fits);
   if (s.noRepeat && g.lastGame && pool.length > 1) pool = pool.filter((m) => m.id !== g.lastGame);
   const out = [];
   // on évite de proposer trois jeux du même genre
@@ -127,7 +130,7 @@ function beginIntro(room) {
   }
   g.plays[g.meta.id] = (g.plays[g.meta.id] || 0) + 1; g.lastGame = g.meta.id;
   g.members.forEach((m) => { if (m.bot) g.ready[m.id] = true; });
-  g.phase = "intro"; g.until = g.t + s.introTime * 1000; g.span = s.introTime * 1000; push(room);
+  g.phase = "intro"; g.until = g.t + INTRO_MS; g.span = INTRO_MS; push(room);
 }
 function skillOf(room, p) {
   if (!p) return 0.6; if (!p.isBot) return SKILL.normal;
@@ -145,7 +148,7 @@ function beginPlay(room) {
   const len = LEN[s.len] || 1;
   const ctx = {
     n: g.members.length, players: g.members.map((m) => Object.assign({}, m)), mod, inv: mod === "inv", heavy: mod === "lourd", speed: mod === "turbo" ? 1.3 : 1,
-    pace: (s.pace || 1) * (mod === "turbo" ? 0.8 : 1), len, opts: s,
+    pace: (s.pace || 1) * (mod === "turbo" ? 0.8 : 1), len, opts: Object.assign({}, s, { raceDiff: Math.random() < 0.5 ? "normal" : "dur" }),
     rnd: U.mulberry32(U.hashSeed(g.seed + ":" + g.round + ":" + meta.id)),
     isBot(pid) { return botControlled(room, findP(room, pid)); },
     skill(pid) { return skillOf(room, findP(room, pid)); },
@@ -270,9 +273,8 @@ function tick(room) {
   g.msgs = g.msgs.filter((m) => m.until > g.t); g.fxq = g.fxq.filter((f) => f.until > g.t);
   if (g.phase === "vote") {
     const mem = members(room); let changed = false;
-    g.members.forEach((m) => { if (m.bot && !g.votes[m.id] && g.t >= (g.voteAt[m.id] || 0)) { g.votes[m.id] = g.options[Math.floor(Math.random() * g.options.length)].id; changed = true; } });
     if (changed) push(room);
-    const allVoted = mem.length > 0 && mem.every((p) => g.votes[p.id]);
+    const hu = mem.filter((p) => !botControlled(room, p)); const allVoted = !hu.length || hu.every((p) => g.votes[p.id]);
     if (allVoted && g.until - g.t > 1500) { g.until = g.t + 1500; push(room); }
     if (g.t >= g.until) {
       if (!Object.keys(g.votes).length) { g.api.sysChat(room, "Personne n'a voté, le sort a choisi."); }

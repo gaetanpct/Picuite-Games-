@@ -63,7 +63,7 @@ function step(world, b, inp, dt, cfgIn) {
   b.diveCd = Math.max(0, b.diveCd - dt); b.dive = Math.max(0, b.dive - dt);
   // accélération horizontale
   const acc = (b.grounded ? cfg.accG : cfg.accA) * cfg.friction * (b.fric == null ? 1 : b.fric) * (b.dive > 0 ? 0.25 : 1);
-  const tx = ix * cfg.maxV, ty = iy * cfg.maxV;
+  const mv = b.maxVOver || cfg.maxV; const tx = ix * mv, ty = iy * mv;
   const ax = tx - b.vx, ay = ty - b.vy; const al = Math.hypot(ax, ay); const lim = acc * dt;
   if (al > lim) { b.vx += ax / al * lim; b.vy += ay / al * lim; } else { b.vx = tx; b.vy = ty; }
   if (il > 0.2) b.face = Math.atan2(iy, ix);

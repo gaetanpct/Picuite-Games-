@@ -76,7 +76,7 @@
     if (s.quip !== G.prevQuip) { G.prevQuip = s.quip; const wait = Math.max(0, G.verdictAt - performance.now()); setTimeout(() => speak(s.quip), wait + (s.phase === "brief" ? 400 : 0)); }
     if (S.ready) S.setPlayers(s.players.map((p) => ({ id: p.id, color: (pl(p.id) || { color: 0 }).color, hex: hexOf(p.id), hands: p.hands, max: p.max, alive: p.alive, name: nameOf(p.id) })), s.you);
     if (s.phase === "play" && prev && prev.phase === "play" && prev.view && s.view) diffSounds(prev, s);
-    if (s.phase === "duel") duelSignal(s);
+    if (s.phase === "gulag") window.HOGulag.state(s, s.you); else window.HOGulag.hide();
     renderAll();
   }
   function speak(q) { if (!q || !G.st || G.st.quip !== q) return; const d = sfxOn() && sound.enabled ? A.say(q) : 0; if (S.ready) S.talk(d || Math.min(4, 0.8 + q.length * 0.03)); }
@@ -109,13 +109,6 @@
     }
   }
   function cut() { const c = $("#ho-cut"); if (!c) return; c.classList.remove("ho-cut--on"); void c.offsetWidth; c.classList.add("ho-cut--on"); }
-  function duelSignal(st) {
-    const d = st.duel; if (!d) return; const key = d.gi + ":" + d.draw + ":" + d.step;
-    if (key === G.duelKey) return; G.duelKey = key;
-    if (d.step === "fire") { G.duelSeen = performance.now(); sfx(() => { sound.tone(1320, 0.35, "triangle", 0.16); sound.tone(1760, 0.3, "sine", 0.1, 0.02); }); }
-    else if (d.step === "wait") sfx(() => sound.tone(220, 0.25, "sine", 0.05));
-    else if (d.step === "intro" && d.draw === 0) sfx(() => { [196, 247, 294].forEach((f, i) => sound.tone(f, 0.25, "sawtooth", 0.06, i * 0.18)); });
-  }
   function onOver(m) { G.over = m; G.lastKey = ""; if (S.ready) { S.hold(false); S.clearTrial(); S.setView("wide"); } sfx(() => sound.win()); renderAll(); }
   // petits sons quand l'état change pendant une épreuve
   function diffSounds(a, b) {
@@ -256,10 +249,10 @@
     const st = G.st; if (!st) return; const top = $("#ho-top"), main = $("#ho-main"); if (!top || !main) return;
     renderTop(st, top);
     const waitV = st.phase === "judge" && performance.now() < G.verdictAt;
-    const sig = JSON.stringify([st.phase, st.round, st.players, st.me, st.view ? Object.assign({}, st.view, { now: 0, at: 0, P: 0 }) : null, st.judged, st.plays, st.modifier, G.over ? 1 : 0, G.ui.tick, waitV, st.duel || null]);
+    const sig = JSON.stringify([st.phase, st.round, st.players, st.me, st.view ? Object.assign({}, st.view, { now: 0, at: 0, P: 0 }) : null, st.judged, st.plays, st.modifier, G.over ? 1 : 0, G.ui.tick, waitV, st.gl ? [st.gl.step, st.gl.a, st.gl.b] : null]);
     if (sig === G.sig) return; G.sig = sig; const pk = st.phase + "|" + st.round; const keepY = G.lastPk === pk ? main.scrollTop : 0; G.lastPk = pk; main.innerHTML = "";
     const ui = $("#ho-ui"), foot = $("#ho-foot");
-    if (ui) { ["intro", "brief", "prep", "judge", "count", "play", "over", "duel"].forEach((k) => ui.classList.toggle("ho-ph-" + k, st.phase === k)); ui.classList.toggle("ho-wide", st.phase === "brief" || st.phase === "prep" || st.phase === "judge"); ui.classList.toggle("ho-tallpanel", st.phase === "play" && st.ch && st.ch.id === "bistouri"); }
+    if (ui) { ["intro", "brief", "prep", "judge", "count", "play", "over", "gulag"].forEach((k) => ui.classList.toggle("ho-ph-" + k, st.phase === k)); ui.classList.toggle("ho-wide", st.phase === "brief" || st.phase === "prep" || st.phase === "judge"); ui.classList.toggle("ho-tallpanel", st.phase === "play" && st.ch && st.ch.id === "bistouri"); }
     if (foot) { foot.innerHTML = ""; const f = waitV ? null : buildFoot(st); if (f) { foot.classList.remove("hidden"); f.forEach((x) => foot.appendChild(x)); } else foot.classList.add("hidden"); }
     if (G.over && st.phase === "over") return main.appendChild(buildOver());
     if (st.phase === "intro") main.appendChild(buildIntro(st));
@@ -267,7 +260,7 @@
     else if (st.phase === "prep") main.appendChild(buildPrep(st));
     else if (st.phase === "count") main.appendChild(buildCount(st));
     else if (st.phase === "play") main.appendChild(buildPlay(st));
-    else if (st.phase === "duel") main.appendChild(buildDuel(st));
+    else if (st.phase === "gulag") main.appendChild(E("div", { class: "ho-card" }, [E("h2", { text: "🥊 Le Goulag" }), E("p", { class: "ho-sub", text: "Règlement de comptes en cours." })]));
     else if (st.phase === "judge") main.appendChild(waitV ? E("div", { class: "ho-col", id: "ho-verdict-wait" }, [E("div", { class: "ho-card ho-verdict" }, [E("h2", { text: "Le verdict tombe" }), E("p", { class: "ho-sub", text: "Silence sur le plateau." })])]) : buildJudge(st));
     else if (st.phase === "over") main.appendChild(E("div", { class: "ho-card" }, [E("h2", { text: "Générique de fin" })]));
     if (keepY) main.scrollTop = keepY;
@@ -301,10 +294,10 @@
   }
 
   // ----- pied de page commun -----
-  const FOOT_LABEL = { intro: "Je suis prêt", brief: "J'ai compris, je suis prêt", prep: "Mes cartes et mon pacte sont prêts", judge: "J'ai tout lu, épreuve suivante", duel: "Prêt à dégainer" };
+  const FOOT_LABEL = { intro: "Je suis prêt", brief: "J'ai compris, je suis prêt", prep: "Mes cartes et mon pacte sont prêts", judge: "J'ai tout lu, épreuve suivante" };
   function buildFoot(st) {
     const ph = st.phase; if (!FOOT_LABEL[ph]) return null;
-    if (ph === "duel") { const d = st.duel; if (!d || (d.step !== "intro" && d.step !== "done")) return null; FOOT_LABEL.duel = d.step === "done" ? "Voir la suite" : d.ids.includes(st.you) ? "Prêt à dégainer" : "Lancer le duel"; } const me = st.me; if (ph === "prep" && !me.alive) return null;
+    const me = st.me; if (ph === "prep" && !me.alive) return null;
     const done = ph === "prep" ? !!me.ready : !!me.read;
     const wait = st.players.filter((p) => p.id !== st.you && (ph === "prep" ? p.alive && !p.ready : !(p.read || p.auto)));
     let base = "";
@@ -313,38 +306,6 @@
     const info = E("div", { class: "ho-wait", id: "ho-brief-wait", text: "" }); if (ph !== "brief") info.dataset.base = base;
     return [E("div", { class: "ho-foot__row" }, [btn, Kit.isHost() ? E("button", { class: "btn btn--ghost btn--small ho-foot__skip", text: ph === "prep" ? "Lancer" : "Passer", onclick: () => Kit.socket.emit("ho:skip") }) : null]), info];
   }
-
-  // ----- le règlement de comptes, départage des ex aequo -----
-  function placeName(rk, n) { if (rk === n) return "la dernière place"; if (rk === 1) return "la première place"; return "la " + rk + "e place"; }
-  function buildDuel(st) {
-    const d = st.duel; if (!d) return E("div"); const inIt = d.ids.includes(st.you); const ms = (v) => (v / 1000).toFixed(2).replace(".", ",");
-    const span = d.rank + d.ids.length - 1; const what = d.ids.length === 2 ? "Deux joueurs" : d.ids.length + " joueurs";
-    const head = E("div", { class: "ho-duel__head" }, [E("div", { class: "ho-duel__icon", text: "🤠" }), E("div", {}, [E("h2", { text: "Le règlement de comptes" }), E("p", { class: "ho-sub", text: what + " à égalité pour " + (d.rank === 1 ? "la victoire" : placeName(d.rank, d.n)) + (span > d.rank ? " et la suivante" + (span > d.rank + 1 ? "s" : "") : "") + ". Le plus rapide passe devant." + (d.groups > 1 ? " Duel " + (d.gi + 1) + " sur " + d.groups + "." : "") })])]);
-    const kids = [head];
-    if (d.step === "intro") {
-      kids.push(E("div", { class: "ho-goal" }, [E("small", { text: "La règle" }), E("b", { text: "Trois duels au signal. Quand le bouton devient vert et que la cloche sonne, appuie le plus vite possible. Tirer avant le signal coûte une seconde, ne pas tirer en coûte deux. Le plus petit total passe devant." })]));
-      kids.push(E("p", { class: "ho-sub", text: inIt ? "Clavier, barre Espace ou Entrée. Souris ou doigt, le grand bouton." : "Tu regardes le duel, la suite de ton classement ne change pas." }));
-    }
-    if (d.step === "wait" || d.step === "fire") {
-      const mine = d.mine; const go = d.step === "fire";
-      const label = !inIt ? (go ? "FEU !" : "Attendez le signal…") : mine === "early" ? "Faux départ, une seconde de pénalité" : mine != null ? "Tiré en " + ms(mine) : go ? "DÉGAINE !" : "Attends le signal…";
-      kids.push(E("p", { class: "ho-turn", text: "Duel " + (d.draw + 1) + " sur " + d.draws }));
-      kids.push(E("button", { class: "ho-draw" + (go ? " ho-draw--go" : " ho-draw--wait") + (mine != null ? " ho-draw--done" : ""), id: "ho-draw", disabled: !inIt || mine != null, onpointerdown: (e) => { e.preventDefault(); duelShoot(); } }, [E("span", { text: go ? "💥" : "✋" }), E("b", { text: label })]));
-    }
-    // qui a déjà tiré, puis les temps de chaque duel
-    const rows = d.ids.map((id) => { const t = d.times[id] || []; const h = d.hits[id]; const cur = d.step === "show" ? (h === "early" ? "faux départ" : h == null ? "pas tiré" : ms(h)) : d.step === "wait" || d.step === "fire" ? (h === "early" ? "faux départ" : h === "ok" || (h != null && h !== "early") ? "a tiré" : "…") : "";
-      return E("tr", { class: id === st.you ? "ho-me" : "" }, [E("td", {}, [dot(id), " " + nameOf(id)])].concat([0, 1, 2].map((k) => E("td", { class: "r", text: t[k] != null ? (t[k] >= 2000 ? "raté" : t[k] === 1000 && d.step !== "fire" ? ms(t[k]) : ms(t[k])) : "" }))).concat([E("td", { class: "r", text: d.totals ? ms(d.totals[id]) : cur })])); });
-    kids.push(E("table", { class: "tbl ho-duel__tbl" }, [E("thead", {}, [E("tr", {}, [E("th", { text: "Joueur (secondes)" }), E("th", { class: "r", text: "1" }), E("th", { class: "r", text: "2" }), E("th", { class: "r", text: "3" }), E("th", { class: "r", text: d.totals ? "Total" : "" })])]), E("tbody", {}, rows)]));
-    if (d.step === "done" && d.order) kids.push(E("div", { class: "ho-duel__res" }, d.order.map((id, i) => E("p", { class: "ho-note" }, [E("b", { text: (d.rank + i === d.n ? "💀 " : i === 0 ? "🏅 " : "") + "Place " + (d.rank + i) + "  " }), dot(id), " " + nameOf(id)]))));
-    return E("div", { class: "ho-card ho-duel" }, kids);
-  }
-  function duelShoot() {
-    const st = G.st; const d = st && st.duel; if (!d || !d.ids.includes(st.you) || d.mine != null) return;
-    if (d.step === "wait") { Kit.socket.emit("ho:duel", { early: true }); sfx(() => sound.tone(140, 0.3, "sawtooth", 0.1, 0, 70)); return; }
-    if (d.step !== "fire") return; const rt = performance.now() - (G.duelSeen || performance.now()); Kit.socket.emit("ho:duel", { rt: Math.round(rt) });
-    sfx(() => { sound.noise ? sound.noise(0.18, 0.25, 0, 2400) : sound.tone(90, 0.2, "square", 0.15); });
-  }
-  window.addEventListener("keydown", (e) => { if (!G.st || G.st.phase !== "duel") return; if (e.key === " " || e.key === "Enter") { const d = G.st.duel; if (d && (d.step === "wait" || d.step === "fire")) { e.preventDefault(); if (!e.repeat) duelShoot(); } } });
 
   // ----- lecture des règles -----
   function buildBrief(st) {
@@ -464,13 +425,13 @@
       seats(st, (id) => (v.errs ? "écart " + Math.round(v.errs[id] * 100) : v.stopped[id] ? "arrêté" : "…"))]);
   };
   BUILDERS.coffre = function (v, st, can) {
-    const code = G.ui.code || (G.ui.code = [1, 2, 3]);
-    const digits = code.map((d, i) => E("button", { class: "ho-digit", text: String(d), disabled: !can, onclick: () => { code[i] = (code[i] % 6) + 1; hover({ code: code.slice() }); G.ui.tick = Math.random(); renderAll(); } }));
-    const others = Object.keys(v.hv || {}).filter((id) => id !== st.you);
-    return E("div", { class: "ho-card ho-card--play" }, [E("p", { class: "ho-hint", text: v.code ? "Le code était " + v.code.join(" ") + "." : v.cracked ? nameOf(v.cracked) + " a ouvert le coffre." : "Il reste " + v.left + " essais pour toute l'équipe." }), E("div", { class: "ho-digits" }, digits),
-      E("div", { class: "ho-ctrl" }, [E("button", { class: "btn btn--accent", text: "Tenter ce code", disabled: !can || !!v.cracked, onclick: () => { if (new Set(code).size !== 3) return toast("Les trois chiffres doivent être différents."); act({ guess: code.slice() }); } })]),
-      others.length ? E("div", { class: "ho-hesit" }, [E("small", { text: "Ce que les autres composent" })].concat(others.map((id) => E("span", { class: "ho-hesit__one" }, [dot(id), " " + v.hv[id].join(" ")])))) : null,
-      E("div", { class: "ho-log" }, v.guesses.slice().reverse().map((g) => E("div", { class: "ho-logline" }, [dot(g.by), E("b", { text: g.g.join(" ") }), E("span", { text: g.exact + " bien placé" + (g.exact > 1 ? "s" : "") + ", " + g.near + " ailleurs" })])))]);
+    const code = G.ui.code || (G.ui.code = [1, 2, 3]); const off = !can || v.cracked || v.left <= 0;
+    const digits = code.map((d, i) => E("button", { class: "ho-digit", text: String(d), disabled: off, onclick: () => { code[i] = (code[i] % 6) + 1; G.ui.tick = Math.random(); renderAll(); } }));
+    const prog = v.prog || {}; const others = Object.keys(prog).filter((id) => id !== st.you);
+    return E("div", { class: "ho-card ho-card--play" }, [E("p", { class: "ho-hint", text: v.code ? "Le code était " + v.code.join(" ") + "." : v.cracked ? "Ton coffre est ouvert, bravo. Attends les autres." : v.left <= 0 ? "Plus d'essai. Croise les doigts." : "Il te reste " + v.left + " essai" + (v.left > 1 ? "s" : "") + ". Personne ne voit tes essais." }), E("div", { class: "ho-digits" }, digits),
+      E("div", { class: "ho-ctrl" }, [E("button", { class: "btn btn--accent", text: "Tenter ce code", disabled: off, onclick: () => { if (new Set(code).size !== 3) return toast("Les trois chiffres doivent être différents."); act({ guess: code.slice() }); } })]),
+      others.length ? E("div", { class: "ho-hesit" }, [E("small", { text: "Les autres coffres" })].concat(others.map((id) => E("span", { class: "ho-hesit__one" }, [dot(id), " " + (prog[id].ok ? "🔓 ouvert en " + prog[id].n : "🔒 " + prog[id].n + " essai" + (prog[id].n > 1 ? "s" : ""))])))) : null,
+      E("div", { class: "ho-log" }, v.guesses.slice().reverse().map((g) => E("div", { class: "ho-logline" }, [E("b", { text: g.g.join(" ") }), E("span", { text: g.exact + " bien placé" + (g.exact > 1 ? "s" : "") + ", " + g.near + " ailleurs" })])))]);
   };
   BUILDERS.bombe = function (v, st, can) {
     const outs = Object.keys(v.out);
@@ -631,7 +592,7 @@
   function revealText(st, J) {
     const r = J.reveal || {}; const id = J.id;
     if (id === "croco") return r.bite ? "Dent " + (r.bite.i + 1) + " piégée, " + nameOf(r.bite.by) + " a été mordu." : "";
-    if (id === "coffre") return "Le code était " + (r.code || []).join(" ") + (r.cracked ? ", ouvert par " + nameOf(r.cracked) + "." : ", personne n'a réussi.");
+    if (id === "coffre") { const ok = Object.keys(r.ok || {}); return "Le code était " + (r.code || []).join(" ") + (ok.length ? ". Ouvert par " + ok.map((k) => nameOf(k) + " en " + (r.n ? r.n[k] : "?") + " essais").join(", ") + "." : ", personne n'a réussi."); }
     if (id === "bombe") return (r.boom ? "Boum. " : "Personne n'est resté. ") + "La bombe devait exploser à " + Math.round(r.E / 100) / 10 + " secondes.";
     if (id === "imposteur") return "L'imposteur était " + nameOf(r.imp) + (r.caught ? ", il est démasqué." : ", il s'en sort.");
     if (id === "reflex") return Object.keys(r.taps).length ? "Main la plus rapide, " + Math.round(Math.min.apply(null, Object.values(r.taps))) + " ms." : "Personne n'a retiré sa main.";
@@ -667,6 +628,7 @@
     const fx = pactCards(st, J); const spoken = new Set(); const notes = [];
     J.notes.forEach((n) => { if (!spoken.has(n)) { spoken.add(n); notes.push(E("p", { class: "ho-note", text: n })); } });
     const items = [E("div", { class: "ho-card" }, kids)];
+    if (J.gulag && J.gulag.fights) items.push(E("div", { class: "ho-card" }, [E("h3", { text: "🥊 Le Goulag" })].concat(J.gulag.fights.map((f) => E("p", { class: "ho-note" }, [dot(f.winner), " " + nameOf(f.winner) + " bat ", dot(f.loser), " " + nameOf(f.loser) + ", " + f.hits[f.winner] + " tomates à " + f.hits[f.loser] + "."]))).concat([E("p", { class: "ho-note" }, [E("b", { text: "Seul " + nameOf(J.gulag.worst) + " perd sa main." })])])));
     if (notes.length) items.push(E("div", { class: "ho-card" }, [E("h3", { text: "Ce qui s'est passé" })].concat(notes)));
     return E("div", { class: "ho-grid" }, items.concat(fx));
   }
@@ -674,7 +636,6 @@
     const o = G.over; const kids = []; const top = o.rows.slice(0, 3); const order = top.length === 1 ? [top[0]] : top.length === 2 ? [top[1], top[0]] : [top[1], top[0], top[2]];
     kids.push(E("div", { class: "ho-card" }, [E("h2", { text: o.teams && o.winTeam !== null ? "Victoire des " + TEAMS[o.winTeam] : "Le dernier gagnant de l'émission" }), E("div", { class: "podium" }, order.map((r) => E("div", { class: "pod pod--" + r.rank }, [E("div", { class: "pod__ball", style: { background: hexOf(r.id) } }), E("div", { class: "pod__nm", text: r.name }), E("div", { class: "pod__bar", text: G.st && G.st.points ? r.points + " pt" : r.alive ? r.hands + " main" + (r.hands > 1 ? "s" : "") : "fantôme" })])))]));
     kids.push(E("div", { class: "ho-card" }, [E("h3", { text: "Le classement" }), E("table", { class: "tbl" }, [E("thead", {}, [E("tr", {}, [E("th", { text: "" }), E("th", { text: "Joueur" }), E("th", { class: "r", text: "Mains" }), E("th", { class: "r", text: "Points" })])]), E("tbody", {}, o.rows.map((r) => E("tr", {}, [E("td", { text: String(r.rank) }), E("td", {}, [E("span", { class: "dotc", style: { background: hexOf(r.id) } }), r.name + (o.teams && r.team !== null ? (r.team === 0 ? " ⚫" : " 🔴") : "") + (r.left ? " (parti)" : "")]), E("td", { class: "r", text: r.alive ? String(r.hands) : "👻" }), E("td", { class: "r", text: String(r.points) })])))])]));
-    if (o.duels && o.duels.length) kids.push(E("div", { class: "ho-card" }, [E("h3", { text: "🤠 Le règlement de comptes" })].concat(o.duels.map((d) => E("p", { class: "ho-note" }, ["Pour " + (d.rank === 1 ? "la victoire" : placeName(d.rank, d.n)) + ", "].concat(d.order.map((id, i) => E("span", {}, [i ? ", puis " : "", dot(id), " " + nameOf(id) + " en " + (d.totals[id] / 1000).toFixed(2).replace(".", ",") + " s"]))).concat(["."]))))));
     if (o.awards.length) kids.push(E("div", { class: "ho-card" }, [E("h3", { text: "Les titres" })].concat(o.awards.map((a) => E("p", { class: "ho-note" }, [a.icon + " ", E("b", { text: a.title + "  " }), dot(a.id), " " + nameOf(a.id) + ", " + a.detail])))));
     kids.push(E("div", { class: "ho-ctrl" }, [E("button", { class: "btn btn--ghost", text: "Quitter", onclick: () => Kit.confirm("Quitter la partie et revenir à l'accueil ?", () => Kit.leave()) }), Kit.isHost() ? E("button", { class: "btn btn--accent btn--big", text: "Retour au salon", onclick: () => Kit.backToLobby() }) : E("span", { class: "muted small", text: "L'hôte peut relancer une partie depuis le salon." })]));
     return E("div", { class: "ho-col" }, kids);
@@ -683,7 +644,10 @@
   // ---------- branchement ----------
   Kit.on("reset", () => { G.st = null; G.over = null; G.lastKey = ""; G.sig = ""; });
   Kit.on("room", (r) => { if (r.status === "lobby") { G.st = null; G.over = null; G.lastKey = ""; G.sig = ""; G.judgeFor = -1; if (S.ready) { S.clearTrial(); S.hold(false); } } });
-  function attach() { const so = Kit.socket; if (!so || G.attached) return; G.attached = true; so.on("ho:state", onState); so.on("ho:over", onOver); so.on("ho:go", () => { G.ui = {}; }); so.on("ho:fx", (d) => { if (S.ready && d && d.a) S.pulse(d.a); }); }
+  window.HOGulag.init({ hexOf, nameOf, now: snow, sfx: (k) => sfx(() => {
+    if (k === "throw") sound.tone(520, 0.08, "triangle", 0.05, 0, 300); else if (k === "hit") { sound.tone(160, 0.18, "square", 0.09, 0, 70); } else if (k === "hurt") { sound.tone(110, 0.3, "sawtooth", 0.12, 0, 55); if (S.ready) S.flash("#ff3b4e", 0.3); }
+    else if (k === "splat") sound.tone(240, 0.06, "sine", 0.04, 0, 120); else if (k === "go") { sound.tone(880, 0.2, "square", 0.1); sound.tone(1320, 0.3, "square", 0.08, 0.15); } else if (k === "ko") { [523, 392, 262].forEach((f, i) => sound.tone(f, 0.3, "sawtooth", 0.08, i * 0.16)); } else if (k === "bell") [988, 988].forEach((f, i) => sound.tone(f, 0.25, "triangle", 0.1, i * 0.3)); }) });
+  function attach() { const so = Kit.socket; if (!so || G.attached) return; G.attached = true; so.on("ho:state", onState); so.on("ho:over", onOver); so.on("ho:gl", (d) => window.HOGulag.snap(d)); so.on("ho:go", () => { G.ui = {}; }); so.on("ho:fx", (d) => { if (S.ready && d && d.a) S.pulse(d.a); }); }
 
   Kit.init({
     id: "hands-over", hero: true, title: "Main Morte", emoji: "🖐️", ribbon: "Le jeu télé où l'on perd des mains", tagline: "Lis les règles, scelle des pactes, trahis si tu l'oses.",
@@ -698,8 +662,8 @@
       { title: "Les cartes", text: "Neuf cartes, chacune indique quand la jouer, ce qu'elle fait et ce qu'elle risque. Bouclier, miroir, cible, double ou rien, vol, alarme, leurre, espion et absolution. Tout le monde voit la carte que tu joues, mais le leurre ment. On en gagne en remportant une épreuve." },
       { title: "Les pactes et la trahison", text: "Un pacte lie deux joueurs pour une épreuve. Chacun choisit en secret d'être fidèle ou traître. Il ne se joue que si l'un perd et que l'autre s'en sort. Un fidèle prend une main à la place de son allié et pioche une carte. Un traître fait perdre une main de plus à son allié et lui vole une carte, mais il porte une rancune qui lui coûtera une main de plus." },
       { title: "Les fantômes", text: "Un fantôme reste assis à sa place, translucide, et joue encore aux épreuves qui l'autorisent. S'il gagne, il marque le joueur le plus riche en mains. S'il gagne deux fois, il revient parmi les vivants avec une main et une carte." },
-      { title: "Le règlement de comptes", text: "À la fin de la partie, des joueurs à égalité se départagent toujours par la même épreuve éclair. Trois duels au signal, le bouton devient vert et la cloche sonne, il faut appuyer le plus vite possible. Un faux départ coûte une seconde, ne pas tirer en coûte deux. Le plus petit total passe devant, que ce soit pour la victoire ou pour éviter la dernière place. Moins d'une minute en tout." },
-      { title: "Cartes et pactes au choix", text: "Dans les réglages, les cartes d'influence et les pactes peuvent être coupés dans tous les modes qui les proposent, classique compris." },
+      { title: "Le Goulag", text: "Quand plusieurs joueurs perdent ensemble une épreuve, ils se départagent en face à face dans une petite arène vue de haut. On bouge avec les flèches ou ZQSD, on vise à la souris et on lance des tomates au clic ou avec Espace. Sur téléphone, on glisse à gauche pour bouger et on touche à droite pour lancer. Trois tomates reçues et c'est perdu. Le perdant reste dans l'arène et affronte le suivant, seul le dernier perdant perd sa main. Le Goulag se coupe dans les réglages." },
+      { title: "Cartes et pactes au choix", text: "Les cartes d'influence et les pactes sont coupés au départ. On les active dans les réglages, dans tous les modes qui les proposent, classique compris." },
       { title: "Les modes", text: "Classique, survie, équipes, tournoi sans élimination, express, chaos avec une règle folle à chaque tour et personnalisé pour tout régler soi-même. Chaque mode existe en version courte, normale ou longue." },
     ],
     theme: { a1: "#e63946", a2: "#ffd23f", bg1: "#4a0a14", bg2: "#12060a" },

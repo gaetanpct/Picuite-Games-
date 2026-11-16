@@ -318,18 +318,34 @@
 }
 
 /* le règlement de comptes */
-.ho-duel__head { display: flex; align-items: center; gap: 0.7rem; }
-.ho-duel__icon { font-size: 2.6rem; }
-.ho-duel__head h2 { margin: 0; }
-.ho-draw { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem; width: 100%; min-height: 120px; margin: 0.4rem 0; border-radius: 22px; border: 4px solid rgba(255, 255, 255, 0.3); color: #fff; font: inherit; font-size: 1.3rem; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
-.ho-draw span { font-size: 2.4rem; }
-.ho-draw--wait { background: #5a1420; }
-.ho-draw--go { background: #1f9a4a; border-color: #b8ffcf; animation: hopop 0.25s ease-out; }
-.ho-draw--done { opacity: 0.75; }
-.ho-draw:disabled { cursor: default; }
-.ho-duel__tbl td, .ho-duel__tbl th { padding: 0.2rem 0.3rem; }
-.ho-duel__tbl td.r { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.ho-duel__tbl td:first-child { overflow-wrap: anywhere; }
 .ho-me td { color: #ffd23f; }
-.ho-duel__res { margin-top: 0.4rem; }
-@media (max-height: 560px) { .ho-draw { min-height: 80px; } .ho-duel__icon { font-size: 1.8rem; } }
+
+/* Le Goulag, l'arène du règlement de comptes */
+.ho-gl { position: fixed; inset: 0; z-index: 60; background: #1a0d12; touch-action: none; user-select: none; -webkit-user-select: none; }
+.ho-gl.hidden { display: none; }
+.ho-gl__cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.ho-gl__hud { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; padding: 0.6rem 0.8rem; pointer-events: none; background: linear-gradient(180deg, rgba(0, 0, 0, 0.6), transparent); }
+.ho-gl__side { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.ho-gl__side b { font-size: 1.05rem; text-shadow: 0 2px 0 #000; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 34vw; }
+.ho-gl__side--b { align-items: flex-end; text-align: right; }
+.ho-gl__hearts { font-size: 1.1rem; letter-spacing: 0.1rem; }
+.ho-gl__mid { display: flex; flex-direction: column; align-items: center; color: #ffd23f; font-family: "Lilita One", sans-serif; text-shadow: 0 2px 0 #000; }
+.ho-gl__mid b { font-size: 1.15rem; }
+.ho-gl__time { font-size: 1.5rem; color: #fff; }
+.ho-gl__time--sd { color: #ff4060; }
+.ho-gl__msg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(92vw, 440px); background: rgba(18, 6, 10, 0.92); border: 2px solid #e63946; border-radius: 18px; padding: 1rem 1.2rem; text-align: center; color: #f4e9e6; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); }
+.ho-gl__msg.hidden { display: none; }
+.ho-gl__msg h2 { margin: 0 0 0.4rem; color: #ffd23f; }
+.ho-gl__msg p { margin: 0.35rem 0; }
+.ho-gl__vs { font-size: 1.3rem; }
+.ho-gl__rule { font-size: 0.92rem; opacity: 0.9; }
+.ho-gl__small { font-size: 0.82rem; opacity: 0.75; }
+.ho-gl__msg .btn { margin-top: 0.6rem; }
+.ho-gl__help { position: absolute; bottom: 0.6rem; z-index: 1; left: 50%; transform: translateX(-50%); font-size: 0.8rem; color: rgba(255, 255, 255, 0.75); background: rgba(0, 0, 0, 0.45); padding: 0.25rem 0.7rem; border-radius: 999px; pointer-events: none; max-width: 92vw; text-align: center; }
+.ho-gl__joy { position: absolute; width: 110px; height: 110px; margin: -55px 0 0 -55px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.35); background: rgba(255, 255, 255, 0.08); pointer-events: none; opacity: 0; left: 22vw; top: 72vh; }
+.ho-gl__joy--on { opacity: 1; }
+.ho-gl__joy i { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px; border-radius: 50%; background: rgba(255, 255, 255, 0.55); }
+.ho-gl__joy.hidden, .ho-gl__fire.hidden { display: none; }
+.ho-gl__fire { position: absolute; right: 1.2rem; bottom: 6.5rem; width: 84px; height: 84px; border-radius: 50%; border: 3px solid #fff; background: radial-gradient(circle at 35% 35%, #ff6b5a, #c0281a); font-size: 2.2rem; box-shadow: 0 6px 0 rgba(0, 0, 0, 0.4); }
+.ho-gl__fire:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.4); }
+body.ho-gl-on .kit-chat, body.ho-gl-on .chat-fab { z-index: 70; }

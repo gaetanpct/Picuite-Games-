@@ -1,21 +1,29 @@
 // Le bon compte. Un tableau d'images s'affiche quelques secondes puis disparaît, une question arrive.
-// Combien d'un même dessin, lequel a disparu, lequel était le plus nombreux, où était l'étoile. Le plus rapide à répondre juste prend le plus de points.
+// Combien d'un même dessin, lequel a disparu, lequel était le plus nombreux, où était l'étoile, lequel était là deux fois, lequel n'y était pas, combien en tout, quelle ligne était la plus remplie. Le plus rapide à répondre juste prend le plus de points.
 const U = require("../pg-util.js");
 
 const POOLS = [["🍎", "🍌", "🍇", "🍓", "🍒", "🍋", "🥝", "🍑", "🍍", "🥕"], ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐸", "🐵"], ["⚽", "🏀", "🎾", "🏐", "🏈", "🎱", "🥎", "🏓", "⚾", "🎳"], ["🚗", "🚕", "🚌", "🚑", "🚒", "🚓", "🚜", "🚲", "🛵", "🚀"]];
 const COLS = 8, ROWS = 5, X0 = 90, Y0 = 130, DX = 77, DY = 72;
 const QUAD = ["En haut à gauche", "En haut à droite", "En bas à gauche", "En bas à droite"];
 exports.create = function (ctx) {
-  const rnd = ctx.rnd; const ROUNDS = Math.max(4, Math.round(5 * (ctx.len < 0.8 ? 0.75 : ctx.len > 1.2 ? 1.2 : 1))); const ANS_T = 9 * ctx.pace; const SHOW_T = 3.8 * ctx.pace;
+  const rnd = ctx.rnd; const ROUNDS = Math.max(4, Math.round(5 * (ctx.len < 0.8 ? 0.75 : ctx.len > 1.2 ? 1.2 : 1))); const ANS_T = 11 * ctx.pace; const SHOW_T = 5 * ctx.pace;
   const P = ctx.players.map((m) => ({ id: m.id, k: m.color, name: m.name, score: 0, pick: null, at: 0, gain: 0, right: 0, ex: {} }));
-  let round = 0, phase = "pre", left = 2.4, q = null, clock = 0; const kinds = U.shuffle(["count", "missing", "most", "star", "count", "missing", "most", "star"], rnd);
+  let round = 0, phase = "pre", left = 2.4, q = null, clock = 0; const kinds = U.shuffle(["count", "missing", "most", "star", "twins", "absent", "total", "row"], rnd);
   const cellXY = (c) => ({ x: X0 + (c % COLS) * DX, y: Y0 + Math.floor(c / COLS) * DY });
   function cells(k) { return U.shuffle(Array.from({ length: COLS * ROWS }, (_, i) => i), rnd).slice(0, k); }
   function make(kind) {
     const pool = U.shuffle(U.pick(POOLS, rnd).slice(), rnd);
-    if (kind === "count") { const c = 2 + Math.floor(rnd() * 7); const target = pool[0]; const others = pool.slice(1, 4); const total = 22 + Math.floor(rnd() * 6); const cs = cells(total); const show = cs.map((cell, i) => ({ cell, e: i < c ? target : others[i % others.length] })); const opts = new Set([c]); [1, -1, 2, -2, 3].forEach((d) => { if (opts.size < 4 && c + d >= 1 && rnd() < 0.8) opts.add(c + d); }); for (let v = 1; opts.size < 4; v++) opts.add(v + c + 3); const o = U.shuffle([...opts], rnd); return { kind, show, text: "Combien y avait-il de " + target + " ?", opts: o.map(String), good: o.indexOf(c), icon: target }; }
-    if (kind === "missing") { const set = pool.slice(0, 6 + Math.floor(rnd() * 2)); const cs = cells(set.length); const show = cs.map((cell, i) => ({ cell, e: set[i] })); const gone = Math.floor(rnd() * set.length); const rest = pool.slice(set.length); const opts = U.shuffle([set[gone]].concat(rest.slice(0, 3).concat(rest.length < 3 ? set.filter((_, i) => i !== gone).slice(0, 3 - rest.length) : [])), rnd); return { kind, show, after: show.filter((_, i) => i !== gone), text: "Quel dessin a disparu ?", opts, good: opts.indexOf(set[gone]) }; }
+    if (kind === "count") { const c = 2 + Math.floor(rnd() * 5); const target = pool[0]; const others = pool.slice(1, 4); const total = 14 + Math.floor(rnd() * 5); const cs = cells(total); const show = cs.map((cell, i) => ({ cell, e: i < c ? target : others[i % others.length] })); const opts = new Set([c]); [1, -1, 2, -2, 3].forEach((d) => { if (opts.size < 4 && c + d >= 1 && rnd() < 0.8) opts.add(c + d); }); for (let v = 1; opts.size < 4; v++) opts.add(v + c + 3); const o = U.shuffle([...opts], rnd); return { kind, show, text: "Combien y avait-il de " + target + " ?", opts: o.map(String), good: o.indexOf(c), icon: target }; }
+    if (kind === "missing") { const set = pool.slice(0, 5 + Math.floor(rnd() * 2)); const cs = cells(set.length); const show = cs.map((cell, i) => ({ cell, e: set[i] })); const gone = Math.floor(rnd() * set.length); const rest = pool.slice(set.length); const opts = U.shuffle([set[gone]].concat(rest.slice(0, 3).concat(rest.length < 3 ? set.filter((_, i) => i !== gone).slice(0, 3 - rest.length) : [])), rnd); return { kind, show, after: show.filter((_, i) => i !== gone), text: "Quel dessin a disparu ?", opts, good: opts.indexOf(set[gone]) }; }
     if (kind === "most") { const types = pool.slice(0, 4); const cnt = U.shuffle([9, 6, 4, 2], rnd); const items = []; types.forEach((e, i) => { for (let j = 0; j < cnt[i]; j++) items.push(e); }); const cs = cells(items.length); const show = U.shuffle(items, rnd).map((e, i) => ({ cell: cs[i], e })); const best = cnt.indexOf(9); const opts = U.shuffle(types, rnd); return { kind, show, text: "Quel dessin était le plus nombreux ?", opts, good: opts.indexOf(types[best]) }; }
+    // lequel apparaissait exactement deux fois
+    if (kind === "twins") { const types = pool.slice(0, 4); const cnt = U.shuffle([1, 2, 3, 4], rnd); const items = []; types.forEach((e, i) => { for (let j = 0; j < cnt[i]; j++) items.push(e); }); const cs = cells(items.length); const show = U.shuffle(items, rnd).map((e, i) => ({ cell: cs[i], e })); const opts = U.shuffle(types, rnd); return { kind, show, text: "Quel dessin était là exactement deux fois ?", opts, good: opts.indexOf(types[cnt.indexOf(2)]) }; }
+    // lequel n'était pas sur le tableau
+    if (kind === "absent") { const set = pool.slice(0, 5); const cs = cells(set.length); const show = cs.map((cell, i) => ({ cell, e: set[i] })); const not = pool[5]; const opts = U.shuffle([not].concat(U.shuffle(set, rnd).slice(0, 3)), rnd); return { kind, show, text: "Lequel de ces dessins n'était pas sur le tableau ?", opts, good: opts.indexOf(not) }; }
+    // combien de dessins en tout
+    if (kind === "total") { const c = 5 + Math.floor(rnd() * 5); const cs = cells(c); const show = cs.map((cell, i) => ({ cell, e: pool[i % 5] })); const o = U.shuffle([c, c - 1, c + 1, c + 2 - (rnd() < 0.5 ? 4 : 0)].filter((v, i, a) => v > 0 && a.indexOf(v) === i), rnd); while (o.length < 4) o.push(c + o.length + 2); return { kind, show, text: "Combien de dessins y avait-il en tout ?", opts: o.map(String), good: o.indexOf(c) }; }
+    // la ligne la plus remplie
+    if (kind === "row") { const want = U.shuffle([5, 3, 2, 1, 1], rnd); const best = want.indexOf(5); const show = []; want.forEach((k, r) => { U.shuffle(Array.from({ length: COLS }, (_, i) => i), rnd).slice(0, k).forEach((col, j) => show.push({ cell: r * COLS + col, e: pool[(r + j) % 6] })); }); const opts = ["Ligne 1", "Ligne 2", "Ligne 3", "Ligne 4", "Ligne 5"]; return { kind, show, text: "Quelle ligne avait le plus de dessins ?", opts, good: best, rows: true }; }
     const cs = cells(14); const okS = cs.map((c, i) => i).filter((i) => Math.floor(cs[i] / COLS) !== 2); const star = okS[Math.floor(rnd() * okS.length)]; const show = cs.map((cell, i) => ({ cell, e: i === star ? "⭐" : pool[i % 6] })); const sc = cellXY(cs[star]); const qd = (sc.x < X0 + (COLS - 1) * DX / 2 ? 0 : 1) + (sc.y < Y0 + (ROWS - 1) * DY / 2 ? 0 : 2);
     // on évite une étoile pile sur la frontière entre deux quarts
     return { kind: "star", show, text: "Dans quel quart de l'écran était l'étoile ?", opts: QUAD, good: qd, star: cs[star], icon: "⭐" };
@@ -29,7 +37,7 @@ exports.create = function (ctx) {
       if (phase === "pre") { left -= dt; if (left <= 0) newRound(); return; }
       left -= dt;
       if (phase === "show" && left <= 0) { phase = "hide"; left = 0.9; }
-      else if (phase === "hide" && left <= 0) { phase = "ask"; clock = 0; ctx.snd("go"); P.forEach((p) => { const sk = ctx.skill(p.id); const hard = q.kind === "count" ? 0.12 : q.kind === "star" ? 0.05 : 0; const right = rnd() < 0.5 + 0.45 * sk - hard; p.ex.t = 1.4 + rnd() * 4.2 * (1.15 - sk * 0.6); p.ex.i = right ? q.good : (q.good + 1 + Math.floor(rnd() * (q.opts.length - 1))) % q.opts.length; }); }
+      else if (phase === "hide" && left <= 0) { phase = "ask"; clock = 0; ctx.snd("go"); P.forEach((p) => { const sk = ctx.skill(p.id); const hard = q.kind === "count" || q.kind === "total" ? 0.1 : q.kind === "star" || q.kind === "row" ? 0.05 : 0; const right = rnd() < 0.5 + 0.45 * sk - hard; p.ex.t = 1.4 + rnd() * 4.2 * (1.15 - sk * 0.6); p.ex.i = right ? q.good : (q.good + 1 + Math.floor(rnd() * (q.opts.length - 1))) % q.opts.length; }); }
       else if (phase === "ask") {
         clock += dt; P.forEach((p) => { if (p.pick == null && ctx.isBot(p.id) && clock >= p.ex.t) answer(p, p.ex.i); });
         if (P.every((p) => p.pick != null || !ctx.present(p.id)) || clock >= ANS_T) settle();
